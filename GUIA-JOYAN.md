@@ -1,4 +1,4 @@
-# 📘 Guía Completa de AstroWind para Joyan
+# 📘 Guía de Joyan Landing Template
 
 ## 🎯 Introducción
 
@@ -40,10 +40,11 @@ Esta guía está diseñada para ayudarte a entender y personalizar la plantilla 
 ```
 
 **Ejemplo de componente Astro:**
+
 ```astro
 ---
 // Esto es como el "backend" del componente (se ejecuta en build time)
-const nombre = "Joyan";
+const nombre = 'Joyan';
 const fecha = new Date();
 ---
 
@@ -120,81 +121,81 @@ Este archivo controla TODA la configuración de tu sitio sin tocar código.
 
 ```yaml
 site:
-  name: Joyan                                    # Nombre de tu empresa
-  site: 'https://joyan.com'                      # Tu dominio
-  base: '/'                                       # Ruta base (dejar así)
-  trailingSlash: false                           # URLs sin / al final
-  
-  googleSiteVerificationId: false                # ID de Google Search Console
+  name: Joyan # Nombre de tu empresa
+  site: 'https://joyan.com' # Tu dominio
+  base: '/' # Ruta base (dejar así)
+  trailingSlash: false # URLs sin / al final
+
+  googleSiteVerificationId: false # ID de Google Search Console
 
 # SEO (Súper importante para Google)
 metadata:
   title:
-    default: Joyan                               # Título por defecto
-    template: '%s — Joyan'                       # Plantilla de títulos
-  description: "Tu descripción aquí"             # Descripción para Google
+    default: Joyan # Título por defecto
+    template: '%s — Joyan' # Plantilla de títulos
+  description: 'Tu descripción aquí' # Descripción para Google
   robots:
-    index: true                                  # Permitir indexación
-    follow: true                                 # Seguir enlaces
-  openGraph:                                     # Para redes sociales
+    index: true # Permitir indexación
+    follow: true # Seguir enlaces
+  openGraph: # Para redes sociales
     site_name: Joyan
     images:
-      - url: '~/assets/images/default.png'       # Imagen por defecto
+      - url: '~/assets/images/default.png' # Imagen por defecto
         width: 1200
         height: 628
     type: website
   twitter:
-    handle: '@tu_twitter'                        # Tu usuario de Twitter/X
+    handle: '@tu_twitter' # Tu usuario de Twitter/X
     site: '@tu_twitter'
     cardType: summary_large_image
 
 # Idioma
 i18n:
-  language: es                                   # Cambiar a 'es' para español
-  textDirection: ltr                             # ltr = izquierda a derecha
+  language: es # Cambiar a 'es' para español
+  textDirection: ltr # ltr = izquierda a derecha
 
 # Configuración del Blog
 apps:
   blog:
-    isEnabled: true                              # ¿Quieres blog?
-    postsPerPage: 6                              # Posts por página
-    
+    isEnabled: true # ¿Quieres blog?
+    postsPerPage: 6 # Posts por página
+
     post:
       isEnabled: true
-      permalink: '/%slug%'                       # URL de los posts
+      permalink: '/%slug%' # URL de los posts
       robots:
         index: true
-    
+
     list:
       isEnabled: true
-      pathname: 'blog'                           # /blog
+      pathname: 'blog' # /blog
       robots:
         index: true
-    
+
     category:
       isEnabled: true
-      pathname: 'category'                       # /category/nombre
+      pathname: 'category' # /category/nombre
       robots:
         index: true
-    
+
     tag:
       isEnabled: true
-      pathname: 'tag'                            # /tag/nombre
+      pathname: 'tag' # /tag/nombre
       robots:
         index: false
-    
-    isRelatedPostsEnabled: true                  # Posts relacionados
+
+    isRelatedPostsEnabled: true # Posts relacionados
     relatedPostsCount: 4
 
 # Analytics
 analytics:
   vendors:
     googleAnalytics:
-      id: null                                   # Tu ID de Google Analytics
+      id: null # Tu ID de Google Analytics
 
 # UI
 ui:
-  theme: 'system'                                # 'system' | 'light' | 'dark'
+  theme: 'system' # 'system' | 'light' | 'dark'
 ```
 
 ### 2. `src/navigation.ts` - Menús de Navegación
@@ -206,55 +207,58 @@ export const headerData = {
   links: [
     {
       text: 'Inicio',
-      href: '/'
+      href: '/',
     },
     {
-      text: 'Servicios',                         // Menú con submenu
+      text: 'Servicios', // Menú con submenu
       links: [
         { text: 'Servicio 1', href: '/servicios/1' },
         { text: 'Servicio 2', href: '/servicios/2' },
-      ]
+      ],
     },
     {
       text: 'Acerca de',
-      href: '/about'
+      href: '/about',
     },
     {
       text: 'Contacto',
-      href: '/contact'
-    }
+      href: '/contact',
+    },
   ],
-  actions: [                                     // Botones de acción
+  actions: [
+    // Botones de acción
     {
       text: 'Comenzar',
       href: '/pricing',
-      target: '_blank'                           // Abrir en nueva pestaña
-    }
-  ]
+      target: '_blank', // Abrir en nueva pestaña
+    },
+  ],
 };
 
 export const footerData = {
-  links: [                                       // Columnas del footer
+  links: [
+    // Columnas del footer
     {
       title: 'Producto',
       links: [
         { text: 'Características', href: '#' },
         { text: 'Precios', href: '#' },
-      ]
+      ],
     },
     {
       title: 'Soporte',
       links: [
         { text: 'Documentación', href: '#' },
         { text: 'Contacto', href: '#' },
-      ]
-    }
+      ],
+    },
   ],
-  socialLinks: [                                 // Redes sociales
+  socialLinks: [
+    // Redes sociales
     { ariaLabel: 'Twitter', icon: 'tabler:brand-x', href: '#' },
     { ariaLabel: 'Instagram', icon: 'tabler:brand-instagram', href: '#' },
   ],
-  footNote: `© ${new Date().getFullYear()} Joyan. Todos los derechos reservados.`
+  footNote: `© ${new Date().getFullYear()} Joyan. Todos los derechos reservados.`,
 };
 ```
 
@@ -269,33 +273,35 @@ En Astro, los **componentes** son piezas reutilizables de tu sitio. Piénsalo co
 ### Tipos de Componentes en este Proyecto:
 
 #### 1. **Widgets** (`src/components/widgets/`)
+
 Secciones completas de una página. Son como "bloques de construcción" grandes.
 
 **Widgets disponibles:**
 
-| Widget | Descripción | Uso típico |
-|--------|-------------|------------|
-| **Hero** | Sección principal con título grande + imagen | Inicio de páginas |
-| **Hero2** | Variante del Hero con diseño diferente | Alternativa al Hero |
-| **HeroText** | Hero solo con texto (sin imagen) | Landing simples |
-| **Features** | Mostrar características con iconos | Describir producto |
-| **Features2** | Grid de características | Listado de funcionalidades |
-| **Features3** | Características con imágenes grandes | Casos de uso detallados |
-| **Content** | Sección de contenido + imagen lateral | Explicar conceptos |
-| **Steps** | Proceso paso a paso | Tutorial/Onboarding |
-| **Steps2** | Variante de Steps | Alternativa visual |
-| **Pricing** | Tabla de precios | Planes y precios |
-| **Testimonials** | Testimonios de clientes | Prueba social |
-| **Stats** | Estadísticas destacadas | Métricas importantes |
-| **FAQs** | Preguntas frecuentes | Soporte/Ayuda |
-| **CallToAction** | Llamada a la acción final | Final de páginas |
-| **Contact** | Formulario de contacto | Página de contacto |
-| **Brands** | Logos de clientes/partners | Confianza |
-| **BlogLatestPosts** | Últimos posts del blog | Inicio |
-| **Note** | Nota destacada | Avisos importantes |
-| **Announcement** | Barra de anuncio superior | Promociones |
+| Widget              | Descripción                                  | Uso típico                 |
+| ------------------- | -------------------------------------------- | -------------------------- |
+| **Hero**            | Sección principal con título grande + imagen | Inicio de páginas          |
+| **Hero2**           | Variante del Hero con diseño diferente       | Alternativa al Hero        |
+| **HeroText**        | Hero solo con texto (sin imagen)             | Landing simples            |
+| **Features**        | Mostrar características con iconos           | Describir producto         |
+| **Features2**       | Grid de características                      | Listado de funcionalidades |
+| **Features3**       | Características con imágenes grandes         | Casos de uso detallados    |
+| **Content**         | Sección de contenido + imagen lateral        | Explicar conceptos         |
+| **Steps**           | Proceso paso a paso                          | Tutorial/Onboarding        |
+| **Steps2**          | Variante de Steps                            | Alternativa visual         |
+| **Pricing**         | Tabla de precios                             | Planes y precios           |
+| **Testimonials**    | Testimonios de clientes                      | Prueba social              |
+| **Stats**           | Estadísticas destacadas                      | Métricas importantes       |
+| **FAQs**            | Preguntas frecuentes                         | Soporte/Ayuda              |
+| **CallToAction**    | Llamada a la acción final                    | Final de páginas           |
+| **Contact**         | Formulario de contacto                       | Página de contacto         |
+| **Brands**          | Logos de clientes/partners                   | Confianza                  |
+| **BlogLatestPosts** | Últimos posts del blog                       | Inicio                     |
+| **Note**            | Nota destacada                               | Avisos importantes         |
+| **Announcement**    | Barra de anuncio superior                    | Promociones                |
 
 #### 2. **UI Components** (`src/components/ui/`)
+
 Componentes pequeños y reutilizables.
 
 - **Button.astro**: Botones con diferentes variantes
@@ -306,6 +312,7 @@ Componentes pequeños y reutilizables.
 - **Background.astro**: Fondos de secciones
 
 #### 3. **Common Components** (`src/components/common/`)
+
 Utilidades comunes del sitio.
 
 - **Image.astro**: Componente de imagen optimizado
@@ -322,6 +329,7 @@ Los **layouts** son plantillas que envuelven tus páginas. Piénsalo como un "te
 ### Layouts Disponibles:
 
 #### 1. **Layout.astro** - Layout Base
+
 El layout más básico. Solo estructura HTML sin header/footer.
 
 ```astro
@@ -337,6 +345,7 @@ import Layout from '~/layouts/Layout.astro';
 **Cuándo usar:** Páginas especiales como 404, páginas de error, landing pages muy específicas.
 
 #### 2. **PageLayout.astro** - Layout Completo
+
 Layout con Header, Footer y Announcement.
 
 ```astro
@@ -352,11 +361,13 @@ import PageLayout from '~/layouts/PageLayout.astro';
 **Cuándo usar:** La mayoría de tus páginas (home, about, contact, etc.)
 
 #### 3. **LandingLayout.astro** - Landing Pages
+
 Layout especial para landing pages (sin header típicamente).
 
 **Cuándo usar:** Landing pages de campañas, páginas de captación.
 
 #### 4. **MarkdownLayout.astro** - Posts del Blog
+
 Layout para contenido en Markdown.
 
 **Cuándo usar:** Automático para posts del blog.
@@ -412,7 +423,7 @@ import Hero from '~/components/widgets/Hero.astro';
   subtitle="Subtítulo descriptivo"
   actions={[
     { text: 'Empezar', href: '/pricing', variant: 'primary' },
-    { text: 'Más info', href: '#features' }
+    { text: 'Más info', href: '#features' },
   ]}
   image={{ src: '~/assets/images/hero.png', alt: 'Hero' }}
 />
@@ -426,17 +437,15 @@ import Hero from '~/components/widgets/Hero.astro';
 <Hero
   actions={[
     { variant: 'primary', text: 'Comenzar', href: '/pricing' },
-    { text: 'Ver demo', href: '#demo' }
+    { text: 'Ver demo', href: '#demo' },
   ]}
   image={{ src: '~/assets/images/hero.png', alt: 'Joyan Hero' }}
 >
   <Fragment slot="title">
     Bienvenido a <span class="text-accent">Joyan</span>
   </Fragment>
-  
-  <Fragment slot="subtitle">
-    La mejor solución para tu negocio. Rápido, seguro y confiable.
-  </Fragment>
+
+  <Fragment slot="subtitle"> La mejor solución para tu negocio. Rápido, seguro y confiable. </Fragment>
 </Hero>
 ```
 
@@ -451,18 +460,18 @@ import Hero from '~/components/widgets/Hero.astro';
     {
       title: 'Rápido',
       description: 'Optimizado para máximo rendimiento',
-      icon: 'tabler:rocket'
+      icon: 'tabler:rocket',
     },
     {
       title: 'Seguro',
       description: 'Encriptación de nivel empresarial',
-      icon: 'tabler:shield-check'
+      icon: 'tabler:shield-check',
     },
     {
       title: 'Escalable',
       description: 'Crece con tu negocio',
-      icon: 'tabler:trending-up'
-    }
+      icon: 'tabler:trending-up',
+    },
   ]}
 />
 ```
@@ -479,15 +488,11 @@ import Hero from '~/components/widgets/Hero.astro';
       subtitle: 'Para emprendedores',
       price: '$9',
       period: 'por mes',
-      items: [
-        { title: '10 usuarios' },
-        { title: '5GB almacenamiento' },
-        { title: 'Soporte por email' }
-      ],
+      items: [{ title: '10 usuarios' }, { title: '5GB almacenamiento' }, { title: 'Soporte por email' }],
       callToAction: {
         text: 'Comenzar',
-        href: '/signup'
-      }
+        href: '/signup',
+      },
     },
     {
       title: 'Pro',
@@ -496,16 +501,12 @@ import Hero from '~/components/widgets/Hero.astro';
       period: 'por mes',
       hasRibbon: true,
       ribbonTitle: 'Popular',
-      items: [
-        { title: '50 usuarios' },
-        { title: '50GB almacenamiento' },
-        { title: 'Soporte prioritario' }
-      ],
+      items: [{ title: '50 usuarios' }, { title: '50GB almacenamiento' }, { title: 'Soporte prioritario' }],
       callToAction: {
         text: 'Comenzar',
-        href: '/signup'
-      }
-    }
+        href: '/signup',
+      },
+    },
   ]}
 />
 ```
@@ -520,14 +521,14 @@ import Hero from '~/components/widgets/Hero.astro';
       testimonial: 'Joyan transformó nuestro negocio completamente.',
       name: 'Juan Pérez',
       job: 'CEO de TechCorp',
-      image: { src: '~/assets/images/client1.jpg', alt: 'Juan Pérez' }
+      image: { src: '~/assets/images/client1.jpg', alt: 'Juan Pérez' },
     },
     {
       testimonial: 'El mejor servicio que he usado. Lo recomiendo 100%.',
       name: 'María García',
       job: 'Fundadora de StartupXYZ',
-      image: { src: '~/assets/images/client2.jpg', alt: 'María García' }
-    }
+      image: { src: '~/assets/images/client2.jpg', alt: 'María García' },
+    },
   ]}
 />
 ```
@@ -541,16 +542,16 @@ import Hero from '~/components/widgets/Hero.astro';
   items={[
     {
       title: '¿Cómo funciona Joyan?',
-      description: 'Joyan es una plataforma que te permite...'
+      description: 'Joyan es una plataforma que te permite...',
     },
     {
       title: '¿Cuánto cuesta?',
-      description: 'Tenemos planes desde $9/mes...'
+      description: 'Tenemos planes desde $9/mes...',
     },
     {
       title: '¿Ofrecen soporte?',
-      description: 'Sí, ofrecemos soporte 24/7 por email y chat.'
-    }
+      description: 'Sí, ofrecemos soporte 24/7 por email y chat.',
+    },
   ]}
 />
 ```
@@ -564,17 +565,13 @@ import Hero from '~/components/widgets/Hero.astro';
       variant: 'primary',
       text: 'Comenzar ahora',
       href: '/signup',
-      icon: 'tabler:rocket'
-    }
+      icon: 'tabler:rocket',
+    },
   ]}
 >
-  <Fragment slot="title">
-    ¿Listo para comenzar?
-  </Fragment>
-  
-  <Fragment slot="subtitle">
-    Únete a miles de empresas que confían en Joyan
-  </Fragment>
+  <Fragment slot="title"> ¿Listo para comenzar? </Fragment>
+
+  <Fragment slot="subtitle"> Únete a miles de empresas que confían en Joyan </Fragment>
 </CallToAction>
 ```
 
@@ -585,21 +582,25 @@ import Hero from '~/components/widgets/Hero.astro';
 ### 🟢 LO QUE DEBES USAR (Esencial para tu Landing Page)
 
 #### Archivos de Configuración:
+
 - ✅ `src/config.yaml` - MODIFICAR con datos de Joyan
 - ✅ `src/navigation.ts` - MODIFICAR con tu navegación
 - ✅ `tailwind.config.js` - MODIFICAR colores de marca
 - ✅ `astro.config.ts` - Revisar configuración
 
 #### Layouts:
+
 - ✅ `PageLayout.astro` - Usar para páginas normales
 - ✅ `Layout.astro` - Base necesaria
 
 #### Componentes Principales:
+
 - ✅ `Header.astro` - Navegación superior
 - ✅ `Footer.astro` - Pie de página
 - ✅ `Logo.astro` - Tu logo
 
 #### Widgets Esenciales:
+
 - ✅ `Hero.astro` - Sección principal
 - ✅ `Features.astro` - Características de tu producto
 - ✅ `Pricing.astro` - Si ofreces planes/precios
@@ -607,6 +608,7 @@ import Hero from '~/components/widgets/Hero.astro';
 - ✅ `Contact.astro` - Formulario de contacto
 
 #### Páginas Base:
+
 - ✅ `src/pages/index.astro` - Página principal
 - ✅ `src/pages/about.astro` - Acerca de
 - ✅ `src/pages/contact.astro` - Contacto
@@ -615,6 +617,7 @@ import Hero from '~/components/widgets/Hero.astro';
 ### 🟡 LO QUE PUEDES USAR (Opcional según necesites)
 
 #### Widgets Opcionales:
+
 - 🟡 `Testimonials.astro` - Si tienes testimonios
 - 🟡 `Stats.astro` - Si tienes métricas importantes
 - 🟡 `FAQs.astro` - Preguntas frecuentes
@@ -623,6 +626,7 @@ import Hero from '~/components/widgets/Hero.astro';
 - 🟡 `Brands.astro` - Si muestras logos de clientes
 
 #### Páginas Opcionales:
+
 - 🟡 `src/pages/pricing.astro` - Si tienes precios
 - 🟡 `src/pages/services.astro` - Si ofreces servicios
 - 🟡 `src/pages/privacy.md` - Política de privacidad
@@ -631,6 +635,7 @@ import Hero from '~/components/widgets/Hero.astro';
 ### 🔴 LO QUE PROBABLEMENTE NO NECESITAS
 
 #### Si NO vas a tener blog:
+
 - ❌ `src/pages/[...blog]/` - Todo el directorio del blog
 - ❌ `src/components/blog/` - Componentes del blog
 - ❌ `src/content/post/` - Posts del blog
@@ -638,22 +643,26 @@ import Hero from '~/components/widgets/Hero.astro';
 - ❌ `BlogHighlightedPosts.astro` - Posts destacados
 
 **Cómo desactivar el blog:**
+
 ```yaml
 # En src/config.yaml
 apps:
   blog:
-    isEnabled: false  # Cambiar a false
+    isEnabled: false # Cambiar a false
 ```
 
 #### Landing Pages de Demo:
+
 - ❌ `src/pages/landing/` - Ejemplos de landing pages
 - ❌ `src/pages/homes/` - Diferentes versiones de home
 
 #### Layouts que no usarás:
+
 - ❌ `LandingLayout.astro` - Solo si no usas landing pages específicas
 - ❌ `MarkdownLayout.astro` - Solo para blog
 
 #### Widgets Especializados:
+
 - ❌ `Announcement.astro` - Barra de anuncio superior
 - ❌ `Note.astro` - Notas especiales
 - ❌ `Features3.astro` - Variante que probablemente no uses
@@ -670,30 +679,30 @@ apps:
 ```yaml
 site:
   name: Joyan
-  site: 'https://joyan.com'  # Tu dominio real
-  
+  site: 'https://joyan.com' # Tu dominio real
+
 metadata:
   title:
     default: Joyan
     template: '%s — Joyan'
-  description: "Descripción de Joyan (importante para SEO)"
-  
+  description: 'Descripción de Joyan (importante para SEO)'
+
   openGraph:
     site_name: Joyan
     images:
-      - url: '~/assets/images/joyan-og.png'  # Crear esta imagen (1200x628px)
-  
+      - url: '~/assets/images/joyan-og.png' # Crear esta imagen (1200x628px)
+
   twitter:
     handle: '@joyan'
     site: '@joyan'
 
 i18n:
-  language: es  # Cambiar a español
+  language: es # Cambiar a español
   textDirection: ltr
 
 apps:
   blog:
-    isEnabled: false  # Si no usarás blog
+    isEnabled: false # Si no usarás blog
 ```
 
 #### 1.2 Actualizar Navegación en `src/navigation.ts`
@@ -711,9 +720,9 @@ export const headerData = {
     {
       text: 'Comenzar Gratis',
       href: '/signup',
-      variant: 'primary'
-    }
-  ]
+      variant: 'primary',
+    },
+  ],
 };
 
 export const footerData = {
@@ -723,28 +732,28 @@ export const footerData = {
       links: [
         { text: 'Características', href: '/#features' },
         { text: 'Precios', href: '/pricing' },
-      ]
+      ],
     },
     {
       title: 'Empresa',
       links: [
         { text: 'Acerca de', href: '/about' },
         { text: 'Contacto', href: '/contact' },
-      ]
+      ],
     },
     {
       title: 'Legal',
       links: [
         { text: 'Privacidad', href: '/privacy' },
         { text: 'Términos', href: '/terms' },
-      ]
-    }
+      ],
+    },
   ],
   socialLinks: [
     { ariaLabel: 'Instagram', icon: 'tabler:brand-instagram', href: 'https://instagram.com/joyan' },
     { ariaLabel: 'Facebook', icon: 'tabler:brand-facebook', href: 'https://facebook.com/joyan' },
   ],
-  footNote: `© ${new Date().getFullYear()} Joyan. Todos los derechos reservados.`
+  footNote: `© ${new Date().getFullYear()} Joyan. Todos los derechos reservados.`,
 };
 ```
 
@@ -761,10 +770,10 @@ export default {
           50: '#f0f9ff',
           100: '#e0f2fe',
           // ... tus colores de marca de Joyan
-          600: '#0284c7',  // Color principal
+          600: '#0284c7', // Color principal
           700: '#0369a1',
         },
-        accent: '#FF6B6B',  // Color de acento de Joyan
+        accent: '#FF6B6B', // Color de acento de Joyan
       },
     },
   },
@@ -803,22 +812,20 @@ const metadata = {
 ---
 
 <PageLayout metadata={metadata}>
-  
   <!-- Sección Hero -->
   <Hero
     actions={[
       { variant: 'primary', text: 'Comenzar Gratis', href: '/signup' },
-      { text: 'Ver Demo', href: '#demo' }
+      { text: 'Ver Demo', href: '#demo' },
     ]}
     image={{ src: '~/assets/images/joyan-hero.png', alt: 'Joyan' }}
   >
     <Fragment slot="title">
       Transforma tu negocio con <span class="text-accent">Joyan</span>
     </Fragment>
-    
+
     <Fragment slot="subtitle">
-      La plataforma todo-en-uno para gestionar tu empresa de forma eficiente.
-      Aumenta tu productividad hasta un 300%.
+      La plataforma todo-en-uno para gestionar tu empresa de forma eficiente. Aumenta tu productividad hasta un 300%.
     </Fragment>
   </Hero>
 
@@ -831,33 +838,33 @@ const metadata = {
       {
         title: 'Fácil de usar',
         description: 'Interface intuitiva que cualquiera puede usar sin capacitación',
-        icon: 'tabler:click'
+        icon: 'tabler:click',
       },
       {
         title: 'Seguro',
         description: 'Encriptación bancaria para proteger tus datos',
-        icon: 'tabler:shield-check'
+        icon: 'tabler:shield-check',
       },
       {
         title: 'Soporte 24/7',
         description: 'Equipo disponible siempre que nos necesites',
-        icon: 'tabler:headset'
+        icon: 'tabler:headset',
       },
       {
         title: 'Rápido',
         description: 'Optimizado para máximo rendimiento',
-        icon: 'tabler:rocket'
+        icon: 'tabler:rocket',
       },
       {
         title: 'Escalable',
         description: 'Crece con tu negocio sin límites',
-        icon: 'tabler:trending-up'
+        icon: 'tabler:trending-up',
       },
       {
         title: 'Integraciones',
         description: 'Conecta con tus herramientas favoritas',
-        icon: 'tabler:plug'
-      }
+        icon: 'tabler:plug',
+      },
     ]}
   />
 
@@ -871,12 +878,8 @@ const metadata = {
         subtitle: 'Para emprendedores',
         price: '$19',
         period: 'por mes',
-        items: [
-          { title: '5 usuarios' },
-          { title: '10GB almacenamiento' },
-          { title: 'Soporte por email' }
-        ],
-        callToAction: { text: 'Comenzar', href: '/signup' }
+        items: [{ title: '5 usuarios' }, { title: '10GB almacenamiento' }, { title: 'Soporte por email' }],
+        callToAction: { text: 'Comenzar', href: '/signup' },
       },
       {
         title: 'Business',
@@ -889,9 +892,9 @@ const metadata = {
           { title: '25 usuarios' },
           { title: '50GB almacenamiento' },
           { title: 'Soporte prioritario' },
-          { title: 'Analíticas avanzadas' }
+          { title: 'Analíticas avanzadas' },
         ],
-        callToAction: { text: 'Comenzar', href: '/signup' }
+        callToAction: { text: 'Comenzar', href: '/signup' },
       },
       {
         title: 'Enterprise',
@@ -902,10 +905,10 @@ const metadata = {
           { title: 'Usuarios ilimitados' },
           { title: 'Almacenamiento ilimitado' },
           { title: 'Soporte dedicado' },
-          { title: 'Personalización completa' }
+          { title: 'Personalización completa' },
         ],
-        callToAction: { text: 'Contactar', href: '/contact' }
-      }
+        callToAction: { text: 'Contactar', href: '/contact' },
+      },
     ]}
   />
 
@@ -917,14 +920,14 @@ const metadata = {
         testimonial: 'Joyan cambió completamente nuestra forma de trabajar. Ahora somos 3x más productivos.',
         name: 'Carlos Rodríguez',
         job: 'CEO de TechStart',
-        image: { src: '~/assets/images/testimonial1.jpg', alt: 'Carlos' }
+        image: { src: '~/assets/images/testimonial1.jpg', alt: 'Carlos' },
       },
       {
         testimonial: 'La mejor inversión que hemos hecho. El ROI fue positivo en el primer mes.',
         name: 'Ana Martínez',
         job: 'Directora de Operaciones',
-        image: { src: '~/assets/images/testimonial2.jpg', alt: 'Ana' }
-      }
+        image: { src: '~/assets/images/testimonial2.jpg', alt: 'Ana' },
+      },
     ]}
   />
 
@@ -935,20 +938,16 @@ const metadata = {
         variant: 'primary',
         text: 'Comenzar Gratis',
         href: '/signup',
-        icon: 'tabler:rocket'
-      }
+        icon: 'tabler:rocket',
+      },
     ]}
   >
-    <Fragment slot="title">
-      ¿Listo para transformar tu negocio?
-    </Fragment>
-    
+    <Fragment slot="title"> ¿Listo para transformar tu negocio? </Fragment>
+
     <Fragment slot="subtitle">
-      Únete a más de 10,000 empresas que ya usan Joyan.
-      Prueba gratis por 14 días, sin tarjeta de crédito.
+      Únete a más de 10,000 empresas que ya usan Joyan. Prueba gratis por 14 días, sin tarjeta de crédito.
     </Fragment>
   </CallToAction>
-
 </PageLayout>
 ```
 
@@ -998,12 +997,14 @@ const metadata = {
   description: 'Descripción única de 150-160 caracteres',
   canonical: 'https://joyan.com/url-de-esta-pagina',
   openGraph: {
-    images: [{
-      url: '~/assets/images/pagina-especifica-og.png',
-      width: 1200,
-      height: 628
-    }]
-  }
+    images: [
+      {
+        url: '~/assets/images/pagina-especifica-og.png',
+        width: 1200,
+        height: 628,
+      },
+    ],
+  },
 };
 ---
 
@@ -1096,12 +1097,14 @@ rsync -avz dist/ usuario@tuservidor:/var/www/html/
 Si usas variables de entorno (API keys, etc.):
 
 1. Crea archivo `.env` en la raíz:
+
 ```env
 PUBLIC_API_URL=https://api.joyan.com
 SECRET_KEY=tu-clave-secreta
 ```
 
 2. Usa en tu código:
+
 ```astro
 ---
 const apiUrl = import.meta.env.PUBLIC_API_URL;
@@ -1123,7 +1126,7 @@ const apiUrl = import.meta.env.PUBLIC_API_URL;
 analytics:
   vendors:
     googleAnalytics:
-      id: 'G-XXXXXXXXXX'  # Tu ID real
+      id: 'G-XXXXXXXXXX' # Tu ID real
 ```
 
 Ya está configurado automáticamente.
@@ -1135,21 +1138,23 @@ El widget `Contact.astro` ya tiene un formulario. Necesitas configurar el backen
 **Opciones:**
 
 1. **Formspree**: Servicio gratuito para formularios
+
    ```html
-   <form action="https://formspree.io/f/tu-id" method="POST">
+   <form action="https://formspree.io/f/tu-id" method="POST"></form>
    ```
 
 2. **Netlify Forms**: Si usas Netlify, solo añade `netlify` al form:
+
    ```html
-   <form name="contact" method="POST" data-netlify="true">
+   <form name="contact" method="POST" data-netlify="true"></form>
    ```
 
 3. **Tu propio backend**: Envía el form a tu API:
    ```javascript
    fetch('https://api.joyan.com/contact', {
      method: 'POST',
-     body: JSON.stringify(formData)
-   })
+     body: JSON.stringify(formData),
+   });
    ```
 
 ### Internacionalización (i18n)
@@ -1163,13 +1168,14 @@ export default defineConfig({
     defaultLocale: 'es',
     locales: ['es', 'en'],
     routing: {
-      prefixDefaultLocale: false
-    }
-  }
+      prefixDefaultLocale: false,
+    },
+  },
 });
 ```
 
 Luego crea:
+
 ```
 src/pages/
   index.astro        → /es/
@@ -1186,6 +1192,7 @@ src/pages/
 **Problema:** El alias `~` no se resuelve.
 
 **Solución:** Verifica que `astro.config.ts` tenga:
+
 ```typescript
 vite: {
   resolve: {
@@ -1201,6 +1208,7 @@ vite: {
 **Problema:** Imágenes no se optimizan correctamente.
 
 **Solución:** Instala Sharp:
+
 ```bash
 npm install sharp
 ```
@@ -1209,7 +1217,8 @@ npm install sharp
 
 **Problema:** Hot reload lento.
 
-**Solución:** 
+**Solución:**
+
 1. Elimina archivos innecesarios (landing/, homes/, blog/)
 2. Limpia cache: `rm -rf node_modules/.astro`
 3. Reinicia: `npm run dev`
@@ -1219,6 +1228,7 @@ npm install sharp
 **Problema:** Cache de Astro.
 
 **Solución:**
+
 ```bash
 # Reinicia el servidor de desarrollo
 # Ctrl+C y luego:
@@ -1232,18 +1242,21 @@ npm run dev
 Usa esta lista para asegurarte de que has personalizado todo:
 
 ### Configuración:
+
 - [ ] `src/config.yaml` - Nombre, dominio, SEO
 - [ ] `src/navigation.ts` - Menús personalizados
 - [ ] `tailwind.config.js` - Colores de marca
 - [ ] `package.json` - Nombre del proyecto
 
 ### Branding:
+
 - [ ] Logo en `src/components/Logo.astro`
 - [ ] Favicon en `src/assets/favicons/`
 - [ ] Imágenes en `src/assets/images/`
 - [ ] Imagen Open Graph (1200x628px)
 
 ### Contenido:
+
 - [ ] `src/pages/index.astro` - Página principal
 - [ ] `src/pages/about.astro` - Acerca de
 - [ ] `src/pages/contact.astro` - Contacto
@@ -1252,6 +1265,7 @@ Usa esta lista para asegurarte de que has personalizado todo:
 - [ ] `src/pages/terms.md` - Términos y condiciones
 
 ### SEO:
+
 - [ ] Meta descripción en `config.yaml`
 - [ ] Título de cada página
 - [ ] Descripción de cada página
@@ -1260,6 +1274,7 @@ Usa esta lista para asegurarte de que has personalizado todo:
 - [ ] Google Search Console verificado
 
 ### Limpieza:
+
 - [ ] Eliminar páginas de ejemplo no usadas
 - [ ] Eliminar blog si no lo usarás
 - [ ] Eliminar widgets no usados
@@ -1270,17 +1285,20 @@ Usa esta lista para asegurarte de que has personalizado todo:
 ## 🎓 Recursos de Aprendizaje
 
 ### Documentación Oficial:
+
 - **Astro**: https://docs.astro.build
 - **Tailwind CSS**: https://tailwindcss.com/docs
 - **MDX**: https://mdxjs.com (si usas blog)
 
 ### Herramientas Útiles:
+
 - **Iconos**: https://icon-sets.iconify.design (tabler icons)
 - **Colores**: https://tailwindcolor.com
 - **Imágenes**: https://unsplash.com (gratuitas)
 - **Optimizar imágenes**: https://tinypng.com
 
 ### Comunidad:
+
 - **Discord de Astro**: https://astro.build/chat
 - **Stack Overflow**: Tag `astro`
 
@@ -1289,6 +1307,7 @@ Usa esta lista para asegurarte de que has personalizado todo:
 ## 💡 Tips para Desarrolladores Backend
 
 ### Piensa en Astro como:
+
 - **PHP/Blade**: La sintaxis `.astro` es como Blade templates
 - **Server-Side Rendering**: Todo se renderiza en build time (como static site generation)
 - **API Routes**: Puedes crear endpoints en `src/pages/api/`
@@ -1299,13 +1318,13 @@ Usa esta lista para asegurarte de que has personalizado todo:
 // src/pages/api/contact.ts
 export async function post({ request }) {
   const data = await request.json();
-  
+
   // Lógica de backend aquí
   await sendEmail(data);
-  
+
   return new Response(JSON.stringify({ success: true }), {
     status: 200,
-    headers: { 'Content-Type': 'application/json' }
+    headers: { 'Content-Type': 'application/json' },
   });
 }
 ```
@@ -1322,9 +1341,7 @@ const data = await response.json();
 ---
 
 <div>
-  {data.items.map(item => (
-    <div>{item.name}</div>
-  ))}
+  {data.items.map((item) => <div>{item.name}</div>)}
 </div>
 ```
 
@@ -1333,24 +1350,28 @@ const data = await response.json();
 ## 🎯 Próximos Pasos Sugeridos
 
 ### Semana 1:
+
 1. ✅ Familiarízate con la estructura del proyecto
 2. ✅ Actualiza `config.yaml` y `navigation.ts`
 3. ✅ Personaliza colores y logo
 4. ✅ Crea tu página principal básica
 
 ### Semana 2:
+
 5. Añade todas las páginas necesarias (about, contact, etc.)
 6. Personaliza widgets con contenido real
 7. Añade imágenes reales de Joyan
 8. Configura SEO de cada página
 
 ### Semana 3:
+
 9. Elimina archivos innecesarios
 10. Prueba en diferentes dispositivos
 11. Optimiza rendimiento
 12. Configura analytics
 
 ### Semana 4:
+
 13. Deploy a producción
 14. Configura dominio personalizado
 15. Pruebas finales
@@ -1376,7 +1397,7 @@ Si tienes dudas específicas sobre este template:
 ✅ **SEO**: Excelente para posicionamiento  
 ✅ **Sencillez**: Más simple que React/Vue para landing pages  
 ✅ **Costo**: Hosting económico (sitios estáticos)  
-✅ **Mantenimiento**: Muy bajo  
+✅ **Mantenimiento**: Muy bajo
 
 ### Cuándo usar Astro:
 
@@ -1384,22 +1405,23 @@ Si tienes dudas específicas sobre este template:
 ✅ Sitios corporativos  
 ✅ Blogs  
 ✅ Portfolios  
-✅ Documentación  
+✅ Documentación
 
 ### Cuándo NO usar Astro:
 
 ❌ Aplicaciones web complejas con mucha interactividad  
 ❌ Dashboards en tiempo real  
 ❌ Aplicaciones tipo SPA (Single Page Application)  
-❌ Apps que requieren auth compleja en el frontend  
+❌ Apps que requieren auth compleja en el frontend
 
 ---
 
 ## 🎉 ¡Listo!
 
-Ya tienes todo lo necesario para personalizar esta plantilla para Joyan. 
+Ya tienes todo lo necesario para personalizar esta plantilla para Joyan.
 
 **Recuerda:**
+
 - Astro es simple: HTML + componentes
 - Los widgets son bloques de construcción reutilizables
 - La configuración está centralizada en `config.yaml` y `navigation.ts`
@@ -1415,4 +1437,3 @@ Ya tienes todo lo necesario para personalizar esta plantilla para Joyan.
 **Última actualización:** Noviembre 2025  
 **Versión de Astro:** 5.0+  
 **Versión de AstroWind:** 1.0.0-beta.52
-

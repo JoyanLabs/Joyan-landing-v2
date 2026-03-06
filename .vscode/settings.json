@@ -53,7 +53,7 @@
 		"*.astro": "astro"
 	},
 	"yaml.schemas": {
-		"./.vscode/astrowind/config-schema.json": "/src/config.yaml"
+		"./.vscode/joyanlabs/config-schema.json": "/src/config.yaml"
 	},
 	"editor.formatOnSave": true,
 	"editor.codeActionsOnSave": {

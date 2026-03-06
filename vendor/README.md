@@ -1,4 +1,9 @@
-This folder will become an integration for **AstroWind**.
+# JoyanLabs Integration
 
-We are working to allow updates to template instances.
-These are changes on the way to new **AstroWind v2**
+This folder contains the integration for JoyanLabs Landing Template.
+
+This integration provides:
+
+- Virtual module `joyanlabs:config` for accessing site configuration
+- Automatic sitemap generation in robots.txt
+- Config loading from `src/config.yaml`

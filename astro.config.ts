@@ -1,3 +1,5 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import mdx from "@astrojs/mdx";
 import partytown from "@astrojs/partytown";
 import react from "@astrojs/react";
@@ -5,17 +7,14 @@ import sitemap from "@astrojs/sitemap";
 import tailwind from "@astrojs/tailwind";
 import vue from "@astrojs/vue";
 import type { AstroIntegration } from "astro";
-
-import icon from "astro-icon";
 import { defineConfig } from "astro/config";
-import path from "path";
-import { fileURLToPath } from "url";
+import icon from "astro-icon";
 import {
-    lazyImagesRehypePlugin,
-    readingTimeRemarkPlugin,
-    responsiveTablesRehypePlugin,
+	lazyImagesRehypePlugin,
+	readingTimeRemarkPlugin,
+	responsiveTablesRehypePlugin,
 } from "./src/utils/frontmatter";
-import astrowind from "./vendor/integration";
+import joyanlabs from "./vendor/integration";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -62,9 +61,36 @@ export default defineConfig({
 			}),
 		),
 
+		joyanlabs({
+			config: "./src/config.yaml",
+		}),
+		sitemap(),
+		mdx(),
+		vue(),
+		icon({
+			include: {
+				tabler: ["*"],
+				"flat-color-icons": [
+					"template",
+					"gallery",
+					"approval",
+					"document",
+					"advertising",
+					"currency-exchange",
+					"voice-presentation",
+					"business-contact",
+					"database",
+				],
+			},
+		}),
 
+		...whenExternalScripts(() =>
+			partytown({
+				config: { forward: ["dataLayer.push"] },
+			}),
+		),
 
-		astrowind({
+		joyanlabs({
 			config: "./src/config.yaml",
 		}),
 		react(),

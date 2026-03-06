@@ -10,21 +10,18 @@ export default ({
 } = {}): AstroIntegration => {
 	let cfg: AstroConfig;
 	return {
-		name: "astrowind-integration",
+		name: "joyanlabs-integration",
 
 		hooks: {
 			"astro:config:setup": async ({
-				// command,
 				config,
-				// injectRoute,
-				// isRestart,
 				logger,
 				updateConfig,
 				addWatchFile,
 			}) => {
-				const buildLogger = logger.fork("astrowind");
+				const buildLogger = logger.fork("joyanlabs");
 
-				const virtualModuleId = "astrowind:config";
+				const virtualModuleId = "joyanlabs:config";
 				const resolvedVirtualModuleId = "\0" + virtualModuleId;
 
 				const rawJsonConfig = (await loadConfig(_themeConfig)) as Config;
@@ -40,7 +37,7 @@ export default ({
 					vite: {
 						plugins: [
 							{
-								name: "vite-plugin-astrowind-config",
+								name: "vite-plugin-joyanlabs-config",
 								resolveId(id) {
 									if (id === virtualModuleId) {
 										return resolvedVirtualModuleId;
@@ -66,9 +63,9 @@ export default ({
 				if (typeof _themeConfig === "string") {
 					addWatchFile(new URL(_themeConfig, config.root));
 
-					buildLogger.info(`Astrowind \`${_themeConfig}\` has been loaded.`);
+					buildLogger.info(`JoyanLabs \`${_themeConfig}\` has been loaded.`);
 				} else {
-					buildLogger.info(`Astrowind config has been loaded.`);
+					buildLogger.info(`JoyanLabs config has been loaded.`);
 				}
 			},
 			"astro:config:done": async ({ config }) => {
@@ -76,7 +73,7 @@ export default ({
 			},
 
 			"astro:build:done": async ({ logger }) => {
-				const buildLogger = logger.fork("astrowind");
+				const buildLogger = logger.fork("joyanlabs");
 				buildLogger.info("Updating `robots.txt` with `sitemap-index.xml` ...");
 
 				try {
@@ -124,7 +121,6 @@ export default ({
 							);
 						}
 					}
-					// eslint-disable-next-line @typescript-eslint/no-unused-vars
 				} catch (error) {
 					/* empty */
 				}

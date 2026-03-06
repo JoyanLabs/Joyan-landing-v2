@@ -1,4 +1,4 @@
-import { APP_BLOG, METADATA, SITE } from "astrowind:config";
+import { APP_BLOG, METADATA, SITE } from "joyanlabs:config";
 import { getRssString } from "@astrojs/rss";
 import { fetchPosts } from "~/utils/blog";
 import { getPermalink } from "~/utils/permalinks";
