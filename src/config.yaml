@@ -1,6 +1,6 @@
 site:
-  name: Joyan
-  site: 'https://joyan.dev'
+  name: Plantilla
+  site: 'https://example.com'
   base: '/'
   trailingSlash: false
 
@@ -9,58 +9,58 @@ site:
 # Default SEO metadata
 metadata:
   title:
-    default: Joyan
-    template: '%s — Joyan'
-  description: "Servicios profesionales, desarrollo de proyectos y creación de productos innovadores."
+    default: Plantilla Landing
+    template: '%s — Plantilla'
+  description: 'Una plantilla moderna de landing page construida con Astro y Tailwind CSS.'
   robots:
     index: true
     follow: true
   openGraph:
-    site_name: Joyan
+    site_name: Plantilla
     images:
-      - url: '~/assets/images/rainbow_flare.png'
+      - url: '~/assets/images/default-og.png'
         width: 1200
         height: 628
     type: website
   twitter:
-    handle: '@_JMNRA'
-    site: '@_JMNRA'
+    handle: '@handle'
+    site: '@handle'
     cardType: summary_large_image
 
 i18n:
-  language: en
+  language: es
   textDirection: ltr
 
 apps:
   blog:
-    isEnabled: true
+    isEnabled: false
     postsPerPage: 6
 
     post:
-      isEnabled: true
-      permalink: '/%slug%' # Variables: %slug%, %year%, %month%, %day%, %hour%, %minute%, %second%, %category%
+      isEnabled: false
+      permalink: '/%slug%'
       robots:
         index: true
 
     list:
-      isEnabled: true
-      pathname: 'blog' # Blog main path, you can change this to "articles" (/articles)
+      isEnabled: false
+      pathname: 'blog'
       robots:
         index: true
 
     category:
-      isEnabled: true
-      pathname: 'category' # Category main path /category/some-category, you can change this to "group" (/group/some-category)
+      isEnabled: false
+      pathname: 'category'
       robots:
         index: true
 
     tag:
-      isEnabled: true
-      pathname: 'tag' # Tag main path /tag/some-tag, you can change this to "topics" (/topics/some-category)
+      isEnabled: false
+      pathname: 'tag'
       robots:
         index: false
 
-    isRelatedPostsEnabled: true
+    isRelatedPostsEnabled: false
     relatedPostsCount: 4
 
 analytics:
