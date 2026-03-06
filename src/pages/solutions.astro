@@ -1,0 +1,21 @@
+---
+import Layout from '~/layouts/PageLayout.astro';
+import DivisionsCards from '~/components/joyan/DivisionsCards';
+
+const metadata = {
+  title: 'Soluciones Integradas - Joyan',
+};
+---
+
+<Layout metadata={metadata}>
+  <section class="relative pt-32 pb-12 text-center z-10">
+    <div class="container mx-auto px-4">
+      <h1 class="text-4xl md:text-6xl font-bold mb-6">Soluciones Integradas</h1>
+      <p class="text-xl text-muted max-w-3xl mx-auto">
+        No vendemos servicios sueltos. Diseñamos paquetes estratégicos para resolver problemas complejos.
+      </p>
+    </div>
+  </section>
+
+  <DivisionsCards client:only="react" />
+</Layout>

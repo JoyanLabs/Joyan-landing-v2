@@ -1,0 +1,53 @@
+---
+import Layout from '~/layouts/PageLayout.astro';
+import HeroSection from '~/components/ui/hero-section';
+import RadialOrbitalTimeline from '~/components/joyan/RadialOrbitalTimeline';
+import BlogSection from '~/components/joyan/BlogSection';
+import SuccessCasesCards from '~/components/joyan/SuccessCasesCards';
+
+const metadata = {
+  title: 'Joyan - El Sistema Operativo para tu Crecimiento Empresarial',
+  ignoreTitleTemplate: true,
+};
+
+const heroProps = {
+  avatarSrcList: [
+    'https://placehold.co/32x32/a9a9a9/ffffff?text=U',
+    'https://placehold.co/32x32/d3d3d3/ffffff?text=U',
+    'https://placehold.co/32x32/808080/ffffff?text=U',
+  ],
+  userCount: 1000,
+  title: 'El Sistema Operativo para tu Crecimiento Empresarial',
+  description:
+    'Somos un ecosistema tecnológico que unifica lo físico, lo digital y lo estratégico. No contrates proveedores aislados; conecta con una inteligencia centralizada que escala contigo.',
+  placeholder: 'Ingresa tu Email',
+  ctaText: 'Inicia tu Transformación',
+  onSubmit: (email: string) => {
+    console.log('Email submitted:', email);
+    // Navigate to contact page with email
+    window.location.href = `/contact?email=${encodeURIComponent(email)}`;
+  },
+};
+---
+
+<Layout metadata={metadata}>
+  <HeroSection client:load {...heroProps} />
+
+  <!-- Solutions Section -->
+  <div class="relative z-10 mt-20">
+    <div class="text-center mb-12">
+      <h2 class="text-3xl md:text-5xl font-bold mb-4">Nuestros Pilares Tecnológicos</h2>
+      <p class="text-xl text-muted max-w-3xl mx-auto">
+        Diseñamos soluciones modulares que funcionan perfectamente por separado, pero que se vuelven imparables cuando
+        trabajan juntas.
+      </p>
+    </div>
+    <RadialOrbitalTimeline client:visible />
+  </div>
+
+  <!-- Success Cases Section -->
+  <SuccessCasesCards client:visible />
+
+  <!-- Blog Section -->
+  <BlogSection client:visible />
+</Layout>

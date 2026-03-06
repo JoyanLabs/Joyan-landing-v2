@@ -1,0 +1,37 @@
+---
+import Layout from '~/layouts/Layout.astro';
+import { AuroraBackground } from '~/components/ui/aurora-background';
+import { Navbar } from '~/components/ui/navbar';
+import { headerData } from '~/navigation';
+
+import type { MetaData } from '~/types';
+
+export interface Props {
+  metadata?: MetaData;
+}
+
+const { metadata } = Astro.props;
+
+const navbarProps = {
+  logoText: 'Joyan',
+  navLinks: headerData.links.map((link) => ({
+    href: link.href || '#',
+    label: link.text || '',
+  })),
+  onJoinClick: () => {
+    // Handle join click, e.g., navigate to contact
+    if (typeof window !== 'undefined') {
+      window.location.href = headerData.actions?.[0]?.href || '/contact';
+    }
+  },
+};
+---
+
+<Layout metadata={metadata}>
+  <AuroraBackground>
+    <Navbar client:only="react" {...navbarProps} />
+    <main>
+      <slot />
+    </main>
+  </AuroraBackground>
+</Layout>
