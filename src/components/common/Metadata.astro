@@ -53,7 +53,7 @@ const seoProps: AstroSeoProps = merge(
 				: undefined,
 		description: METADATA?.description,
 		openGraph: METADATA?.openGraph,
-		twitter: METADATA?.twitter,
+		twitter: (METADATA as Record<string, unknown>)?.twitter,
 	},
 	{
 		title: title,
