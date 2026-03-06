@@ -13,9 +13,8 @@
 - **Vue** 3.5 - Componentes alternativos
 - **Tailwind CSS** 3.4 - Estilos
 - **TypeScript** 5.x - Tipado
-- **Biome** 2.3 - Linter/Formatter principal
-- **ESLint** 10.x - Linter alternativo
-- **Prettier** 3.x - Formateador oficial
+- **ESLint** 10.x - Linter
+- **Prettier** 3.x - Formatter
 
 ### Estructura del Proyecto
 
@@ -77,9 +76,9 @@ joyan-landing/
 | `pnpm build`   | Build para producción  |
 | `pnpm preview` | Preview del build      |
 | `pnpm check`   | Verificar tipos y lint |
-| `pnpm lint`    | Biome lint             |
-| `pnpm format`  | Formatear con Biome    |
-| `pnpm fix`     | Auto-fix con Biome     |
+| `pnpm lint`    | ESLint lint            |
+| `pnpm format`  | Formatear con Prettier |
+| `pnpm fix`     | ESLint auto-fix        |
 
 ## Commit & Pull Request Guidelines
 
