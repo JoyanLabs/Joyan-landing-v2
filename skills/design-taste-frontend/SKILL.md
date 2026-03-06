@@ -1,144 +1,204 @@
 ---
 name: design-taste-frontend
 description: >
-  Senior UI/UX Engineer. Architect digital interfaces overriding default LLM biases. 
-  Enforces metric-based rules, strict component architecture, CSS hardware acceleration, and balanced design engineering.
+  Senior UI/UX Engineer rules for frontend development.
+  This skill complements Impeccable with specific architectural constraints and best practices.
+  Trigger: When building frontend components that require strict architecture patterns.
+license: MIT
 metadata:
-  author: conasin-team
-  version: "1.0"
-  scope: [app]
+  author: JoyanLabs
+  version: 2.0.0
+  scope: root
   auto_invoke: Building frontend components, pages, or interfaces
 allowed-tools: Read, Edit, Write, Glob, Grep
 ---
 
-# High-Agency Frontend Skill
+# Design Taste - Complementary Rules
 
-## 1. ACTIVE BASELINE CONFIGURATION
-* DESIGN_VARIANCE: 8 (1=Perfect Symmetry, 10=Artsy Chaos)
-* MOTION_INTENSITY: 6 (1=Static/No movement, 10=Cinematic/Magic Physics)
-* VISUAL_DENSITY: 4 (1=Art Gallery/Airy, 10=Pilot Cockpit/Packed Data)
+> **NOTE:** This skill complements the main `frontend-design` skill (Impeccable).
+> For design aesthetics, typography, and anti-patterns, use Impeccable commands.
 
-**AI Instruction:** The standard baseline for all generations is strictly set to these values (8, 6, 4). Do not ask the user to edit this file. Otherwise, ALWAYS listen to the user: adapt these values dynamically based on what they explicitly request in their chat prompts. Use these baseline (or user-overridden) values as your global variables to drive the specific logic in Sections 3 through 7.
+---
 
-## 2. DEFAULT ARCHITECTURE & CONVENTIONS
-Unless the user explicitly specifies a different stack, adhere to these structural constraints to maintain consistency:
+## Architecture Constraints
 
-* **DEPENDENCY VERIFICATION [MANDATORY]:** Before importing ANY 3rd party library, check `package.json`. 
-* **Framework & Interactivity:** Vue/Nuxt or React/Next.js.
-    * **RSC SAFETY:** Global state works ONLY in Client Components.
-    * **INTERACTIVITY ISOLATION:** Interactive UI components MUST be isolated.
-* **State Management:** Use local refs/state for isolated UI.
-* **Styling Policy:** Use Tailwind CSS. 
-* **ANTI-EMOJI POLICY [CRITICAL]:** NEVER use emojis. Use Lucide icons instead.
-* **Responsiveness & Spacing:**
-  * Standardize breakpoints (`sm`, `md`, `lg`, `xl`).
-  * Contain page layouts using `max-w-[1400px] mx-auto` or `max-w-7xl`.
-  * **Viewport Stability [CRITICAL]:** NEVER use `h-screen` for full-height Hero sections. ALWAYS use `min-h-[100dvh]`.
-  * **Grid over Flex-Math:** Use CSS Grid (`grid grid-cols-1 md:grid-cols-3 gap-6`).
-* **Icons:** Use `lucide-vue-next` or `@iconify-json/lucide`.
+### Dependency Verification
 
-## 3. DESIGN ENGINEERING DIRECTIVES (Bias Correction)
+Before importing ANY 3rd party library:
 
-**Rule 1: Deterministic Typography**
-* **Display/Headlines:** Default to `text-4xl md:text-6xl tracking-tighter leading-none`.
-    * **ANTI-SLOP:** Discourage `Inter` for "Premium" vibes. Use distinctive fonts.
-* **Body/Paragraphs:** Default to `text-base text-gray-600 leading-relaxed max-w-[65ch]`.
+1. Check `package.json` first
+2. Verify the package is actually needed
+3. Consider native solutions first
 
-**Rule 2: Color Calibration**
-* **Constraint:** Max 1 Accent Color. Saturation < 80%.
-* **THE LILA BAN:** The "AI Purple/Blue" aesthetic is strictly BANNED.
-* **COLOR CONSISTENCY:** Stick to one palette.
+### Framework & Interactivity
 
-**Rule 3: Layout Diversification**
-* **ANTI-CENTER BIAS:** Centered Hero/H1 sections are strictly BANNED when `LAYOUT_VARIANCE > 4`. 
-* Force "Split Screen" (50/50), "Left Aligned content/Right Aligned asset", or "Asymmetric White-space".
+**For Astro projects:**
 
-**Rule 4: Materiality, Shadows, and "Anti-Card Overuse"**
-* **DASHBOARD HARDENING:** For `VISUAL_DENSITY > 7`, generic card containers are strictly BANNED.
-* **Execution:** Use cards ONLY when elevation communicates hierarchy.
+- Use islands architecture: `client:visible`, `client:load `client:id`,le`
+- Global state works ONLY in Client Components
+- Interactive UI components MUST be isolated
 
-**Rule 5: Interactive UI States**
-* **Mandatory Generation:** Full interaction cycles:
-  * **Loading:** Skeletal loaders matching layout sizes.
-  * **Empty States:** Beautifully composed empty states.
-  * **Error States:** Clear, inline error reporting.
-  * **Tactile Feedback:** On `:active`, use `-translate-y-[1px]` or `scale-[0.98]`.
+### Styling Policy
 
-**Rule 6: Data & Form Patterns**
-* **Forms:** Label MUST sit above input.
+- Use Tailwind CSS with `cn()` for conditional classes
+- Use CSS variables for theming
+- Never use inline styles
 
-## 4. CREATIVE PROACTIVITY (Anti-Slop Implementation)
-* **"Liquid Glass" Refraction:** Beyond `backdrop-blur`. Add 1px inner border.
-* **Perpetual Micro-Interactions:** When `MOTION_INTENSITY > 5`, embed continuous animations.
-* **Staggered Orchestration:** Use `animation-delay` cascades for load-ins.
+### Icons Policy
 
-## 5. PERFORMANCE GUARDRAILS
-* **DOM Cost:** Apply grain/noise filters exclusively to fixed elements.
-* **Hardware Acceleration:** Never animate `top`, `left`, `width`, or `height`. Animate via `transform` and `opacity`.
-* **Z-Index Restraint:** Never spam arbitrary z-indexes.
+- **NEVER use emojis** in production UI
+- Use Lucide icons: `lucide-react` or `@iconify-json/tabler`
+- Example: `<Icon icon="tabler:rocket" />`
 
-## 6. TECHNICAL REFERENCE (Dial Definitions)
+---
 
-### DESIGN_VARIANCE (Level 1-10)
-* **1-3 (Predictable):** Flexbox `justify-center`, strict 12-column grids.
-* **4-7 (Offset):** Use negative margins, varied aspect ratios.
-* **8-10 (Asymmetric):** Masonry, CSS Grid with fractional units.
-* **MOBILE OVERRIDE:** Fall back to single-column on mobile.
+## Responsive & Spacing Rules
 
-### MOTION_INTENSITY (Level 1-10)
-* **1-3 (Static):** No automatic animations.
-* **4-7 (Fluid CSS):** Use CSS transitions with cubic-bezier.
-* **8-10 (Advanced Choreography):** Complex scroll-triggered reveals.
+### Breakpoints
 
-### VISUAL_DENSITY (Level 1-10)
-* **1-3 (Art Gallery Mode):** Lots of white space.
-* **4-7 (Daily App Mode):** Normal spacing.
-* **8-10 (Cockpit Mode):** Tiny paddings, monospace for numbers.
+Standardize on Tailwind's default breakpoints:
 
-## 7. THE 100 AI TELLS (Forbidden Patterns)
+- `sm` - 640px
+- `md` - 768px
+- `lg` - 1024px
+- `xl` - 1280px
+- `2xl` - 1536px
 
-### Visual & CSS
-* **NO Neon/Outer Glows.**
-* **NO Pure Black:** Use Off-Black, Zinc-950.
-* **NO Oversaturated Accents.**
-* **NO Excessive Gradient Text.**
-* **NO Custom Mouse Cursors.**
+### Page Container
 
-### Typography
-* **NO Inter Font:** Use distinctive alternatives.
-* **NO Oversized H1s.**
+```html
+<!-- Always use max-width constraint -->
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+  <!-- Content -->
+</div>
+```
 
-### Layout & Spacing
-* **Align & Space Perfectly.**
-* **NO 3-Column Card Layouts:** Use asymmetric grids.
+### Viewport Height (CRITICAL)
 
-### Content & Data
-* **NO Generic Names.**
-* **NO Generic Avatars.**
-* **NO Fake Numbers.**
+- **NEVER** use `h-screen` for full-height Hero sections
+- **ALWAYS** use `min-h-[100dvh]` for dynamic viewport height
+- This handles mobile browser chrome properly
 
-## 8. THE CREATIVE ARSENAL (High-End Inspiration)
+---
 
-### The Standard Hero Paradigm
-* Stop doing centered text over a dark image. Try asymmetric Hero sections.
+## Typography Defaults
 
-### Layout & Grids
-* **Bento Grid:** Asymmetric, tile-based grouping.
-* **Masonry Layout:** Staggered grid without fixed row heights.
+### Headlines
 
-## 9. THE "MOTION-ENGINE" BENTO PARADIGM
+```html
+<h1 class="text-4xl md:text-6xl tracking-tight leading-none"></h1>
+```
 
-### A. Core Design Philosophy
-* **Aesthetic:** High-end, minimal, and functional.
-* **Surfaces:** Use `rounded-[2.5rem]` for containers.
-* **Typography:** Use distinctive font stack with subtle tracking.
+### Body Text
 
-### B. The Animation Engine Specs
-* **Spring Physics:** No linear easing.
-* **Staggered Reveals:** Animation delay cascades.
+```html
+<p class="text-base text-gray-600 dark:text-gray-300 leading-relaxed max-w-[65ch]"></p>
+```
 
-## 10. FINAL PRE-FLIGHT CHECK
-- [ ] Is mobile layout collapse guaranteed?
-- [ ] Do full-height sections use `min-h-[100dvh]`?
-- [ ] Are empty, loading, and error states provided?
-- [ ] Are cards omitted in favor of spacing where possible?
+### Font Recommendations (from Impeccable)
+
+| Type    | Font          | When                |
+| ------- | ------------- | ------------------- |
+| Display | Clash Display | Bold, modern        |
+| Display | Satoshi       | Clean, contemporary |
+| Display | Space Grotesk | Tech, startup       |
+| Body    | Geist         | Modern, readable    |
+| Body    | Inter         | Fallback only       |
+
+---
+
+## Color Rules
+
+### The LILA BAN (CRITICAL)
+
+The "AI Purple/Blue" gradient aesthetic is **STRICTLY BANNED**.
+
+### Color Constraints
+
+- Maximum 1 accent color
+- Saturation < 80% for accessibility
+- Build neutrals from accent color
+
+### CSS Variables Pattern
+
+```css
+:root {
+  --color-primary: oklch(70% 0.15 250);
+  --color-primary-foreground: oklch(98% 0.02 250);
+  --color-accent: oklch(60% 0.18 30);
+}
+```
+
+---
+
+## Component Architecture
+
+### Max Component Size
+
+- Maximum 200 lines per component
+- Break larger components into smaller parts
+- Use composition over inheritance
+
+### Props Pattern (TypeScript)
+
+```typescript
+interface Props {
+  class?: string;
+  variant?: 'default' | 'primary' | 'secondary';
+  size?: 'sm' | 'md' | 'lg';
+}
+```
+
+### Conditional Classes
+
+```typescript
+import { cn } from '~/lib/utils';
+
+const buttonVariants = cva('inline-flex items-center justify-center rounded-md', {
+  variants: {
+    variant: {
+      default: 'bg-primary text-primary-foreground',
+      secondary: 'bg-secondary text-secondary-foreground',
+    },
+    size: {
+      sm: 'h-9 px-3',
+      md: 'h-10 px-4',
+      lg: 'h-11 px-8',
+    },
+  },
+  defaultVariants: {
+    variant: 'default',
+    size: 'md',
+  },
+});
+```
+
+---
+
+## Performance Rules
+
+### Images
+
+- Use Astro's `<Image />` component
+- Always specify width and height
+- Use `loading="lazy"` for below-fold images
+
+### Fonts
+
+- Use `@fontsource-variable/` packages
+- Subset fonts if possible
+- Preload critical fonts
+
+### JavaScript
+
+- Prefer CSS animations over JS
+- Use `client:visible` for below-fold interactive components
+- Defer non-critical JS with `client:idle`
+
+---
+
+## References
+
+- [Impeccable Style](https://impeccable.style) - Main design skill
+- [Tailwind CSS](https://tailwindcss.com)
+- [Astro Docs](https://docs.astro.build)

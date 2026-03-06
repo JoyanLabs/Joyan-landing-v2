@@ -1,20 +1,21 @@
 ---
 name: context7-docs
 description: >
-  Skill central para consultar documentación actualizada via Context7 MCP.
+  Skill central para consultar documentación actualizada via Context7 MCP y Astro Docs MCP.
   Trigger: Cuando necesitas documentación actualizada, ejemplos de código, o buenas prácticas de librerías.
 license: MIT
 metadata:
-  author: conasin-team
-  version: "1.0"
-  scope: [root]
-  auto_invoke: "Buscando documentación o buenas prácticas"
+  author: JoyanLabs
+  version: 2.0.0
+  scope: root
+  auto_invoke: 'Buscando documentación o buenas prácticas'
 allowed-tools: Read, WebFetch, WebSearch
 ---
 
 ## When to Use
 
 Usa esta skill cuando:
+
 - Necesitas documentación actualizada de librerías externas
 - Consultas APIs, métodos o configuraciones específicas
 - Verificas mejores prácticas oficiales
@@ -22,19 +23,88 @@ Usa esta skill cuando:
 - Validas si tu implementación sigue estándares actuales
 
 **NO usar esta skill cuando:**
+
 - Trabajas con código específico del proyecto → Usar skills del proyecto (`conasin`, `better-auth`, etc.)
 - Necesitas patrones internos de CONASIN → Ver documentación local en `docs/`
 
 ---
 
-## Librerías Disponibles
+## Astro Docs MCP
 
-| Tecnología | Context7 ID | Snippets | Score | Uso |
-|------------|-------------|----------|-------|-----|
-| **NestJS** | `/nestjs/docs.nestjs.com` | 1760 | 79.4 | Controllers, Modules, DI, Guards |
-| **Prisma** | `/prisma/docs` | 4691 | 92.1 | Schema, Migrations, Queries, Transactions |
-| **Better Auth** | `/llmstxt/better-auth_llms_txt` | 3022 | 81.6 | Auth flows, Plugins, Sessions |
-| **Inngest** | `/llmstxt/inngest_llms-full_txt` | 4638 | 91.5 | Functions, Steps, Events |
+### ¿Qué es?
+
+El **Astro Docs MCP Server** te permite consultar la documentación oficial de Astro 5.0+ directamente desde tu agente de IA. Evita que el agente alucine APIs viejas.
+
+### Configuración
+
+**URL del Servidor:**
+
+```
+https://mcp.docs.astro.build/mcp
+```
+
+**Instalación (si requiere proxy local):**
+
+```bash
+npx -y mcp-remote https://mcp.docs.astro.build/mcp
+```
+
+### Cómo Usar
+
+```bash
+# Buscar en documentación de Astro
+mcp docs_astro search "component islands"
+
+# Obtener información sobre APIs específicas
+mcp docs_astro get "astro components"
+
+# Consulta ejemplos de código
+mcp docs_astro examples "astro.config.mjs configuration"
+```
+
+### Queries Frecuentes para Astro
+
+```bash
+# Componentes y arquitecturas
+"astro components with React integration"
+"using islands architecture client:visible"
+"server islands with on-demand rendering"
+
+# Configuración
+"astro.config.ts best practices"
+"integrations setup tailwind react"
+
+# Routing
+"dynamic routes [slug].astro"
+"middleware and edge functions"
+
+# SEO y Meta
+"opengraph images optimization"
+"sitemap generation"
+
+# Rendimiento
+"image optimization with astro assets"
+"view transitions and client router"
+```
+
+### Ejemplo Completo
+
+```bash
+# El agente puede usar:
+mcp docs_astro search "React components in Astro islands"
+# Retorna documentación actualizada sobre cómo usar React dentro de Astro
+```
+
+---
+
+## Librerías Disponibles (Context7)
+
+| Tecnología      | Context7 ID                      | Snippets | Score | Uso                                       |
+| --------------- | -------------------------------- | -------- | ----- | ----------------------------------------- |
+| **NestJS**      | `/nestjs/docs.nestjs.com`        | 1760     | 79.4  | Controllers, Modules, DI, Guards          |
+| **Prisma**      | `/prisma/docs`                   | 4691     | 92.1  | Schema, Migrations, Queries, Transactions |
+| **Better Auth** | `/llmstxt/better-auth_llms_txt`  | 3022     | 81.6  | Auth flows, Plugins, Sessions             |
+| **Inngest**     | `/llmstxt/inngest_llms-full_txt` | 4638     | 91.5  | Functions, Steps, Events                  |
 
 ---
 
@@ -145,12 +215,12 @@ mcp context7 query-docs --libraryId "/nestjs/docs.nestjs.com" --query "custom pr
 
 Si el ID principal no da resultados, prueba estas alternativas:
 
-| Tecnología | Alternativas |
-|------------|--------------|
-| NestJS | `/websites/nestjs`, `/nestjs/nest` |
-| Prisma | `/websites/prisma_io`, `/prisma/prisma-examples` |
+| Tecnología  | Alternativas                                        |
+| ----------- | --------------------------------------------------- |
+| NestJS      | `/websites/nestjs`, `/nestjs/nest`                  |
+| Prisma      | `/websites/prisma_io`, `/prisma/prisma-examples`    |
 | Better Auth | `/websites/better-auth`, `/better-auth/better-auth` |
-| Inngest | `/websites/inngest`, `/inngest/inngest-js` |
+| Inngest     | `/websites/inngest`, `/inngest/inngest-js`          |
 
 ---
 

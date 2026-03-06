@@ -35,36 +35,39 @@ joyan-landing/
 
 ## Available Skills
 
-| Skill                     | Descripción                      | Ubicación                               |
-| ------------------------- | -------------------------------- | --------------------------------------- |
-| **typescript**            | Patrones estrictos de TypeScript | `skills/typescript/SKILL.md`            |
-| **zod-4**                 | Validación con Zod v4            | `skills/zod-4/SKILL.md`                 |
-| **context7-docs**         | Consulta documentación via MCP   | `skills/context7-docs/SKILL.md`         |
-| **frontend-design**       | Diseño frontend de alta calidad  | `skills/frontend-design/SKILL.md`       |
-| **design-taste-frontend** | Engineer UI/UX Senior            | `skills/design-taste-frontend/SKILL.md` |
-| **documentation**         | Estándares de documentación      | `skills/documentation/SKILL.md`         |
-| **git-guidelines**        | Guías de Git y GitHub            | `skills/git-guidelines/SKILL.md`        |
-| **skill-creator**         | Crear nuevos skills              | `skills/skill-creator/SKILL.md`         |
-| **skill-sync**            | Sincronizar metadata             | `skills/skill-sync/SKILL.md`            |
-| **skill-auditor**         | Auditar skills                   | `skills/skill-auditor/SKILL.md`         |
+| Skill                     | Descripción                          | Ubicación                               |
+| ------------------------- | ------------------------------------ | --------------------------------------- |
+| **typescript**            | Patrones estrictos de TypeScript     | `skills/typescript/SKILL.md`            |
+| **zod-4**                 | Validación con Zod v4                | `skills/zod-4/SKILL.md`                 |
+| **context7-docs**         | Docs via MCP (incluye Astro)         | `skills/context7-docs/SKILL.md`         |
+| **frontend-design**       | Impeccable - 17 comandos diseño      | `skills/frontend-design/SKILL.md`       |
+| **design-taste-frontend** | Reglas arquitectura y best practices | `skills/design-taste-frontend/SKILL.md` |
+| **lobehub-marketplace**   | Buscar e instalar skills dinámica    | `skills/lobehub-marketplace/SKILL.md`   |
+| **documentation**         | Estándares de documentación          | `skills/documentation/SKILL.md`         |
+| **git-guidelines**        | Guías de Git y GitHub                | `skills/git-guidelines/SKILL.md`        |
+| **skill-creator**         | Crear nuevos skills                  | `skills/skill-creator/SKILL.md`         |
+| **skill-sync**            | Sincronizar metadata                 | `skills/skill-sync/SKILL.md`            |
+| **skill-auditor**         | Auditar skills                       | `skills/skill-auditor/SKILL.md`         |
 
 ## Auto-invoke Skills
 
-| Trigger                                            | Skill                   |
-| -------------------------------------------------- | ----------------------- |
-| Escribiendo tipos/interfaces TypeScript            | `typescript`            |
-| Creando schemas Zod                                | `zod-4`                 |
-| Buscando documentación o buenas prácticas          | `context7-docs`         |
-| Building frontend components, pages, or interfaces | `frontend-design`       |
-| Building frontend components, pages, or interfaces | `design-taste-frontend` |
-| Creando o actualizando documentación               | `documentation`         |
-| Creando commits, PRs, o usando templates de GitHub | `git-guidelines`        |
-| Creando nuevos skills                              | `skill-creator`         |
-| Después de crear/modificar un skill                | `skill-sync`            |
-| Regenerar tablas Auto-invoke de AGENTS.md          | `skill-sync`            |
-| Auditando o revisando skills existentes            | `skill-auditor`         |
-| Validando skills contra código real                | `skill-auditor`         |
-| Verificando documentación de skills                | `skill-auditor`         |
+| Trigger                                             | Skill                   |
+| --------------------------------------------------- | ----------------------- |
+| Escribiendo tipos/interfaces TypeScript             | `typescript`            |
+| Creando schemas Zod                                 | `zod-4`                 |
+| Buscando documentación o buenas prácticas           | `context7-docs`         |
+| Building frontend components, pages, or interfaces  | `frontend-design`       |
+| Building frontend components, pages, or interfaces  | `design-taste-frontend` |
+| Necesito instalar una nueva skill o capability      | `lobehub-marketplace`   |
+| Buscando skills en el marketplace                   | `lobehub-marketplace`   |
+| Creating commits, PRs, o usando templates de GitHub | `git-guidelines`        |
+| Creando o actualizando documentación                | `documentation`         |
+| Creating nuevos skills                              | `skill-creator`         |
+| Después de crear/modificar un skill                 | `skill-sync`            |
+| Regenerar tablas Auto-invoke de AGENTS.md           | `skill-sync`            |
+| Auditando o revisando skills existentes             | `skill-auditor`         |
+| Validando skills contra código real                 | `skill-auditor`         |
+| Verificando documentación de skills                 | `skill-auditor`         |
 
 ## Development Commands
 

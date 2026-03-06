@@ -1,233 +1,221 @@
 ---
 name: frontend-design
 description: >
-  Create distinctive, production-grade frontend interfaces with high design quality.
+  Impeccable - The design language that makes your AI harness better at design.
+  Creates distinctive, production-grade frontend interfaces with 17 design commands.
   Trigger: When building web components, pages, or applications that require exceptional aesthetics.
 license: MIT
 metadata:
-  author: conasin-team
-  version: "1.0"
-  scope: [app]
-  auto_invoke: Building frontend components, pages, or interfaces
+  author: JoyanLabs
+  version: 2.0.0
+  scope: root
+  auto_invoke: >
+    Building frontend components, pages, or interfaces,
+    Creating UI elements with high design quality,
+    Designing landing pages, dashboards, or any web interface
 allowed-tools: Read, Edit, Write, Glob, Grep, Context7
 ---
 
-## When to Use
+# Impeccable - Frontend Design Skill
 
-Use this skill when:
-- Building web components, pages, or applications
-- Creating UI elements that need exceptional aesthetic quality
-- Implementing visual designs that must be memorable and distinctive
-- Working on any frontend interface that requires design thinking
+## Overview
 
-**DO NOT use this skill when:**
-- Working on backend logic or API design
-- Database schemas or server configuration
-- General project questions → Use `conasin-landing`
+This skill provides comprehensive design guidance for creating distinctive, production-grade frontend interfaces. It includes 17 design commands and explicit anti-patterns to avoid generic "AI slop" aesthetics.
 
----
+## Design Philosophy
 
-## Design Thinking (REQUIRED)
+Every LLM learned from the same generic templates. Without guidance, you get predictable mistakes:
 
-Before coding, always analyze the context and commit to a BOLD aesthetic direction:
+- Inter font
+- Purple gradients
+- Cards nested in cards
+- Gray text on colored backgrounds
 
-### 1. Purpose
-- What problem does this interface solve?
-- Who are the users?
-
-### 2. Tone
-Pick an extreme and commit fully:
-- Brutally minimal
-- Maximalist chaos
-- Retro-futuristic
-- Organic/natural
-- Luxury/refined
-- Playful/toy-like
-- Editorial/magazine
-- Brutalist/raw
-- Art deco/geometric
-- Soft/pastel
-- Industrial/utilitarian
-
-### 3. Constraints
-- Framework requirements
-- Performance targets
-- Accessibility needs
-
-### 4. Differentiation
-- What makes this UNFORGETTABLE?
-- What's the one thing someone will remember?
-
-**CRITICAL**: Choose a clear conceptual direction and execute it with precision. Bold maximalism and refined minimalism both work - the key is intentionality, not intensity.
+This skill fights that bias with intentional design choices.
 
 ---
 
-## Frontend Aesthetics Guidelines
+## The 17 Commands
+
+### Core Commands
+
+| Command             | Description                                                  |
+| ------------------- | ------------------------------------------------------------ |
+| `/teach-impeccable` | One-time setup: gather design context, save to config        |
+| `/audit`            | Run technical quality checks (a11y, performance, responsive) |
+| `/critique`         | UX design review: hierarchy, clarity, emotional resonance    |
+| `/normalize`        | Align with design system standards                           |
+| `/polish`           | Final pass before shipping                                   |
+| `/distill`          | Strip to essence                                             |
+
+### Enhancement Commands
+
+| Command     | Description                      |
+| ----------- | -------------------------------- |
+| `/clarify`  | Improve unclear UX copy          |
+| `/optimize` | Performance improvements         |
+| `/harden`   | Error handling, i18n, edge cases |
+| `/animate`  | Add purposeful motion            |
+| `/colorize` | Introduce strategic color        |
+| `/bolder`   | Amplify boring designs           |
+| `/quieter`  | Tone down overly bold designs    |
+| `/delight`  | Add moments of joy               |
+| `/extract`  | Pull into reusable components    |
+| `/adapt`    | Adapt for different devices      |
+| `/onboard`  | Design onboarding flows          |
+
+---
+
+## Reference Files
+
+### Typography (`reference/typography.md`)
+
+- Type systems, font pairing
+- Modular scales
+- OpenType features
+- **Recommended fonts:**
+  - Display: Clash Display, Satoshi, Space Grotesk
+  - Body: Geist, Inter (as fallback only)
+- **AVOID:** Inter, Roboto, Arial, system defaults
+
+### Color & Contrast (`reference/color-and-contrast.md`)
+
+- OKLCH color space
+- Tinted neutrals
+- Dark mode
+- Accessibility compliance
+- **Rules:**
+  - NEVER use pure black (#000000)
+  - NEVER use gray text on colored backgrounds
+  - Always tint blacks/grays
+
+### Spatial Design (`reference/spatial-design.md`)
+
+- Spacing systems (4px base unit)
+- Grids and alignment
+- Visual hierarchy
+- **Rules:**
+  - Don't wrap everything in cards
+  - Don't nest cards inside cards
+
+### Motion Design (`reference/motion-design.md`)
+
+- Easing curves
+- Staggered reveals
+- Reduced motion support
+- **Rules:**
+  - AVOID bounce/elastic easing (feels dated)
+  - Use purposeful animation, not random motion
+
+### Interaction Design (`reference/interaction-design.md`)
+
+- Forms
+- Focus states
+- Loading patterns
+
+### Responsive Design (`reference/responsive-design.md`)
+
+- Mobile-first approach
+- Fluid design
+- Container queries
+
+### UX Writing (`reference/ux-writing.md`)
+
+- Button labels
+- Error messages
+- Empty states
+
+---
+
+## Anti-Patterns (NEVER DO)
 
 ### Typography
 
-- Choose fonts that are beautiful, unique, and interesting
-- AVOID generic fonts: Arial, Inter, Roboto, system fonts
-- OPT for distinctive choices that elevate the design
-- Pair a distinctive display font with a refined body font
+- ❌ Use overused fonts (Arial, Inter, Roboto, system defaults)
+- ❌ Use generic font pairings
 
-### Color & Theme
+### Color
 
-- Commit to a cohesive aesthetic
-- Use CSS variables for consistency
-- Dominant colors with sharp accents outperform timid, evenly-distributed palettes
+- ❌ Use pure black (#000000) - always tint
+- ❌ Use gray text on colored backgrounds
+- ❌ Use purple gradients as default
+- ❌ Use timid, evenly-distributed color palettes
+
+### Layout
+
+- ❌ Wrap everything in cards
+- ❌ Nest cards inside cards
+- ❌ Use centered layouts by default
+- ❌ Use predictable grid patterns
 
 ### Motion
 
-- Use animations for effects and micro-interactions
-- Prioritize CSS-only solutions when possible
-- Focus on high-impact moments: one well-orchestrated page load with staggered reveals (animation-delay) creates more delight than scattered micro-interactions
-- Use scroll-triggering and hover states that surprise
-
-### Spatial Composition
-
-- Unexpected layouts
-- Asymmetry
-- Overlap
-- Diagonal flow
-- Grid-breaking elements
-- Generous negative space OR controlled density
-
-### Backgrounds & Visual Details
-
-- Create atmosphere and depth rather than defaulting to solid colors
-- Add contextual effects and textures that match the overall aesthetic
-- Apply creative forms:
-  - Gradient meshes
-  - Noise textures
-  - Geometric patterns
-  - Layered transparencies
-  - Dramatic shadows
-  - Decorative borders
-  - Custom cursors
-  - Grain overlays
+- ❌ Use bounce/elastic easing
+- ❌ Add random animations
+- ❌ Over-animate every element
 
 ---
 
-## What to AVOID
+## Usage Examples
 
-NEVER use generic AI-generated aesthetics:
-- Overused font families (Inter, Roboto, Arial, system fonts)
-- Clichéd color schemes (purple gradients on white backgrounds)
-- Predictable layouts and component patterns
-- Cookie-cutter design that lacks context-specific character
-- Common choices like "Space Grotesk" that feel overused
+### Before Writing Code
 
----
+```
+User: Create a landing page for an AI startup
 
-## Implementation Approach
+You: [Use /teach-impeccable to gather context, then proceed]
+```
 
-### Match Complexity to Vision
-- **Maximalist designs**: Need elaborate code with extensive animations and effects
-- **Minimalist designs**: Need restraint, precision, careful attention to spacing, typography, and subtle details
+### After First Draft
 
-### Key Principles
-1. Interpret creatively and make unexpected choices
-2. Feel genuinely designed for the context
-3. Vary between light and dark themes, different fonts, different aesthetics
-4. NEVER converge on common choices across generations
+```
+User: The landing page looks generic
 
----
+You: [Run /critique to identify issues]
+[Run /bolder to amplify the design]
+[Run /polish to finalize]
+```
 
-## Technology-Specific Guidance
+### Specific Focus
 
-### Vue/Nuxt Components
-- Use `<script setup lang="ts">` composition API
-- Follow Vue 3/Nuxt 4 conventions
-- Leverage Nuxt UI components when appropriate
-
-### Tailwind CSS
-- Use custom CSS variables for theming
-- Extend Tailwind config for unique utilities
-- Apply arbitrary values for one-off designs
-
-### Animations
-- Prefer CSS transitions and keyframes
-- Use `@vueuse/motion` or VueUse for complex animations
-- Implement staggered reveals with `animation-delay`
-
----
-
-## Example: Bold Aesthetic Execution
-
-```vue
-<script setup lang="ts">
-const features = [
-  { title: "Lightning Fast", description: "Built for speed" },
-  { title: "Secure by Design", description: "Enterprise-grade security" },
-  { title: "Accessible", description: "WCAG compliant" },
-];
-</script>
-
-<template>
-  <section class="features">
-    <div
-      v-for="(feature, index) in features"
-      :key="feature.title"
-      class="feature-card"
-      :style="{ animationDelay: `${index * 150}ms` }"
-    >
-      <h3 class="feature-title">{{ feature.title }}</h3>
-      <p class="feature-description">{{ feature.description }}</p>
-    </div>
-  </section>
-</template>
-
-<style scoped>
-.features {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2rem;
-  padding: 4rem;
-}
-
-.feature-card {
-  background: linear-gradient(135deg, #0f0f0f 0%, #1a1a2e 100%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 1rem;
-  padding: 2rem;
-  animation: fadeSlideIn 0.6s ease-out both;
-}
-
-.feature-title {
-  font-family: "Clash Display", sans-serif;
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #f0f0f0;
-  margin-bottom: 0.5rem;
-}
-
-.feature-description {
-  font-family: "Satoshi", sans-serif;
-  font-size: 1rem;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-@keyframes fadeSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-</style>
+```
+/audit header
+/polish checkout-form
+/adapt mobile
+/animate hero-section
 ```
 
 ---
 
-## Context7 Integration
+## Implementation Guidance
 
-For framework-specific guidance:
-```bash
-mcp context7 query-docs \
-  --libraryId "/nuxt/nuxt" \
-  --query "best practices for Vue component animations"
-```
+### For Astro + Tailwind Projects
+
+1. Use CSS variables for theming
+2. Leverage Tailwind's arbitrary values
+3. Prefer CSS animations over JS
+4. Use `client:visible` or `client:load` sparingly
+
+### Typography Selection
+
+| Look      | Display Font     | Body Font    |
+| --------- | ---------------- | ------------ |
+| Technical | JetBrains Mono   | Geist        |
+| Modern    | Clash Display    | Satoshi      |
+| Startup   | Space Grotesk    | Inter        |
+| Luxury    | Playfair Display | Source Serif |
+
+### Color Strategy
+
+1. Pick ONE accent color
+2. Use saturation < 80% for accessibility
+3. Build neutrals from the accent color
+4. Test contrast ratios
+
+---
+
+## Resources
+
+- [Impeccable Website](https://impeccable.style)
+- [Command Cheatsheet](https://impeccable.style/cheatsheet)
+- [Before/After Case Studies](https://impeccable.style#casestudies)
