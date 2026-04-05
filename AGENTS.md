@@ -47,6 +47,10 @@ joyan-landing/
 | **skill-creator**         | Crear nuevos skills                  | `skills/skill-creator/SKILL.md`         |
 | **skill-sync**            | Sincronizar metadata                 | `skills/skill-sync/SKILL.md`            |
 | **skill-auditor**         | Auditar skills                       | `skills/skill-auditor/SKILL.md`         |
+| **stitch-design**         | Diseno UI via Google Stitch MCP       | `skills/stitch-design/SKILL.md`         |
+| **enhance-prompt**        | Mejorar prompts para Stitch           | `skills/enhance-prompt/SKILL.md`        |
+| **react-components**      | Stitch a React/Astro components       | `skills/react-components/SKILL.md`      |
+| **design-md**             | Crear DESIGN.md desde Stitch          | `skills/design-md/SKILL.md`             |
 
 ## Auto-invoke Skills
 
@@ -67,6 +71,39 @@ joyan-landing/
 | Auditando o revisando skills existentes             | `skill-auditor`         |
 | Validando skills contra código real                 | `skill-auditor`         |
 | Verificando documentación de skills                 | `skill-auditor`         |
+| Disenando interfaces de usuario con Stitch          | `stitch-design`         |
+| Mejorar prompts para generacion de UI               | `enhance-prompt`        |
+| Convertir disenos Stitch a componentes              | `react-components`      |
+| Crear documentacion de sistema de diseno            | `design-md`             |
+
+## Stitch Integration
+
+Stitch (google-labs-code/stitch-skills) permite disenar interfaces de usuario usando el MCP server de Google Stitch.
+
+### Skills Incluidas
+
+Este template incluye las siguientes skills de Stitch:
+
+| Skill | Descripcion | Ver |
+|-------|-------------|-----|
+| `stitch-design` | Generar pantallas UI desde texto | `skills/stitch-design/SKILL.md` |
+| `enhance-prompt` | Mejorar prompts para Stitch | `skills/enhance-prompt/SKILL.md` |
+| `react-components` | Convertir disenos a React/Astro | `skills/react-components/SKILL.md` |
+| `design-md` | Crear DESIGN.md desde proyectos Stitch | `skills/design-md/SKILL.md` |
+
+### Setup Rapido
+
+1. **Configurar MCP**: Reemplazar `REPLACE_WITH_YOUR_STITCH_API_KEY` en `.opencode/opencode.json`
+2. **Reiniciar OpenCode**: Para cargar el MCP server
+3. **Listo**: Las skills ya estan incluidas en el template
+
+Ver guia completa en: `.opencode/STITCH_SETUP.md`
+
+### Reglas de Stitch
+
+- NO commitear archivos en `.stitch/` - son artefactos de diseno generados
+- NUNCA hacer commit de API keys (reemplaza en `.opencode/opencode.json`)
+- Las skills ya vienen incluidas en el template
 
 ## Development Commands
 
