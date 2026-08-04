@@ -1,0 +1,33 @@
+---
+import { LOCALES, getAlternateLocalePath, type Locale } from '~/lib/i18n';
+
+export interface Props {
+  /** Locale of the page the toggle is rendered on. */
+  locale: Locale;
+  /** Label of the link to the other locale (from i18n nav.toggle). */
+  label: string;
+}
+
+const { locale, label } = Astro.props;
+const target = locale === LOCALES.ES ? LOCALES.EN : LOCALES.ES;
+const altPath = getAlternateLocalePath(target);
+const current = locale.toUpperCase();
+---
+
+<span class="font-mono text-xs uppercase tracking-widest text-plomo-400">
+  <span>{current}</span>
+  <span class="text-plomo-400"> / </span>
+  <a href={altPath} data-lang-toggle data-alt={altPath} class="hover:text-bone-50">
+    {label}
+  </a>
+</span>
+
+<script is:inline>
+  // ADR-3: keep the current anchor across locale switches (/en/#magi).
+  for (const link of document.querySelectorAll('[data-lang-toggle]')) {
+    const alt = link.getAttribute('data-alt') ?? '/';
+    const preset = () => link.setAttribute('href', alt + window.location.hash);
+    link.addEventListener('click', preset);
+    preset();
+  }
+</script>

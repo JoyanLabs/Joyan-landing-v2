@@ -1,0 +1,19 @@
+---
+import { cn } from '~/lib/utils';
+
+export interface Props {
+  /** Mono lines rendered verbatim, one per row. */
+  lines: string[];
+  class?: string;
+}
+
+const { lines, class: className } = Astro.props;
+---
+
+<div class={cn('border border-hairline bg-ink-800', className)}>
+  <div class="flex items-center gap-3 border-b border-hairline px-5 py-3" aria-hidden="true">
+    <span class="font-mono text-xs text-plomo-400">$</span>
+    <span class="font-mono text-xs uppercase tracking-widest text-plomo-400">joyan</span>
+  </div>
+  <pre class="overflow-x-auto px-5 py-4 font-mono text-xs leading-6 text-bone-100">{lines.join('\n')}</pre>
+</div>
