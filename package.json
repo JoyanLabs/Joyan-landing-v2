@@ -17,6 +17,7 @@
 		"check:astro": "astro check",
 		"fix": "eslint --fix src/",
 		"format": "prettier --write src/",
+		"generate:dither": "node scripts/generate-dither.mjs",
 		"lint": "eslint src/"
 	},
 	"dependencies": {
