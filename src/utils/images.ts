@@ -88,6 +88,17 @@ export const adaptOpenGraphImages = async (
 					};
 				}
 
+				// Public-dir paths are already final URLs; pass them through
+				// with the configured size (the assets optimizer only handles
+				// src/ imports and remote URLs).
+				if (typeof resolvedImage === "string" && resolvedImage.startsWith("/")) {
+					return {
+						url: String(new URL(resolvedImage, astroSite)),
+						width: image.width ?? defaultWidth,
+						height: image.height ?? defaultHeight,
+					};
+				}
+
 				let _image: OptimizedImage | undefined;
 
 				if (
