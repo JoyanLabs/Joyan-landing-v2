@@ -1,5 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { unified } from "@astrojs/markdown-remark";
 import tailwindcss from "@tailwindcss/vite";
 import mdx from "@astrojs/mdx";
 import partytown from "@astrojs/partytown";
@@ -69,9 +70,13 @@ export default defineConfig({
 	},
 
 	markdown: {
+		processor: unified(),
 		remarkPlugins: [readingTimeRemarkPlugin],
 		rehypePlugins: [responsiveTablesRehypePlugin, lazyImagesRehypePlugin],
 	},
+
+	// Preserve the v5/v6 whitespace behavior (v7 defaults to 'jsx')
+	compressHTML: true,
 
 	vite: {
 		plugins: [tailwindcss()],
