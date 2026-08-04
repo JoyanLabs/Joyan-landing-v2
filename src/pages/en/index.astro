@@ -1,0 +1,17 @@
+---
+import PageLayout from '~/layouts/PageLayout.astro';
+import Wordmark from '~/components/joyan/Wordmark.astro';
+import { en, LOCALES } from '~/lib/i18n';
+
+const content = en;
+---
+
+<PageLayout lang={LOCALES.EN} metadata={{ title: content.meta.title, description: content.meta.description }}>
+  <div class="container mx-auto px-6 py-20 min-h-screen flex flex-col justify-center">
+    <Wordmark class="mb-16" />
+    <p class="font-mono text-xs uppercase tracking-widest text-plomo-400">{content.hero.kicker}</p>
+    <h1 id="top" class="text-display text-bone-50 mt-6 text-4xl md:text-6xl">{content.hero.title}</h1>
+    <p class="text-plomo-400 max-w-2xl mt-8 text-lg">{content.hero.lead}</p>
+    <p class="mt-24 font-mono text-xs text-plomo-500">{content.footer.legal}</p>
+  </div>
+</PageLayout>
