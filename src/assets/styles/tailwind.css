@@ -4,6 +4,23 @@
 
 @plugin '@tailwindcss/typography';
 
+/*
+  Restrict Tailwind's automatic source scanning to the V1 app surface.
+  Without these exclusions the compiler also scans unreferenced template
+  components (widgets/blog/ui), skill docs and spec artifacts, whose example
+  class names (rounded-*, purple-*, italic) leak unused utilities into dist.
+*/
+@source not '../../components/blog/**';
+@source not '../../components/widgets/**';
+@source not '../../components/ui/**';
+@source not '../../components/common/ToggleTheme.astro';
+@source not '../../components/common/ToggleMenu.astro';
+@source not '../../../skills/**';
+@source not '../../../openspec/**';
+@source not '../../../.opencode/**';
+@source not '../../../docs/**';
+@source not '../../../.atl/**';
+
 @custom-variant dark (&:is(.dark *));
 
 @custom-variant intersect (&:not([no-intersect]));

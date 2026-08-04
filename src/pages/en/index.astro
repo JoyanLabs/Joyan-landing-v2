@@ -13,13 +13,11 @@ const content = en;
 ---
 
 <PageLayout lang={LOCALES.EN} metadata={{ title: content.meta.title, description: content.meta.description }}>
-  <div class="bg-ink-950 text-bone-100">
-    <SiteHeader locale={LOCALES.EN} nav={content.nav} />
-    <Hero content={content.hero} />
-    <AgentsSection content={content.agents} />
-    <MagiSection content={content.magi} />
-    <HardwareSection content={content.hardware} />
-    <EcosystemSection content={content.ecosystem} />
-    <SiteFooter content={content.footer} nav={content.nav} />
-  </div>
+  <SiteHeader slot="header" locale={LOCALES.EN} nav={content.nav} />
+  <Hero content={content.hero} />
+  <AgentsSection content={content.agents} />
+  <MagiSection content={content.magi} />
+  <HardwareSection content={content.hardware} />
+  <EcosystemSection content={content.ecosystem} />
+  <SiteFooter slot="footer" content={content.footer} nav={content.nav} />
 </PageLayout>

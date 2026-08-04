@@ -11,7 +11,11 @@ const { metadata, lang } = Astro.props;
 ---
 
 <Layout metadata={metadata} lang={lang}>
-  <main class="relative">
-    <slot />
-  </main>
+  <div class="bg-ink-950 text-bone-100">
+    <slot name="header" />
+    <main class="relative">
+      <slot />
+    </main>
+    <slot name="footer" />
+  </div>
 </Layout>
