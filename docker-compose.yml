@@ -1,0 +1,6 @@
+services:
+  joyan-landing:
+    build: .
+    container_name: joyan-landing
+    ports:
+      - 8080:8080

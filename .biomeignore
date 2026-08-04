@@ -1,0 +1,5 @@
+**/*.css
+dist/
+node_modules/
+.astro/
+
