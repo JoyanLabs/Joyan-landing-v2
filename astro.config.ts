@@ -1,10 +1,10 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import tailwindcss from "@tailwindcss/vite";
 import mdx from "@astrojs/mdx";
 import partytown from "@astrojs/partytown";
 import react from "@astrojs/react";
 import sitemap from "@astrojs/sitemap";
-import tailwind from "@astrojs/tailwind";
 import vue from "@astrojs/vue";
 import type { AstroIntegration } from "astro";
 import { defineConfig } from "astro/config";
@@ -32,9 +32,6 @@ export default defineConfig({
 	output: "static",
 
 	integrations: [
-		tailwind({
-			applyBaseStyles: false,
-		}),
 		sitemap(),
 		mdx(),
 		vue(),
@@ -77,6 +74,7 @@ export default defineConfig({
 	},
 
 	vite: {
+		plugins: [tailwindcss()],
 		resolve: {
 			alias: {
 				"~": path.resolve(__dirname, "./src"),

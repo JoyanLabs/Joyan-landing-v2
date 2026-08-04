@@ -1,8 +1,101 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+@plugin '@tailwindcss/typography';
+
+@custom-variant dark (&:is(.dark *));
+
+@custom-variant intersect (&:not([no-intersect]));
+
+@theme {
+  /* Theme tokens ported from tailwind.config.js */
+  --color-primary: var(--aw-color-primary);
+  --color-secondary: var(--aw-color-secondary);
+  --color-accent: var(--aw-color-accent);
+  --color-default: var(--aw-color-text-default);
+  --color-muted: var(--aw-color-text-muted);
+
+  /* Joyan Custom Colors */
+  --color-joyan-bg: var(--joyan-bg);
+  --color-joyan-card: var(--joyan-card);
+  --color-joyan-accent: var(--joyan-accent);
+  --color-joyan-muted: var(--joyan-muted);
+  --color-joyan-text: var(--joyan-text);
+
+  /* Preserve the v3 default ring color (blue-500) for `ring-ring` utilities */
+  --color-ring: #3b82f6;
+
+  --font-sans: var(--aw-font-sans, 'Inter', ui-sans-serif), ui-sans-serif, system-ui, sans-serif,
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  --font-serif: var(--aw-font-serif, ui-serif), ui-serif, Georgia, Cambria, 'Times New Roman',
+    Times, serif;
+  --font-heading: var(--aw-font-heading, 'Space Grotesk', ui-sans-serif), ui-sans-serif, system-ui,
+    sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+
+  --animate-fade: fadeInUp 1s both;
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-aurora: aurora 60s linear infinite;
+  --animate-blob: blob 7s infinite;
+
+  @keyframes fadeInUp {
+    0% {
+      opacity: 0;
+      transform: translateY(2rem);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-20px);
+    }
+  }
+
+  @keyframes aurora {
+    from {
+      background-position: 50% 50%, 50% 50%;
+    }
+    to {
+      background-position: 350% 50%, 350% 50%;
+    }
+  }
+
+  @keyframes blob {
+    0% {
+      transform: translate(0px, 0px) scale(1);
+    }
+    33% {
+      transform: translate(30px, -50px) scale(1.1);
+    }
+    66% {
+      transform: translate(-20px, 20px) scale(0.9);
+    }
+    100% {
+      transform: translate(0px, 0px) scale(1);
+    }
+  }
+}
 
 @layer base {
+  /*
+    The default border color has changed to `currentcolor` in Tailwind CSS v4,
+    so we've added these compatibility styles to make sure everything still
+    looks the same as it did with Tailwind CSS v3.
+  */
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+
   :root {
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
@@ -28,11 +121,22 @@
     /* Joyan Custom Variables */
     --joyan-bg: #050505;
     --joyan-card: rgba(255, 255, 255, 0.05);
-    --joyan-accent: #00F0FF;
-    --joyan-muted: #A0A0A0;
+    --joyan-accent: #00f0ff;
+    --joyan-muted: #a0a0a0;
     --joyan-text: #ffffff;
+
+    /* Tailwind palette colors exposed as CSS variables (formerly the
+       addVariablesForColors plugin in tailwind.config.js) */
+    --white: #fff;
+    --black: #000;
+    --transparent: transparent;
+    --blue-500: #3b82f6;
+    --blue-400: #60a5fa;
+    --blue-300: #93c5fd;
+    --indigo-300: #a5b4fc;
+    --violet-200: #ddd6fe;
   }
- 
+
   .dark {
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
@@ -54,151 +158,7 @@
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
   }
-}
 
-@layer utilities {
-  .holographic-text {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 animate-pulse;
-  }
-  
-  .glass-card {
-    @apply bg-white/10 backdrop-blur-lg border border-white/20 shadow-xl;
-  }
-}
-
-/* Animation for the pulsing effect */
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
-/* Animation for the ping effect */
-@keyframes ping {
-  75%, 100% {
-    transform: scale(2);
-    opacity: 0;
-  }
-}
-
-/* Custom animations for the orbital timeline */
-.animate-pulse {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-.animate-ping {
-  animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
-}
-
-@layer utilities {
-  .bg-page {
-    background-color: #050505;
-    color: #ffffff;
-  }
-  .bg-dark {
-    background-color: #050505;
-  }
-  .bg-light {
-    background-color: #050505;
-  }
-  .text-page {
-    color: #ffffff;
-  }
-  .text-muted {
-    color: #A0A0A0;
-  }
-  
-  /* Custom Utilities for Joyan */
-  .glass-card {
-    background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-  }
-  
-  .holographic-text {
-    background: linear-gradient(90deg, #00ffff, #ff00ff, #9d00ff);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-}
-
-@layer components {
-  .btn {
-    @apply inline-flex items-center justify-center rounded-full border-gray-400 border bg-transparent font-medium text-center text-base text-page leading-snug transition py-3.5 px-6 md:px-8 ease-in duration-200 focus:ring-blue-500 focus:ring-offset-blue-200 focus:ring-2 focus:ring-offset-2 hover:bg-gray-100 hover:border-gray-600 dark:text-slate-300 dark:border-slate-500 dark:hover:bg-slate-800 dark:hover:border-slate-800 cursor-pointer;
-  }
-
-  .btn-primary {
-    @apply btn font-semibold bg-primary text-white border-primary hover:bg-secondary hover:border-secondary hover:text-white dark:text-white dark:bg-primary dark:border-primary dark:hover:border-secondary dark:hover:bg-secondary;
-  }
-
-  .btn-secondary {
-    @apply btn;
-  }
-
-  .btn-tertiary {
-    @apply btn border-none shadow-none text-muted hover:text-gray-900 dark:text-gray-400 dark:hover:text-white;
-  }
-}
-
-#header.scroll > div:first-child {
-  @apply bg-page md:bg-white/90 md:backdrop-blur-md;
-  box-shadow: 0 0.375rem 1.5rem 0 rgb(140 152 164 / 13%);
-}
-.dark #header.scroll > div:first-child,
-#header.scroll.dark > div:first-child {
-  @apply bg-page md:bg-[#030621e6] border-b border-gray-500/20;
-  box-shadow: none;
-}
-/* #header.scroll > div:last-child {
-  @apply py-3;
-} */
-
-#header.expanded nav {
-  position: fixed;
-  top: 70px;
-  left: 0;
-  right: 0;
-  bottom: 70px !important;
-  padding: 0 5px;
-}
-
-.dropdown:focus .dropdown-menu,
-.dropdown:focus-within .dropdown-menu,
-.dropdown:hover .dropdown-menu {
-  display: block;
-}
-
-[astro-icon].icon-light > * {
-  stroke-width: 1.2;
-}
-
-[astro-icon].icon-bold > * {
-  stroke-width: 2.4;
-}
-
-[data-aw-toggle-menu] path {
-  @apply transition;
-}
-[data-aw-toggle-menu].expanded g > path:first-child {
-  @apply -rotate-45 translate-y-[15px] translate-x-[-3px];
-}
-
-[data-aw-toggle-menu].expanded g > path:last-child {
-  @apply rotate-45 translate-y-[-8px] translate-x-[14px];
-}
-
-/* To deprecated */
-
-
-.dd *:first-child {
-  margin-top: 0;
-}
-
-@layer base {
   @property --pos-x {
     syntax: '<percentage>';
     initial-value: 11.14%;
@@ -302,38 +262,119 @@
   }
 }
 
-@layer components {
-  .gradient-button {
-    @apply relative appearance-none cursor-pointer;
-    background: radial-gradient(
-      var(--spread-x) var(--spread-y) at var(--pos-x) var(--pos-y),
-      var(--color-1) var(--stop-1),
-      var(--color-2) var(--stop-2),
-      var(--color-3) var(--stop-3),
-      var(--color-4) var(--stop-4),
-      var(--color-5) var(--stop-5)
-    );
-    transition:
-      --pos-x 0.5s,
-      --pos-y 0.5s,
-      --spread-x 0.5s,
-      --spread-y 0.5s,
-      --color-1 0.5s,
-      --color-2 0.5s,
-      --color-3 0.5s,
-      --color-4 0.5s,
-      --color-5 0.5s,
-      --border-angle 0.5s,
-      --border-color-1 0.5s,
-      --border-color-2 0.5s,
-      --stop-1 0.5s,
-      --stop-2 0.5s,
-      --stop-3 0.5s,
-      --stop-4 0.5s,
-      --stop-5 0.5s;
+/* Animation for the pulsing effect */
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
   }
+  50% {
+    opacity: 0.5;
+  }
+}
 
-  .gradient-button::before {
+/* Animation for the ping effect */
+@keyframes ping {
+  75%,
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+/* Custom animations for the orbital timeline */
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-ping {
+  animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@utility holographic-text {
+  @apply bg-clip-text text-transparent bg-linear-to-r from-cyan-400 via-blue-500 to-purple-600 animate-pulse;
+  background: linear-gradient(90deg, #00ffff, #ff00ff, #9d00ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+@utility glass-card {
+  @apply bg-white/10 backdrop-blur-lg border border-white/20 shadow-xl;
+
+  /* Custom Utilities for Joyan */
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+@utility bg-page {
+  background-color: #050505;
+  color: #ffffff;
+}
+
+@utility bg-dark {
+  background-color: #050505;
+}
+
+@utility bg-light {
+  background-color: #050505;
+}
+
+@utility text-page {
+  color: #ffffff;
+}
+
+@utility text-muted {
+  color: #a0a0a0;
+}
+
+@utility btn {
+  @apply inline-flex items-center justify-center rounded-full border-gray-400 border bg-transparent font-medium text-center text-base text-page leading-snug transition py-3.5 px-6 md:px-8 ease-in duration-200 focus:ring-blue-500 focus:ring-offset-blue-200 focus:ring-2 focus:ring-offset-2 hover:bg-gray-100 hover:border-gray-600 dark:text-slate-300 dark:border-slate-500 dark:hover:bg-slate-800 dark:hover:border-slate-800 cursor-pointer;
+}
+
+@utility btn-primary {
+  @apply btn font-semibold bg-primary text-white border-primary hover:bg-secondary hover:border-secondary hover:text-white dark:text-white dark:bg-primary dark:border-primary dark:hover:border-secondary dark:hover:bg-secondary;
+}
+
+@utility btn-secondary {
+  @apply btn;
+}
+
+@utility btn-tertiary {
+  @apply btn border-none shadow-none text-muted hover:text-gray-900 dark:text-gray-400 dark:hover:text-white;
+}
+
+@utility gradient-button {
+  @apply relative appearance-none cursor-pointer;
+  background: radial-gradient(
+    var(--spread-x) var(--spread-y) at var(--pos-x) var(--pos-y),
+    var(--color-1) var(--stop-1),
+    var(--color-2) var(--stop-2),
+    var(--color-3) var(--stop-3),
+    var(--color-4) var(--stop-4),
+    var(--color-5) var(--stop-5)
+  );
+  transition:
+    --pos-x 0.5s,
+    --pos-y 0.5s,
+    --spread-x 0.5s,
+    --spread-y 0.5s,
+    --color-1 0.5s,
+    --color-2 0.5s,
+    --color-3 0.5s,
+    --color-4 0.5s,
+    --color-5 0.5s,
+    --border-angle 0.5s,
+    --border-color-1 0.5s,
+    --border-color-2 0.5s,
+    --stop-1 0.5s,
+    --stop-2 0.5s,
+    --stop-3 0.5s,
+    --stop-4 0.5s,
+    --stop-5 0.5s;
+
+  &::before {
     content: '';
     position: absolute;
     inset: 0;
@@ -344,12 +385,14 @@
       var(--border-color-1),
       var(--border-color-2)
     );
-    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
     mask-composite: exclude;
     pointer-events: none;
   }
 
-  .gradient-button:hover {
+  &:hover {
     --pos-x: 0%;
     --pos-y: 91.51%;
     --spread-x: 120.24%;
@@ -368,18 +411,18 @@
     --stop-4: 71.34%;
     --stop-5: 85.76%;
   }
+}
 
-  .gradient-button-variant {
-    --color-1: #000022;
-    --color-2: #1f3f6d;
-    --color-3: #469396;
-    --color-4: #1f3f6d;
-    --border-angle: 200deg;
-    --border-color-1: hsla(320, 75%, 90%, 0.6);
-    --border-color-2: hsla(320, 50%, 90%, 0.15);
-  }
+@utility gradient-button-variant {
+  --color-1: #000022;
+  --color-2: #1f3f6d;
+  --color-3: #469396;
+  --color-4: #1f3f6d;
+  --border-angle: 200deg;
+  --border-color-1: hsla(320, 75%, 90%, 0.6);
+  --border-color-2: hsla(320, 50%, 90%, 0.15);
 
-  .gradient-button-variant:hover {
+  &:hover {
     --pos-x: 0%;
     --pos-y: 95.51%;
     --spread-x: 110.24%;
@@ -397,5 +440,60 @@
     --border-angle: 210deg;
     --border-color-1: hsla(320, 75%, 90%, 0.2);
     --border-color-2: hsla(320, 50%, 90%, 0.75);
+  }
+}
+
+@layer utilities {
+  #header.scroll > div:first-child {
+    @apply bg-page md:bg-white/90 md:backdrop-blur-md;
+    box-shadow: 0 0.375rem 1.5rem 0 rgb(140 152 164 / 13%);
+  }
+  .dark #header.scroll > div:first-child,
+  #header.scroll.dark > div:first-child {
+    @apply bg-page md:bg-[#030621e6] border-b border-gray-500/20;
+    box-shadow: none;
+  }
+  /* #header.scroll > div:last-child {
+  @apply py-3;
+} */
+
+  #header.expanded nav {
+    position: fixed;
+    top: 70px;
+    left: 0;
+    right: 0;
+    bottom: 70px !important;
+    padding: 0 5px;
+  }
+
+  .dropdown:focus .dropdown-menu,
+  .dropdown:focus-within .dropdown-menu,
+  .dropdown:hover .dropdown-menu {
+    display: block;
+  }
+
+  [astro-icon].icon-light > * {
+    stroke-width: 1.2;
+  }
+
+  [astro-icon].icon-bold > * {
+    stroke-width: 2.4;
+  }
+
+  [data-aw-toggle-menu] path {
+    @apply transition;
+  }
+  [data-aw-toggle-menu].expanded g > path:first-child {
+    @apply -rotate-45 translate-y-[15px] translate-x-[-3px];
+  }
+
+  [data-aw-toggle-menu].expanded g > path:last-child {
+    @apply rotate-45 translate-y-[-8px] translate-x-[14px];
+  }
+
+  /* To deprecated */
+
+  .dd *:first-child {
+    margin-top: 0;
   }
 }
