@@ -40,14 +40,25 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Resolve image name
+        id: imagename
+        # Use github.repository ("owner/name") so the image lands in the GHCR
+        # namespace of whichever org/owner is running this workflow. The
+        # repository_name property evaluates to empty for tag pushes, so we
+        # slice github.repository instead. The vars.GHCR_IMAGE override lets a
+        # host repo point at a mirror registry.
+        run: |
+          if [ -n "${{ vars.GHCR_IMAGE }}" ]; then
+            echo "image=${{ vars.GHCR_IMAGE }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "image=ghcr.io/${GITHUB_REPOSITORY}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Extract image metadata
         id: meta
         uses: docker/metadata-action@v6
         with:
-          # Use github.repository_owner + github.repository_name so the image lands in
-          # the GHCR namespace of whichever org/owner is running this workflow.
-          # Falls back to vars.GHCR_IMAGE if the host repo set an explicit override.
-          images: ${{ vars.GHCR_IMAGE || format('ghcr.io/{0}/{1}', github.repository_owner, github.repository_name) }}
+          images: ${{ steps.imagename.outputs.image }}
           tags: |
             type=ref,event=branch
             type=semver,pattern={{version}}
