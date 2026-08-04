@@ -9,9 +9,9 @@ metadata:
   author: JoyanLabs
   version: 2.0.0
   scope: root
-  auto_invoke: >
-    Building frontend components, pages, or interfaces,
-    Creating UI elements with high design quality,
+  auto_invoke:
+    - "Building frontend components, pages, or interfaces"
+    - "Creating UI elements with high design quality"
     Designing landing pages, dashboards, or any web interface
 allowed-tools: Read, Edit, Write, Glob, Grep, Context7
 ---

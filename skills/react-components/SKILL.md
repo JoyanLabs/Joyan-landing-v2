@@ -1,5 +1,5 @@
 ---
-name: react:components
+name: react-components
 description: Converts Stitch designs into modular Vite and React components using system-level networking and AST-based validation.
 allowed-tools:
   - "stitch*:*"
@@ -7,6 +7,12 @@ allowed-tools:
   - "Read"
   - "Write"
   - "web_fetch"
+license: MIT
+metadata:
+  author: joyanlabs
+  version: "1.0.0"
+  scope: [root]
+  auto_invoke: "Convertir disenos Stitch a componentes"
 ---
 
 # Stitch to React Components

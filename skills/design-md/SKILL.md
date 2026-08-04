@@ -6,6 +6,12 @@ allowed-tools:
   - "Read"
   - "Write"
   - "web_fetch"
+license: MIT
+metadata:
+  author: joyanlabs
+  version: "1.0.0"
+  scope: [root]
+  auto_invoke: "Crear documentacion de sistema de diseno"
 ---
 
 # Stitch DESIGN.md Skill
