@@ -99,7 +99,7 @@ joyan-landing/
 │   └── favicon.ico
 │
 ├── astro.config.ts              # 🔑 CONFIGURACIÓN DE ASTRO
-├── tailwind.config.js           # 🔑 CONFIGURACIÓN DE TAILWIND CSS
+├── src/assets/styles/tailwind.css    # 🔑 CONFIGURACIÓN TAILWIND (tokens @theme)
 ├── package.json                 # Dependencias del proyecto
 └── tsconfig.json               # Configuración TypeScript
 ```
@@ -585,7 +585,7 @@ import Hero from '~/components/widgets/Hero.astro';
 
 - ✅ `src/config.yaml` - MODIFICAR con datos de Joyan
 - ✅ `src/navigation.ts` - MODIFICAR con tu navegación
-- ✅ `tailwind.config.js` - MODIFICAR colores de marca
+- ✅ `src/assets/styles/tailwind.css` - MODIFICAR colores de marca (tokens @theme)
 - ✅ `astro.config.ts` - Revisar configuración
 
 #### Layouts:
@@ -759,26 +759,19 @@ export const footerData = {
 
 ### Paso 2: Personalizar Colores y Diseño (20 minutos)
 
-#### 2.1 Actualizar `tailwind.config.js`
+#### 2.1 Actualizar tokens de tema en `src/assets/styles/tailwind.css`
 
-```javascript
-export default {
-  theme: {
-    extend: {
-      colors: {
-        primary: {
-          50: '#f0f9ff',
-          100: '#e0f2fe',
-          // ... tus colores de marca de Joyan
-          600: '#0284c7', // Color principal
-          700: '#0369a1',
-        },
-        accent: '#FF6B6B', // Color de acento de Joyan
-      },
-    },
-  },
-};
-```
+Con Tailwind CSS 4 ya no existe `tailwind.config.js`: los colores y tokens de marca se definen en el bloque `@theme` del stylesheet global.
+
+```css
+/* src/assets/styles/tailwind.css */
+@theme {
+  --color-primary: var(--aw-color-primary); /* Color principal */
+  --color-secondary: var(--aw-color-secondary);
+  --color-accent: var(--aw-color-accent);
+  --color-joyan-bg: var(--joyan-bg);
+  --color-joyan-accent: var(--joyan-accent); /* Color de acento de Joyan */
+}
 
 #### 2.2 Actualizar Logo en `src/components/Logo.astro`
 
@@ -1245,7 +1238,7 @@ Usa esta lista para asegurarte de que has personalizado todo:
 
 - [ ] `src/config.yaml` - Nombre, dominio, SEO
 - [ ] `src/navigation.ts` - Menús personalizados
-- [ ] `tailwind.config.js` - Colores de marca
+- [ ] `src/assets/styles/tailwind.css` - Colores de marca (tokens @theme)
 - [ ] `package.json` - Nombre del proyecto
 
 ### Branding:
@@ -1435,5 +1428,5 @@ Ya tienes todo lo necesario para personalizar esta plantilla para Joyan.
 ---
 
 **Última actualización:** Noviembre 2025  
-**Versión de Astro:** 5.0+  
-**Versión de AstroWind:** 1.0.0-beta.52
+**Versión de Astro:** 7.x  
+**Versión de Tailwind CSS:** 4.x
