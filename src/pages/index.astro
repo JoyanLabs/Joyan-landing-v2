@@ -1,0 +1,122 @@
+---
+import Layout from '~/layouts/PageLayout.astro';
+
+const metadata = {
+  title: 'Plantilla Landing Page - Astro + Tailwind',
+  ignoreTitleTemplate: true,
+};
+---
+
+<Layout metadata={metadata}>
+  <div class="container mx-auto px-6 py-20 min-h-screen flex flex-col justify-center">
+    <!-- Hero Section -->
+    <div class="text-center max-w-4xl mx-auto">
+      <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-8">
+        <span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+        Plantilla Lista para Usar
+      </div>
+
+      <h1 class="text-5xl md:text-7xl font-bold tracking-tight mb-6">
+        Tu <span class="text-primary">Landing Page</span>
+        <br />
+        Comienza Aquí
+      </h1>
+
+      <p class="text-xl text-muted-foreground max-w-2xl mx-auto mb-12">
+        Esta es una plantilla profesional construida con Astro 5, React, Vue y Tailwind CSS.
+        Limpia, rápida y lista para personalizar.
+      </p>
+
+      <div class="flex flex-col sm:flex-row gap-4 justify-center">
+        <a
+          href="#comenzar"
+          class="inline-flex items-center justify-center px-8 py-4 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors"
+        >
+          Comenzar Ahora
+        </a>
+        <a
+          href="#documentacion"
+          class="inline-flex items-center justify-center px-8 py-4 rounded-lg border border-border hover:bg-accent transition-colors"
+        >
+          Ver Documentación
+        </a>
+      </div>
+    </div>
+
+    <!-- Features Grid -->
+    <div id="comenzar" class="grid md:grid-cols-3 gap-8 mt-32 max-w-6xl mx-auto w-full">
+      <div class="p-6 rounded-xl border border-border bg-card">
+        <div class="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
+          <svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+          </svg>
+        </div>
+        <h3 class="text-lg font-semibold mb-2">Rendimiento Óptimo</h3>
+        <p class="text-muted-foreground">
+          Construido con Astro para máxima velocidad. Carga solo el JavaScript necesario.
+        </p>
+      </div>
+
+      <div class="p-6 rounded-xl border border-border bg-card">
+        <div class="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
+          <svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>
+          </svg>
+        </div>
+        <h3 class="text-lg font-semibold mb-2">Diseño Moderno</h3>
+        <p class="text-muted-foreground">
+          Tailwind CSS con modo oscuro incluido. Componentes UI reutilizables.
+        </p>
+      </div>
+
+      <div class="p-6 rounded-xl border border-border bg-card">
+        <div class="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
+          <svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
+          </svg>
+        </div>
+        <h3 class="text-lg font-semibold mb-2">TypeScript + ESLint</h3>
+        <p class="text-muted-foreground">
+          Código tipado y herramientas de calidad configuradas listas para usar.
+        </p>
+      </div>
+    </div>
+
+    <!-- Tech Stack -->
+    <div class="mt-32 text-center max-w-4xl mx-auto">
+      <h2 class="text-3xl font-bold mb-4">Stack Tecnológico</h2>
+      <p class="text-muted-foreground mb-12">
+        Tecnologías modernas y probadas para tu proyecto
+      </p>
+
+      <div class="flex flex-wrap justify-center gap-4">
+        {['Astro 5', 'React 19', 'Vue 3', 'Tailwind CSS', 'TypeScript', 'ESLint'].map((tech) => (
+          <span class="px-4 py-2 rounded-full bg-accent text-accent-foreground text-sm font-medium">
+            {tech}
+          </span>
+        ))}
+      </div>
+    </div>
+
+    <!-- CTA Section -->
+    <div class="mt-32 text-center max-w-2xl mx-auto p-8 rounded-2xl bg-linear-to-br from-primary/10 via-primary/5 to-background border border-primary/20">
+      <h2 class="text-3xl font-bold mb-4">¿Listo para crear?</h2>
+      <p class="text-muted-foreground mb-8">
+        Personaliza esta plantilla según tus necesidades. Revisa el código en <code>src/pages/index.astro</code> para comenzar.
+      </p>
+      <div class="flex flex-col sm:flex-row gap-4 justify-center">
+        <code class="px-4 py-2 rounded-lg bg-black/50 text-green-400 font-mono text-sm">
+          pnpm dev
+        </code>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-32 pt-8 border-t border-border text-center text-sm text-muted-foreground">
+      <p>
+        Plantilla por <span class="font-semibold">JoyanLabs</span> • 
+        Personaliza y crea algo increíble
+      </p>
+    </footer>
+  </div>
+</Layout>

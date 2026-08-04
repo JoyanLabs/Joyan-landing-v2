@@ -1,0 +1,72 @@
+site:
+  name: Plantilla
+  site: 'https://example.com'
+  base: '/'
+  trailingSlash: false
+
+  # googleSiteVerificationId: false
+
+# Default SEO metadata
+metadata:
+  title:
+    default: Plantilla Landing
+    template: '%s — Plantilla'
+  description: 'Una plantilla moderna de landing page construida con Astro y Tailwind CSS.'
+  robots:
+    index: true
+    follow: true
+  openGraph:
+    site_name: Plantilla
+    images:
+      - url: '~/assets/images/default-og.png'
+        width: 1200
+        height: 628
+    type: website
+  twitter:
+    handle: '@handle'
+    site: '@handle'
+    cardType: summary_large_image
+
+i18n:
+  language: es
+  textDirection: ltr
+
+apps:
+  blog:
+    isEnabled: false
+    postsPerPage: 6
+
+    post:
+      isEnabled: false
+      permalink: '/%slug%'
+      robots:
+        index: true
+
+    list:
+      isEnabled: false
+      pathname: 'blog'
+      robots:
+        index: true
+
+    category:
+      isEnabled: false
+      pathname: 'category'
+      robots:
+        index: true
+
+    tag:
+      isEnabled: false
+      pathname: 'tag'
+      robots:
+        index: false
+
+    isRelatedPostsEnabled: false
+    relatedPostsCount: 4
+
+analytics:
+  vendors:
+    googleAnalytics:
+      id: null # or "G-XXXXXXXXXX"
+
+ui:
+  theme: 'system' # Values: "system" | "light" | "dark" | "light:only" | "dark:only"
