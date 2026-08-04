@@ -1,6 +1,6 @@
-# 🚀 Joyan Landing Template
+# 🚀 Joyan Landing V2
 
-Plantilla de landing page de alta calidad construida con **Astro 5** + **Tailwind CSS**.
+Landing page de JoyanLabs construida con **Astro 7** + **Tailwind CSS 4**.
 
 ## Características
 
