@@ -1,7 +1,7 @@
 {
 	"name": "@joyanlabs/landing-template",
 	"version": "1.0.0",
-	"description": "Plantilla de landing page de alta calidad con Astro 5 + Tailwind CSS + Agent Skills",
+	"description": "Plantilla de landing page de alta calidad con Astro 7 + Tailwind CSS 4 + Agent Skills",
 	"type": "module",
 	"private": true,
 	"engines": {

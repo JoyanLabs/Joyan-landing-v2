@@ -176,7 +176,7 @@ for scope in "${scopes_sorted[@]}"; do
 
     echo -e "${BLUE}Processing: $scope -> AGENTS.md${NC}"
 
-    auto_invoke_section="### Auto-invoke Skills
+    auto_invoke_section="## Auto-invoke Skills
 
 When performing these actions, ALWAYS invoke the corresponding skill FIRST:
 
@@ -213,9 +213,9 @@ When performing these actions, ALWAYS invoke the corresponding skill FIRST:
         section_file=$(mktemp)
         echo "$auto_invoke_section" > "$section_file"
 
-        if grep -q "### Auto-invoke Skills" "$agents_path"; then
+        if grep -q "## Auto-invoke Skills" "$agents_path"; then
             awk '
-                /^### Auto-invoke Skills/ {
+                /^## Auto-invoke Skills/ {
                     while ((getline line < "'"$section_file"'") > 0) print line
                     close("'"$section_file"'")
                     skip = 1

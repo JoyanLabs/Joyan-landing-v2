@@ -33,7 +33,7 @@ Usa esta skill cuando:
 
 ### ¿Qué es?
 
-El **Astro Docs MCP Server** te permite consultar la documentación oficial de Astro 5.0+ directamente desde tu agente de IA. Evita que el agente alucine APIs viejas.
+El **Astro Docs MCP Server** te permite consultar la documentación oficial de Astro 7.x directamente desde tu agente de IA. Evita que el agente alucine APIs viejas.
 
 ### Configuración
 

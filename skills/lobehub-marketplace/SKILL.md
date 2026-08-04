@@ -9,9 +9,9 @@ metadata:
   author: JoyanLabs
   version: 1.0.0
   scope: root
-  auto_invoke: >
-    When you need a skill that doesn't exist,
-    When working with unfamiliar technologies,
+  auto_invoke:
+    - "When you need a skill that doesn't exist"
+    - "When working with unfamiliar technologies"
     When searching for best practices or tools,
     Installing new capabilities
 allowed-tools: Bash, Read, Write, Glob

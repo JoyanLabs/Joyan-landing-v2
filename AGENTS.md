@@ -4,14 +4,14 @@
 
 ## Project Overview
 
-**Joyan Landing** es una plantilla de landing page de alta calidad construida con Astro 5 + Tailwind CSS. Pertenece a **JoyanLabs**.
+**Joyan Landing** es una plantilla de landing page de alta calidad construida con Astro 7 + Tailwind CSS 4.x. Pertenece a **JoyanLabs**.
 
 ### Stack Tecnológico
 
-- **Astro** 5.x - Framework principal
+- **Astro** 7.x - Framework principal
 - **React** 19.x - Componentes interactivos
 - **Vue** 3.5 - Componentes alternativos
-- **Tailwind CSS** 3.4 - Estilos
+- **Tailwind CSS** 4.x - Estilos
 - **TypeScript** 5.x - Tipado
 - **ESLint** 10.x - Linter
 - **Prettier** 3.x - Formatter
@@ -51,30 +51,40 @@ joyan-landing/
 | **enhance-prompt**        | Mejorar prompts para Stitch           | `skills/enhance-prompt/SKILL.md`        |
 | **react-components**      | Stitch a React/Astro components       | `skills/react-components/SKILL.md`      |
 | **design-md**             | Crear DESIGN.md desde Stitch          | `skills/design-md/SKILL.md`             |
+| **github-actions-templates** | Plantillas de workflows de GitHub Actions | `skills/github-actions-templates/SKILL.md` |
+| **changelog-automation**  | Automatizar changelogs y releases     | `skills/changelog-automation/SKILL.md`  |
+| **multi-stage-dockerfile** | Dockerfiles multi-stage optimizados  | `skills/multi-stage-dockerfile/SKILL.md` |
 
 ## Auto-invoke Skills
 
-| Trigger                                             | Skill                   |
-| --------------------------------------------------- | ----------------------- |
-| Escribiendo tipos/interfaces TypeScript             | `typescript`            |
-| Creando schemas Zod                                 | `zod-4`                 |
-| Buscando documentación o buenas prácticas           | `context7-docs`         |
-| Building frontend components, pages, or interfaces  | `frontend-design`       |
-| Building frontend components, pages, or interfaces  | `design-taste-frontend` |
-| Necesito instalar una nueva skill o capability      | `lobehub-marketplace`   |
-| Buscando skills en el marketplace                   | `lobehub-marketplace`   |
-| Creating commits, PRs, o usando templates de GitHub | `git-guidelines`        |
-| Creando o actualizando documentación                | `documentation`         |
-| Creating nuevos skills                              | `skill-creator`         |
-| Después de crear/modificar un skill                 | `skill-sync`            |
-| Regenerar tablas Auto-invoke de AGENTS.md           | `skill-sync`            |
-| Auditando o revisando skills existentes             | `skill-auditor`         |
-| Validando skills contra código real                 | `skill-auditor`         |
-| Verificando documentación de skills                 | `skill-auditor`         |
-| Disenando interfaces de usuario con Stitch          | `stitch-design`         |
-| Mejorar prompts para generacion de UI               | `enhance-prompt`        |
-| Convertir disenos Stitch a componentes              | `react-components`      |
-| Crear documentacion de sistema de diseno            | `design-md`             |
+When performing these actions, ALWAYS invoke the corresponding skill FIRST:
+
+| Action | Skill |
+|--------|-------|
+| Auditar o revisar skills existentes | `skill-auditor` |
+| Building frontend components, pages, or interfaces | `design-taste-frontend` |
+| Building frontend components, pages, or interfaces | `frontend-design` |
+| Buscando documentación o buenas prácticas | `context7-docs` |
+| Convertir disenos Stitch a componentes | `react-components` |
+| Creando commits, PRs, o usando templates de GitHub | `git-guidelines` |
+| Creando nuevos skills | `skill-creator` |
+| Creando o actualizando documentación | `documentation` |
+| Creando o modificando Dockerfiles multi-stage | `multi-stage-dockerfile` |
+| Creando releases, changelogs o notas de release | `changelog-automation` |
+| Creando schemas Zod | `zod-4` |
+| Creando, modificando o revisando workflows de GitHub Actions (CI/CD) | `github-actions-templates` |
+| Crear documentacion de sistema de diseno | `design-md` |
+| Crear skill de auditoría | `skill-auditor` |
+| Creating UI elements with high design quality | `frontend-design` |
+| Después de crear/modificar un skill | `skill-sync` |
+| Disenando interfaces de usuario con Stitch | `stitch-design` |
+| Escribiendo tipos/interfaces TypeScript | `typescript` |
+| Mejorar prompts para generacion de UI | `enhance-prompt` |
+| Regenerar tablas Auto-invoke de AGENTS.md | `skill-sync` |
+| Validar skills contra código real | `skill-auditor` |
+| Verificar documentación de skills | `skill-auditor` |
+| When working with unfamiliar technologies | `lobehub-marketplace` |
+| When you need a skill that doesn't exist | `lobehub-marketplace` |
 
 ## Stitch Integration
 
