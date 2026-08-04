@@ -1,6 +1,6 @@
 # 🚀 Joyan Landing Template
 
-Plantilla de landing page de alta calidad construida con **Astro 5** + **Tailwind CSS**.
+Plantilla de landing page de alta calidad construida con **Astro 7** + **Tailwind CSS**.
 
 ## Características
 
@@ -160,10 +160,10 @@ Coloca tus imágenes en:
 
 ## Stack Tecnológico
 
-- **Astro** 5.x - Framework principal
+- **Astro** 7.x - Framework principal
 - **React** 19.x - Componentes interactivos
 - **Vue** 3.5 - Componentes alternativos
-- **Tailwind CSS** 3.4 - Estilos
+- **Tailwind CSS** 4.x - Estilos
 - **TypeScript** 5.x - Tipado
 - **ESLint** 10.x - Linter
 - **Prettier** 3.x - Formatter

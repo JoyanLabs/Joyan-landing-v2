@@ -5,6 +5,12 @@ allowed-tools:
   - "StitchMCP"
   - "Read"
   - "Write"
+license: MIT
+metadata:
+  author: joyanlabs
+  version: "1.0.0"
+  scope: [root]
+  auto_invoke: "Disenando interfaces de usuario con Stitch"
 ---
 
 # Stitch Design Expert

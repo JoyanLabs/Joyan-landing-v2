@@ -4,6 +4,12 @@ description: Transforms vague UI ideas into polished, Stitch-optimized prompts. 
 allowed-tools:
   - "Read"
   - "Write"
+license: MIT
+metadata:
+  author: joyanlabs
+  version: "1.0.0"
+  scope: [root]
+  auto_invoke: "Mejorar prompts para generacion de UI"
 ---
 
 # Enhance Prompt for Stitch
