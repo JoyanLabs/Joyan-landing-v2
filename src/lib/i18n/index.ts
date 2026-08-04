@@ -15,12 +15,13 @@ export const isLocale = (value: unknown): value is Locale =>
 
 /**
  * Path of the given locale starting from the current path, preserving any
- * anchor hash. ES ↔ EN: `/…` ↔ `/en/…`.
+ * anchor hash. ES ↔ EN: `/…` ↔ `/en…`. Trailing slash is never used
+ * (astro `trailingSlash: "never"`).
  */
 export const getAlternateLocalePath = (locale: Locale, path = '/'): string => {
   const esPath = path === '/en' || path.startsWith('/en/') ? path.slice(3) || '/' : path;
   if (locale === LOCALES.ES) {
     return esPath;
   }
-  return esPath === '/' ? '/en/' : `/en${esPath}`;
+  return esPath === '/' ? '/en' : `/en${esPath}`;
 };
