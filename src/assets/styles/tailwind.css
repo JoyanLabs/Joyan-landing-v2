@@ -1,4 +1,6 @@
 @import 'tailwindcss';
+@import '@fontsource-variable/archivo';
+@import '@fontsource-variable/jetbrains-mono';
 
 @plugin '@tailwindcss/typography';
 
@@ -7,19 +9,46 @@
 @custom-variant intersect (&:not([no-intersect]));
 
 @theme {
-  /* Theme tokens ported from tailwind.config.js */
+  /* Legacy template tokens (still referenced by widgets/legacy pages) */
   --color-primary: var(--aw-color-primary);
   --color-secondary: var(--aw-color-secondary);
-  --color-accent: var(--aw-color-accent);
   --color-default: var(--aw-color-text-default);
   --color-muted: var(--aw-color-text-muted);
 
   /* Preserve the v3 default ring color (blue-500) for `ring-ring` utilities */
   --color-ring: #3b82f6;
 
+  /* Joyan visual token system (design.md — Visual Token System) */
+  --color-ink-950: #0b0b0c; /* page background */
+  --color-ink-900: #121214; /* surface */
+  --color-ink-800: #1a1a1d; /* terminal background */
+  --color-bone-50: #f4f2ed; /* display headings */
+  --color-bone-100: #e8e6e1; /* body text */
+  --color-plomo-400: #8a8a90; /* secondary text */
+  --color-plomo-500: #6e6e73; /* large mono labels */
+  --color-accent: #ffb000; /* amber accent — single-line override */
+  --color-accent-ink: #0b0b0c; /* text on accent */
+  --color-hairline: rgb(255 255 255 / 0.16); /* 1px separators */
+
+  /* No rounded corners anywhere in the design */
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-4xl: 0px;
+
+  --font-display:
+    'Archivo Variable', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+    'Noto Color Emoji';
   --font-sans:
-    var(--aw-font-sans, 'Inter', ui-sans-serif), ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
-    'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    'Archivo Variable', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+    'Noto Color Emoji';
+  --font-mono:
+    'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
   --font-serif: var(--aw-font-serif, ui-serif), ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif;
   --font-heading:
     var(--aw-font-heading, 'Space Grotesk', ui-sans-serif), ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
@@ -174,6 +203,15 @@
 
 @utility btn-tertiary {
   @apply btn border-none shadow-none text-muted hover:text-gray-900 dark:text-gray-400 dark:hover:text-white;
+}
+
+/* Joyan display type: Archivo Variable at max width/weight, uppercase */
+@utility text-display {
+  font-family: var(--font-display);
+  font-stretch: 125%;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
 }
 
 @layer utilities {
