@@ -1,28 +1,85 @@
 ---
-import Layout from "~/layouts/PageLayout.astro";
+import Layout from '~/layouts/PageLayout.astro';
 
-import type { MetaData } from "~/types";
+import type { MetaData } from '~/types';
 
 export interface Props {
-	frontmatter: {
-		title?: string;
-	};
+  frontmatter: {
+    title?: string;
+  };
 }
 
 const { frontmatter } = Astro.props;
 
 const metadata: MetaData = {
-	title: frontmatter?.title,
+  title: frontmatter?.title,
 };
 ---
 
 <Layout metadata={metadata}>
-  <section class="px-4 py-16 sm:px-6 mx-auto lg:px-8 lg:py-20 max-w-4xl">
-    <h1 class="font-bold font-heading text-4xl md:text-5xl leading-tighter tracking-tighter">{frontmatter.title}</h1>
-    <div
-      class="mx-auto prose prose-lg max-w-4xl dark:prose-invert dark:prose-headings:text-slate-300 prose-md prose-headings:font-heading prose-headings:leading-tighter prose-headings:tracking-tighter prose-headings:font-bold prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-img:rounded-md prose-img:shadow-lg mt-8"
-    >
+  <section class="mx-auto max-w-3xl px-6 py-20">
+    <p class="font-mono text-xs uppercase tracking-widest text-plomo-400">Joyan — Documentos</p>
+    <h1 class="mt-4 text-display text-4xl text-bone-50">{frontmatter.title}</h1>
+    <div class="joyan-prose mt-12 border-t border-hairline pt-10">
       <slot />
     </div>
   </section>
 </Layout>
+
+<style is:global>
+  .joyan-prose > *:first-child {
+    margin-top: 0;
+  }
+  .joyan-prose h2 {
+    margin-top: 3rem;
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    text-transform: uppercase;
+    color: var(--color-bone-50);
+  }
+  .joyan-prose h3 {
+    margin-top: 2rem;
+    font-weight: 600;
+    color: var(--color-bone-50);
+  }
+  .joyan-prose p,
+  .joyan-prose ul,
+  .joyan-prose ol {
+    margin-top: 1.25rem;
+    line-height: 1.7;
+    color: var(--color-bone-100);
+  }
+  .joyan-prose ul,
+  .joyan-prose ol {
+    padding-left: 1.25rem;
+  }
+  .joyan-prose ul {
+    list-style: disc;
+  }
+  .joyan-prose ol {
+    list-style: decimal;
+  }
+  .joyan-prose li {
+    margin-top: 0.5rem;
+  }
+  .joyan-prose a {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .joyan-prose strong {
+    font-weight: 600;
+    color: var(--color-bone-50);
+  }
+  .joyan-prose code {
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+    color: var(--color-plomo-400);
+  }
+  .joyan-prose hr {
+    margin-top: 2.5rem;
+    border-color: var(--color-hairline);
+  }
+</style>
