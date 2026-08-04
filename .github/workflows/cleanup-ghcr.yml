@@ -1,0 +1,48 @@
+name: Cleanup GHCR
+
+on:
+  schedule:
+    - cron: "0 0 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  cleanup:
+    name: Prune old GHCR versions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve image name
+        id: image
+        run: |
+          IMG="${GITHUB_REPOSITORY##*/}"
+          echo "image-name=$IMG" >> "$GITHUB_OUTPUT"
+
+      - name: Delete old disposable versions
+        uses: snok/container-retention-policy@v3
+        with:
+          account: joyanlabs
+          token: ${{ secrets.GITHUB_TOKEN }}
+          image-names: ${{ steps.image.outputs.image-name }}
+          # Retention design: every push to main adds a version tagged `main` +
+          # `sha-<short>` (the `main` tag moves forward, so old versions keep
+          # only their `sha-<short>` tag), and every v* tag push adds a version
+          # tagged semver (e.g. 0.1.0, 0.1) + `latest` + sha, which backs
+          # releases. The action deletes a version only when ALL of its tags
+          # match the positive `image-tags` patterns, so `sha-*` selects
+          # exclusively the old disposable versions (tag: sha-<short>).
+          # Semver-tagged releases and the current `main`/`staging`/`latest`
+          # versions always carry another tag and can never become candidates.
+          # keep-n-most-recent: 5 retains the 5 newest disposable versions as a
+          # rollback buffer; cut-off: 30d deletes only versions older than 30
+          # days (timestamp-to-use: created_at so tag moves never reset the
+          # clock). GITHUB_TOKEN works because every image is pushed by Actions.
+          # Set dry-run: true once for a preview run that prints deletions
+          # without deleting anything.
+          image-tags: "sha-*"
+          tag-selection: both
+          keep-n-most-recent: 5
+          timestamp-to-use: created_at
+          cut-off: 30d
