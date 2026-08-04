@@ -64,35 +64,6 @@ export default defineConfig({
 		joyanlabs({
 			config: "./src/config.yaml",
 		}),
-		sitemap(),
-		mdx(),
-		vue(),
-		icon({
-			include: {
-				tabler: ["*"],
-				"flat-color-icons": [
-					"template",
-					"gallery",
-					"approval",
-					"document",
-					"advertising",
-					"currency-exchange",
-					"voice-presentation",
-					"business-contact",
-					"database",
-				],
-			},
-		}),
-
-		...whenExternalScripts(() =>
-			partytown({
-				config: { forward: ["dataLayer.push"] },
-			}),
-		),
-
-		joyanlabs({
-			config: "./src/config.yaml",
-		}),
 		react(),
 	],
 
