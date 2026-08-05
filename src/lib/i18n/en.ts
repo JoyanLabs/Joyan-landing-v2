@@ -31,7 +31,7 @@ export const en = {
     index: '01',
     kicker: 'Agents as a service',
     title: 'Digital specialists, built to fit',
-    lead: 'We don\'t sell generic software: we create agents. Each agent is a digital specialist designed for one concrete task of your operation, executed with bounded autonomy: it works on its own, but a person reviews the important decisions.',
+    lead: "We don't sell generic software: we create agents. Each agent is a digital specialist designed for one concrete task of your operation, executed with bounded autonomy: it works on its own, but a person reviews the important decisions.",
     items: [
       {
         title: 'One specialist per task',
@@ -140,11 +140,11 @@ export const en = {
     community: {
       status: 'In development',
       title: 'The community is taking shape',
-      lead: 'We want more people to create, operate and share agents — and to adopt them with judgment: knowing what they can do, what they can\'t, and what is worth reviewing in person. Today we are putting together guides, content and training, and looking for first partners to build with us. None of these are an enrollment, a form or a delivery offer yet: they are paths under development that we will open right here.',
+      lead: "We want more people to create, operate and share agents — and to adopt them with judgment: knowing what they can do, what they can't, and what is worth reviewing in person. Today we are putting together guides, content and training, and looking for first partners to build with us. None of these are an enrollment, a form or a delivery offer yet: they are paths under development that we will open right here.",
       audiences: {
         mipes: {
           title: 'Small businesses',
-          body: 'Guides and content to adopt agents with judgment: what they can do, what they can\'t, and what is worth deciding in person. No tech jargon.',
+          body: "Guides and content to adopt agents with judgment: what they can do, what they can't, and what is worth deciding in person. No tech jargon.",
         },
         developmentTeams: {
           title: 'Development teams',
@@ -169,6 +169,32 @@ export const en = {
           body: 'We invite conversations about device prototypes for agents. This is ongoing exploration: no dates, no enrollment and no delivery.',
         },
       },
+    },
+  },
+  journal: {
+    index: '05',
+    kicker: 'Log',
+    title: 'Our progress, in our own words',
+    lead: 'We record here what we are building: prototypes, integrations and experiments, with what works and what we are still unblocking. No promises: just the step by step.',
+    archiveLabel: 'View all entries',
+    linkLabel: 'Read more',
+    emptyState: 'No published entries yet: we are still putting it together.',
+    archive: {
+      title: 'Log',
+      titleTemplate: '%s — Joyan',
+      description:
+        'The Joyan log: the progress of our agents, integrations, prototypes and experiments, told without hype.',
+    },
+    areas: {
+      hardware: 'Hardware',
+      software: 'Software',
+      integration: 'Integration',
+      research: 'Research',
+    },
+    statuses: {
+      'in-progress': 'In progress',
+      shipped: 'Completed',
+      exploring: 'Exploring',
     },
   },
   footer: {
