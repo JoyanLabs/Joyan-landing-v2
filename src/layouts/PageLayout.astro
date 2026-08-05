@@ -5,12 +5,14 @@ import type { MetaData } from '~/types';
 export interface Props {
   metadata?: MetaData;
   lang?: string;
+  /** Current page pathname — forwarded to Layout for the SEO locale cluster. */
+  pathname?: string;
 }
 
-const { metadata, lang } = Astro.props;
+const { metadata, lang, pathname } = Astro.props;
 ---
 
-<Layout metadata={metadata} lang={lang}>
+<Layout metadata={metadata} lang={lang} pathname={pathname}>
   <!--
     L1 shell texture (docs/DESIGN.md — Dither levels L1): a fixed, decorative
     8x8 Bayer dot grid in CSS-pixel scale (one 8px cell per Bayer threshold,

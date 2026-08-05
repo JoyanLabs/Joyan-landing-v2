@@ -6,12 +6,14 @@ export interface Props {
   locale: Locale;
   /** Label of the link to the other locale (from i18n nav.toggle). */
   label: string;
+  /** Current page pathname — computes the equivalent locale route. */
+  path?: string;
 }
 
-const { locale, label } = Astro.props;
+const { locale, label, path = '/' } = Astro.props;
 const target = locale === LOCALES.ES ? LOCALES.EN : LOCALES.ES;
-const currentPath = getAlternateLocalePath(locale);
-const altPath = getAlternateLocalePath(target);
+const currentPath = getAlternateLocalePath(locale, path);
+const altPath = getAlternateLocalePath(target, path);
 const current = locale.toUpperCase();
 
 /** Shared focus-visible treatment for both toggle links (ADR-4). */
