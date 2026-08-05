@@ -464,3 +464,70 @@
     opacity: 0;
   }
 }
+
+/* Native disclosures (docs/DESIGN.md — Disclosure rules): scoped repeated
+   lists render as independent multi-open <details>; the first item is
+   server-rendered open and every summary keeps its ordinal and title. The
+   default marker is hidden (the ordinal replaces it), hairline top borders
+   separate rows (radius stays 0), focus-visible gets the amber ring, and
+   the body aligns under the title column on wide screens. Open/close is
+   instant — no transition — so reduced-motion and no-JS users get the exact
+   same static behavior with zero animation to block. */
+.disclosure {
+  border-top: 1px solid var(--color-hairline);
+}
+
+.disclosure-list .disclosure:last-child {
+  border-bottom: 1px solid var(--color-hairline);
+}
+
+.disclosure-summary {
+  display: grid;
+  gap: 0.75rem;
+  padding: 2rem 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.disclosure-summary::-webkit-details-marker {
+  display: none;
+}
+
+.disclosure-summary:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 0.25rem;
+}
+
+.disclosure-title {
+  margin: 0;
+}
+
+.disclosure-body {
+  padding: 0 0 2rem;
+}
+
+.disclosure-body p {
+  margin: 0;
+}
+
+.disclosure[open] > .disclosure-summary .disclosure-index {
+  color: var(--color-accent);
+}
+
+@media (min-width: 48rem) {
+  .disclosure-summary {
+    grid-template-columns: 4rem 1fr;
+    gap: 2rem;
+  }
+
+  .disclosure-body {
+    padding-left: calc(4rem + 2rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .disclosure-summary,
+  .disclosure-body {
+    transition: none;
+  }
+}

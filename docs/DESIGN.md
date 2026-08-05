@@ -217,9 +217,26 @@ No idle motion anywhere outside the MAGI section.
 
 ## Journal row rules
 
-Use only list rows: a top hairline, mono uppercase date/area/status, title, summary, and optional dither/link. Area and status always come from localized chrome. Empty states are localized and honest. Do not use cards, rounded corners, thumbnails, detail pages, filters, or pagination.
+Use only list rows: a top hairline, mono uppercase date/area/status, title, summary, optional dither/link, and a localized detail link. Area and status always come from localized chrome. Empty states are localized and honest. Do not use cards, rounded corners, thumbnails, filters, or pagination.
 
 **Row heading levels:** the landing section (h2) renders rows as **h3**; the archives render their page title as the single **h1** (`SectionHeader headingLevel={1}`) and rows as **h2** (`JournalEntryRow titleLevel={2}`) so heading order never skips a level.
+
+## Journal detail rules
+
+Every published entry builds a static detail at `/bitacora/{slug}` (ES) or `/en/log/{slug}` (EN); drafts and unknown slugs resolve as 404 (no static output). A detail renders its Markdown body in `joyan-prose`, localized date/area/status metadata, exactly one H1 with no skipped heading levels, the entry summary as the meta description, and a localized archive return link. Rows link to details from the landing (relative `bitacora/{slug}` / `log/{slug}`) and the archives (absolute `/bitacora/{slug}` / `/en/log/{slug}`).
+
+- **Truthful pairing:** details toggle only to real counterparts. An ES-only detail toggles EN to `/en/log`, emits its absolute self-canonical, and **zero** `hreflang`/`x-default` alternates — never a fabricated EN page. Paired details emit self-canonical plus real ES/EN and ES `x-default`.
+- **Detail prose:** rendered Markdown keeps the honest Journal voice; bodies and built attributes are claim-scanned like every other surface (`alt`/`title`/`content` included). No cards/radius, no inline styles.
+- **Chrome:** detail header/footer anchors use the locale landing base (`/#…` ES, `/en#…` EN) and `id="top"`; the language toggle keeps `aria-current`.
+
+## Disclosure rules
+
+The five scoped repeated lists — Agents, MAGI, Hardware, Ecosystem items, and the Ecosystem community offers — render as **native, independently multi-open `<details>`** via `JournalDisclosureList.astro`:
+
+- The first item of every scoped list is **server-rendered open**; every other item starts closed. No `name` attribute (that would force exclusive accordions), no script, no client state, no carousel/slides, no new dependencies.
+- Summaries keep the **mono ordinal + title** (h3 under landing section h2s; h4 under the community offers h3), hide the default marker, and show the **amber `:focus-visible` ring**.
+- Rows keep hairlines and radius `0`; bodies align under the title column on wide screens (`4rem` ordinal column) and stack full-width on narrow screens so prose and figures never overlap.
+- Open/close is **instant** — no transition — so reduced-motion and no-JS users get identical static behavior.
 
 ## Static audit evidence (a11y & performance)
 
@@ -227,14 +244,17 @@ Use only list rows: a top hairline, mono uppercase date/area/status, title, summ
 
 | Evidence | Deterministic check | Location |
 |---|---|---|
-| Landmarks | Site `<header>`, `<main id="main" tabindex="-1">` focus target, `<footer>`, `<nav aria-label="Main">`, `<nav aria-label="Footer">` on landings and archives | checker 9d |
-| Unique IDs | Every `id` attribute unique per built page (section anchors `top/agents/magi/hardware/ecosystem/bitacora`, `main`, `shell-dots`) | checker 9d |
-| Heading order | Exactly one h1 per page, first heading is h1, no skipped levels (landing: h1→h2→h3/h4; archives: h1→h2) | checker 9d |
-| Keyboard / focus-visible | `:focus-visible` outline utilities in compiled CSS; hardware surface `tabindex="0"` + ring class + `:focus-within` treatment hook | checker 9d |
-| Reduced-motion paths | JS gates (`prefers-reduced-motion`) plus ≥3 compiled CSS media blocks (canvas, pulses, caret, hardware, shell texture) | checker 9d + sections 3/5/6 |
+| Landmarks | Site `<header>`, `<main id="main" tabindex="-1">` focus target, `<footer>`, `<nav aria-label="Main">`, `<nav aria-label="Footer">` on landings, archives and details | checker 9d + 8g4 |
+| Unique IDs | Every `id` attribute unique per built page (section anchors `top/agents/magi/hardware/ecosystem/bitacora`, `main`, `shell-dots`, disclosure ids) | checker 9d |
+| Heading order | Exactly one h1 per page, first heading is h1, no skipped levels (landing: h1→h2→h3/h4; archives: h1→h2; details: single h1 → prose headings) | checker 9d |
+| Keyboard / focus-visible | `:focus-visible` outline utilities in compiled CSS; hardware surface `tabindex="0"` + ring class + `:focus-within` treatment hook; disclosure summary `:focus-visible` ring | checker 9d + 8h3 |
+| Native disclosures | Five scoped surfaces per locale; first item server-open (exactly 5 open per page); one `<summary>` per `<details>`; ordinal/title summaries with h3/h4; no `name`/exclusive accordion; no script inside the five list regions; no disclosure-named JS chunk | checker 8h2 + 8h3 |
+| Disclosure motion | Instant open/close — `transition: none` for `.disclosure` under `prefers-reduced-motion` | checker 8h4 |
+| Responsive figures | Wide screens: `4rem` ordinal column (`@media (width >= 48rem)` grid rule); narrow: stacked single column | checker 8h4 |
+| Reduced-motion paths | JS gates (`prefers-reduced-motion`) plus ≥3 compiled CSS media blocks (canvas, pulses, caret, hardware, shell texture, disclosures) | checker 9d + sections 3/5/6 |
 | Content parity | ES/EN identical chrome keys (iteration-2 block 4) and ES-authoritative journal mirror (checker 8d) | both checkers |
 | Build size | Client-JS gzip delta ≤ 22 KiB (22,528 B) against `.artifacts/iteration-2-client-js.json` | checker 7 |
-| Route output | `/`, `/en`, `/bitacora`, `/en/log`, `/privacy`, `/terms` emit HTML; static HTML and gzip sums reported | checker 9e |
+| Route output | `/`, `/en`, `/bitacora`, `/en/log`, `/privacy`, `/terms`, every published detail, `/404` emit HTML; static HTML and gzip sums reported | checker 9e |
 
 **No browser claims:** these are static structural safeguards (intrinsic dimensions, static hero markup, opacity/transform-only motion, contrast math, worst-case texture blend). Real LCP/CLS metrics require a browser or CI performance run and are deferred — never report Lighthouse-style numbers from this evidence.
 
@@ -265,12 +285,20 @@ Use only list rows: a top hairline, mono uppercase date/area/status, title, summ
 - [ ] Canvas `aria-hidden` with adjacent explanatory localized text
 - [ ] No-JS and reduced-motion states render static (PNG/SVG)
 - [ ] Motion: opacity-only, 30 fps cap, DPR ≤2, pauses offscreen/hidden/pagehide, Astro navigation cleanup
-- [ ] Focus-visible ring on interactive elements (toggle, CTAs); language toggle keeps `aria-current="page"`
+- [ ] Focus-visible ring on interactive elements (toggle, CTAs, disclosure summaries); language toggle keeps `aria-current="page"`
 - [ ] Landmarks present (`main#main`, header, footer, labeled navs); every `id` unique per page
-- [ ] Exactly one h1 per page; heading order never skips a level (archives: h1 title → h2 rows)
+- [ ] Exactly one h1 per page; heading order never skips a level (archives: h1 title → h2 rows; details: single h1 → prose headings)
+- [ ] Disclosures: first item server-open per scoped list; native multi-open summaries keyboard-operable (Enter/Space); no carousel, slides, or scripted state
+
+### Journal detail review
+
+- [ ] Only published entries build details; drafts/unknown slugs 404; Markdown renders in `joyan-prose`
+- [ ] One H1, no skipped heading levels; localized date/area/status; summary as meta description; archive return link
+- [ ] Paired details toggle/canonical/alternate to real counterparts only; ES-only details self-canonical with zero hreflang and `/en/log` toggle
+- [ ] Bodies, metadata, visible text and `alt`/`title`/`content` values pass the Journal claim scan
 
 ---
 
-**Version:** 1.0 — **Last updated:** 2026-08-05 — **Maintainer:** JoyanLabs
+**Version:** 1.1 — **Last updated:** 2026-08-05 — **Maintainer:** JoyanLabs
 **Related skills:** [`design-taste-frontend`](../skills/design-taste-frontend/SKILL.md) (architecture rules), [`frontend-design`](../skills/frontend-design/SKILL.md) (design quality), [`documentation`](../skills/documentation/SKILL.md) (docs standards)
 **Related docs:** [VIRTUAL-MODULE.md](./VIRTUAL-MODULE.md)
