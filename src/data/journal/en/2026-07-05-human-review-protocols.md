@@ -4,6 +4,8 @@ title: 'Draft: human review protocols'
 summary: 'We are writing how people review every important decision an agent makes. An internal draft, not published yet.'
 area: research
 status: in-progress
+slug: human-review-protocols
+translationKey: human-review-protocols
 draft: true
 ---
 

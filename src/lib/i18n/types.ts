@@ -135,6 +135,10 @@ export interface JournalContent {
   archiveLabel: string;
   /** Label of an optional external link inside a row. */
   linkLabel: string;
+  /** Label of the row link to the entry's static detail page. */
+  detailLabel: string;
+  /** Label of the detail page return link back to its locale archive. */
+  detailReturnLabel: string;
   /** Honest localized empty state (rendered when a locale has no published entries). */
   emptyState: string;
   /** Archive page metadata (title/description). */

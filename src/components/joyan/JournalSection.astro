@@ -27,7 +27,7 @@ const archiveHref = locale === LOCALES.ES ? 'bitacora' : 'log';
       entries.length > 0 ? (
         <ul class="mt-14">
           {entries.map((entry) => (
-            <JournalEntryRow entry={entry} content={content} />
+            <JournalEntryRow entry={entry} content={content} locale={locale} />
           ))}
         </ul>
       ) : (
@@ -40,7 +40,8 @@ const archiveHref = locale === LOCALES.ES ? 'bitacora' : 'log';
       href={archiveHref}
       class="mt-10 inline-block font-mono text-xs uppercase tracking-widest text-bone-50 transition-colors hover:text-accent"
     >
-      {content.archiveLabel} <span aria-hidden="true">→</span>
+      {content.archiveLabel}
+      <span aria-hidden="true">→</span>
     </a>
   </div>
 </section>

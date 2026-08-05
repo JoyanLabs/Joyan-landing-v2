@@ -1,18 +1,27 @@
 ---
 import type { CollectionEntry } from 'astro:content';
+import { JOURNAL_ROUTES, LOCALES, type Locale } from '~/lib/i18n';
 import type { JournalContent } from '~/lib/i18n/types';
 
 export interface Props {
   entry: CollectionEntry<'journal'>;
   content: JournalContent;
+  locale: Locale;
   /**
    * Title heading level: h3 under a landing section header (h2); h2 under
    * the archive page title (h1) so heading order never skips a level.
    */
   titleLevel?: 2 | 3;
+  /**
+   * Detail link target style: 'landing' rows link relatively (`bitacora/{slug}`
+   * from `/`, `log/{slug}` from /en — the iteration-2 route contract rejects
+   * absolute `/en/…` targets on the EN landing); 'archive' rows link to the
+   * absolute static detail route.
+   */
+  linkMode?: 'landing' | 'archive';
 }
 
-const { entry, content, titleLevel = 3 } = Astro.props;
+const { entry, content, locale, titleLevel = 3, linkMode = 'landing' } = Astro.props;
 const { data } = entry;
 const TitleTag = titleLevel === 2 ? 'h2' : 'h3';
 
@@ -21,6 +30,10 @@ const TitleTag = titleLevel === 2 ? 'h2' : 'h3';
  * consistent with the frontmatter value. Mono label, fits the terminal motif.
  */
 const dateLabel = `${data.date.getUTCFullYear()}-${String(data.date.getUTCMonth() + 1).padStart(2, '0')}-${String(data.date.getUTCDate()).padStart(2, '0')}`;
+const detailHref =
+  linkMode === 'archive'
+    ? `${JOURNAL_ROUTES[locale]}/${data.slug}`
+    : `${locale === LOCALES.ES ? 'bitacora' : 'log'}/${data.slug}`;
 ---
 
 <li class="grid gap-4 border-t border-hairline py-8 md:grid-cols-[14rem_1fr] md:gap-10">
@@ -47,5 +60,12 @@ const dateLabel = `${data.date.getUTCFullYear()}-${String(data.date.getUTCMonth(
         <img src={data.dither} alt="" loading="lazy" class="mt-4 block h-32 w-48 border border-hairline object-cover" />
       )
     }
+    <a
+      href={detailHref}
+      class="mt-4 inline-block font-mono text-xs uppercase tracking-widest text-bone-50 transition-colors hover:text-accent"
+    >
+      {content.detailLabel}
+      <span aria-hidden="true">→</span>
+    </a>
   </div>
 </li>

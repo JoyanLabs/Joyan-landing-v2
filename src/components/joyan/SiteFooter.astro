@@ -1,13 +1,22 @@
 ---
 import Wordmark from '~/components/joyan/Wordmark.astro';
-import type { FooterContent, NavContent } from '~/lib/i18n/types';
+import { JOURNAL_ROUTES, LOCALES } from '~/lib/i18n';
+import type { FooterContent, Locale, NavContent } from '~/lib/i18n/types';
 
 export interface Props {
   content: FooterContent;
   nav: NavContent;
+  locale: Locale;
+  /** Current page pathname — on detail pages anchors use the landing base. */
+  path?: string;
 }
 
-const { content, nav } = Astro.props;
+const { content, nav, locale, path } = Astro.props;
+// Same rule as SiteHeader: detail pages have no landing sections, so footer
+// links point at the locale landing base (/#agents, /en#agents).
+const isDetail =
+  typeof path === 'string' && path !== JOURNAL_ROUTES[locale] && path.startsWith(`${JOURNAL_ROUTES[locale]}/`);
+const anchorBase = isDetail ? (locale === LOCALES.ES ? '/' : '/en') : '';
 ---
 
 <!-- Non-navigable: page footer carries no anchor id (design: no id). --><!-- bg-ink-950: opaque shell so the L1 texture never shows behind footer text. -->
@@ -24,7 +33,7 @@ const { content, nav } = Astro.props;
         {
           nav.links.map((link) => (
             <a
-              href={`#${link.anchor}`}
+              href={`${anchorBase}#${link.anchor}`}
               class="font-mono text-xs uppercase tracking-widest text-plomo-400 transition-colors hover:text-bone-50"
             >
               {link.label}

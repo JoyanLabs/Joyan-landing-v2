@@ -36,6 +36,14 @@
  *      (latest-three rows, draft exclusion, ES-only omissions, localized
  *      area/status labels, empty-state machinery), and claim scans of every
  *      journal Markdown file plus both built archives.
+ *   8g. Journal details — explicit lowercase kebab-case `slug` + stable
+ *      `translationKey` identity, published-only static detail routes
+ *      (drafts/unknown => 404), rendered Markdown bodies, localized
+ *      metadata, one H1 and landmarks, archive row/return links, truthful
+ *      toggle targets (real counterpart or `/en/log` for ES-only), SEO
+ *      clusters (paired ES/EN/x-default; ES-only self-canonical with zero
+ *      hreflang), and built-detail claim leakage (visible text + alt/title/
+ *      content attributes).
  *   9. Unit D audit — the extended copy ban set (public agentic/AGI/MCP/RAG
  *      jargon, commercial-claim patterns) applied to every locale source
  *      value and to the built landings' visible text, metadata, and
@@ -935,12 +943,20 @@ for (const [localeKey, dirName] of [
     const summary = frontmatter.summary;
     const area = frontmatter.area;
     const status = frontmatter.status;
+    const slug = frontmatter.slug;
+    const translationKey = frontmatter.translationKey;
     const issues = [];
     if (!isoDate) issues.push('date must be an ISO date (yyyy-mm-dd)');
     if (typeof title !== 'string' || title.trim() === '') issues.push('title must be a non-empty string');
     if (typeof summary !== 'string' || summary.trim() === '') issues.push('summary must be a non-empty string');
     if (!AREA_VALUES.includes(area)) issues.push(`area must be one of ${AREA_VALUES.join('/')}`);
     if (!STATUS_VALUES.includes(status)) issues.push(`status must be one of ${STATUS_VALUES.join('/')}`);
+    if (typeof slug !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+      issues.push('slug must be a lowercase kebab-case string (slash-free)');
+    }
+    if (typeof translationKey !== 'string' || translationKey.trim() === '') {
+      issues.push('translationKey must be a non-empty string');
+    }
     if (typeof frontmatter.draft !== 'undefined' && typeof frontmatter.draft !== 'boolean') {
       issues.push('draft must be a boolean');
     }
@@ -962,6 +978,8 @@ for (const [localeKey, dirName] of [
       status: String(status),
       date: isoDate,
       draft: frontmatter.draft === true,
+      slug: String(slug ?? ''),
+      translationKey: String(translationKey ?? ''),
       raw,
     });
   }
@@ -1496,6 +1514,462 @@ if (reducedMotionBlockCount >= 3) {
   fail(`a11y: compiled CSS must ship at least 3 prefers-reduced-motion blocks, found ${reducedMotionBlockCount}`);
 }
 
+// ---------------------------------------------------------------------------
+// 8g. Journal detail contract — explicit slug/key identity (RED 1.1):
+//     published-only static detail routes (drafts/unknown => 404), rendered
+//     Markdown bodies, localized metadata and one H1, archive row/return
+//     links, truthful toggle targets (real counterpart or /en/log), SEO
+//     clusters (paired ES/EN/x-default; ES-only details emit NO alternate),
+//     detail claim leakage (visible text + alt/title/content attributes),
+//     and page landmarks/unique ids.
+// ---------------------------------------------------------------------------
+
+// 8g1. Source identity: schema fields, helper surface (no blog imports),
+//      published-only route files, and the detail shell contract.
+const REQUIRED_DETAIL_SCHEMA_TOKENS = [
+  ['slug: z', 'types the required slug field'],
+  ['translationKey: z', 'types the required translationKey field'],
+  ['a-z0-9', 'enforces lowercase kebab-case slugs'],
+];
+for (const [token, what] of REQUIRED_DETAIL_SCHEMA_TOKENS) {
+  if (contentConfigSource.includes(token)) {
+    pass(`journal-detail: content.config.ts ${what} (${token})`);
+  } else {
+    fail(`journal-detail: content.config.ts must ${what} (missing ${token})`);
+  }
+}
+
+const journalUtilSource = read(resolve(ROOT, 'src/utils/journal.ts'));
+const REQUIRED_UTIL_TOKENS = [
+  ['journalDetailPath', 'derives detail paths from the archive bases'],
+  ['getPublishedJournalRouteRecords', 'exposes published route records'],
+  ['getJournalRouteRecord', 'looks up a single published record'],
+  ['resolveJournalLocaleCluster', 'resolves the pathname locale cluster'],
+  ['alternatePath', 'models real counterpart paths only'],
+];
+for (const [token, what] of REQUIRED_UTIL_TOKENS) {
+  if (journalUtilSource.includes(token)) {
+    pass(`journal-detail: src/utils/journal.ts ${what} (${token})`);
+  } else {
+    fail(`journal-detail: src/utils/journal.ts must ${what} (missing ${token})`);
+  }
+}
+const utilImports = [...journalUtilSource.matchAll(/from\s+['"]([^'"]+)['"]/g)].map((match) => match[1]);
+if (utilImports.some((specifier) => /post|blog/.test(specifier))) {
+  fail('journal-detail: src/utils/journal.ts must not import dormant blog/post helpers');
+} else {
+  pass('journal-detail: src/utils/journal.ts stays isolated from the dormant blog helpers');
+}
+
+const esDetailRouteSource = read(resolve(ROOT, 'src/pages/bitacora/[slug].astro'));
+const enDetailRouteSource = read(resolve(ROOT, 'src/pages/en/log/[slug].astro'));
+for (const [label, source] of [
+  ['/bitacora/[slug].astro', esDetailRouteSource],
+  ['/en/log/[slug].astro', enDetailRouteSource],
+]) {
+  for (const [token, what] of [
+    ['getStaticPaths', 'publishes static paths'],
+    ['render(entry)', 'renders the entry Markdown'],
+    ['<Content', 'passes the rendered body to the detail shell'],
+    ['getPublishedJournalRouteRecords', 'builds paths from published records'],
+  ]) {
+    if (source.includes(token)) {
+      pass(`journal-detail: ${label} ${what} (${token})`);
+    } else {
+      fail(`journal-detail: ${label} must ${what} (missing ${token})`);
+    }
+  }
+}
+
+const detailShellSource = read(resolve(ROOT, 'src/components/joyan/JournalDetailPage.astro'));
+for (const [token, what] of [
+  ['PageLayout', 'uses the standard page layout'],
+  ['joyan-prose', 'renders the Markdown body with Joyan prose'],
+  ['id="top"', 'keeps the header/footer home anchors working'],
+  ['detailReturnLabel', 'renders the localized archive return link'],
+  ['JOURNAL_ROUTES', 'derives the archive return path'],
+]) {
+  if (detailShellSource.includes(token)) {
+    pass(`journal-detail: JournalDetailPage.astro ${what} (${token})`);
+  } else {
+    fail(`journal-detail: JournalDetailPage.astro must ${what} (missing ${token})`);
+  }
+}
+if (detailShellSource.includes('MarkdownLayout')) {
+  fail('journal-detail: JournalDetailPage.astro must not reuse the MarkdownLayout shell');
+} else {
+  pass('journal-detail: JournalDetailPage.astro owns its shell (no MarkdownLayout reuse)');
+}
+
+// 8g2. Published-only route inventory: every published entry builds its
+//      detail; draft and unknown slugs produce no static page (404).
+for (const entry of publishedByLocale.es) {
+  const rel = `dist/bitacora/${entry.slug}/index.html`;
+  if (existsSync(resolve(ROOT, rel))) {
+    pass(`journal-detail: ES "${entry.slug}" builds to ${rel}`);
+  } else {
+    fail(`journal-detail: published ES entry "${entry.slug}" must build to ${rel}`);
+  }
+}
+for (const entry of publishedByLocale.en) {
+  const rel = `dist/en/log/${entry.slug}/index.html`;
+  if (existsSync(resolve(ROOT, rel))) {
+    pass(`journal-detail: EN "${entry.slug}" builds to ${rel}`);
+  } else {
+    fail(`journal-detail: published EN entry "${entry.slug}" must build to ${rel}`);
+  }
+}
+for (const entry of draftEntries) {
+  for (const rel of [`dist/bitacora/${entry.slug}/index.html`, `dist/en/log/${entry.slug}/index.html`]) {
+    if (existsSync(resolve(ROOT, rel))) {
+      fail(`journal-detail: draft "${entry.slug}" must not build a static detail (${rel})`);
+    }
+  }
+}
+if (draftEntries.length > 0) {
+  pass(
+    `journal-detail: all ${draftEntries.length} draft slug(s) have no static detail output (requests resolve as 404)`
+  );
+}
+for (const rel of ['dist/bitacora/no-such-entry/index.html', 'dist/en/log/no-such-entry/index.html']) {
+  if (existsSync(resolve(ROOT, rel))) {
+    fail(`journal-detail: unknown slug must not build a static detail (${rel})`);
+  } else {
+    pass(`journal-detail: unknown slug produces no static output (${rel})`);
+  }
+}
+if (existsSync(resolve(ROOT, 'dist/404.html'))) {
+  pass('journal-detail: the site ships dist/404.html for unknown and draft detail requests');
+} else {
+  fail('journal-detail: dist/404.html must exist so unknown/draft details resolve as 404');
+}
+
+// 8g3. Identity integrity: locale-unique published slugs/keys and
+//      ES-authoritative pairing (published EN keys need a published ES peer).
+for (const [localeKey, entries] of [
+  ['es', publishedByLocale.es],
+  ['en', publishedByLocale.en],
+]) {
+  const slugs = entries.map((entry) => entry.slug);
+  const keys = entries.map((entry) => entry.translationKey);
+  const duplicateSlugs = [...new Set(slugs.filter((slug, index) => slugs.indexOf(slug) !== index))];
+  const duplicateKeys = [...new Set(keys.filter((key, index) => keys.indexOf(key) !== index))];
+  if (duplicateSlugs.length === 0) {
+    pass(`journal-detail: ${localeKey} published slugs are locale-unique`);
+  } else {
+    fail(`journal-detail: ${localeKey} duplicate published slug(s): ${duplicateSlugs.join(', ')}`);
+  }
+  if (duplicateKeys.length === 0) {
+    pass(`journal-detail: ${localeKey} published translationKeys are unique`);
+  } else {
+    fail(`journal-detail: ${localeKey} duplicate published translationKey(s): ${duplicateKeys.join(', ')}`);
+  }
+}
+const esPublishedKeys = new Set(publishedByLocale.es.map((entry) => entry.translationKey));
+const orphanEnEntries = publishedByLocale.en.filter((entry) => !esPublishedKeys.has(entry.translationKey));
+if (orphanEnEntries.length === 0) {
+  pass('journal-detail: every published EN entry pairs with a published ES entry (same translationKey)');
+} else {
+  for (const entry of orphanEnEntries) {
+    fail(
+      `journal-detail: EN "${entry.location}" has no published ES source entry for translationKey "${entry.translationKey}"`
+    );
+  }
+}
+// Astro 7's glob loader turns the frontmatter `slug` into the collection
+// entry id, so published slugs must be unique across BOTH locales — a
+// cross-locale duplicate would silently overwrite one entry in the store.
+const allPublishedSlugs = [...publishedByLocale.es, ...publishedByLocale.en].map((entry) => entry.slug);
+const duplicateGlobalSlugs = [
+  ...new Set(allPublishedSlugs.filter((slug, index) => allPublishedSlugs.indexOf(slug) !== index)),
+];
+if (duplicateGlobalSlugs.length === 0) {
+  pass('journal-detail: published slugs are unique across the whole journal collection (they become entry ids)');
+} else {
+  fail(
+    `journal-detail: published slugs must be globally unique (glob-loader entry id collision): ${duplicateGlobalSlugs.join(', ')}`
+  );
+}
+
+// 8g4. Built detail content: rendered Markdown body, metadata, one H1 with
+//      no skipped heading levels, landmarks, and unique ids.
+const detailHtml = (relPath) => {
+  try {
+    return read(resolve(ROOT, relPath));
+  } catch {
+    return '';
+  }
+};
+const esDetails = new Map(
+  publishedByLocale.es.map((entry) => [entry.slug, detailHtml(`dist/bitacora/${entry.slug}/index.html`)])
+);
+const enDetails = new Map(
+  publishedByLocale.en.map((entry) => [entry.slug, detailHtml(`dist/en/log/${entry.slug}/index.html`)])
+);
+const markdownBodyText = (raw) => {
+  const match = raw.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
+  const body = match ? raw.slice(match[0].length) : raw;
+  return body.toLowerCase().replace(/\s+/g, ' ').trim();
+};
+
+for (const [label, entries, details] of [
+  ['ES', publishedByLocale.es, esDetails],
+  ['EN', publishedByLocale.en, enDetails],
+]) {
+  for (const entry of entries) {
+    const html = details.get(entry.slug) ?? '';
+    if (!html) continue;
+    const body = markdownBodyText(entry.raw);
+    if (body && journalVisibleText(html).includes(body)) {
+      pass(`journal-detail: ${label} "${entry.slug}" renders its Markdown body`);
+    } else {
+      fail(`journal-detail: ${label} "${entry.slug}" must render its Markdown body`);
+    }
+    if (html.includes(`<title>${entry.title} — Joyan</title>`)) {
+      pass(`journal-detail: ${label} "${entry.slug}" titles the page with the entry title`);
+    } else {
+      fail(`journal-detail: ${label} "${entry.slug}" must emit <title>${entry.title} — Joyan</title>`);
+    }
+    if (html.includes(`content="${entry.summary}"`)) {
+      pass(`journal-detail: ${label} "${entry.slug}" uses the summary as the meta description`);
+    } else {
+      fail(`journal-detail: ${label} "${entry.slug}" must set description content="${entry.summary}"`);
+    }
+    const headingLevels = [...html.matchAll(/<h([1-6])\b/g)].map((match) => Number(match[1]));
+    const h1Count = headingLevels.filter((level) => level === 1).length;
+    const headingIssues = [];
+    if (h1Count !== 1) headingIssues.push(`exactly one h1 expected, found ${h1Count}`);
+    for (let i = 1; i < headingLevels.length; i += 1) {
+      if (headingLevels[i] - headingLevels[i - 1] > 1) {
+        headingIssues.push(`heading level jumps from h${headingLevels[i - 1]} to h${headingLevels[i]}`);
+      }
+    }
+    if (headingIssues.length === 0) {
+      pass(`journal-detail: ${label} "${entry.slug}" keeps one h1 with no skipped heading levels`);
+    } else {
+      for (const issue of headingIssues) fail(`journal-detail: ${label} "${entry.slug}" ${issue}`);
+    }
+    const landmarks = [
+      ['site header', /<header\b[^>]*class="sticky/],
+      ['main landmark focus target', /<main\b[^>]*id="main"[^>]*tabindex="-1"/],
+      ['footer landmark', /<footer\b/],
+      ['primary navigation', /<nav\b[^>]*aria-label="Main"/],
+      ['footer navigation', /<nav\b[^>]*aria-label="Footer"/],
+    ];
+    for (const [landmark, re] of landmarks) {
+      if (re.test(html)) {
+        pass(`journal-detail: ${label} "${entry.slug}" renders the ${landmark} landmark`);
+      } else {
+        fail(`journal-detail: ${label} "${entry.slug}" must render the ${landmark} landmark`);
+      }
+    }
+    const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
+    const duplicateIds = [...new Set(ids.filter((id, index) => ids.indexOf(id) !== index))];
+    if (duplicateIds.length === 0) {
+      pass(`journal-detail: ${label} "${entry.slug}" carries ${ids.length} unique id attribute(s), none duplicated`);
+    } else {
+      fail(`journal-detail: ${label} "${entry.slug}" must not duplicate id attributes (${duplicateIds.join(', ')})`);
+    }
+  }
+}
+
+// 8g5. Row links: absolute detail hrefs on the archives, relative hrefs on
+//      the landing rows (iteration-2 route contract forbids /en/ targets on
+//      the EN landing), and the localized archive return link on details.
+for (const entry of publishedByLocale.es) {
+  const absolute = `href="/bitacora/${entry.slug}"`;
+  if (bitacoraHtml.includes(absolute)) {
+    pass(`journal-detail: ES archive links "${entry.slug}" to ${absolute}`);
+  } else {
+    fail(`journal-detail: ES archive must link "${entry.slug}" with ${absolute}`);
+  }
+  if (bitacoraHtml.includes(`href="/bitacora/${entry.slug}/"`)) {
+    fail(`journal-detail: ES archive must not link "${entry.slug}" with a trailing-slash target`);
+  }
+}
+for (const entry of publishedByLocale.en) {
+  const absolute = `href="/en/log/${entry.slug}"`;
+  if (logHtml.includes(absolute)) {
+    pass(`journal-detail: EN archive links "${entry.slug}" to ${absolute}`);
+  } else {
+    fail(`journal-detail: EN archive must link "${entry.slug}" with ${absolute}`);
+  }
+  if (logHtml.includes(`href="/en/log/${entry.slug}/"`)) {
+    fail(`journal-detail: EN archive must not link "${entry.slug}" with a trailing-slash target`);
+  }
+}
+const esNewestPublished = [...publishedByLocale.es].sort((a, b) => (a.date < b.date ? 1 : -1));
+for (const entry of esNewestPublished.slice(0, 3)) {
+  const relative = `href="bitacora/${entry.slug}"`;
+  if (esHtml.includes(relative)) {
+    pass(`journal-detail: ES landing links "${entry.slug}" relatively (${relative})`);
+  } else {
+    fail(`journal-detail: ES landing must link "${entry.slug}" as ${relative}`);
+  }
+}
+for (const entry of publishedByLocale.en) {
+  const relative = `href="log/${entry.slug}"`;
+  if (enHtml.includes(relative)) {
+    pass(`journal-detail: EN landing links "${entry.slug}" relatively (${relative})`);
+  } else {
+    fail(`journal-detail: EN landing must link "${entry.slug}" as ${relative}`);
+  }
+}
+for (const entry of publishedByLocale.es) {
+  const html = esDetails.get(entry.slug) ?? '';
+  if (!html) continue;
+  if (html.includes('href="/bitacora"')) {
+    pass(`journal-detail: ES "${entry.slug}" returns to the archive (href="/bitacora")`);
+  } else {
+    fail(`journal-detail: ES "${entry.slug}" must render the archive return href="/bitacora"`);
+  }
+}
+for (const entry of publishedByLocale.en) {
+  const html = enDetails.get(entry.slug) ?? '';
+  if (!html) continue;
+  if (html.includes('href="/en/log"')) {
+    pass(`journal-detail: EN "${entry.slug}" returns to the archive (href="/en/log")`);
+  } else {
+    fail(`journal-detail: EN "${entry.slug}" must render the archive return href="/en/log"`);
+  }
+}
+
+// 8g6. Detail header/footer anchors point at the locale landing base
+//      (the landing sections do not exist on a detail page).
+for (const entry of publishedByLocale.es) {
+  const html = esDetails.get(entry.slug) ?? '';
+  if (!html) continue;
+  if (html.includes('href="/#agents"') || html.includes('href="/#magi"')) {
+    pass(`journal-detail: ES "${entry.slug}" anchors point at the ES landing base (/#…)`);
+  } else {
+    fail(`journal-detail: ES "${entry.slug}" must prefix nav anchors with the ES landing base (/#…)`);
+  }
+}
+for (const entry of publishedByLocale.en) {
+  const html = enDetails.get(entry.slug) ?? '';
+  if (!html) continue;
+  if (html.includes('href="/en#agents"') || html.includes('href="/en#magi"')) {
+    pass(`journal-detail: EN "${entry.slug}" anchors point at the EN landing base (/en#…)`);
+  } else {
+    fail(`journal-detail: EN "${entry.slug}" must prefix nav anchors with the EN landing base (/en#…)`);
+  }
+}
+
+// 8g7. Truthful toggle targets: paired details map to their real
+//      counterpart; an ES-only detail maps EN to /en/log — never a
+//      fabricated EN detail path.
+for (const entry of publishedByLocale.es) {
+  const html = esDetails.get(entry.slug) ?? '';
+  if (!html) continue;
+  const enPeer = publishedByLocale.en.find((peer) => peer.translationKey === entry.translationKey);
+  const expectedAlt = enPeer ? `/en/log/${enPeer.slug}` : '/en/log';
+  if (html.includes(`data-alt="${expectedAlt}"`)) {
+    pass(`journal-detail: ES "${entry.slug}" toggles EN to ${expectedAlt}`);
+  } else {
+    fail(`journal-detail: ES "${entry.slug}" must toggle EN to ${expectedAlt} (real counterpart or /en/log)`);
+  }
+}
+for (const entry of publishedByLocale.en) {
+  const html = enDetails.get(entry.slug) ?? '';
+  if (!html) continue;
+  const esPeer = publishedByLocale.es.find((peer) => peer.translationKey === entry.translationKey);
+  const expectedAlt = esPeer ? `/bitacora/${esPeer.slug}` : '';
+  if (expectedAlt && html.includes(`data-alt="${expectedAlt}"`)) {
+    pass(`journal-detail: EN "${entry.slug}" toggles ES to ${expectedAlt}`);
+  } else {
+    fail(`journal-detail: EN "${entry.slug}" must toggle ES to ${expectedAlt}`);
+  }
+}
+
+// 8g8. SEO clusters: paired details emit the absolute self-canonical plus
+//      real ES/EN and ES x-default alternates; an ES-only detail emits ONLY
+//      its absolute self-canonical — zero hreflang, including no x-default.
+for (const entry of publishedByLocale.es) {
+  const html = esDetails.get(entry.slug) ?? '';
+  if (!html) continue;
+  const enPeer = publishedByLocale.en.find((peer) => peer.translationKey === entry.translationKey);
+  const selfHref = `${siteBase}/bitacora/${entry.slug}`;
+  if (html.includes(`rel="canonical" href="${selfHref}"`)) {
+    pass(`journal-detail: ES "${entry.slug}" canonical is absolute and self-referencing`);
+  } else {
+    fail(`journal-detail: ES "${entry.slug}" must emit <link rel="canonical" href="${selfHref}">`);
+  }
+  if (html.includes(`rel="canonical" href="${selfHref}/"`)) {
+    fail(`journal-detail: ES "${entry.slug}" canonical must not carry a trailing slash`);
+  }
+  if (enPeer) {
+    const enHref = `${siteBase}/en/log/${enPeer.slug}`;
+    for (const [locale, href] of [
+      ['es', selfHref],
+      ['en', enHref],
+      ['x-default', selfHref],
+    ]) {
+      const token = `rel="alternate" hreflang="${locale}" href="${href}"`;
+      if (html.includes(token)) {
+        pass(`journal-detail: ES "${entry.slug}" emits ${locale} -> ${href}`);
+      } else {
+        fail(`journal-detail: ES "${entry.slug}" must emit <link ${token}>`);
+      }
+    }
+  } else if (html.includes('rel="alternate"')) {
+    fail(`journal-detail: ES-only "${entry.slug}" must emit NO alternate links (not even x-default)`);
+  } else {
+    pass(`journal-detail: ES-only "${entry.slug}" emits zero hreflang alternates (self-canonical only)`);
+  }
+}
+for (const entry of publishedByLocale.en) {
+  const html = enDetails.get(entry.slug) ?? '';
+  if (!html) continue;
+  const esPeer = publishedByLocale.es.find((peer) => peer.translationKey === entry.translationKey);
+  const selfHref = `${siteBase}/en/log/${entry.slug}`;
+  if (html.includes(`rel="canonical" href="${selfHref}"`)) {
+    pass(`journal-detail: EN "${entry.slug}" canonical is absolute and self-referencing`);
+  } else {
+    fail(`journal-detail: EN "${entry.slug}" must emit <link rel="canonical" href="${selfHref}">`);
+  }
+  if (esPeer) {
+    const esHref = `${siteBase}/bitacora/${esPeer.slug}`;
+    for (const [locale, href] of [
+      ['es', esHref],
+      ['en', selfHref],
+      ['x-default', esHref],
+    ]) {
+      const token = `rel="alternate" hreflang="${locale}" href="${href}"`;
+      if (html.includes(token)) {
+        pass(`journal-detail: EN "${entry.slug}" emits ${locale} -> ${href}`);
+      } else {
+        fail(`journal-detail: EN "${entry.slug}" must emit <link ${token}>`);
+      }
+    }
+  }
+}
+
+// 8g9. Claim leakage on built details: visible text plus alt/title/content
+//      attribute values must stay free of the journal ban set.
+for (const entry of publishedByLocale.es) {
+  const html = esDetails.get(entry.slug) ?? '';
+  if (!html) continue;
+  if (/software\s+para\s+agentes/i.test(html)) {
+    fail(`journal-detail-copy: ES "/bitacora/${entry.slug}" built HTML contains the prohibited phrase`);
+  }
+  scanJournalText(journalVisibleText(html), `ES /bitacora/${entry.slug} visible text`);
+  for (const value of journalAttributeValues(html)) {
+    scanJournalText(value, `ES /bitacora/${entry.slug} attribute`);
+  }
+}
+for (const entry of publishedByLocale.en) {
+  const html = enDetails.get(entry.slug) ?? '';
+  if (!html) continue;
+  if (/software\s+para\s+agentes/i.test(html)) {
+    fail(`journal-detail-copy: EN "/en/log/${entry.slug}" built HTML contains the prohibited phrase`);
+  }
+  scanJournalText(journalVisibleText(html), `EN /en/log/${entry.slug} visible text`);
+  for (const value of journalAttributeValues(html)) {
+    scanJournalText(value, `EN /en/log/${entry.slug} attribute`);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // 9e. Static performance evidence: route output inventory and build sizes.
 //     The client-JS gzip budget itself is enforced in section 7.
 const ROUTE_OUTPUT = [
@@ -1505,6 +1979,8 @@ const ROUTE_OUTPUT = [
   ['/en/log', 'dist/en/log/index.html'],
   ['/privacy', 'dist/privacy/index.html'],
   ['/terms', 'dist/terms/index.html'],
+  ...publishedByLocale.es.map((entry) => [`/bitacora/${entry.slug}`, `dist/bitacora/${entry.slug}/index.html`]),
+  ...publishedByLocale.en.map((entry) => [`/en/log/${entry.slug}`, `dist/en/log/${entry.slug}/index.html`]),
 ];
 for (const [route, relPath] of ROUTE_OUTPUT) {
   if (existsSync(resolve(ROOT, relPath))) {

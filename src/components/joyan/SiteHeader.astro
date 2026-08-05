@@ -1,6 +1,7 @@
 ---
 import Wordmark from '~/components/joyan/Wordmark.astro';
 import LanguageToggle from '~/components/joyan/LanguageToggle.astro';
+import { JOURNAL_ROUTES, LOCALES } from '~/lib/i18n';
 import type { Locale, NavContent } from '~/lib/i18n/types';
 
 export interface Props {
@@ -11,6 +12,12 @@ export interface Props {
 }
 
 const { locale, nav, path } = Astro.props;
+// On detail pages the landing section anchors do not exist, so nav links
+// point at the locale landing base (/#agents, /en#agents) instead of bare
+// in-page anchors. Landings and archives keep the plain anchor.
+const isDetail =
+  typeof path === 'string' && path !== JOURNAL_ROUTES[locale] && path.startsWith(`${JOURNAL_ROUTES[locale]}/`);
+const anchorBase = isDetail ? (locale === LOCALES.ES ? '/' : '/en') : '';
 ---
 
 <header class="sticky top-0 z-40 border-b border-hairline bg-ink-950/95 backdrop-blur-sm">
@@ -23,7 +30,7 @@ const { locale, nav, path } = Astro.props;
         {
           nav.links.map((link) => (
             <a
-              href={`#${link.anchor}`}
+              href={`${anchorBase}#${link.anchor}`}
               class="font-mono text-xs uppercase tracking-widest text-plomo-400 transition-colors hover:text-bone-50"
             >
               {link.label}

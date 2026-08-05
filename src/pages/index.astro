@@ -26,7 +26,7 @@ const pathname = Astro.url.pathname;
   <HardwareSection content={content.hardware} />
   <EcosystemSection content={content.ecosystem} />
   <JournalSection locale={LOCALES.ES} content={content.journal} />
-  <SiteFooter slot="footer" content={content.footer} nav={content.nav} />
+  <SiteFooter slot="footer" content={content.footer} nav={content.nav} locale={LOCALES.ES} path={pathname} />
 </PageLayout>
 
 <script>

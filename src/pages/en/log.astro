@@ -29,7 +29,7 @@ const pathname = Astro.url.pathname;
       entries.length > 0 ? (
         <ul class="mt-14">
           {entries.map((entry) => (
-            <JournalEntryRow entry={entry} content={journal} titleLevel={2} />
+            <JournalEntryRow entry={entry} content={journal} titleLevel={2} locale={LOCALES.EN} linkMode="archive" />
           ))}
         </ul>
       ) : (
@@ -39,5 +39,5 @@ const pathname = Astro.url.pathname;
       )
     }
   </section>
-  <SiteFooter slot="footer" content={content.footer} nav={content.nav} />
+  <SiteFooter slot="footer" content={content.footer} nav={content.nav} locale={LOCALES.EN} path={pathname} />
 </PageLayout>

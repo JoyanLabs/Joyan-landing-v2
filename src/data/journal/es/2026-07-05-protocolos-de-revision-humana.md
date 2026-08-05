@@ -4,6 +4,8 @@ title: 'Borrador: protocolos de revisión humana'
 summary: 'Estamos escribiendo cómo las personas revisan cada decisión importante de un agente. Es un borrador interno, todavía no publicado.'
 area: research
 status: in-progress
+slug: protocolos-de-revision-humana
+translationKey: human-review-protocols
 draft: true
 ---
 
