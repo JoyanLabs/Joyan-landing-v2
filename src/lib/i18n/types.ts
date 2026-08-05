@@ -109,6 +109,42 @@ export interface EcosystemContent extends IllustratedSectionContent {
   community: CommunityContent;
 }
 
+/**
+ * Journal entry areas (single primary tag per entry). The literal list is the
+ * single source of truth: the content-collection schema consumes it directly
+ * (`z.enum(JOURNAL_AREAS)`) and locale chrome keys its label maps by it.
+ */
+export const JOURNAL_AREAS = ['hardware', 'software', 'integration', 'research'] as const;
+export type JournalArea = (typeof JOURNAL_AREAS)[number];
+
+/** Journal entry statuses — honest, in-development vocabulary. */
+export const JOURNAL_STATUSES = ['in-progress', 'shipped', 'exploring'] as const;
+export type JournalStatus = (typeof JOURNAL_STATUSES)[number];
+
+/**
+ * UI chrome for the Journal (section 05 / archives). Entries themselves live
+ * in Markdown; locale modules only own labels, meta and honest empty states.
+ */
+export interface JournalContent {
+  /** Section index label, e.g. "05". */
+  index: string;
+  kicker: string;
+  title: string;
+  lead: string;
+  /** Label of the link from the landing section to the archive. */
+  archiveLabel: string;
+  /** Label of an optional external link inside a row. */
+  linkLabel: string;
+  /** Honest localized empty state (rendered when a locale has no published entries). */
+  emptyState: string;
+  /** Archive page metadata (title/description). */
+  archive: LocaleMeta;
+  /** Localized area labels, keyed by JournalArea. */
+  areas: Record<JournalArea, string>;
+  /** Localized status labels, keyed by JournalStatus. */
+  statuses: Record<JournalStatus, string>;
+}
+
 export interface FooterContent {
   tagline: string;
   legal: string;
@@ -122,5 +158,6 @@ export interface LocaleContent {
   magi: MagiContent;
   hardware: HardwareContent;
   ecosystem: EcosystemContent;
+  journal: JournalContent;
   footer: FooterContent;
 }

@@ -175,6 +175,32 @@ export const es = {
       },
     },
   },
+  journal: {
+    index: '05',
+    kicker: 'Bitácora',
+    title: 'Nuestro avance, en voz propia',
+    lead: 'Registramos acá lo que estamos construyendo: prototipos, integraciones y experimentos, con lo que sale bien y lo que todavía estamos destrabando. Sin promesas: solo el paso a paso.',
+    archiveLabel: 'Ver todas las entradas',
+    linkLabel: 'Leer más',
+    emptyState: 'Todavía no hay entradas publicadas: lo estamos armando.',
+    archive: {
+      title: 'Bitácora',
+      titleTemplate: '%s — Joyan',
+      description:
+        'Bitácora de Joyan: el avance de nuestros agentes, integraciones, prototipos y experimentos, contado sin humo.',
+    },
+    areas: {
+      hardware: 'Hardware',
+      software: 'Software',
+      integration: 'Integración',
+      research: 'Investigación',
+    },
+    statuses: {
+      'in-progress': 'En curso',
+      shipped: 'Completado',
+      exploring: 'Explorando',
+    },
+  },
   footer: {
     tagline: 'Agentes especializados. Personas al mando.',
     legal: '© 2026 Joyan — Cooperativa. Todos los derechos reservados.',
