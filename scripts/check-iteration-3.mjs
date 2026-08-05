@@ -44,6 +44,12 @@
  *      clusters (paired ES/EN/x-default; ES-only self-canonical with zero
  *      hreflang), and built-detail claim leakage (visible text + alt/title/
  *      content attributes).
+ *   8h. Disclosure contract — the five scoped repeated-list surfaces (Agents,
+ *      MAGI, Hardware, Ecosystem items, Ecosystem community offers) render
+ *      as native, independent multi-open `<details>` with the first item
+ *      server-open, ordinal/title summaries, visible keyboard focus, static
+ *      reduced-motion behavior, responsive prose/figure balance, and zero
+ *      scripted state, carousels, slides, or client JS.
  *   9. Unit D audit — the extended copy ban set (public agentic/AGI/MCP/RAG
  *      jargon, commercial-claim patterns) applied to every locale source
  *      value and to the built landings' visible text, metadata, and
@@ -817,7 +823,9 @@ for (const { page, html, alt, hash, expected } of archiveHashCases) {
   if (link.href === expected) {
     pass(`journal-toggle: ${page} archive toggle from ${hash} resolves to ${expected}`);
   } else {
-    fail(`journal-toggle: ${page} archive toggle from ${hash} must resolve to ${expected}, got ${link.href || '(unset)'}`);
+    fail(
+      `journal-toggle: ${page} archive toggle from ${hash} must resolve to ${expected}, got ${link.href || '(unset)'}`
+    );
   }
   if (typeof link.listeners.click !== 'function') {
     fail(`journal-toggle: ${page} archive toggle script must bind a click listener`);
@@ -909,7 +917,12 @@ for (const [locale, content] of [
 //     valid frontmatter; published entries exist per locale; drafts exist;
 //     EN published entries mirror ES (ES-authoritative).
 const JOURNAL_DIR = resolve(ROOT, 'src/data/journal');
-const listMd = (dirPath) => (existsSync(dirPath) ? readdirSync(dirPath).filter((file) => file.endsWith('.md')).sort() : []);
+const listMd = (dirPath) =>
+  existsSync(dirPath)
+    ? readdirSync(dirPath)
+        .filter((file) => file.endsWith('.md'))
+        .sort()
+    : [];
 const parseFrontmatter = (source) => {
   const match = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
   return match ? yaml.load(match[1]) : null;
@@ -960,7 +973,10 @@ for (const [localeKey, dirName] of [
     if (typeof frontmatter.draft !== 'undefined' && typeof frontmatter.draft !== 'boolean') {
       issues.push('draft must be a boolean');
     }
-    if (typeof frontmatter.link !== 'undefined' && !(typeof frontmatter.link === 'string' && frontmatter.link.startsWith('https://'))) {
+    if (
+      typeof frontmatter.link !== 'undefined' &&
+      !(typeof frontmatter.link === 'string' && frontmatter.link.startsWith('https://'))
+    ) {
       issues.push('link must be an https:// URL');
     }
     if (typeof frontmatter.dither !== 'undefined' && typeof frontmatter.dither !== 'string') {
@@ -990,18 +1006,25 @@ const publishedByLocale = {
   en: seedEntries.en.filter((entry) => !entry.draft),
 };
 if (publishedByLocale.es.length >= 1) {
-  pass(`journal-seed: ES has ${publishedByLocale.es.length} published entr${publishedByLocale.es.length === 1 ? 'y' : 'ies'}`);
+  pass(
+    `journal-seed: ES has ${publishedByLocale.es.length} published entr${publishedByLocale.es.length === 1 ? 'y' : 'ies'}`
+  );
 } else {
   fail('journal-seed: ES must have at least one published entry');
 }
 if (publishedByLocale.en.length >= 1) {
-  pass(`journal-seed: EN has ${publishedByLocale.en.length} published entr${publishedByLocale.en.length === 1 ? 'y' : 'ies'}`);
+  pass(
+    `journal-seed: EN has ${publishedByLocale.en.length} published entr${publishedByLocale.en.length === 1 ? 'y' : 'ies'}`
+  );
 } else {
   fail('journal-seed: EN must have at least one published entry');
 }
-const draftCount = seedEntries.es.filter((entry) => entry.draft).length + seedEntries.en.filter((entry) => entry.draft).length;
+const draftCount =
+  seedEntries.es.filter((entry) => entry.draft).length + seedEntries.en.filter((entry) => entry.draft).length;
 if (draftCount >= 1) {
-  pass(`journal-seed: ${draftCount} draft entr${draftCount === 1 ? 'y' : 'ies'} present (draft filtering is exercised)`);
+  pass(
+    `journal-seed: ${draftCount} draft entr${draftCount === 1 ? 'y' : 'ies'} present (draft filtering is exercised)`
+  );
 } else {
   fail('journal-seed: at least one draft entry must exist so draft filtering is testable');
 }
@@ -1014,7 +1037,9 @@ const enMirrorKey = (entry) => `${entry.date}|${entry.area}|${entry.status}`;
 const esMirrorKeys = new Set(publishedByLocale.es.map(enMirrorKey));
 const orphanEn = publishedByLocale.en.filter((entry) => !esMirrorKeys.has(enMirrorKey(entry)));
 if (orphanEn.length === 0) {
-  pass('journal-seed: every published EN entry mirrors a published ES entry (same date/area/status — ES-authoritative)');
+  pass(
+    'journal-seed: every published EN entry mirrors a published ES entry (same date/area/status — ES-authoritative)'
+  );
 } else {
   for (const entry of orphanEn) {
     fail(`journal-seed: ${entry.location} has no published ES source entry with the same date/area/status`);
@@ -1029,7 +1054,10 @@ const builtPages = [
   ['ES archive', bitacoraHtml],
   ['EN archive', logHtml],
 ];
-const draftEntries = [...seedEntries.es.filter((entry) => entry.draft), ...seedEntries.en.filter((entry) => entry.draft)];
+const draftEntries = [
+  ...seedEntries.es.filter((entry) => entry.draft),
+  ...seedEntries.en.filter((entry) => entry.draft),
+];
 for (const entry of draftEntries) {
   for (const [page, html] of builtPages) {
     if (html && html.includes(entry.title)) {
@@ -1066,7 +1094,9 @@ for (const entry of esOnlyEntries) {
   if (bitacoraHtml.includes(entry.title) && leakPages.length === 0) {
     pass(`journal-omission: ES-only "${entry.title}" renders on /bitacora and stays out of EN output`);
   } else {
-    fail(`journal-omission: ES-only "${entry.title}" must render on /bitacora and stay out of EN output${leakPages.length ? ` (leaked into ${leakPages.join(', ')})` : ''}`);
+    fail(
+      `journal-omission: ES-only "${entry.title}" must render on /bitacora and stay out of EN output${leakPages.length ? ` (leaked into ${leakPages.join(', ')})` : ''}`
+    );
   }
 }
 for (const entry of publishedByLocale.en) {
@@ -1336,8 +1366,8 @@ const scanUnitDText = (target, source) => {
 };
 
 // 9a. Locale source values (every executed string, reported by key path).
-const esContentFull = (loadTsModule(resolve(ROOT, 'src/lib/i18n/es.ts')).es ?? {});
-const enContentFull = (loadTsModule(resolve(ROOT, 'src/lib/i18n/en.ts')).en ?? {});
+const esContentFull = loadTsModule(resolve(ROOT, 'src/lib/i18n/es.ts')).es ?? {};
+const enContentFull = loadTsModule(resolve(ROOT, 'src/lib/i18n/en.ts')).en ?? {};
 for (const [locale, content] of [
   ['es', esContentFull],
   ['en', enContentFull],
@@ -1497,7 +1527,10 @@ for (const [page, html] of auditPages) {
     } else {
       fail(`a11y: ${page} hardware surface must carry tabindex="0"`);
     }
-    if (/data-hardware-surface[^>]*focus-visible:outline-accent/.test(html) || /focus-visible:outline-accent[^>]*data-hardware-surface/.test(html)) {
+    if (
+      /data-hardware-surface[^>]*focus-visible:outline-accent/.test(html) ||
+      /focus-visible:outline-accent[^>]*data-hardware-surface/.test(html)
+    ) {
       pass(`a11y: ${page} hardware surface carries the visible focus-visible ring class`);
     } else {
       fail(`a11y: ${page} hardware surface must carry focus-visible:outline-accent`);
@@ -1970,6 +2003,270 @@ for (const entry of publishedByLocale.en) {
 }
 
 // ---------------------------------------------------------------------------
+// 8h. Disclosure contract (RED 1.2): the five scoped repeated-list surfaces
+//     (Agents, MAGI, Hardware, Ecosystem items, Ecosystem community offers)
+//     render as native, independent multi-open <details> with the first item
+//     server-open, ordinal/title summaries, visible keyboard focus, static
+//     reduced-motion behavior, and responsive prose/figure balance. No
+//     carousels, slides, scripted state, client JS, or dependencies.
+// ---------------------------------------------------------------------------
+// The five script-free disclosure list regions on a built page (one per
+// scoped surface); each list div ends with its last details element.
+const disclosureListRegions = (html) => [
+  ...html.matchAll(/class="disclosure-list">[\s\S]*?<\/details>\s*<\/div>/g),
+].map((match) => match[0]);
+
+// 8h1. Source identity: JournalDisclosureList exists and stays script-free;
+//      every scoped section consumes it and passes its items.
+const disclosureListSource = read(resolve(ROOT, 'src/components/joyan/JournalDisclosureList.astro'));
+for (const [token, what] of [
+  ['<details', 'renders native <details> elements'],
+  ['<summary', 'renders native <summary> elements'],
+  ['open={i === 0}', 'server-renders the first item open'],
+  ['idPrefix', 'keeps disclosure ids unique per surface'],
+]) {
+  if (disclosureListSource.includes(token)) {
+    pass(`disclosure: JournalDisclosureList.astro ${what} (${token})`);
+  } else {
+    fail(`disclosure: JournalDisclosureList.astro must ${what} (missing ${token})`);
+  }
+}
+if (/<script/.test(disclosureListSource) || /client:/.test(disclosureListSource)) {
+  fail('disclosure: JournalDisclosureList.astro must be script-free with no client: directives');
+} else {
+  pass('disclosure: JournalDisclosureList.astro is script-free server markup (no client state)');
+}
+
+const disclosureSectionNames = ['AgentsSection', 'MagiSection', 'HardwareSection', 'EcosystemSection'];
+for (const name of disclosureSectionNames) {
+  const source = read(resolve(ROOT, `src/components/joyan/${name}.astro`));
+  if (source.includes('JournalDisclosureList.astro')) {
+    pass(`disclosure: ${name} consumes JournalDisclosureList`);
+  } else {
+    fail(`disclosure: ${name} must consume JournalDisclosureList`);
+  }
+  if (/<script/.test(source) || /client:/.test(source)) {
+    fail(`disclosure: ${name} must be script-free with no client: directives`);
+  } else {
+    pass(`disclosure: ${name} keeps the native disclosure markup (no script, no client state)`);
+  }
+  const carouselHits = source.match(/\b(?:carousel|slider|swiper|slick)\b/i);
+  if (carouselHits) {
+    fail(`disclosure: ${name} must not introduce carousel/slide markup (found ${carouselHits[0]})`);
+  } else {
+    pass(`disclosure: ${name} introduces no carousel/slide markup`);
+  }
+}
+
+const disclosureSurfacePasses = [
+  ['AgentsSection', 'AgentsSection', 'items={content.items}'],
+  ['MagiSection', 'MagiSection', 'items={content.items}'],
+  ['HardwareSection', 'HardwareSection', 'items={content.items}'],
+  ['EcosystemSection', 'EcosystemSection', 'items={content.items}'],
+  ['EcosystemSection community offers', 'EcosystemSection', 'items={communityOffers}'],
+];
+for (const [label, fileName, token] of disclosureSurfacePasses) {
+  const source = read(resolve(ROOT, `src/components/joyan/${fileName}.astro`));
+  if (source.includes(token)) {
+    pass(`disclosure: ${label} passes its items to the disclosure list (${token})`);
+  } else {
+    fail(`disclosure: ${label} must pass items to the disclosure list (missing ${token})`);
+  }
+}
+
+// 8h2. Built evidence: every locale page renders all five surfaces as
+//      <details> with one <summary> each, exactly one server-open disclosure
+//      per surface, and the first disclosure of every surface open.
+const sectionSlice = (html, sectionId) => {
+  const start = html.indexOf(`id="${sectionId}"`);
+  if (start === -1) return '';
+  const end = html.indexOf('</section>', start);
+  return end === -1 ? html.slice(start) : html.slice(start, end + '</section>'.length);
+};
+const detailsTagsIn = (html) => [...html.matchAll(/<details\b[^>]*>/g)].map((match) => match[0]);
+const rawSummariesIn = (html) => [...html.matchAll(/<summary\b[^>]*>([\s\S]*?)<\/summary>/g)].map((match) => match[1]);
+const summaryTextOf = (summaryHtml) =>
+  summaryHtml
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+const disclosureSurfaces = (content) => ({
+  agents: { id: 'agents', items: content.agents?.items ?? [] },
+  magi: { id: 'magi', items: content.magi?.items ?? [] },
+  hardware: { id: 'hardware', items: content.hardware?.items ?? [] },
+  ecosystem: { id: 'ecosystem', items: content.ecosystem?.items ?? [] },
+  offers: { id: 'ecosystem', items: Object.values(content.ecosystem?.community?.offers ?? {}) },
+});
+
+for (const [page, html, content] of [
+  ['ES landing', esHtml, esContentFull],
+  ['EN landing', enHtml, enContentFull],
+]) {
+  if (!html) continue;
+  const surfaces = disclosureSurfaces(content);
+  const allDetails = detailsTagsIn(html);
+  const openCount = allDetails.filter((tag) => /\bopen\b/.test(tag)).length;
+  if (openCount === 5) {
+    pass(`disclosure: ${page} server-opens exactly one disclosure per scoped surface (5)`);
+  } else {
+    fail(`disclosure: ${page} must server-open exactly 5 disclosures (first item of each surface), found ${openCount}`);
+  }
+  if (allDetails.length === rawSummariesIn(html).length) {
+    pass(`disclosure: ${page} pairs every <details> with a <summary> (${allDetails.length})`);
+  } else {
+    fail(`disclosure: ${page} must render exactly one <summary> per <details>`);
+  }
+  // The disclosure markup itself is server-rendered with no script inside
+  // any list region (Astro legitimately ships page scripts — reveal, toggle,
+  // MAGI canvas — outside the disclosure lists).
+  const listRegions = disclosureListRegions(html);
+  if (listRegions.length === 5 && listRegions.every((region) => !/<script/.test(region))) {
+    pass(`disclosure: ${page} ships ${listRegions.length} script-free disclosure lists (no-JS evidence)`);
+  } else {
+    fail(`disclosure: ${page} must ship 5 script-free disclosure lists (no-JS evidence)`);
+  }
+
+  const ecoItems = surfaces.ecosystem.items;
+  const ecoOffers = surfaces.offers.items;
+  const ecoDetails = detailsTagsIn(sectionSlice(html, 'ecosystem'));
+  const ecoSummaries = rawSummariesIn(sectionSlice(html, 'ecosystem'));
+  const primaryDetails = ecoDetails.slice(0, ecoItems.length);
+  const offerDetails = ecoDetails.slice(ecoItems.length);
+
+  for (const [surface, { id, items }] of [
+    ['agents', surfaces.agents],
+    ['magi', surfaces.magi],
+    ['hardware', surfaces.hardware],
+    ['ecosystem', surfaces.ecosystem],
+  ]) {
+    const details = surface === 'ecosystem' ? primaryDetails : detailsTagsIn(sectionSlice(html, id));
+    if (details.length === items.length) {
+      pass(`disclosure: ${page} ${surface} surface renders ${items.length} disclosure(s)`);
+    } else {
+      fail(`disclosure: ${page} ${surface} surface must render ${items.length} disclosure(s), found ${details.length}`);
+    }
+    if (details[0] && /\bopen\b/.test(details[0])) {
+      pass(`disclosure: ${page} ${surface} surface server-opens its first disclosure`);
+    } else {
+      fail(`disclosure: ${page} ${surface} surface must server-open its first disclosure`);
+    }
+  }
+  if (offerDetails.length === ecoOffers.length) {
+    pass(`disclosure: ${page} ecosystem community surface renders ${ecoOffers.length} disclosure(s)`);
+  } else {
+    fail(`disclosure: ${page} ecosystem community surface must render ${ecoOffers.length} disclosure(s)`);
+  }
+  if (offerDetails[0] && /\bopen\b/.test(offerDetails[0])) {
+    pass(`disclosure: ${page} ecosystem community surface server-opens its first offer disclosure`);
+  } else {
+    fail(`disclosure: ${page} ecosystem community surface must server-open its first offer disclosure`);
+  }
+  if (
+    ecoSummaries.slice(0, ecoItems.length).length === ecoItems.length &&
+    ecoSummaries.slice(ecoItems.length).length === ecoOffers.length
+  ) {
+    pass(`disclosure: ${page} ecosystem summaries split as ${ecoItems.length} primary + ${ecoOffers.length} offer(s)`);
+  } else {
+    fail(`disclosure: ${page} ecosystem summary count must match its two disclosure surfaces`);
+  }
+
+  // Ordinal/title summaries with the right heading level per surface.
+  const checkSurfaceSummaries = (label, summaries, items, headingLevel) => {
+    if (summaries.length !== items.length) {
+      fail(`disclosure: ${page} ${label} must render one summary per item`);
+      return;
+    }
+    items.forEach((item, i) => {
+      const text = summaryTextOf(summaries[i]);
+      const ordinal = String(i + 1).padStart(2, '0');
+      if (text.includes(ordinal) && text.includes(item.title.toLowerCase())) {
+        pass(`disclosure: ${page} ${label} summary ${i + 1} keeps ordinal "${ordinal}" and title "${item.title}"`);
+      } else {
+        fail(`disclosure: ${page} ${label} summary ${i + 1} must keep ordinal "${ordinal}" and title "${item.title}"`);
+      }
+    });
+    if (summaries.length > 0 && new RegExp(`<h${headingLevel}\\b`).test(summaries[0])) {
+      pass(`disclosure: ${page} ${label} summaries use h${headingLevel} titles`);
+    } else {
+      fail(`disclosure: ${page} ${label} summaries must use h${headingLevel} titles`);
+    }
+  };
+  checkSurfaceSummaries('agents', rawSummariesIn(sectionSlice(html, 'agents')), surfaces.agents.items, 3);
+  checkSurfaceSummaries('magi', rawSummariesIn(sectionSlice(html, 'magi')), surfaces.magi.items, 3);
+  checkSurfaceSummaries('hardware', rawSummariesIn(sectionSlice(html, 'hardware')), surfaces.hardware.items, 3);
+  checkSurfaceSummaries('ecosystem', ecoSummaries.slice(0, ecoItems.length), ecoItems, 3);
+  checkSurfaceSummaries('ecosystem community', ecoSummaries.slice(ecoItems.length), ecoOffers, 4);
+}
+
+// 8h3. Multi-open independence and visible focus: no exclusive-accordion
+//      `name` attribute on any disclosure, and an amber :focus-visible ring
+//      on the summaries in the compiled stylesheet.
+for (const [page, html] of [
+  ['ES landing', esHtml],
+  ['EN landing', enHtml],
+]) {
+  if (!html) continue;
+  const allDetails = detailsTagsIn(html);
+  if (allDetails.some((tag) => /name=/.test(tag))) {
+    fail(`disclosure: ${page} disclosures must stay independently multi-open (no name/ exclusive-accordion attribute)`);
+  } else {
+    pass(`disclosure: ${page} disclosures are independent (no name attribute — multi-open is native)`);
+  }
+}
+if (/\.disclosure-summary:focus-visible\{/.test(compiledCss)) {
+  pass('disclosure: compiled CSS gives the summaries a visible :focus-visible ring');
+} else {
+  fail('disclosure: compiled CSS must include a .disclosure-summary:focus-visible rule');
+}
+if (listClientJs().some((file) => /disclosure/i.test(file))) {
+  fail('disclosure: no compiled JS chunk may manage disclosure state (found a disclosure-named chunk)');
+} else {
+  pass('disclosure: no client JS chunk exists for disclosure state (native semantics only)');
+}
+
+// 8h4. Static reduced-motion and responsive evidence in the compiled CSS.
+if (/\.disclosure\{/.test(compiledCss) && /\.disclosure-summary\{/.test(compiledCss)) {
+  pass('disclosure: compiled CSS ships the base .disclosure/.disclosure-summary rules');
+} else {
+  fail('disclosure: compiled CSS must ship base .disclosure and .disclosure-summary rules');
+}
+if (/@media \(prefers-reduced-motion:reduce\)\{[^}]*\.disclosure/.test(compiledCss)) {
+  pass('disclosure: reduced-motion users get static behavior (no disclosure transition)');
+} else {
+  fail('disclosure: compiled CSS must zero transitions inside a prefers-reduced-motion block for .disclosure');
+}
+if (
+  /@media \(min-width:48rem\)\{[^}]*\.disclosure/.test(compiledCss) ||
+  /@media \(width>=48rem\)\{[^}]*\.disclosure/.test(compiledCss)
+) {
+  pass('disclosure: wide screens keep the ordinal column layout (responsive prose/figure balance)');
+} else {
+  fail('disclosure: compiled CSS must include a 48rem media rule for the disclosure layout');
+}
+
+// 8h5. Disclosure claim review: the built disclosure text stays free of the
+//      extended ban set (copy already scanned page-wide in 9b; this bounds
+//      the disclosure surfaces themselves). Only the five script-free list
+//      regions are scanned, never page scripts.
+for (const [page, html] of [
+  ['ES landing', esHtml],
+  ['EN landing', enHtml],
+]) {
+  if (!html) continue;
+  const region = disclosureListRegions(html).join(' ');
+  scanUnitDText(summaryTextOf(region), `${page} disclosure text`);
+  for (const value of journalAttributeValues(region)) {
+    scanUnitDText(value, `${page} disclosure attribute`);
+  }
+}
+if (unitDCopyIssues === 0) {
+  pass(
+    'disclosure: built disclosure summaries and bodies are free of banned phrase, jargon, vendors, screenshots and claims'
+  );
+}
+
+// ---------------------------------------------------------------------------
 // 9e. Static performance evidence: route output inventory and build sizes.
 //     The client-JS gzip budget itself is enforced in section 7.
 const ROUTE_OUTPUT = [
@@ -1996,6 +2293,13 @@ const htmlBytes = ROUTE_OUTPUT.reduce(
 pass(
   `evidence: ${ROUTE_OUTPUT.length} HTML routes totalling ${(htmlBytes / 1024).toFixed(1)} KiB; client JS gzip sum ${candidate.total} B across ${candidate.rows.length} chunk(s) (delta budget enforced in section 7)`
 );
+const disclosureSummaryCount = ROUTE_OUTPUT.filter(([route]) => route === '/' || route === '/en').reduce(
+  (sum, [route]) => sum + rawSummariesIn(route === '/' ? esHtml : enHtml).length,
+  0
+);
+pass(
+  `evidence: disclosures render ${disclosureSummaryCount} server-side summaries across the two landings (5 scoped surfaces, no client JS)`
+);
 
 // ---------------------------------------------------------------------------
 // Summary.
@@ -2007,4 +2311,4 @@ if (failures.length > 0) {
   console.error('\niteration-3: contract violations found.');
   process.exit(1);
 }
-console.log('\niteration-3: all Unit A contracts verified.');
+console.log('\niteration-3: all Unit A and Unit B contracts verified.');

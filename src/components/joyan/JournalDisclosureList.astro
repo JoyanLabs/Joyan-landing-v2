@@ -1,0 +1,44 @@
+---
+import type { FeatureItem } from '~/lib/i18n/types';
+
+export interface Props {
+  /** The scoped repeated items rendered as independent disclosures. */
+  items: readonly FeatureItem[];
+  /**
+   * Heading level of each disclosure title: h3 under a landing section h2,
+   * h4 under the community offers h3. Keeps heading order skip-free.
+   */
+  titleLevel?: 2 | 3 | 4 | 5 | 6;
+  /** Stable per-surface prefix for the disclosure ids (unique per page). */
+  idPrefix: string;
+}
+
+const { items, titleLevel = 3, idPrefix } = Astro.props;
+const HeadingTag = `h${titleLevel}` as 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
+---
+
+<!--
+  Native progressive disclosure (docs/DESIGN.md — Disclosure rules): scoped
+  repeated lists render as independent multi-open native disclosure elements;
+  the first item is server-rendered open, every summary keeps its ordinal and
+  title with visible keyboard focus, and bodies expose the existing copy
+  without any client state or script. No carousel, no slides, no exclusive
+  accordion (name attribute) behavior.
+-->
+<div class="disclosure-list">
+  {
+    items.map((item, i) => (
+      <details class="disclosure" id={`${idPrefix}-${i + 1}`} open={i === 0}>
+        <summary class="disclosure-summary">
+          <span class="disclosure-index font-mono text-xs tracking-widest text-plomo-400">
+            {String(i + 1).padStart(2, '0')}
+          </span>
+          <HeadingTag class="disclosure-title text-xl font-semibold text-bone-50">{item.title}</HeadingTag>
+        </summary>
+        <div class="disclosure-body">
+          <p class="max-w-xl leading-relaxed text-plomo-400">{item.body}</p>
+        </div>
+      </details>
+    ))
+  }
+</div>
