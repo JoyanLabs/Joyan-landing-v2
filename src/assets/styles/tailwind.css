@@ -312,6 +312,16 @@
   }
 }
 
+/* Scroll reveals (docs/DESIGN.md — Motion guide): the reveal script adds
+   this class before first viewport entry so the hidden state lives in CSS,
+   never in inline style attributes. Opacity/transform-only, no layout
+   properties, and only ever applied by JS after the reduced-motion gate — no
+   JS and reduced-motion keep the server markup visible and static. */
+.is-reveal-pending {
+  opacity: 0;
+  transform: translateY(1rem);
+}
+
 /* MAGI edge-energy pulses (docs/DESIGN.md — Motion guide): the six
    hub-to-satellite edges breathe opacity so energy reads as traveling the
    network. Opacity-only — no transform/scale — and static under reduced

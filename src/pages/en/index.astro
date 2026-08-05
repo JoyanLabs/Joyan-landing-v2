@@ -28,11 +28,14 @@ const content = en;
   // Scroll reveals (docs/DESIGN.md — Motion guide): below-hero sections fade
   // and rise once on first viewport entry. Server markup stays visible and
   // static (no-JS and reduced-motion keep it that way); this script only
-  // animates opacity and transform. Every inView cleanup and animation
-  // control is stored so astro:before-swap can release it before the DOM
-  // swap and astro:page-load can reinitialize after it.
+  // animates opacity and transform. The pre-reveal hidden state is a CSS
+  // class (opacity/transform-only, in tailwind.css) — never inline style
+  // attributes. Every inView cleanup and animation control is stored so
+  // astro:before-swap can release it before the DOM swap and astro:page-load
+  // can reinitialize after it.
 
   const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
+  const REVEAL_PENDING_CLASS = 'is-reveal-pending';
 
   const cleanups: Array<() => void> = [];
   const controls: Array<{ stop: () => void }> = [];
@@ -49,11 +52,11 @@ const content = en;
     if (window.matchMedia(REDUCED_MOTION_QUERY).matches) return;
     const elements = Array.from(document.querySelectorAll<HTMLElement>('[data-reveal]'));
     for (const element of elements) {
-      element.style.opacity = '0';
-      element.style.transform = 'translateY(1rem)';
+      element.classList.add(REVEAL_PENDING_CLASS);
       const stopInView = inView(
         element,
         () => {
+          element.classList.remove(REVEAL_PENDING_CLASS);
           const control = animate(element, { opacity: 1, y: 0 }, { duration: 0.65, ease: 'easeOut' });
           controls.push(control);
           return () => control.stop();
