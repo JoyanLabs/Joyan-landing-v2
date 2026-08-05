@@ -1,0 +1,45 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import type { JournalContent } from '~/lib/i18n/types';
+
+export interface Props {
+  entry: CollectionEntry<'journal'>;
+  content: JournalContent;
+}
+
+const { entry, content } = Astro.props;
+const { data } = entry;
+
+/**
+ * UTC-based ISO date (yyyy-mm-dd): deterministic across build timezones and
+ * consistent with the frontmatter value. Mono label, fits the terminal motif.
+ */
+const dateLabel = `${data.publishDate.getUTCFullYear()}-${String(data.publishDate.getUTCMonth() + 1).padStart(2, '0')}-${String(data.publishDate.getUTCDate()).padStart(2, '0')}`;
+---
+
+<li class="grid gap-4 border-t border-hairline py-8 md:grid-cols-[14rem_1fr] md:gap-10">
+  <p class="font-mono text-xs uppercase tracking-widest text-plomo-400">
+    <time datetime={dateLabel}>{dateLabel}</time>
+    <span class="mt-1 block">[{content.areas[data.area]}]</span>
+    <span class="mt-1 block text-accent">{content.statuses[data.status]}</span>
+  </p>
+  <div>
+    <h3 class="text-xl font-semibold text-bone-50">{data.title}</h3>
+    <p class="mt-3 max-w-xl leading-relaxed text-plomo-400">{data.summary}</p>
+    {
+      data.link && (
+        <a
+          href={data.link}
+          class="mt-4 inline-block font-mono text-xs uppercase tracking-widest text-bone-50 transition-colors hover:text-accent"
+        >
+          {content.linkLabel} <span aria-hidden="true">→</span>
+        </a>
+      )
+    }
+    {
+      data.dither && (
+        <img src={data.dither} alt="" loading="lazy" class="mt-4 block h-32 w-48 border border-hairline object-cover" />
+      )
+    }
+  </div>
+</li>

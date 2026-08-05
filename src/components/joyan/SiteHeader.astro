@@ -6,9 +6,11 @@ import type { Locale, NavContent } from '~/lib/i18n/types';
 export interface Props {
   locale: Locale;
   nav: NavContent;
+  /** Current page pathname — forwarded to the language toggle. */
+  path?: string;
 }
 
-const { locale, nav } = Astro.props;
+const { locale, nav, path } = Astro.props;
 ---
 
 <header class="sticky top-0 z-40 border-b border-hairline bg-ink-950/95 backdrop-blur-sm">
@@ -29,7 +31,7 @@ const { locale, nav } = Astro.props;
           ))
         }
       </nav>
-      <LanguageToggle locale={locale} label={nav.toggle} />
+      <LanguageToggle locale={locale} label={nav.toggle} path={path} />
     </div>
   </div>
 </header>

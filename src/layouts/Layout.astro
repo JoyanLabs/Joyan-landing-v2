@@ -14,20 +14,30 @@ import SiteVerification from '~/components/common/SiteVerification.astro';
 import Favicons from '~/components/Favicons.astro';
 
 import type { MetaData as MetaDataType } from '~/types';
-import { LOCALES } from '~/lib/i18n';
+import { JOURNAL_ROUTES, LOCALES } from '~/lib/i18n';
 import { getCanonical } from '~/utils/permalinks';
 
 export interface Props {
   metadata?: MetaDataType;
   lang?: string;
+  /** Current page pathname — selects the canonical/hreflang locale cluster. */
+  pathname?: string;
 }
 
-const { metadata = {}, lang = I18N.language } = Astro.props;
+const { metadata = {}, lang = I18N.language, pathname = '/' } = Astro.props;
 const { textDirection } = I18N;
 
+// Layout owns the path-aware canonical/hreflang cluster (docs/DESIGN.md):
+// landings alternate `/` ↔ `/en`; journal archives alternate `/bitacora` ↔
+// `/en/log` with x-default pointing at the ES archive.
+const journalRouteSet = new Set<string>(Object.values(JOURNAL_ROUTES));
+const onJournalRoute = journalRouteSet.has(pathname);
+const esPath = onJournalRoute ? JOURNAL_ROUTES[LOCALES.ES] : '/';
+const enPath = onJournalRoute ? JOURNAL_ROUTES[LOCALES.EN] : '/en';
+
 const hreflangHrefs = {
-  [LOCALES.ES]: String(getCanonical('/')),
-  [LOCALES.EN]: String(getCanonical('/en')),
+  [LOCALES.ES]: String(getCanonical(esPath)),
+  [LOCALES.EN]: String(getCanonical(enPath)),
 };
 ---
 

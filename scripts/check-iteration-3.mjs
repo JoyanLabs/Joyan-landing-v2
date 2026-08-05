@@ -28,6 +28,14 @@
  *      of every emitted `dist/_astro/*.js` client chunk; `--baseline <path>`
  *      (or the default committed fixture) requires the candidate-minus-
  *      baseline delta to be at most 22528 bytes (22 KiB).
+ *   8. Unit C Journal — the additive `journal` collection (typed schema and
+ *      shared area/status consts), locale chrome maps, seed frontmatter
+ *      contract (published per locale, drafts, ES-authoritative EN mirror),
+ *      archive routes `/bitacora` ↔ `/en/log` (lang, canonical/hreflang
+ *      cluster, toggle data-alt + hash preservation), built behavior
+ *      (latest-three rows, draft exclusion, ES-only omissions, localized
+ *      area/status labels, empty-state machinery), and claim scans of every
+ *      journal Markdown file plus both built archives.
  *
  * Exit code 0 = all assertions pass; 1 = at least one failure. The checker
  * builds automatically when `dist/` is missing so `pnpm check` works from a
@@ -38,6 +46,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
+import yaml from 'js-yaml';
 import ts from 'typescript';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -614,6 +623,643 @@ if (baselinePath) {
   pass(
     `budget: no baseline fixture yet — candidate client JS gzip sum is ${candidate.total} B across ${candidate.rows.length} chunk(s)`
   );
+}
+
+// ---------------------------------------------------------------------------
+// 8. Unit C — Journal: typed collection + chrome, seed frontmatter contract,
+//    archive routes (/bitacora ↔ /en/log), built behavior (latest-three,
+//    drafts, ES-only omissions, labels, empty state), and claim scans of
+//    journal sources and built archive HTML.
+// ---------------------------------------------------------------------------
+const siteConfig = yaml.load(read(resolve(ROOT, 'src/config.yaml')));
+const siteBase = String(siteConfig.site.site).replace(/\/+$/, '');
+
+const bitacoraHtml = (() => {
+  try {
+    return read(resolve(DIST, 'bitacora', 'index.html'));
+  } catch {
+    fail('journal: ES archive /bitacora must build to dist/bitacora/index.html');
+    return '';
+  }
+})();
+const logHtml = (() => {
+  try {
+    return read(resolve(DIST, 'en', 'log', 'index.html'));
+  } catch {
+    fail('journal: EN archive /en/log must build to dist/en/log/index.html');
+    return '';
+  }
+})();
+
+// 8a. Archive route contract (mirrors the iteration-2 `/` ↔ `/en` checks).
+for (const [page, html, expectedLang] of [
+  ['ES', bitacoraHtml, 'es'],
+  ['EN', logHtml, 'en'],
+]) {
+  if (!html) continue;
+  const langTag = `<html lang="${expectedLang}"`;
+  if (html.includes(langTag)) {
+    pass(`journal-route: ${page} archive renders ${langTag} (active locale)`);
+  } else {
+    fail(`journal-route: ${page} archive must render ${langTag} (wrong active locale)`);
+  }
+  // No trailing-slash route targets: `/en/`, `/bitacora/`, `/en/log/` are
+  // all invalid under `trailingSlash: "never"`. Legitimate `/en/log` hrefs
+  // (the toggle link) are allowed — they are routes, not slash artifacts.
+  for (const [target, what] of [
+    ['/en/"', 'no /en/ trailing-slash link target'],
+    ['/bitacora/"', 'no /bitacora/ trailing-slash link target'],
+    ['/en/log/"', 'no /en/log/ trailing-slash link target'],
+  ]) {
+    if (html.includes(`href="${target}`)) {
+      fail(`journal-route: ${page} archive contains ${what}`);
+    } else {
+      pass(`journal-route: ${page} archive has ${what}`);
+    }
+  }
+}
+
+const archiveCanonicalRows = [
+  {
+    label: 'ES archive canonical',
+    html: bitacoraHtml,
+    expected: `rel="canonical" href="${siteBase}/bitacora"`,
+    banned: `rel="canonical" href="${siteBase}/bitacora/"`,
+  },
+  {
+    label: 'EN archive canonical',
+    html: logHtml,
+    expected: `rel="canonical" href="${siteBase}/en/log"`,
+    banned: `rel="canonical" href="${siteBase}/en/log/"`,
+  },
+];
+for (const { label, html, expected, banned } of archiveCanonicalRows) {
+  if (!html) continue;
+  if (html.includes(expected)) {
+    pass(`journal-route: ${label} is self-canonical (${expected})`);
+  } else {
+    fail(`journal-route: ${label} must be <link ${expected}>`);
+  }
+  if (html.includes(banned)) {
+    fail(`journal-route: ${label} must not reference trailing-slash target ${banned}`);
+  }
+}
+
+const archiveHreflangRows = [
+  { locale: 'es', href: `${siteBase}/bitacora` },
+  { locale: 'en', href: `${siteBase}/en/log` },
+  { locale: 'x-default', href: `${siteBase}/bitacora` },
+];
+for (const [page, html] of [
+  ['ES', bitacoraHtml],
+  ['EN', logHtml],
+]) {
+  if (!html) continue;
+  for (const { locale, href } of archiveHreflangRows) {
+    const token = `rel="alternate" hreflang="${locale}" href="${href}"`;
+    const bannedToken = `rel="alternate" hreflang="${locale}" href="${href}/"`;
+    if (html.includes(token)) {
+      pass(`journal-route: ${page} archive emits ${locale} -> ${href}`);
+    } else {
+      fail(`journal-route: ${page} archive must emit <link ${token}>`);
+    }
+    if (html.includes(bannedToken)) {
+      fail(`journal-route: ${page} archive must not emit trailing-slash alternate ${bannedToken}`);
+    }
+  }
+}
+
+// 8b. Toggle on archives: data-alt maps /bitacora ↔ /en/log, hash preserved.
+const archiveToggleRows = [
+  { page: 'ES', html: bitacoraHtml, alt: '/en/log' },
+  { page: 'EN', html: logHtml, alt: '/bitacora' },
+];
+for (const { page, html, alt } of archiveToggleRows) {
+  if (!html) continue;
+  if (html.includes('data-lang-toggle')) {
+    pass(`journal-toggle: ${page} archive renders the language toggle`);
+  } else {
+    fail(`journal-toggle: ${page} archive must render [data-lang-toggle]`);
+  }
+  if (html.includes(`data-alt="${alt}"`)) {
+    pass(`journal-toggle: ${page} archive alternates to ${alt} without trailing slash`);
+  } else {
+    fail(`journal-toggle: ${page} archive must set data-alt="${alt}"`);
+  }
+  if (!/location\.hash/.test(html)) {
+    fail(`journal-toggle: ${page} archive must preserve the anchor hash (location.hash)`);
+  } else {
+    pass(`journal-toggle: ${page} archive hash-preservation script present`);
+  }
+  if (html.includes('aria-current="page"')) {
+    pass(`journal-toggle: ${page} archive marks the active locale with aria-current="page"`);
+  } else {
+    fail(`journal-toggle: ${page} archive must mark the active locale with aria-current="page"`);
+  }
+}
+
+// Execute the shipped inline toggle script against a deterministic DOM stub
+// (same technique as the iteration-2 hash check).
+const extractToggleScript = (html) => {
+  const blocks = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
+  const target = blocks.find((match) => match[1].includes('data-lang-toggle'));
+  return target ? target[1] : '';
+};
+const runToggleScript = (scriptText, { alt, hash }) => {
+  const link = {
+    alt,
+    href: '',
+    listeners: {},
+    getAttribute(name) {
+      return name === 'data-alt' ? this.alt : null;
+    },
+    setAttribute(name, value) {
+      if (name === 'href') this.href = String(value);
+    },
+    addEventListener(name, handler) {
+      this.listeners[name] = handler;
+    },
+  };
+  const windowStub = { location: { hash } };
+  const documentStub = { querySelectorAll: () => [link] };
+  new Function('window', 'document', scriptText)(windowStub, documentStub);
+  return link;
+};
+
+const archiveHashCases = [
+  { page: 'ES', html: bitacoraHtml, alt: '/en/log', hash: '#top', expected: '/en/log#top' },
+  { page: 'EN', html: logHtml, alt: '/bitacora', hash: '#top', expected: '/bitacora#top' },
+];
+for (const { page, html, alt, hash, expected } of archiveHashCases) {
+  if (!html) continue;
+  const scriptText = extractToggleScript(html);
+  if (!scriptText) {
+    fail(`journal-toggle: ${page} archive must ship the inline toggle hash script`);
+    continue;
+  }
+  const link = runToggleScript(scriptText, { alt, hash });
+  if (link.href === expected) {
+    pass(`journal-toggle: ${page} archive toggle from ${hash} resolves to ${expected}`);
+  } else {
+    fail(`journal-toggle: ${page} archive toggle from ${hash} must resolve to ${expected}, got ${link.href || '(unset)'}`);
+  }
+  if (typeof link.listeners.click !== 'function') {
+    fail(`journal-toggle: ${page} archive toggle script must bind a click listener`);
+  } else {
+    link.listeners.click();
+    if (link.href === expected) {
+      pass(`journal-toggle: ${page} archive toggle click keeps ${expected}`);
+    } else {
+      fail(`journal-toggle: ${page} archive toggle click must keep ${expected}, got ${link.href || '(unset)'}`);
+    }
+  }
+}
+
+// 8c. Collection contract: additive `journal` collection with the shared
+//     area/status consts driving the schema, and identical chrome maps.
+const contentConfigSource = read(resolve(ROOT, 'src/content.config.ts'));
+const REQUIRED_COLLECTION_TOKENS = [
+  ['journal', 'declares the journal collection'],
+  ['defineCollection', 'defines a content collection'],
+  ['src/data/journal', 'loads Markdown from src/data/journal'],
+  ['publishDate: z.date()', 'requires publishDate'],
+  ['area: z.enum(JOURNAL_AREAS)', 'types area from the shared const list'],
+  ['status: z.enum(JOURNAL_STATUSES)', 'types status from the shared const list'],
+  ['link: z.url().optional()', 'optional external link'],
+  ['dither: z.string().optional()', 'optional dither path'],
+  ['draft: z.boolean().optional()', 'optional draft flag'],
+];
+for (const [token, what] of REQUIRED_COLLECTION_TOKENS) {
+  if (contentConfigSource.includes(token)) {
+    pass(`journal-collection: content.config.ts ${what} (${token})`);
+  } else {
+    fail(`journal-collection: content.config.ts must ${what} (missing ${token})`);
+  }
+}
+
+const typesSource = read(resolve(ROOT, 'src/lib/i18n/types.ts'));
+const areasDecl = typesSource.match(/JOURNAL_AREAS\s*=\s*(\[[\s\S]*?\])\s*as\s+const/)?.[1] ?? '';
+const statusesDecl = typesSource.match(/JOURNAL_STATUSES\s*=\s*(\[[\s\S]*?\])\s*as\s+const/)?.[1] ?? '';
+const AREA_VALUES = ['hardware', 'software', 'integration', 'research'];
+const STATUS_VALUES = ['in-progress', 'shipped', 'exploring'];
+if (AREA_VALUES.every((value) => new RegExp(`['"]${value}['"]`).test(areasDecl))) {
+  pass(`journal-collection: JOURNAL_AREAS declares exactly the four area values (${AREA_VALUES.join(', ')})`);
+} else {
+  fail(`journal-collection: JOURNAL_AREAS must declare ${AREA_VALUES.join(', ')}`);
+}
+if (STATUS_VALUES.every((value) => new RegExp(`['"]${value}['"]`).test(statusesDecl))) {
+  pass(`journal-collection: JOURNAL_STATUSES declares the three status values (${STATUS_VALUES.join(', ')})`);
+} else {
+  fail(`journal-collection: JOURNAL_STATUSES must declare ${STATUS_VALUES.join(', ')}`);
+}
+
+const esJournalContent = (loadTsModule(resolve(ROOT, 'src/lib/i18n/es.ts')).es ?? {}).journal;
+const enJournalContent = (loadTsModule(resolve(ROOT, 'src/lib/i18n/en.ts')).en ?? {}).journal;
+const areaKeyOk = (content) =>
+  content && [...new Set(Object.keys(content.areas))].sort().join(',') === AREA_VALUES.slice().sort().join(',');
+const statusKeyOk = (content) =>
+  content && [...new Set(Object.keys(content.statuses))].sort().join(',') === STATUS_VALUES.slice().sort().join(',');
+for (const [locale, content] of [
+  ['es', esJournalContent],
+  ['en', enJournalContent],
+]) {
+  if (!content) {
+    fail(`journal-chrome: ${locale} locale module must define journal chrome`);
+    continue;
+  }
+  if (areaKeyOk(content)) {
+    pass(`journal-chrome: ${locale} areas map is keyed by the four JournalArea values`);
+  } else {
+    fail(`journal-chrome: ${locale} areas map keys must match JOURNAL_AREAS`);
+  }
+  if (statusKeyOk(content)) {
+    pass(`journal-chrome: ${locale} statuses map is keyed by the three JournalStatus values`);
+  } else {
+    fail(`journal-chrome: ${locale} statuses map keys must match JOURNAL_STATUSES`);
+  }
+  if (typeof content.emptyState === 'string' && content.emptyState.trim().length > 0) {
+    pass(`journal-chrome: ${locale} emptyState is a non-empty honest string`);
+  } else {
+    fail(`journal-chrome: ${locale} emptyState must be a non-empty string`);
+  }
+  if (typeof content.archiveLabel === 'string' && typeof content.linkLabel === 'string') {
+    pass(`journal-chrome: ${locale} archive/link labels are defined`);
+  } else {
+    fail(`journal-chrome: ${locale} archiveLabel and linkLabel must be strings`);
+  }
+}
+
+// 8d. Seed contract: every MD file under src/data/journal/{es,en} parses with
+//     valid frontmatter; published entries exist per locale; drafts exist;
+//     EN published entries mirror ES (ES-authoritative).
+const JOURNAL_DIR = resolve(ROOT, 'src/data/journal');
+const listMd = (dirPath) => (existsSync(dirPath) ? readdirSync(dirPath).filter((file) => file.endsWith('.md')).sort() : []);
+const parseFrontmatter = (source) => {
+  const match = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
+  return match ? yaml.load(match[1]) : null;
+};
+const toIsoDate = (value) => {
+  if (value instanceof Date && !Number.isNaN(value.valueOf())) return value.toISOString().slice(0, 10);
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  return null;
+};
+
+const seedEntries = { es: [], en: [] };
+for (const [localeKey, dirName] of [
+  ['es', 'es'],
+  ['en', 'en'],
+]) {
+  const dirPath = resolve(JOURNAL_DIR, dirName);
+  if (!existsSync(dirPath)) {
+    fail(`journal-seed: src/data/journal/${dirName} must exist`);
+    continue;
+  }
+  for (const file of listMd(dirPath)) {
+    const raw = read(resolve(dirPath, file));
+    const frontmatter = parseFrontmatter(raw);
+    const location = `${dirName}/${file}`;
+    if (!frontmatter || typeof frontmatter !== 'object') {
+      fail(`journal-seed: ${location} must carry valid YAML frontmatter`);
+      continue;
+    }
+    const isoDate = toIsoDate(frontmatter.publishDate);
+    const title = frontmatter.title;
+    const summary = frontmatter.summary;
+    const area = frontmatter.area;
+    const status = frontmatter.status;
+    const issues = [];
+    if (!isoDate) issues.push('publishDate must be an ISO date (yyyy-mm-dd)');
+    if (typeof title !== 'string' || title.trim() === '') issues.push('title must be a non-empty string');
+    if (typeof summary !== 'string' || summary.trim() === '') issues.push('summary must be a non-empty string');
+    if (!AREA_VALUES.includes(area)) issues.push(`area must be one of ${AREA_VALUES.join('/')}`);
+    if (!STATUS_VALUES.includes(status)) issues.push(`status must be one of ${STATUS_VALUES.join('/')}`);
+    if (typeof frontmatter.draft !== 'undefined' && typeof frontmatter.draft !== 'boolean') {
+      issues.push('draft must be a boolean');
+    }
+    if (typeof frontmatter.link !== 'undefined' && !(typeof frontmatter.link === 'string' && frontmatter.link.startsWith('https://'))) {
+      issues.push('link must be an https:// URL');
+    }
+    if (typeof frontmatter.dither !== 'undefined' && typeof frontmatter.dither !== 'string') {
+      issues.push('dither must be a string path');
+    }
+    if (issues.length > 0) {
+      for (const issue of issues) fail(`journal-seed: ${location} ${issue}`);
+      continue;
+    }
+    seedEntries[localeKey].push({
+      location,
+      title: String(title),
+      summary: String(summary),
+      area: String(area),
+      status: String(status),
+      publishDate: isoDate,
+      draft: frontmatter.draft === true,
+      raw,
+    });
+  }
+}
+
+const publishedByLocale = {
+  es: seedEntries.es.filter((entry) => !entry.draft),
+  en: seedEntries.en.filter((entry) => !entry.draft),
+};
+if (publishedByLocale.es.length >= 1) {
+  pass(`journal-seed: ES has ${publishedByLocale.es.length} published entr${publishedByLocale.es.length === 1 ? 'y' : 'ies'}`);
+} else {
+  fail('journal-seed: ES must have at least one published entry');
+}
+if (publishedByLocale.en.length >= 1) {
+  pass(`journal-seed: EN has ${publishedByLocale.en.length} published entr${publishedByLocale.en.length === 1 ? 'y' : 'ies'}`);
+} else {
+  fail('journal-seed: EN must have at least one published entry');
+}
+const draftCount = seedEntries.es.filter((entry) => entry.draft).length + seedEntries.en.filter((entry) => entry.draft).length;
+if (draftCount >= 1) {
+  pass(`journal-seed: ${draftCount} draft entr${draftCount === 1 ? 'y' : 'ies'} present (draft filtering is exercised)`);
+} else {
+  fail('journal-seed: at least one draft entry must exist so draft filtering is testable');
+}
+
+// A published EN entry is a translation of the ES entry sharing its
+// publishDate/area/status (titles differ per language). ES-authoritative
+// means translations mirror a source entry and omissions are allowed — an
+// EN entry without a matching source would violate the authority policy.
+const enMirrorKey = (entry) => `${entry.publishDate}|${entry.area}|${entry.status}`;
+const esMirrorKeys = new Set(publishedByLocale.es.map(enMirrorKey));
+const orphanEn = publishedByLocale.en.filter((entry) => !esMirrorKeys.has(enMirrorKey(entry)));
+if (orphanEn.length === 0) {
+  pass('journal-seed: every published EN entry mirrors a published ES entry (same date/area/status — ES-authoritative)');
+} else {
+  for (const entry of orphanEn) {
+    fail(`journal-seed: ${entry.location} has no published ES source entry with the same date/area/status`);
+  }
+}
+
+// 8e. Built behavior: drafts excluded everywhere, latest-three on the landing,
+//     ES-only omissions absent from EN output, localized labels and dates.
+const builtPages = [
+  ['ES landing', esHtml],
+  ['EN landing', enHtml],
+  ['ES archive', bitacoraHtml],
+  ['EN archive', logHtml],
+];
+const draftEntries = [...seedEntries.es.filter((entry) => entry.draft), ...seedEntries.en.filter((entry) => entry.draft)];
+for (const entry of draftEntries) {
+  for (const [page, html] of builtPages) {
+    if (html && html.includes(entry.title)) {
+      fail(`journal-draft: "${entry.title}" must not render on ${page} (draft excluded)`);
+    }
+  }
+}
+if (draftEntries.length > 0) {
+  pass(`journal-draft: all ${draftEntries.length} draft title(s) absent from every built page`);
+}
+
+const esNewestFirst = [...publishedByLocale.es].sort((a, b) => (a.publishDate < b.publishDate ? 1 : -1));
+const esTopThree = esNewestFirst.slice(0, 3);
+for (const entry of esTopThree) {
+  if (esHtml.includes(entry.title) && bitacoraHtml.includes(entry.title)) {
+    pass(`journal-latest: ES landing and archive both render "${entry.title}"`);
+  } else {
+    fail(`journal-latest: "${entry.title}" must render on the ES landing (top 3) and the archive`);
+  }
+}
+if (esNewestFirst.length >= 4) {
+  const fourth = esNewestFirst[3];
+  if (!esHtml.includes(fourth.title) && bitacoraHtml.includes(fourth.title)) {
+    pass(`journal-latest: the 4th-newest ES entry renders on /bitacora only (latest-three honored)`);
+  } else {
+    fail(`journal-latest: "${fourth.title}" must appear only on /bitacora, never on the landing`);
+  }
+}
+
+const enMirrorKeys = new Set(publishedByLocale.en.map(enMirrorKey));
+const esOnlyEntries = publishedByLocale.es.filter((entry) => !enMirrorKeys.has(enMirrorKey(entry)));
+for (const entry of esOnlyEntries) {
+  const leakPages = ['EN landing', 'EN archive'].filter((_, i) => [enHtml, logHtml][i].includes(entry.title));
+  if (bitacoraHtml.includes(entry.title) && leakPages.length === 0) {
+    pass(`journal-omission: ES-only "${entry.title}" renders on /bitacora and stays out of EN output`);
+  } else {
+    fail(`journal-omission: ES-only "${entry.title}" must render on /bitacora and stay out of EN output${leakPages.length ? ` (leaked into ${leakPages.join(', ')})` : ''}`);
+  }
+}
+for (const entry of publishedByLocale.en) {
+  if (logHtml.includes(entry.title) && enHtml.includes(entry.title)) {
+    pass(`journal-mirror: EN "${entry.title}" renders on /en/log and the EN landing`);
+  } else {
+    fail(`journal-mirror: EN "${entry.title}" must render on /en/log and the EN landing`);
+  }
+}
+
+for (const entry of publishedByLocale.es) {
+  const areaLabel = esJournalContent.areas[entry.area];
+  const statusLabel = esJournalContent.statuses[entry.status];
+  if (bitacoraHtml.includes(areaLabel) && bitacoraHtml.includes(statusLabel)) {
+    pass(`journal-labels: ES "${entry.title}" renders localized area (${areaLabel}) and status (${statusLabel})`);
+  } else {
+    fail(`journal-labels: ES "${entry.title}" must render area label ${areaLabel} and status label ${statusLabel}`);
+  }
+  if (bitacoraHtml.includes(`datetime="${entry.publishDate}"`)) {
+    pass(`journal-dates: ES "${entry.title}" renders <time datetime="${entry.publishDate}">`);
+  } else {
+    fail(`journal-dates: ES "${entry.title}" must render <time datetime="${entry.publishDate}">`);
+  }
+}
+for (const entry of publishedByLocale.en) {
+  const areaLabel = enJournalContent.areas[entry.area];
+  const statusLabel = enJournalContent.statuses[entry.status];
+  if (logHtml.includes(areaLabel) && logHtml.includes(statusLabel)) {
+    pass(`journal-labels: EN "${entry.title}" renders localized area (${areaLabel}) and status (${statusLabel})`);
+  } else {
+    fail(`journal-labels: EN "${entry.title}" must render area label ${areaLabel} and status label ${statusLabel}`);
+  }
+  if (logHtml.includes(`datetime="${entry.publishDate}"`)) {
+    pass(`journal-dates: EN "${entry.title}" renders <time datetime="${entry.publishDate}">`);
+  } else {
+    fail(`journal-dates: EN "${entry.title}" must render <time datetime="${entry.publishDate}">`);
+  }
+}
+
+// Landing archive links stay relative (`bitacora` / `log`) because the
+// iteration-2 route contract rejects absolute /en/… link targets on the EN
+// landing; both resolve to the archive routes at runtime.
+if (esHtml.includes('href="bitacora"')) {
+  pass('journal-archive-link: ES landing links to the archive as relative "bitacora"');
+} else {
+  fail('journal-archive-link: ES landing must link to the archive as href="bitacora"');
+}
+if (enHtml.includes('href="log"')) {
+  pass('journal-archive-link: EN landing links to the archive as relative "log" (resolves to /en/log)');
+} else {
+  fail('journal-archive-link: EN landing must link to the archive as href="log" (resolves to /en/log)');
+}
+
+const hairlineRows = (html) => (html.match(/border-t border-hairline/g) ?? []).length;
+if (bitacoraHtml && hairlineRows(bitacoraHtml) >= publishedByLocale.es.length) {
+  pass(`journal-rows: /bitacora renders at least ${publishedByLocale.es.length} hairline row separator(s)`);
+} else {
+  fail(`journal-rows: /bitacora must render ${publishedByLocale.es.length}+ hairline rows (no cards/radius)`);
+}
+if (logHtml && hairlineRows(logHtml) >= publishedByLocale.en.length) {
+  pass(`journal-rows: /en/log renders at least ${publishedByLocale.en.length} hairline row separator(s)`);
+} else {
+  fail(`journal-rows: /en/log must render ${publishedByLocale.en.length}+ hairline rows (no cards/radius)`);
+}
+
+// Empty state: the branch exists in the section and archive sources, and the
+// localized strings never render while entries exist (conditional proven).
+const journalSectionSource = read(resolve(ROOT, 'src/components/joyan/JournalSection.astro'));
+const journalArchiveSource = read(resolve(ROOT, 'src/pages/bitacora.astro'));
+if (/entries\.length > 0/.test(journalSectionSource) && /emptyState/.test(journalSectionSource)) {
+  pass('journal-empty: JournalSection.astro owns the entries.length > 0 / emptyState branch');
+} else {
+  fail('journal-empty: JournalSection.astro must render emptyState only when entries.length === 0');
+}
+if (/entries\.length > 0/.test(journalArchiveSource) && /emptyState/.test(journalArchiveSource)) {
+  pass('journal-empty: the archive pages own the same conditional empty-state branch');
+} else {
+  fail('journal-empty: archive pages must render emptyState only when entries.length === 0');
+}
+for (const [locale, content] of [
+  ['es', esJournalContent],
+  ['en', enJournalContent],
+]) {
+  if (!content) continue;
+  for (const [page, html] of builtPages) {
+    if (html && html.includes(content.emptyState)) {
+      fail(`journal-empty: ${page} must not render the ${locale} empty state while entries exist`);
+    }
+  }
+}
+if (esJournalContent && enJournalContent) {
+  pass('journal-empty: empty-state strings absent from all built pages (branch is conditional, not always-on)');
+}
+
+// 8f. Claim scans: journal Markdown sources and both built archives must stay
+//     free of banned phrase, public jargon, vendors, screenshots and claims.
+const JOURNAL_BANS = [
+  { label: 'exact prohibited phrase', re: /software\s+para\s+agentes/i },
+  { label: 'public agentic jargon', re: /\bagentic\b/i },
+  { label: 'AGI terminology', re: /\bAGI\b/i },
+  { label: 'MCP terminology', re: /\bMCP\b/i },
+  { label: 'RAG terminology', re: /\bRAG\b/i },
+  { label: 'pricing claim', re: /\b(?:precio|precios|pricing|price)\b/i },
+  { label: 'purchase claim', re: /\b(?:comprar|purchase|buy\s+now)\b/i },
+  {
+    label: 'enrollment offer',
+    re: /\b(?:inscr[ií]bete|inscribirte|sign\s*[- ]?up|register\s+(?:now|today)|enrollment\s+open|registro\s+abierto|apunt[aá]te)\b/i,
+  },
+  {
+    label: 'beta availability claim',
+    re: /\b(?:open\s+beta|beta\s+(?:p[uú]blica|abierta|available)|available\s+beta|beta\s+ya)\b/i,
+  },
+  {
+    label: 'immediate availability claim',
+    re: /\b(?:ya\s+disponible|available\s+now|disponible\s+hoy|launching\s+(?:today|soon))\b/i,
+  },
+  {
+    label: 'delivery claim',
+    re: /\b(?:shipping|env[ií]o|delivery\s+date|delivery\s+in\s+\d|entrega\s+(?:garantizada|inmediata|prometida))\b/i,
+  },
+  { label: 'guarantee claim', re: /\b(?:garantizad\w*|guaranteed|money[-\s]?back)\b/i },
+  { label: 'screenshot reference', re: /\b(?:screenshot|captura\s+de\s+pantalla|pantallazo)\b/i },
+];
+const JOURNAL_VENDORS = [
+  'react',
+  'vue',
+  'svelte',
+  'angular',
+  'astro',
+  'tailwind',
+  'bootstrap',
+  'node',
+  'nodejs',
+  'typescript',
+  'javascript',
+  'python',
+  'php',
+  'ruby',
+  'openai',
+  'anthropic',
+  'claude',
+  'chatgpt',
+  'gpt',
+  'gemini',
+  'llama',
+  'mistral',
+  'aws',
+  'azure',
+  'google cloud',
+  'cloudflare',
+  'vercel',
+  'netlify',
+  'nvidia',
+  'intel',
+  'amd',
+  'raspberry',
+  'arduino',
+  'esp32',
+  'docker',
+  'kubernetes',
+  'postgres',
+  'mysql',
+  'mongodb',
+  'graphql',
+];
+let journalCopyIssues = 0;
+const scanJournalText = (target, source) => {
+  for (const { label, re } of JOURNAL_BANS) {
+    if (re.test(target)) {
+      fail(`journal-copy: ${source} matches ${label}`);
+      journalCopyIssues += 1;
+    }
+  }
+  for (const name of JOURNAL_VENDORS) {
+    if (new RegExp(`\\b${name}\\b`, 'i').test(target)) {
+      fail(`journal-copy: ${source} names vendor/technology "${name}"`);
+      journalCopyIssues += 1;
+    }
+  }
+};
+
+for (const entry of [...seedEntries.es, ...seedEntries.en]) {
+  scanJournalText(entry.raw, `journal:${entry.location}`);
+}
+if (journalCopyIssues === 0) {
+  pass('journal-copy: every journal Markdown source is free of banned phrase, jargon, vendors, screenshots and claims');
+}
+
+const journalVisibleText = (html) =>
+  html
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+const journalAttributeValues = (html) =>
+  [...html.matchAll(/\b(?:alt|title|content)="([^"]*)"/gi)].map((match) => match[1].toLowerCase());
+
+for (const [page, html] of [
+  ['/bitacora', bitacoraHtml],
+  ['/en/log', logHtml],
+]) {
+  if (!html) continue;
+  if (/software\s+para\s+agentes/i.test(html)) {
+    fail(`journal-copy: ${page} built HTML contains the prohibited phrase`);
+  }
+  scanJournalText(journalVisibleText(html), `${page} visible text`);
+  for (const value of journalAttributeValues(html)) {
+    scanJournalText(value, `${page} attribute`);
+  }
+}
+if (journalCopyIssues === 0) {
+  pass('journal-copy: both built archives are free of banned phrase, jargon, vendors, screenshots and claims');
 }
 
 // ---------------------------------------------------------------------------

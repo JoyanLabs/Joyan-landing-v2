@@ -6,19 +6,26 @@ import AgentsSection from '~/components/joyan/AgentsSection.astro';
 import MagiSection from '~/components/joyan/MagiSection.astro';
 import HardwareSection from '~/components/joyan/HardwareSection.astro';
 import EcosystemSection from '~/components/joyan/EcosystemSection.astro';
+import JournalSection from '~/components/joyan/JournalSection.astro';
 import SiteFooter from '~/components/joyan/SiteFooter.astro';
 import { es, LOCALES } from '~/lib/i18n';
 
 const content = es;
+const pathname = Astro.url.pathname;
 ---
 
-<PageLayout lang={LOCALES.ES} metadata={{ title: content.meta.title, description: content.meta.description }}>
-  <SiteHeader slot="header" locale={LOCALES.ES} nav={content.nav} />
+<PageLayout
+  lang={LOCALES.ES}
+  metadata={{ title: content.meta.title, description: content.meta.description }}
+  pathname={pathname}
+>
+  <SiteHeader slot="header" locale={LOCALES.ES} nav={content.nav} path={pathname} />
   <Hero content={content.hero} />
   <AgentsSection content={content.agents} />
   <MagiSection content={content.magi} />
   <HardwareSection content={content.hardware} />
   <EcosystemSection content={content.ecosystem} />
+  <JournalSection locale={LOCALES.ES} content={content.journal} />
   <SiteFooter slot="footer" content={content.footer} nav={content.nav} />
 </PageLayout>
 
