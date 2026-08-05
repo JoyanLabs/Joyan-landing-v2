@@ -4,13 +4,18 @@ import type { MetaData } from '~/types';
 
 export interface Props {
   metadata?: MetaData;
+  lang?: string;
 }
 
-const { metadata } = Astro.props;
+const { metadata, lang } = Astro.props;
 ---
 
-<Layout metadata={metadata}>
-  <main class="relative">
-    <slot />
-  </main>
+<Layout metadata={metadata} lang={lang}>
+  <div class="bg-ink-950 text-bone-100">
+    <slot name="header" />
+    <main class="relative">
+      <slot />
+    </main>
+    <slot name="footer" />
+  </div>
 </Layout>

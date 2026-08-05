@@ -4,11 +4,13 @@ import type { Props as AstroSeoProps } from "@astrolib/seo";
 import { AstroSeo } from "@astrolib/seo";
 import merge from "lodash.merge";
 import type { MetaData } from "~/types";
+import { FULL_LOCALE, isLocale, LOCALES } from "~/lib/i18n";
 import { adaptOpenGraphImages } from "~/utils/images";
 import { getCanonical } from "~/utils/permalinks";
 
 export interface Props extends MetaData {
 	dontUseTitleTemplate?: boolean;
+	lang?: string;
 }
 
 const {
@@ -19,7 +21,11 @@ const {
 	description,
 	openGraph = {},
 	twitter = {},
+	lang = I18N?.language || LOCALES.ES,
 } = Astro.props;
+
+// F3: emit full OpenGraph locale codes (es_ES / en_US), driven by the page lang
+const ogLocale = FULL_LOCALE[isLocale(lang) ? lang : LOCALES.ES];
 
 const seoProps: AstroSeoProps = merge(
 	{
@@ -33,7 +39,7 @@ const seoProps: AstroSeoProps = merge(
 			url: canonical,
 			site_name: SITE?.name,
 			images: [],
-			locale: I18N?.language || "en",
+			locale: ogLocale,
 			type: "website",
 		},
 		twitter: {

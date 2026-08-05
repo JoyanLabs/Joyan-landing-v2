@@ -1,18 +1,13 @@
 export const headerData = {
-	links: [
-		{
-			text: "Inicio",
-			href: "/",
-		},
-	],
-	actions: [],
+  links: [],
+  actions: [],
 };
 
 export const footerData = {
-	links: [],
-	secondaryLinks: [],
-	socialLinks: [],
-	footNote: `
-    © 2025 Plantilla. Todos los derechos reservados.
+  links: [],
+  secondaryLinks: [],
+  socialLinks: [],
+  footNote: `
+    © 2026 Joyan. Todos los derechos reservados.
   `,
 };

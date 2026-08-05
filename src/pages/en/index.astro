@@ -1,0 +1,23 @@
+---
+import PageLayout from '~/layouts/PageLayout.astro';
+import SiteHeader from '~/components/joyan/SiteHeader.astro';
+import Hero from '~/components/joyan/Hero.astro';
+import AgentsSection from '~/components/joyan/AgentsSection.astro';
+import MagiSection from '~/components/joyan/MagiSection.astro';
+import HardwareSection from '~/components/joyan/HardwareSection.astro';
+import EcosystemSection from '~/components/joyan/EcosystemSection.astro';
+import SiteFooter from '~/components/joyan/SiteFooter.astro';
+import { en, LOCALES } from '~/lib/i18n';
+
+const content = en;
+---
+
+<PageLayout lang={LOCALES.EN} metadata={{ title: content.meta.title, description: content.meta.description }}>
+  <SiteHeader slot="header" locale={LOCALES.EN} nav={content.nav} />
+  <Hero content={content.hero} />
+  <AgentsSection content={content.agents} />
+  <MagiSection content={content.magi} />
+  <HardwareSection content={content.hardware} />
+  <EcosystemSection content={content.ecosystem} />
+  <SiteFooter slot="footer" content={content.footer} nav={content.nav} />
+</PageLayout>
