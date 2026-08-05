@@ -14,7 +14,7 @@ The single source of truth for the Joyan landing visual, copy, asset, diagram, m
 
 ## Brand essence and voice
 
-Joyan is a **people-centered cooperative that creates specialized agents as a service** — never generic software. Agents are digital specialists designed for one concrete task of a real operation, executed autonomously, with humans designing, tuning, and answering for each agent. MAGI is the main agent: always active, headless, operating business systems in the background.
+Joyan is a **people-centered cooperative that creates specialized agents as a service** — never generic software. Agents are digital specialists for one concrete operational task, acting within agreed limits; humans design, tune, review important decisions, and answer for each agent. MAGI is the main agent, operating business systems in the background.
 
 **Voice: warm, specific, people-centered.** Real people are behind every agent; decisions are human; nothing is overpromised.
 
@@ -23,7 +23,7 @@ Joyan is a **people-centered cooperative that creates specialized agents as a se
 | Layer | What it is | Where it lives | Tone rule |
 |---|---|---|---|
 | **Cooperative model** | What Joyan does today: agents as a service, MAGI, hardware concepts | `hero`, `agents`, `magi`, `hardware`, `ecosystem.items` | Present tense, concrete, no caveats |
-| **Community offers** | Guides, content, training, agent-beta participation, hardware prototype invitations — explicitly **in development** | `ecosystem.community` (status/audiences/offers) and `hardware.prototypeInvitation` | Every offer carries an explicit in-progress status; no dates, no enrollment, no delivery promises |
+| **Community offers** | Guides, content, training, and prototype invitations — explicitly **in development** | `ecosystem.community` (status/audiences/offers) and `hardware.prototypeInvitation` | Explain what agents can do, cannot do, and need human review; no dates, enrollment/forms, beta, or delivery promises |
 
 ## Visual tokens & contrast
 
@@ -154,18 +154,22 @@ The static diagram (`AgentNetworkDiagram.astro`, and the three new sources in Un
 
 ## Motion guide
 
-There is exactly **one** animated runtime loop in the product: the optional MAGI particle overlay (`MagiParticleCanvas.astro` + `src/lib/magi-network.ts`, Unit D) over the static diagram.
+There is exactly **one** continuous runtime loop: the optional MAGI particle overlay (`src/components/joyan/MagiParticleCanvas.astro` + `src/lib/magi-network.ts`) over the static diagram. Below-hero reveals are one-shot progressive enhancements, never a hero animation.
 
 | Concern | Contract |
 |---|---|
-| Particles | **7 nodes, 6 edges, 12 particles**, 30 fps cap |
+| Motion dependency | Exact `framer-motion@12.43.0`; use tree-shaken `animate` and `inView` from `framer-motion/dom`. Import `scroll` only when used. |
+| Reveals | Below hero only; visible server markup; opacity/transform only; gate with `matchMedia('(prefers-reduced-motion: reduce)')` so reduced motion is static. |
+| Particles | **7 nodes, 6 edges, 30 normal particles across three depth layers**; 24-particle low-end fallback; 30 fps cap |
 | Canvas | `aria-hidden="true"` with **adjacent explanatory text** (`magi.motion.canvasLabel`, `staticStatus`, `activeStatus`); localized |
 | DPR | Cap at **2** — never render above devicePixelRatio 2 |
-| Pause | `IntersectionObserver` (offscreen), `visibilitychange` (hidden tab), `pagehide` (navigation) cancel the loop |
-| Resume | Re-entry / `pageshow` resume; cleanup removes RAF and all listeners (Astro navigation-safe) |
+| Pause | `IntersectionObserver` (offscreen), `visibilitychange` (hidden tab), and `pagehide` cancel rAF but retain observers/listeners for resume |
+| Teardown / resume | `astro:before-swap` cancels rAF and Motion controls, invokes `inView` cleanup functions, disconnects observers, and removes listeners; reinitialize on `astro:page-load`, resume on re-entry / `pageshow` |
 | SVG pulses / caret | **Opacity-only** (no transform/scale); 1.1s step-end caret, edge-energy pulses |
 | Reduced motion | `prefers-reduced-motion: reduce` → no canvas, no pulses, caret `animation: none` — all static |
 | No JS | PNG/SVG render statically without the overlay — motion is progressive enhancement |
+
+**Performance proof:** before implementation, run `pnpm build && node scripts/check-iteration-3.mjs --capture-baseline .artifacts/iteration-2-client-js.json`. For a candidate, run `pnpm build && node scripts/check-iteration-3.mjs --baseline .artifacts/iteration-2-client-js.json`. The checker gzip-sums every emitted `dist/_astro/*.js` client chunk and requires a delta of **≤22 KiB (22528 bytes)**. `pnpm build` verifies static structure and emitted assets; intrinsic dimensions, static hero markup, and transform/opacity-only below-hero motion are CLS/LCP safeguards, not metric measurements. Measure CLS/LCP later in a browser or CI performance run.
 
 No idle motion anywhere outside the MAGI section.
 
@@ -176,34 +180,69 @@ No idle motion anywhere outside the MAGI section.
 | `src/assets/styles/tailwind.css` | All tokens, fonts, radius 0, `text-display`, L1 shell texture rules (Unit C) |
 | `src/lib/i18n/types.ts` | Locale shape: `LocaleContent`, `IllustratedSectionContent`, `CommunityContent`, `MotionContent`, `HardwareContent`… |
 | `src/lib/i18n/es.ts` / `en.ts` | Authoritative ES copy + identical-key EN mirror (`satisfies LocaleContent`) |
-| `src/lib/i18n/index.ts` | `getAlternateLocalePath()` — `/` ↔ `/en` with hash preservation |
+| `src/lib/i18n/index.ts` | `getAlternateLocalePath()` — `/` ↔ `/en` and `/bitacora` ↔ `/en/log` without trailing slashes |
 | `src/pages/index.astro` | ES landing at `/` |
 | `src/pages/en/index.astro` | EN landing at `/en` (never `/en/`; `trailingSlash: "never"`) |
-| `src/layouts/{Layout,PageLayout}.astro` | Head/canonical/hreflang, `main#main` focus target, L1 texture host (Unit C) |
+| `src/layouts/{Layout,PageLayout}.astro` | `Layout` owns path-aware canonical/hreflang; `PageLayout` only forwards pathname/lang; `main#main` focus target and L1 texture host |
 | `src/components/joyan/Hero.astro` | L3 hero figure (`/assets/dither/hero-dither.png`, empty alt), caret, CTA buttons |
 | `src/components/joyan/Wordmark.astro` | JOYAN wordmark (hero + OG source) |
 | `src/components/joyan/AgentNetworkDiagram.astro` | Static 480×300 MAGI diagram, `aria-hidden`, one amber state |
-| `src/components/joyan/MagiParticleCanvas.astro` | Unit D — canvas overlay (motion contract above) |
+| `src/components/joyan/MagiParticleCanvas.astro` | Iteration-3 Unit A — bounded 30/24 MAGI overlay (motion contract above) |
+| `src/lib/magi-network.ts` | Shared 480×300 model; replace V1's 12 particles with the 30/24 depth-layer contract above |
 | `src/components/joyan/DitherFigure.astro` | Figure wrapper: absolute `/assets/...` src, intrinsic `width`/`height`, localized alt/caption |
 | `src/components/joyan/{AgentsSection,MagiSection,HardwareSection,EcosystemSection}.astro` | Section figures (Unit E) + community/prototype blocks |
-| `src/components/joyan/{SectionHeader,TerminalBlock,SiteHeader,SiteFooter,LanguageToggle}.astro` | Index/kicker/title, terminal motif, nav + toggle (hash-preserving, `aria-current="page"`) |
+| `src/components/joyan/{SectionHeader,TerminalBlock,SiteHeader,SiteFooter,LanguageToggle}.astro` | Index/kicker/title, terminal motif, nav + toggle (current pathname + hash-preserving, `aria-current="page"`) |
 | `scripts/generate-dither.mjs` | Bayer 8×8 generator + deterministic budgets |
 | `scripts/svgo.config.mjs` | SVGO config for all source SVGs (Unit C) |
 | `scripts/dither-src/*.svg` | kebab-case vector sources (3 V1 + 3 Unit C) |
 | `public/assets/dither/*.png` | Five dither illustrations (2 V1 + 3 Unit C) |
 | `public/assets/brand/og-default.png` | Separate OG brand output |
-| `scripts/check-iteration-2.mjs` | Deterministic route/copy/parity assertions wired into `pnpm check` |
+| `src/{content.config.ts,utils/journal.ts}` | Isolated typed Journal collection and locale queries; never use blog helpers |
+| `src/components/joyan/{JournalSection,JournalEntryRow}.astro` | Section 05 and archive rows: hairline-separated mono metadata, title, summary, optional dither/link, no cards/radius |
+| `src/pages/{bitacora,en/log}.astro` | ES/EN list-only archives with self-canonical and equivalent alternate cluster |
+| `scripts/{check-iteration-2,check-iteration-3}.mjs` | Both deterministic checkers must be wired into `pnpm check`; iteration 3 verifies Journal, motion, and archive contracts |
 
 ## Copy & i18n rules
 
 - **Strict key parity:** `es.ts` and `en.ts` must have **identical keys**, both `satisfies LocaleContent`; a missing key fails `pnpm check` (no fallback).
-- **Routes:** ES at `/`, EN at `/en` — **never `/en/`** (trailing slash prohibited in canonical, hreflang, and emitted links). Anchors survive the toggle (`/#magi` ↔ `/en#magi`).
+- **Routes and SEO:** ES is `/`, EN is `/en`; archives are `/bitacora` and `/en/log` — no trailing slash. `Layout` emits pathname-aware metadata: `/bitacora` self-canonical with `es=/bitacora`, `en=/en/log`, `x-default=/bitacora`; `/en/log` self-canonical with the same cluster. `PageLayout` only passes pathname/lang. Anchors survive the toggle.
 - **Voice:** warm, cooperative, people-centered; state the cooperative model in present tense and every community offer with an explicit in-progress status.
 - **Exact prohibited phrase:** the string `software para agentes` must never appear in copy (we create agents, not software) — this is asserted verbatim by the checker.
 - **No vendor/technology names** in user-visible copy (framework, model, cloud, or chip names — the checker scans locale modules and built HTML against an explicit list).
+- **No public implementation jargon** — `agentic`, AGI, MCP, and RAG never appear in landing, Journal, metadata, or alt text.
 - **No fake screenshots** — no screenshot/captura de pantalla references, no UI mockups presented as product.
 - **No unsupported claims** — nothing asserting pricing, purchase, enrollment/sign-up, open/available beta, immediate availability, hardware delivery, or guarantees. Community and prototype offers say "in development / en desarrollo" and promise no dates, no inscription, no delivery.
-- The checker enforces all of the above deterministically over locale modules **and** built visible text, meta, and alt attributes.
+- **Human review is explicit** — community copy preserves `cooperativa`, explains what agents can do, cannot do, and require people to review, and never converts an in-development offer into a form, enrollment, beta, or delivery commitment.
+- `check-iteration-3.mjs` scans locale source values; built metadata, visible text, and `alt`/`title` attributes; Journal Markdown/frontmatter; and `/bitacora` plus `/en/log` archive HTML for the above banned vendors/jargon/screenshots/unsupported claims. It preserves iteration 2 as a separate checker and enforces both contracts through `pnpm check`.
+
+## Journal row rules
+
+Use only list rows: a top hairline, mono uppercase date/area/status, title, summary, and optional dither/link. Area and status always come from localized chrome. Empty states are localized and honest. Do not use cards, rounded corners, thumbnails, detail pages, filters, or pagination.
+
+**Row heading levels:** the landing section (h2) renders rows as **h3**; the archives render their page title as the single **h1** (`SectionHeader headingLevel={1}`) and rows as **h2** (`JournalEntryRow titleLevel={2}`) so heading order never skips a level.
+
+## Static audit evidence (a11y & performance)
+
+`check-iteration-3.mjs` (section 9) records deterministic, browser-free evidence for every PR that touches landing or Journal surface:
+
+| Evidence | Deterministic check | Location |
+|---|---|---|
+| Landmarks | Site `<header>`, `<main id="main" tabindex="-1">` focus target, `<footer>`, `<nav aria-label="Main">`, `<nav aria-label="Footer">` on landings and archives | checker 9d |
+| Unique IDs | Every `id` attribute unique per built page (section anchors `top/agents/magi/hardware/ecosystem/bitacora`, `main`, `shell-dots`) | checker 9d |
+| Heading order | Exactly one h1 per page, first heading is h1, no skipped levels (landing: h1→h2→h3/h4; archives: h1→h2) | checker 9d |
+| Keyboard / focus-visible | `:focus-visible` outline utilities in compiled CSS; hardware surface `tabindex="0"` + ring class + `:focus-within` treatment hook | checker 9d |
+| Reduced-motion paths | JS gates (`prefers-reduced-motion`) plus ≥3 compiled CSS media blocks (canvas, pulses, caret, hardware, shell texture) | checker 9d + sections 3/5/6 |
+| Content parity | ES/EN identical chrome keys (iteration-2 block 4) and ES-authoritative journal mirror (checker 8d) | both checkers |
+| Build size | Client-JS gzip delta ≤ 22 KiB (22,528 B) against `.artifacts/iteration-2-client-js.json` | checker 7 |
+| Route output | `/`, `/en`, `/bitacora`, `/en/log`, `/privacy`, `/terms` emit HTML; static HTML and gzip sums reported | checker 9e |
+
+**No browser claims:** these are static structural safeguards (intrinsic dimensions, static hero markup, opacity/transform-only motion, contrast math, worst-case texture blend). Real LCP/CLS metrics require a browser or CI performance run and are deferred — never report Lighthouse-style numbers from this evidence.
+
+## Accepted deviations (documented, not defects)
+
+1. **Relative landing archive links.** The EN landing links the archive as `href="log"` (ES: `href="bitacora"`) instead of an absolute `/en/log` href because the iteration-2 route contract rejects any `/en/…` link target on the EN landing. The relative links resolve to `/bitacora` and `/en/log` at runtime; the archives themselves use absolute self-canonical URLs.
+2. **Seed journal entries carry no `link` or `dither`.** The schema and components support both fields, but there is nothing real to link yet and no journal dither asset exists in the pipeline — no fake assets or dead links are shipped.
+3. **Empty state is verified at source + conditionally.** The `entries.length > 0` branch and localized strings are source-verified, and the strings are proven absent from built output while entries exist. The empty-state render itself is not exercised in built output because both locales have published entries; temporarily drafting all entries of one locale exercises it.
 
 ## Checklists
 
@@ -227,9 +266,11 @@ No idle motion anywhere outside the MAGI section.
 - [ ] No-JS and reduced-motion states render static (PNG/SVG)
 - [ ] Motion: opacity-only, 30 fps cap, DPR ≤2, pauses offscreen/hidden/pagehide, Astro navigation cleanup
 - [ ] Focus-visible ring on interactive elements (toggle, CTAs); language toggle keeps `aria-current="page"`
+- [ ] Landmarks present (`main#main`, header, footer, labeled navs); every `id` unique per page
+- [ ] Exactly one h1 per page; heading order never skips a level (archives: h1 title → h2 rows)
 
 ---
 
-**Version:** 1.0 — **Last updated:** 2026-08-04 — **Maintainer:** JoyanLabs
+**Version:** 1.0 — **Last updated:** 2026-08-05 — **Maintainer:** JoyanLabs
 **Related skills:** [`design-taste-frontend`](../skills/design-taste-frontend/SKILL.md) (architecture rules), [`frontend-design`](../skills/frontend-design/SKILL.md) (design quality), [`documentation`](../skills/documentation/SKILL.md) (docs standards)
 **Related docs:** [VIRTUAL-MODULE.md](./VIRTUAL-MODULE.md)
