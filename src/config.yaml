@@ -1,30 +1,31 @@
 site:
-  name: Plantilla
-  site: 'https://example.com'
+  name: Joyan
+  # Pre-launch placeholder (F4): swap to the production domain before launch.
+  site: 'https://joyan.dev'
   base: '/'
   trailingSlash: false
 
   # googleSiteVerificationId: false
 
-# Default SEO metadata
+# Default SEO metadata (ES defaults; EN overrides come from the EN locale module)
 metadata:
   title:
-    default: Plantilla Landing
-    template: '%s — Plantilla'
-  description: 'Una plantilla moderna de landing page construida con Astro y Tailwind CSS.'
+    default: Joyan
+    template: '%s — Joyan'
+  description: 'Joyan es una cooperativa centrada en las personas que crea agentes especializados como servicio. MAGI, nuestro agente principal, opera los sistemas de tu negocio las 24 horas. También diseñamos dispositivos para controlar y hablar con tus agentes.'
   robots:
     index: true
     follow: true
   openGraph:
-    site_name: Plantilla
+    site_name: Joyan
     images:
-      - url: '~/assets/images/default-og.png'
+      - url: '/assets/brand/og-default.png'
         width: 1200
         height: 628
     type: website
   twitter:
-    handle: '@handle'
-    site: '@handle'
+    handle: '@joyanlabs'
+    site: '@joyanlabs'
     cardType: summary_large_image
 
 i18n:
@@ -69,4 +70,4 @@ analytics:
       id: null # or "G-XXXXXXXXXX"
 
 ui:
-  theme: 'system' # Values: "system" | "light" | "dark" | "light:only" | "dark:only"
+  theme: 'dark:only' # Values: "system" | "light" | "dark" | "light:only" | "dark:only"

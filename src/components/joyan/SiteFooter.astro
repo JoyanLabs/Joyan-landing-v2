@@ -1,0 +1,40 @@
+---
+import Wordmark from '~/components/joyan/Wordmark.astro';
+import type { FooterContent, NavContent } from '~/lib/i18n/types';
+
+export interface Props {
+  content: FooterContent;
+  nav: NavContent;
+}
+
+const { content, nav } = Astro.props;
+---
+
+<!-- Non-navigable: page footer carries no anchor id (design: no id). -->
+<footer class="border-t border-hairline">
+  <div class="mx-auto max-w-6xl px-6 py-12">
+    <div class="flex flex-col gap-10 md:flex-row md:items-start md:justify-between">
+      <div>
+        <a href="#top" class="transition-opacity hover:opacity-80" aria-label="Joyan">
+          <Wordmark />
+        </a>
+        <p class="mt-5 max-w-sm leading-relaxed text-plomo-400">{content.tagline}</p>
+      </div>
+      <nav aria-label="Footer" class="flex flex-col gap-3">
+        {
+          nav.links.map((link) => (
+            <a
+              href={`#${link.anchor}`}
+              class="font-mono text-xs uppercase tracking-widest text-plomo-400 transition-colors hover:text-bone-50"
+            >
+              {link.label}
+            </a>
+          ))
+        }
+      </nav>
+    </div>
+    <p class="mt-12 border-t border-hairline pt-6 font-mono text-xs tracking-widest text-plomo-400">
+      {content.legal}
+    </p>
+  </div>
+</footer>
