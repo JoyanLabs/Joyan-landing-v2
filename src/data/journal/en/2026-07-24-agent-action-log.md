@@ -1,5 +1,5 @@
 ---
-publishDate: 2026-07-24
+date: 2026-07-24
 title: 'The action log of every agent'
 summary: 'We are designing the log where every agent leaves a record of what it did, so a person can review it at any time. Without a log there is no human review: it is the foundation of everything we build.'
 area: software

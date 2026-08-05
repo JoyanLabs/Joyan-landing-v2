@@ -1,5 +1,5 @@
 ---
-publishDate: 2026-07-10
+date: 2026-07-10
 title: 'Primeros bocetos de dispositivos para agentes'
 summary: 'Dibujamos las primeras ideas de objetos físicos para hablar con agentes y verlos trabajar. Son exploraciones tempranas: sin fechas, sin inscripciones y sin entregas prometidas.'
 area: hardware

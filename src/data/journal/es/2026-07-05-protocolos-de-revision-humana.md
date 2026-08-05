@@ -1,5 +1,5 @@
 ---
-publishDate: 2026-07-05
+date: 2026-07-05
 title: 'Borrador: protocolos de revisión humana'
 summary: 'Estamos escribiendo cómo las personas revisan cada decisión importante de un agente. Es un borrador interno, todavía no publicado.'
 area: research

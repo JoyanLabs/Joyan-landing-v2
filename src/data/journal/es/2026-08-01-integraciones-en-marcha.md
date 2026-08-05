@@ -1,5 +1,5 @@
 ---
-publishDate: 2026-08-01
+date: 2026-08-01
 title: 'Integraciones en marcha sobre operaciones de prueba'
 summary: 'Conectamos agentes a herramientas de negocio que ya usan las cooperativas con las que trabajamos. Cada integración la revisa una persona: definimos límites, probamos en operaciones de prueba y ajustamos antes de avanzar.'
 area: integration

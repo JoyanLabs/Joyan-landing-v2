@@ -1,5 +1,5 @@
 ---
-publishDate: 2026-07-24
+date: 2026-07-24
 title: 'El registro de acciones de cada agente'
 summary: 'Diseñamos el registro donde cada agente deja constancia de lo que hizo, para que una persona pueda revisarlo cuando quiera. Sin registro no hay revisión humana posible: es la base de todo lo que construimos.'
 area: software

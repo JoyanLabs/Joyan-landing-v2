@@ -77,7 +77,7 @@ const postCollection = defineCollection({
 const journalCollection = defineCollection({
   loader: glob({ pattern: '**/*.md', base: 'src/data/journal' }),
   schema: z.object({
-    publishDate: z.date(),
+    date: z.date(),
     title: z.string(),
     summary: z.string(),
     area: z.enum(JOURNAL_AREAS),

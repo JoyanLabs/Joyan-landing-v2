@@ -14,7 +14,7 @@ const { data } = entry;
  * UTC-based ISO date (yyyy-mm-dd): deterministic across build timezones and
  * consistent with the frontmatter value. Mono label, fits the terminal motif.
  */
-const dateLabel = `${data.publishDate.getUTCFullYear()}-${String(data.publishDate.getUTCMonth() + 1).padStart(2, '0')}-${String(data.publishDate.getUTCDate()).padStart(2, '0')}`;
+const dateLabel = `${data.date.getUTCFullYear()}-${String(data.date.getUTCMonth() + 1).padStart(2, '0')}-${String(data.date.getUTCDate()).padStart(2, '0')}`;
 ---
 
 <li class="grid gap-4 border-t border-hairline py-8 md:grid-cols-[14rem_1fr] md:gap-10">

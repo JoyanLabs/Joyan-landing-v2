@@ -1,5 +1,5 @@
 ---
-publishDate: 2026-07-05
+date: 2026-07-05
 title: 'Draft: human review protocols'
 summary: 'We are writing how people review every important decision an agent makes. An internal draft, not published yet.'
 area: research
