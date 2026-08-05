@@ -1,6 +1,7 @@
 ---
 import SectionHeader from '~/components/joyan/SectionHeader.astro';
 import DitherFigure from '~/components/joyan/DitherFigure.astro';
+import JournalDisclosureList from '~/components/joyan/JournalDisclosureList.astro';
 import type { HardwareContent } from '~/lib/i18n/types';
 
 export interface Props {
@@ -10,34 +11,45 @@ export interface Props {
 const { content } = Astro.props;
 ---
 
-<section id="hardware" class="scroll-mt-24">
+<section id="hardware" class="scroll-mt-24" data-reveal>
   <div class="mx-auto max-w-6xl px-6 py-24">
     <div class="grid gap-14 lg:grid-cols-[1fr_0.85fr] lg:gap-16">
       <div>
         <SectionHeader index={content.index} kicker={content.kicker} title={content.title} />
         <p class="mt-8 max-w-2xl text-lg leading-relaxed text-bone-100">{content.lead}</p>
-        <ul class="mt-14">
-          {
-            content.items.map((item, i) => (
-              <li class="grid gap-3 border-t border-hairline py-8 md:grid-cols-[4rem_1fr] md:gap-8">
-                <p class="font-mono text-xs tracking-widest text-plomo-400">{String(i + 1).padStart(2, '0')}</p>
-                <div>
-                  <h3 class="text-xl font-semibold text-bone-50">{item.title}</h3>
-                  <p class="mt-3 max-w-xl leading-relaxed text-plomo-400">{item.body}</p>
-                </div>
-              </li>
-            ))
-          }
-        </ul>
+        <div class="mt-14">
+          <JournalDisclosureList idPrefix="hardware-disclosure" items={content.items} titleLevel={3} />
+        </div>
       </div>
-      <DitherFigure
-        src="/assets/dither/hardware-dither.png"
-        alt={content.figure.alt}
-        caption={content.figure.caption}
-        width={1024}
-        height={1024}
-        class="self-start"
-      />
+      <!--
+        CSS-only hardware surface (docs/DESIGN.md — Motion guide): the figure
+        tilts, a scan line sweeps, and a corner trace highlights on hover or
+        keyboard focus only — never idle — and all treatments are static under
+        reduced motion. The wrapper is the keyboard-visible focus target.
+      -->
+      <div
+        class="hardware-surface relative self-start overflow-hidden border border-hairline bg-ink-900 focus-visible:outline focus-visible:outline-accent"
+        role="group"
+        aria-label={content.figure.caption}
+        data-hardware-surface
+        tabindex="0"
+      >
+        <DitherFigure
+          src="/assets/dither/hardware-dither.png"
+          alt={content.figure.alt}
+          caption={content.figure.caption}
+          width={1024}
+          height={1024}
+          class="hardware-figure border-0"
+        />
+        <span class="hardware-scan" aria-hidden="true"></span>
+        <span class="hardware-trace" aria-hidden="true"></span>
+      </div>
+    </div>
+
+    <div class="mt-14 border-t border-hairline pt-10">
+      <p class="font-mono text-xs uppercase tracking-widest text-accent">{content.prototypeInvitation.status}</p>
+      <p class="mt-4 max-w-2xl leading-relaxed text-plomo-400">{content.prototypeInvitation.body}</p>
     </div>
   </div>
 </section>

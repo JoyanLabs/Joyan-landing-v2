@@ -1,29 +1,43 @@
 ---
-import { LOCALES, getAlternateLocalePath, type Locale } from '~/lib/i18n';
+import { JOURNAL_ROUTES, LOCALES, getAlternateLocalePath, type Locale } from '~/lib/i18n';
+import { resolveJournalLocaleCluster } from '~/utils/journal';
 
 export interface Props {
   /** Locale of the page the toggle is rendered on. */
   locale: Locale;
   /** Label of the link to the other locale (from i18n nav.toggle). */
   label: string;
+  /** Current page pathname — computes the equivalent locale route. */
+  path?: string;
 }
 
-const { locale, label } = Astro.props;
+const { locale, label, path = '/' } = Astro.props;
 const target = locale === LOCALES.ES ? LOCALES.EN : LOCALES.ES;
-const altPath = getAlternateLocalePath(target);
+const currentPath = getAlternateLocalePath(locale, path);
+// Detail clusters resolve the REAL counterpart (paired) or fall back to the
+// EN archive for ES-only entries — no fabricated EN detail path is ever used.
+const cluster = await resolveJournalLocaleCluster(path);
+const altPath =
+  cluster.kind === 'detail' ? (cluster.alternatePath ?? JOURNAL_ROUTES[target]) : getAlternateLocalePath(target, path);
 const current = locale.toUpperCase();
+
+/** Shared focus-visible treatment for both toggle links (ADR-4). */
+const focusRing =
+  'focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-2';
 ---
 
 <span class="font-mono text-xs uppercase tracking-widest text-plomo-400">
-  <span>{current}</span>
+  <a href={currentPath} aria-current="page" class={`transition-colors ${focusRing}`}>
+    {current}
+  </a>
   <span class="text-plomo-400"> / </span>
-  <a href={altPath} data-lang-toggle data-alt={altPath} class="hover:text-bone-50">
+  <a href={altPath} data-lang-toggle data-alt={altPath} class={`transition-colors hover:text-bone-50 ${focusRing}`}>
     {label}
   </a>
 </span>
 
 <script is:inline>
-  // ADR-3: keep the current anchor across locale switches (/en/#magi).
+  // ADR-3: keep the current anchor across locale switches (/#magi → /en#magi).
   for (const link of document.querySelectorAll('[data-lang-toggle]')) {
     const alt = link.getAttribute('data-alt') ?? '/';
     const preset = () => link.setAttribute('href', alt + window.location.hash);

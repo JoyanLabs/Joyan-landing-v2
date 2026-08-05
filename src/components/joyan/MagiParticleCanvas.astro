@@ -1,0 +1,50 @@
+---
+import AgentNetworkDiagram from '~/components/joyan/AgentNetworkDiagram.astro';
+import { MAGI_NETWORK, MAGI_FALLBACK_PARTICLES } from '~/lib/magi-network';
+import type { MotionContent } from '~/lib/i18n/types';
+import { cn } from '~/lib/utils';
+
+export interface Props {
+  /** Localized MAGI motion labels (docs/DESIGN.md — Motion guide). */
+  motion: MotionContent;
+  class?: string;
+}
+
+const { motion, class: className } = Astro.props;
+---
+
+<!--
+  Optional MAGI particle overlay (docs/DESIGN.md — Motion guide): the static
+  480x300 SVG diagram is the no-JS and reduced-motion renderer; the canvas
+  adds 30 amber particles (24 on low-end devices) across three depth layers
+  over a bone reference layer while the section is visible. Decorative: the
+  canvas is aria-hidden; the localized label and status elements carry the
+  accessible meaning.
+-->
+<div class={cn('relative', className)}>
+  <AgentNetworkDiagram />
+  <canvas
+    aria-hidden="true"
+    data-magi-particles
+    data-node-count={MAGI_NETWORK.nodes.length}
+    data-edge-count={MAGI_NETWORK.edges.length}
+    data-particle-count={MAGI_NETWORK.particles.length}
+    data-fallback-particle-count={MAGI_FALLBACK_PARTICLES.length}
+    data-max-dpr="2"
+    data-fps="30"
+    data-active-status={motion.activeStatus}
+    class="pointer-events-none absolute inset-0 block h-full w-full"></canvas>
+  <p class="sr-only" data-magi-label>{motion.canvasLabel}</p>
+  <p class="mt-3 font-mono text-xs uppercase tracking-widest text-plomo-400" data-magi-status>
+    {motion.staticStatus}
+  </p>
+</div>
+
+<script>
+  // Lifecycle and drawing live in the scoped internal runtime module so the
+  // component stays a slim, readable composition (docs/DESIGN.md — Motion
+  // guide): the module queries canvas[data-magi-particles], caps DPR at 2 and
+  // 30 fps, pauses offscreen/hidden/pagehide, resumes on re-entry/pageshow,
+  // and tears down on astro:before-swap.
+  import '~/lib/magi-canvas-runner';
+</script>

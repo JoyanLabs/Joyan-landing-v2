@@ -285,3 +285,249 @@
     margin-top: 0;
   }
 }
+
+/* L1 shell texture (docs/DESIGN.md — Dither levels L1): a fixed decorative
+   8x8 Bayer dot grid (CSS-pixel scale, dot opacity 0.03..0.10) hosted by
+   PageLayout. Painted at z-index -1 inside the isolated page wrapper, below
+   the opaque content shell (main + footer), so it only shows in shell
+   gutters and never under text. Canvas-free, static, out of flow — zero
+   layout/CLS cost. The 0.10 opacity cap keeps worst-case contrast >= 4.5:1. */
+.shell-texture {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.shell-texture svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Reduced-motion: the shell texture is static by design; keep it that way. */
+@media (prefers-reduced-motion: reduce) {
+  .shell-texture {
+    animation: none;
+  }
+}
+
+/* Scroll reveals (docs/DESIGN.md — Motion guide): the reveal script adds
+   this class before first viewport entry so the hidden state lives in CSS,
+   never in inline style attributes. Opacity/transform-only, no layout
+   properties, and only ever applied by JS after the reduced-motion gate — no
+   JS and reduced-motion keep the server markup visible and static. */
+.is-reveal-pending {
+  opacity: 0;
+  transform: translateY(1rem);
+}
+
+/* MAGI edge-energy pulses (docs/DESIGN.md — Motion guide): the six
+   hub-to-satellite edges breathe opacity so energy reads as traveling the
+   network. Opacity-only — no transform/scale — and static under reduced
+   motion. The canvas overlay adds amber particles on the same edges. */
+@keyframes magi-edge-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.edge-pulse {
+  animation: magi-edge-pulse 3s ease-in-out infinite;
+}
+
+/* Reduced motion: no canvas overlay and no pulses — the static SVG diagram
+   is the renderer (docs/DESIGN.md — Motion guide). */
+@media (prefers-reduced-motion: reduce) {
+  .edge-pulse {
+    animation: none;
+  }
+
+  canvas[data-magi-particles] {
+    display: none;
+  }
+}
+
+/* Hardware CSS-only treatments (docs/DESIGN.md — Motion guide): the figure
+   tilts, a scan line sweeps, and a corner trace highlights on hover or
+   keyboard focus only — never idle — and every treatment is static under
+   reduced motion. The scan uses an amber gradient line (no purple) sweeping
+   via background-position; the trace is an accent corner bracket. */
+@keyframes hardware-scan {
+  0% {
+    background-position: 0 -0.5rem;
+    opacity: 0;
+  }
+  10%,
+  90% {
+    opacity: 1;
+  }
+  100% {
+    background-position: 0 100%;
+    opacity: 0;
+  }
+}
+
+.hardware-surface .hardware-figure {
+  transition: transform 0.4s ease;
+}
+
+.hardware-surface:hover .hardware-figure,
+.hardware-surface:focus-within .hardware-figure {
+  transform: perspective(900px) rotateX(1.5deg) rotateY(-1.5deg);
+}
+
+.hardware-scan {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(180deg, transparent 0%, rgb(255 176 0 / 0.35) 50%, transparent 100%);
+  background-size: 100% 0.5rem;
+  background-repeat: no-repeat;
+  background-position: 0 -0.5rem;
+  opacity: 0;
+}
+
+.hardware-surface:hover .hardware-scan,
+.hardware-surface:focus-within .hardware-scan {
+  animation: hardware-scan 2.4s ease-in-out infinite;
+}
+
+.hardware-trace {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.hardware-trace::before,
+.hardware-trace::after {
+  position: absolute;
+  width: 2.5rem;
+  height: 2.5rem;
+  content: '';
+  border: 1px solid var(--color-accent);
+}
+
+.hardware-trace::before {
+  top: 0;
+  left: 0;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.hardware-trace::after {
+  right: 0;
+  bottom: 0;
+  border-top: 0;
+  border-left: 0;
+}
+
+.hardware-surface:hover .hardware-trace,
+.hardware-surface:focus-within .hardware-trace {
+  opacity: 1;
+}
+
+/* Reduced motion: same selectors as the hover rules (later in source order)
+   so the static frame wins even while hovered or focused. */
+@media (prefers-reduced-motion: reduce) {
+  .hardware-surface .hardware-figure {
+    transition: none;
+  }
+
+  .hardware-surface:hover .hardware-figure,
+  .hardware-surface:focus-within .hardware-figure {
+    transform: none;
+  }
+
+  .hardware-surface:hover .hardware-scan,
+  .hardware-surface:focus-within .hardware-scan {
+    animation: none;
+  }
+
+  .hardware-scan {
+    opacity: 0;
+  }
+
+  .hardware-surface:hover .hardware-trace,
+  .hardware-surface:focus-within .hardware-trace {
+    transition: none;
+    opacity: 0;
+  }
+
+  .hardware-trace {
+    opacity: 0;
+  }
+}
+
+/* Native disclosures (docs/DESIGN.md — Disclosure rules): scoped repeated
+   lists render as independent multi-open <details>; the first item is
+   server-rendered open and every summary keeps its ordinal and title. The
+   default marker is hidden (the ordinal replaces it), hairline top borders
+   separate rows (radius stays 0), focus-visible gets the amber ring, and
+   the body aligns under the title column on wide screens. Open/close is
+   instant — no transition — so reduced-motion and no-JS users get the exact
+   same static behavior with zero animation to block. */
+.disclosure {
+  border-top: 1px solid var(--color-hairline);
+}
+
+.disclosure-list .disclosure:last-child {
+  border-bottom: 1px solid var(--color-hairline);
+}
+
+.disclosure-summary {
+  display: grid;
+  gap: 0.75rem;
+  padding: 2rem 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.disclosure-summary::-webkit-details-marker {
+  display: none;
+}
+
+.disclosure-summary:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 0.25rem;
+}
+
+.disclosure-title {
+  margin: 0;
+}
+
+.disclosure-body {
+  padding: 0 0 2rem;
+}
+
+.disclosure-body p {
+  margin: 0;
+}
+
+.disclosure[open] > .disclosure-summary .disclosure-index {
+  color: var(--color-accent);
+}
+
+@media (min-width: 48rem) {
+  .disclosure-summary {
+    grid-template-columns: 4rem 1fr;
+    gap: 2rem;
+  }
+
+  .disclosure-body {
+    padding-left: calc(4rem + 2rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .disclosure-summary,
+  .disclosure-body {
+    transition: none;
+  }
+}
