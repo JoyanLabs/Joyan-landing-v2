@@ -23,7 +23,7 @@ export const en = {
   hero: {
     kicker: 'People-centered cooperative',
     title: 'Specialized agents that work for your business',
-    lead: 'We create digital agents that operate your business systems and keep them working every day, around the clock. Real people design, tune and answer for every agent.',
+    lead: 'We build AI agents that get to work on your operation every day, around the clock. They are designed to extend your team, not replace it: real people set the goals, review every action and answer for each agent.',
     ctaPrimary: 'Meet MAGI',
     ctaSecondary: 'See the ecosystem',
   },
@@ -31,7 +31,7 @@ export const en = {
     index: '01',
     kicker: 'Agents as a service',
     title: 'Digital specialists, built to fit',
-    lead: "We don't sell generic software: we create agents. Each agent is a digital specialist designed for one concrete task of your operation, executed autonomously.",
+    lead: 'We don\'t sell generic software: we create agents. Each agent is a digital specialist designed for one concrete task of your operation, executed with bounded autonomy: it works on its own, but a person reviews the important decisions.',
     items: [
       {
         title: 'One specialist per task',
@@ -43,7 +43,7 @@ export const en = {
       },
       {
         title: 'People in charge',
-        body: 'Behind every agent there is a human team from the cooperative that designs it, tunes it and responds when something changes.',
+        body: 'Behind every agent there is a human team from the cooperative that designs it, sets its limits, tunes it and responds when something changes. Technology executes; people decide.',
       },
     ],
     figure: {
@@ -55,7 +55,7 @@ export const en = {
     index: '02',
     kicker: 'Our main agent',
     title: 'MAGI runs your operation, non-stop',
-    lead: 'MAGI is our main agent: it works around the clock, autonomously and in the background, operating your business systems without depending on a screen or someone watching over it.',
+    lead: 'MAGI is our main agent: it works around the clock, autonomously, within agreed limits, and in the background, operating your business systems without depending on a screen or someone watching over it.',
     items: [
       {
         title: 'Always on',
@@ -118,7 +118,7 @@ export const en = {
     index: '04',
     kicker: 'Ecosystem',
     title: 'A cooperative, a community',
-    lead: 'Joyan is a collective project: people who create agents, run them and share what they learn. The stronger the community, the stronger every agent.',
+    lead: 'Joyan is a collective project: people who create agents, run them and share what they learn. We believe AI is worth it when its benefits are shared: the more businesses adopt it with judgment, the stronger every agent and every community.',
     items: [
       {
         title: 'Cooperative',
@@ -140,11 +140,11 @@ export const en = {
     community: {
       status: 'In development',
       title: 'The community is taking shape',
-      lead: 'We want more people to create, operate and share agents. Today we are putting together guides, content and training, and looking for first partners to build with us. None of these are an enrollment, a form or a delivery offer yet: they are paths under development that we will open right here.',
+      lead: 'We want more people to create, operate and share agents — and to adopt them with judgment: knowing what they can do, what they can\'t, and what is worth reviewing in person. Today we are putting together guides, content and training, and looking for first partners to build with us. None of these are an enrollment, a form or a delivery offer yet: they are paths under development that we will open right here.',
       audiences: {
         mipes: {
           title: 'Small businesses',
-          body: 'Guides and content for businesses that want agents working their real operation, without tech jargon.',
+          body: 'Guides and content to adopt agents with judgment: what they can do, what they can\'t, and what is worth deciding in person. No tech jargon.',
         },
         developmentTeams: {
           title: 'Development teams',

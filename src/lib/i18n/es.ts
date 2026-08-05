@@ -27,7 +27,7 @@ export const es = {
   hero: {
     kicker: 'Cooperativa centrada en las personas',
     title: 'Agentes especializados que trabajan por tu negocio',
-    lead: 'Creamos agentes digitales que operan los sistemas de tu negocio y los ponemos a trabajar todos los días, a toda hora. Personas reales diseñan, ajustan y responden por cada agente.',
+    lead: 'Creamos agentes de IA que se ponen a trabajar en tu operación todos los días, a toda hora. Los diseñamos para ampliar tu equipo, no para reemplazarlo: personas reales definen los objetivos, revisan cada acción y responden por cada agente.',
     ctaPrimary: 'Conocer MAGI',
     ctaSecondary: 'Ver el ecosistema',
   },
@@ -35,7 +35,7 @@ export const es = {
     index: '01',
     kicker: 'Agentes como servicio',
     title: 'Especialistas digitales hechos a medida',
-    lead: 'No vendemos software genérico: creamos agentes. Cada agente es un especialista digital que se diseña para una tarea concreta de tu operación y la ejecuta de forma autónoma.',
+    lead: 'No vendemos software genérico: creamos agentes. Cada agente es un especialista digital que se diseña para una tarea concreta de tu operación y la ejecuta con autonomía acotada: trabaja sola, pero las decisiones importantes las revisa una persona.',
     items: [
       {
         title: 'Un especialista por tarea',
@@ -47,7 +47,7 @@ export const es = {
       },
       {
         title: 'Personas al mando',
-        body: 'Detrás de cada agente hay un equipo humano de la cooperativa que lo diseña, lo ajusta y responde cuando algo cambia.',
+        body: 'Detrás de cada agente hay un equipo humano de la cooperativa que lo diseña, le fija límites, lo ajusta y responde cuando algo cambia. La tecnología ejecuta; las personas deciden.',
       },
     ],
     figure: {
@@ -59,7 +59,7 @@ export const es = {
     index: '02',
     kicker: 'Nuestro agente principal',
     title: 'MAGI coordina tu operación, sin descanso',
-    lead: 'MAGI es nuestro agente principal: trabaja las 24 horas, de forma autónoma y en segundo plano, operando los sistemas de tu negocio sin depender de una pantalla ni de una persona pendiente.',
+    lead: 'MAGI es nuestro agente principal: trabaja las 24 horas, de forma autónoma, dentro de límites acordados, y en segundo plano, operando los sistemas de tu negocio sin depender de una pantalla ni de una persona pendiente.',
     items: [
       {
         title: 'Siempre activo',
@@ -122,7 +122,7 @@ export const es = {
     index: '04',
     kicker: 'Ecosistema',
     title: 'Una cooperativa, una comunidad',
-    lead: 'Joyan es un proyecto colectivo: personas que crean agentes, los operan y comparten lo que aprenden. Cuanto más crece la comunidad, más fuerte es cada agente.',
+    lead: 'Joyan es un proyecto colectivo: personas que crean agentes, los operan y comparten lo que aprenden. Creemos que la IA vale cuando sus beneficios se reparten: cuantos más negocios la adoptan con criterio, más fuerte es cada agente y cada comunidad.',
     items: [
       {
         title: 'Cooperativa',
@@ -144,11 +144,11 @@ export const es = {
     community: {
       status: 'En desarrollo',
       title: 'La comunidad está en construcción',
-      lead: 'Queremos que más personas creen, operen y compartan agentes. Hoy estamos armando guías, contenidos y formaciones, y buscamos primeras personas para construir con nosotras. Ninguna de estas propuestas es todavía una inscripción, un formulario ni una oferta de entrega: son caminos en desarrollo que iremos abriendo acá.',
+      lead: 'Queremos que más personas creen, operen y compartan agentes — y que los adopten con criterio: sabiendo qué pueden hacer, qué no, y qué conviene revisar en persona. Hoy estamos armando guías, contenidos y formaciones, y buscamos primeras personas para construir con nosotras. Ninguna de estas propuestas es todavía una inscripción, un formulario ni una oferta de entrega: son caminos en desarrollo que iremos abriendo acá.',
       audiences: {
         mipes: {
           title: 'MiPyMEs',
-          body: 'Guías y contenidos pensados para negocios que quieren agentes trabajando su operación real, sin humo técnico.',
+          body: 'Guías y contenidos para adoptar agentes con criterio: qué pueden hacer, qué no, y qué conviene decidir en persona. Sin humo técnico.',
         },
         developmentTeams: {
           title: 'Equipos de desarrollo',
