@@ -36,13 +36,21 @@
  *      (latest-three rows, draft exclusion, ES-only omissions, localized
  *      area/status labels, empty-state machinery), and claim scans of every
  *      journal Markdown file plus both built archives.
+ *   9. Unit D audit — the extended copy ban set (public agentic/AGI/MCP/RAG
+ *      jargon, commercial-claim patterns) applied to every locale source
+ *      value and to the built landings' visible text, metadata, and
+ *      alt/title attributes; honest-copy positives (cooperative identity,
+ *      in-development statuses, negated enrollment/form/delivery promises,
+ *      human review); and static a11y/perf evidence (landmarks, unique IDs,
+ *      heading order, focus-visible path, reduced-motion blocks, route
+ *      output inventory, build sizes) with no browser dependency.
  *
  * Exit code 0 = all assertions pass; 1 = at least one failure. The checker
  * builds automatically when `dist/` is missing so `pnpm check` works from a
  * clean checkout. No runtime dependencies beyond project devDependencies.
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
@@ -1261,6 +1269,257 @@ for (const [page, html] of [
 if (journalCopyIssues === 0) {
   pass('journal-copy: both built archives are free of banned phrase, jargon, vendors, screenshots and claims');
 }
+
+// ---------------------------------------------------------------------------
+// 9. Unit D — complete copy audit (locale sources + built landing output),
+//    honest-copy positives, and static accessibility/performance evidence.
+//    No browser dependency: every check runs against source files and the
+//    emitted build (LCP/CLS remain deferred to a future browser/CI run).
+// ---------------------------------------------------------------------------
+
+// The extended ban set adds public implementation jargon and a commercial-
+// offer pattern on top of the journal claim set (8f), because iteration-2's
+// checker predates the agentic/AGI/MCP/RAG prohibition.
+const UNIT_D_EXTRA_BANS = [
+  {
+    label: 'commercial offer claim',
+    re: /\b(?:commercial\s+(?:offer|offering|product|launch|license)|oferta\s+comercial|en\s+venta|on\s+sale)\b/i,
+  },
+];
+const UNIT_D_BANS = [...JOURNAL_BANS, ...UNIT_D_EXTRA_BANS];
+
+const collectStrings = (value, path = '', out = []) => {
+  if (typeof value === 'string') {
+    out.push({ path, value });
+  } else if (Array.isArray(value)) {
+    value.forEach((item, i) => collectStrings(item, `${path}[${i}]`, out));
+  } else if (value && typeof value === 'object') {
+    for (const [key, item] of Object.entries(value)) {
+      collectStrings(item, path ? `${path}.${key}` : key, out);
+    }
+  }
+  return out;
+};
+
+let unitDCopyIssues = 0;
+const scanUnitDText = (target, source) => {
+  for (const { label, re } of UNIT_D_BANS) {
+    if (re.test(target)) {
+      fail(`copy: ${source} matches ${label}`);
+      unitDCopyIssues += 1;
+    }
+  }
+  for (const name of JOURNAL_VENDORS) {
+    if (new RegExp(`\\b${name}\\b`, 'i').test(target)) {
+      fail(`copy: ${source} names vendor/technology "${name}"`);
+      unitDCopyIssues += 1;
+    }
+  }
+};
+
+// 9a. Locale source values (every executed string, reported by key path).
+const esContentFull = (loadTsModule(resolve(ROOT, 'src/lib/i18n/es.ts')).es ?? {});
+const enContentFull = (loadTsModule(resolve(ROOT, 'src/lib/i18n/en.ts')).en ?? {});
+for (const [locale, content] of [
+  ['es', esContentFull],
+  ['en', enContentFull],
+]) {
+  for (const { path, value } of collectStrings(content)) {
+    scanUnitDText(value, `${locale}.ts ${path || '(root)'}`);
+  }
+}
+if (unitDCopyIssues === 0) {
+  pass('copy: locale source values are free of banned phrase, public jargon, vendors, screenshots and claims');
+}
+
+// 9b. Built landing HTML (/, /en): visible text plus metadata/alt/title
+//     attribute values (archives were already scanned in 8f).
+for (const [page, html] of [
+  ['ES landing', esHtml],
+  ['EN landing', enHtml],
+]) {
+  if (!html) continue;
+  if (/software\s+para\s+agentes/i.test(html)) {
+    fail(`copy: ${page} built HTML contains the prohibited phrase`);
+  }
+  scanUnitDText(journalVisibleText(html), `${page} visible text`);
+  for (const value of journalAttributeValues(html)) {
+    scanUnitDText(value, `${page} attribute`);
+  }
+}
+if (unitDCopyIssues === 0) {
+  pass('copy: both built landings are free of banned phrase, public jargon, vendors, screenshots and claims');
+}
+
+// 9c. Honest-copy positives: the cooperative identity, explicit in-
+//     development statuses, negated enrollment/form/delivery disclaimers,
+//     and human review of agent limits remain present in both locales.
+const esCommunity = esContentFull.ecosystem?.community ?? {};
+const enCommunity = enContentFull.ecosystem?.community ?? {};
+for (const [locale, content] of [
+  ['es', esContentFull],
+  ['en', enContentFull],
+]) {
+  const coopTitle = content.ecosystem?.items?.[0]?.title ?? '';
+  if (/cooperativ/i.test(coopTitle)) {
+    pass(`copy: ${locale} retains the cooperative identity ("${coopTitle}")`);
+  } else {
+    fail(`copy: ${locale} ecosystem must retain the cooperative identity (items[0].title)`);
+  }
+}
+const inDevelopmentChecks = [
+  ['es prototype', esContentFull.hardware?.prototypeInvitation?.status, /desarrollo/i],
+  ['en prototype', enContentFull.hardware?.prototypeInvitation?.status, /development/i],
+  ['es community', esCommunity.status, /desarrollo/i],
+  ['en community', enCommunity.status, /development/i],
+];
+for (const [label, status, re] of inDevelopmentChecks) {
+  if (typeof status === 'string' && re.test(status)) {
+    pass(`copy: ${label} offer carries the explicit in-development status ("${status}")`);
+  } else {
+    fail(`copy: ${label} offer must carry an explicit in-development status`);
+  }
+}
+const disclaimerChecks = [
+  {
+    locale: 'es',
+    lead: esCommunity.lead,
+    tokens: [/inscripci[oó]n/i, /formulario/i, /entrega/i],
+  },
+  {
+    locale: 'en',
+    lead: enCommunity.lead,
+    tokens: [/enrollment/i, /\bform\b/i, /delivery/i],
+  },
+];
+for (const { locale, lead, tokens } of disclaimerChecks) {
+  if (typeof lead === 'string' && tokens.every((re) => re.test(lead))) {
+    pass(`copy: ${locale} community lead negates enrollment, form, and delivery offers`);
+  } else {
+    fail(`copy: ${locale} community lead must negate enrollment, form, and delivery offers`);
+  }
+}
+const reviewChecks = [
+  ['es', `${esContentFull.agents?.lead ?? ''} ${esCommunity.lead ?? ''}`, /revis\w*/i],
+  ['en', `${enContentFull.agents?.lead ?? ''} ${enCommunity.lead ?? ''}`, /review\w*/i],
+];
+for (const [locale, text, re] of reviewChecks) {
+  if (re.test(text)) {
+    pass(`copy: ${locale} copy keeps human review of agent limits explicit`);
+  } else {
+    fail(`copy: ${locale} copy must state that people review agent actions and limits`);
+  }
+}
+
+// 9d. Static accessibility evidence (deterministic, no browser).
+const auditPages = [
+  ['ES landing', esHtml],
+  ['EN landing', enHtml],
+  ['ES archive', bitacoraHtml],
+  ['EN archive', logHtml],
+];
+
+for (const [page, html] of auditPages) {
+  if (!html) continue;
+  const landmarks = [
+    ['site header', /<header\b[^>]*class="sticky/],
+    ['main landmark focus target', /<main\b[^>]*id="main"[^>]*tabindex="-1"/],
+    ['footer landmark', /<footer\b/],
+    ['primary navigation', /<nav\b[^>]*aria-label="Main"/],
+    ['footer navigation', /<nav\b[^>]*aria-label="Footer"/],
+  ];
+  for (const [label, re] of landmarks) {
+    if (re.test(html)) {
+      pass(`a11y: ${page} renders the ${label} landmark`);
+    } else {
+      fail(`a11y: ${page} must render the ${label} landmark`);
+    }
+  }
+  const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
+  const duplicates = [...new Set(ids.filter((id, index) => ids.indexOf(id) !== index))];
+  if (duplicates.length === 0) {
+    pass(`a11y: ${page} carries ${ids.length} unique id attribute(s), none duplicated`);
+  } else {
+    fail(`a11y: ${page} must not duplicate id attributes (${duplicates.join(', ')})`);
+  }
+  const levels = [...html.matchAll(/<h([1-6])\b/g)].map((match) => Number(match[1]));
+  const h1Count = levels.filter((level) => level === 1).length;
+  const headingIssues = [];
+  if (h1Count !== 1) headingIssues.push(`exactly one h1 expected, found ${h1Count}`);
+  if (levels.length > 0 && levels[0] !== 1) headingIssues.push(`the first heading must be h1, found h${levels[0]}`);
+  for (let i = 1; i < levels.length; i += 1) {
+    if (levels[i] - levels[i - 1] > 1) {
+      headingIssues.push(`heading level jumps from h${levels[i - 1]} to h${levels[i]} (skipped level)`);
+    }
+  }
+  if (headingIssues.length === 0) {
+    pass(`a11y: ${page} heading order is one h1 with no skipped levels (${levels.length} headings)`);
+  } else {
+    for (const issue of headingIssues) fail(`a11y: ${page} ${issue}`);
+  }
+}
+
+// Keyboard / focus-visible path: the toggle ring rule (iteration-2 contract)
+// plus the focusable hardware surface ring, in compiled CSS.
+if (/\.focus-visible\\:outline:focus-visible/.test(compiledCss)) {
+  pass('a11y: compiled CSS enables the :focus-visible outline ring for interactive controls');
+} else {
+  fail('a11y: compiled CSS must include the .focus-visible\\:outline:focus-visible rule');
+}
+if (/\.hardware-surface:focus-within/.test(compiledCss)) {
+  pass('a11y: compiled CSS drives the hardware treatments from focus (focus-within)');
+} else {
+  fail('a11y: compiled CSS must include a .hardware-surface:focus-within rule');
+}
+for (const [page, html] of auditPages) {
+  if (!html) continue;
+  if (html.includes('data-hardware-surface')) {
+    if (/data-hardware-surface[^>]*tabindex="0"/.test(html) || /tabindex="0"[^>]*data-hardware-surface/.test(html)) {
+      pass(`a11y: ${page} hardware surface is keyboard-reachable (tabindex="0")`);
+    } else {
+      fail(`a11y: ${page} hardware surface must carry tabindex="0"`);
+    }
+    if (/data-hardware-surface[^>]*focus-visible:outline-accent/.test(html) || /focus-visible:outline-accent[^>]*data-hardware-surface/.test(html)) {
+      pass(`a11y: ${page} hardware surface carries the visible focus-visible ring class`);
+    } else {
+      fail(`a11y: ${page} hardware surface must carry focus-visible:outline-accent`);
+    }
+  }
+}
+
+// Reduced-motion coverage across the compiled stylesheet (canvas overlay,
+// edge pulses, caret, hardware treatments, shell texture).
+const reducedMotionBlockCount = (compiledCss.match(/@media \(prefers-reduced-motion:reduce\)\{/g) ?? []).length;
+if (reducedMotionBlockCount >= 3) {
+  pass(`a11y: compiled CSS ships ${reducedMotionBlockCount} prefers-reduced-motion blocks (static fallbacks)`);
+} else {
+  fail(`a11y: compiled CSS must ship at least 3 prefers-reduced-motion blocks, found ${reducedMotionBlockCount}`);
+}
+
+// 9e. Static performance evidence: route output inventory and build sizes.
+//     The client-JS gzip budget itself is enforced in section 7.
+const ROUTE_OUTPUT = [
+  ['/', 'dist/index.html'],
+  ['/en', 'dist/en/index.html'],
+  ['/bitacora', 'dist/bitacora/index.html'],
+  ['/en/log', 'dist/en/log/index.html'],
+  ['/privacy', 'dist/privacy/index.html'],
+  ['/terms', 'dist/terms/index.html'],
+];
+for (const [route, relPath] of ROUTE_OUTPUT) {
+  if (existsSync(resolve(ROOT, relPath))) {
+    pass(`routes: ${route} builds to ${relPath}`);
+  } else {
+    fail(`routes: ${route} must build to ${relPath}`);
+  }
+}
+const htmlBytes = ROUTE_OUTPUT.reduce(
+  (sum, [, relPath]) => sum + (existsSync(resolve(ROOT, relPath)) ? statSync(resolve(ROOT, relPath)).size : 0),
+  0
+);
+pass(
+  `evidence: ${ROUTE_OUTPUT.length} HTML routes totalling ${(htmlBytes / 1024).toFixed(1)} KiB; client JS gzip sum ${candidate.total} B across ${candidate.rows.length} chunk(s) (delta budget enforced in section 7)`
+);
 
 // ---------------------------------------------------------------------------
 // Summary.

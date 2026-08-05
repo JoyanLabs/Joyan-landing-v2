@@ -6,9 +6,15 @@ export interface Props {
   kicker?: string;
   /** Display title (text-display, uppercase). */
   title: string;
+  /**
+   * Heading level: sections on a landing render h2 under the hero h1;
+   * standalone pages (journal archives) render their only title as h1.
+   */
+  headingLevel?: 1 | 2;
 }
 
-const { index, kicker, title } = Astro.props;
+const { index, kicker, title, headingLevel = 2 } = Astro.props;
+const HeadingTag = headingLevel === 1 ? 'h1' : 'h2';
 ---
 
 <header class="border-t border-hairline pt-6">
@@ -16,5 +22,5 @@ const { index, kicker, title } = Astro.props;
     {index}
     {kicker && <> — {kicker}</>}
   </p>
-  <h2 class="text-display mt-4 text-3xl text-bone-50 md:text-5xl">{title}</h2>
+  <HeadingTag class="text-display mt-4 text-3xl text-bone-50 md:text-5xl">{title}</HeadingTag>
 </header>
