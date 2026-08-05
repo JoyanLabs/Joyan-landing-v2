@@ -182,6 +182,8 @@ export const es = {
     lead: 'Registramos acá lo que estamos construyendo: prototipos, integraciones y experimentos, con lo que sale bien y lo que todavía estamos destrabando. Sin promesas: solo el paso a paso.',
     archiveLabel: 'Ver todas las entradas',
     linkLabel: 'Leer más',
+    detailLabel: 'Leer la entrada',
+    detailReturnLabel: 'Volver a la bitácora',
     emptyState: 'Todavía no hay entradas publicadas: lo estamos armando.',
     archive: {
       title: 'Bitácora',

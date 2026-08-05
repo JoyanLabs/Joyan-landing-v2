@@ -1,0 +1,32 @@
+---
+import { render } from 'astro:content';
+import JournalDetailPage from '~/components/joyan/JournalDetailPage.astro';
+import { es, LOCALES } from '~/lib/i18n';
+import { getPublishedJournalRouteRecords, type JournalRouteRecord } from '~/utils/journal';
+
+export interface Props {
+  record: JournalRouteRecord;
+}
+
+/**
+ * ES journal detail: one static page per published ES entry at
+ * `/bitacora/{slug}`. Draft and unknown slugs never appear in
+ * `getStaticPaths`, so their requests fall back to the 404 page.
+ */
+export async function getStaticPaths() {
+  const records = await getPublishedJournalRouteRecords(LOCALES.ES);
+  return records.map((record) => ({
+    params: { slug: record.entry.data.slug },
+    props: { record },
+  }));
+}
+
+const { record } = Astro.props;
+const { entry } = record;
+const { Content } = await render(entry);
+const pathname = Astro.url.pathname;
+---
+
+<JournalDetailPage entry={record.entry} locale={LOCALES.ES} content={es} pathname={pathname}>
+  <Content />
+</JournalDetailPage>

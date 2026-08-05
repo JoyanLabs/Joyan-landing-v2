@@ -1,5 +1,6 @@
 ---
-import { LOCALES, getAlternateLocalePath, type Locale } from '~/lib/i18n';
+import { JOURNAL_ROUTES, LOCALES, getAlternateLocalePath, type Locale } from '~/lib/i18n';
+import { resolveJournalLocaleCluster } from '~/utils/journal';
 
 export interface Props {
   /** Locale of the page the toggle is rendered on. */
@@ -13,7 +14,11 @@ export interface Props {
 const { locale, label, path = '/' } = Astro.props;
 const target = locale === LOCALES.ES ? LOCALES.EN : LOCALES.ES;
 const currentPath = getAlternateLocalePath(locale, path);
-const altPath = getAlternateLocalePath(target, path);
+// Detail clusters resolve the REAL counterpart (paired) or fall back to the
+// EN archive for ES-only entries — no fabricated EN detail path is ever used.
+const cluster = await resolveJournalLocaleCluster(path);
+const altPath =
+  cluster.kind === 'detail' ? (cluster.alternatePath ?? JOURNAL_ROUTES[target]) : getAlternateLocalePath(target, path);
 const current = locale.toUpperCase();
 
 /** Shared focus-visible treatment for both toggle links (ADR-4). */

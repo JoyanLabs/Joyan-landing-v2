@@ -178,6 +178,8 @@ export const en = {
     lead: 'We record here what we are building: prototypes, integrations and experiments, with what works and what we are still unblocking. No promises: just the step by step.',
     archiveLabel: 'View all entries',
     linkLabel: 'Read more',
+    detailLabel: 'Read the entry',
+    detailReturnLabel: 'Back to the log',
     emptyState: 'No published entries yet: we are still putting it together.',
     archive: {
       title: 'Log',

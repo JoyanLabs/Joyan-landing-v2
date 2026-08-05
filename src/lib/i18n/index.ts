@@ -10,7 +10,8 @@ export type { Locale, LocaleContent } from './types';
 /** Registry of available locale modules, ES first (default locale). */
 export const locales = [es, en] as const;
 
-/** Journal archive routes (ES /bitacora, EN /en/log) — list-only, no detail pages. */
+/** Journal archive routes (ES /bitacora, EN /en/log); detail paths derive
+ *  from these bases in `src/utils/journal.ts` (`journalDetailPath`). */
 export const JOURNAL_ROUTES = {
   [LOCALES.ES]: '/bitacora',
   [LOCALES.EN]: '/en/log',

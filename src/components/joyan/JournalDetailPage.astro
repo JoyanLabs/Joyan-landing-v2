@@ -1,0 +1,110 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import PageLayout from '~/layouts/PageLayout.astro';
+import SiteHeader from '~/components/joyan/SiteHeader.astro';
+import SiteFooter from '~/components/joyan/SiteFooter.astro';
+import { JOURNAL_ROUTES, type Locale } from '~/lib/i18n';
+import type { LocaleContent } from '~/lib/i18n/types';
+
+export interface Props {
+  /** Published entry whose rendered Markdown fills the prose slot. */
+  entry: CollectionEntry<'journal'>;
+  locale: Locale;
+  content: LocaleContent;
+  /** Current page pathname — forwarded for the SEO cluster and chrome. */
+  pathname: string;
+}
+
+const { entry, locale, content, pathname } = Astro.props;
+const { data } = entry;
+const journal = content.journal;
+const archivePath = JOURNAL_ROUTES[locale];
+
+/**
+ * UTC-based ISO date (yyyy-mm-dd): deterministic across build timezones and
+ * consistent with the row treatment on the landing and archives.
+ */
+const dateLabel = `${data.date.getUTCFullYear()}-${String(data.date.getUTCMonth() + 1).padStart(2, '0')}-${String(data.date.getUTCDate()).padStart(2, '0')}`;
+---
+
+<PageLayout lang={locale} metadata={{ title: data.title, description: data.summary }} pathname={pathname}>
+  <SiteHeader slot="header" locale={locale} nav={content.nav} path={pathname} />
+  <article id="top" class="mx-auto max-w-3xl px-6 py-24">
+    <p class="font-mono text-xs uppercase tracking-widest text-plomo-400">
+      <time datetime={dateLabel}>{dateLabel}</time>
+      <span class="mt-1 block">[{journal.areas[data.area]}]</span>
+      <span class="mt-1 block text-accent">{journal.statuses[data.status]}</span>
+    </p>
+    <h1 class="text-display mt-6 text-3xl text-bone-50 md:text-5xl">{data.title}</h1>
+    <p class="mt-6 max-w-2xl text-lg leading-relaxed text-bone-100">{data.summary}</p>
+    <div class="joyan-prose mt-12 border-t border-hairline pt-10">
+      <slot />
+    </div>
+    <a
+      href={archivePath}
+      class="mt-12 inline-block border-t border-hairline pt-6 font-mono text-xs uppercase tracking-widest text-bone-50 transition-colors hover:text-accent"
+    >
+      <span aria-hidden="true">←</span>
+      {journal.detailReturnLabel}
+    </a>
+  </article>
+  <SiteFooter slot="footer" content={content.footer} nav={content.nav} locale={locale} path={pathname} />
+</PageLayout>
+
+<style is:global>
+  .joyan-prose > *:first-child {
+    margin-top: 0;
+  }
+  .joyan-prose h2 {
+    margin-top: 3rem;
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    text-transform: uppercase;
+    color: var(--color-bone-50);
+  }
+  .joyan-prose h3 {
+    margin-top: 2rem;
+    font-weight: 600;
+    color: var(--color-bone-50);
+  }
+  .joyan-prose p,
+  .joyan-prose ul,
+  .joyan-prose ol {
+    margin-top: 1.25rem;
+    line-height: 1.7;
+    color: var(--color-bone-100);
+  }
+  .joyan-prose ul,
+  .joyan-prose ol {
+    padding-left: 1.25rem;
+  }
+  .joyan-prose ul {
+    list-style: disc;
+  }
+  .joyan-prose ol {
+    list-style: decimal;
+  }
+  .joyan-prose li {
+    margin-top: 0.5rem;
+  }
+  .joyan-prose a {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .joyan-prose strong {
+    font-weight: 600;
+    color: var(--color-bone-50);
+  }
+  .joyan-prose code {
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+    color: var(--color-plomo-400);
+  }
+  .joyan-prose hr {
+    margin-top: 2.5rem;
+    border-color: var(--color-hairline);
+  }
+</style>

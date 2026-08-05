@@ -15,6 +15,7 @@ import Favicons from '~/components/Favicons.astro';
 
 import type { MetaData as MetaDataType } from '~/types';
 import { JOURNAL_ROUTES, LOCALES } from '~/lib/i18n';
+import { resolveJournalLocaleCluster } from '~/utils/journal';
 import { getCanonical } from '~/utils/permalinks';
 
 export interface Props {
@@ -29,16 +30,31 @@ const { textDirection } = I18N;
 
 // Layout owns the path-aware canonical/hreflang cluster (docs/DESIGN.md):
 // landings alternate `/` ↔ `/en`; journal archives alternate `/bitacora` ↔
-// `/en/log` with x-default pointing at the ES archive.
-const journalRouteSet = new Set<string>(Object.values(JOURNAL_ROUTES));
-const onJournalRoute = journalRouteSet.has(pathname);
-const esPath = onJournalRoute ? JOURNAL_ROUTES[LOCALES.ES] : '/';
-const enPath = onJournalRoute ? JOURNAL_ROUTES[LOCALES.EN] : '/en';
+// `/en/log` with x-default pointing at the ES archive; paired details
+// alternate their REAL counterparts; an ES-only detail emits only its
+// self-canonical — no alternate, not even x-default. Canonical itself is
+// always the absolute self URL (Metadata component).
+const cluster = await resolveJournalLocaleCluster(pathname);
 
-const hreflangHrefs = {
-  [LOCALES.ES]: String(getCanonical(esPath)),
-  [LOCALES.EN]: String(getCanonical(enPath)),
-};
+let hreflangHrefs: Record<string, string> | null = null;
+if (cluster.kind === 'landing') {
+  hreflangHrefs = {
+    [LOCALES.ES]: String(getCanonical('/')),
+    [LOCALES.EN]: String(getCanonical('/en')),
+  };
+} else if (cluster.kind === 'archive') {
+  hreflangHrefs = {
+    [LOCALES.ES]: String(getCanonical(JOURNAL_ROUTES[LOCALES.ES])),
+    [LOCALES.EN]: String(getCanonical(JOURNAL_ROUTES[LOCALES.EN])),
+  };
+} else if (cluster.alternatePath) {
+  const esPath = cluster.locale === LOCALES.ES ? pathname : cluster.alternatePath;
+  const enPath = cluster.locale === LOCALES.EN ? pathname : cluster.alternatePath;
+  hreflangHrefs = {
+    [LOCALES.ES]: String(getCanonical(esPath)),
+    [LOCALES.EN]: String(getCanonical(enPath)),
+  };
+}
 ---
 
 <!doctype html>
@@ -49,8 +65,12 @@ const hreflangHrefs = {
     <CustomStyles />
     <ApplyColorMode />
     <Metadata {...metadata} lang={lang} />
-    {Object.entries(hreflangHrefs).map(([locale, href]) => <link rel="alternate" hreflang={locale} href={href} />)}
-    <link rel="alternate" hreflang="x-default" href={hreflangHrefs[LOCALES.ES]} />
+    {
+      Object.entries(hreflangHrefs ?? {}).map(([locale, href]) => (
+        <link rel="alternate" hreflang={locale} href={href} />
+      ))
+    }
+    {hreflangHrefs && <link rel="alternate" hreflang="x-default" href={hreflangHrefs[LOCALES.ES]} />}
     <SiteVerification />
     <Analytics />
 

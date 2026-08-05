@@ -82,6 +82,17 @@ const journalCollection = defineCollection({
     summary: z.string(),
     area: z.enum(JOURNAL_AREAS),
     status: z.enum(JOURNAL_STATUSES),
+    /**
+     * Locale-unique detail slug: explicit lowercase kebab-case, slash-free.
+     * The deterministic checker derives static detail paths from it, so
+     * route identity never depends on date/title inference. NOTE: Astro 7's
+     * glob loader uses a frontmatter `slug` as the collection entry id, so
+     * slugs must be unique across the WHOLE collection (both locales) —
+     * the checker enforces this.
+     */
+    slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, { error: 'slug must be lowercase kebab-case, slash-free' }),
+    /** Stable translation key pairing this entry with its ES/EN counterpart. */
+    translationKey: z.string().min(1),
     link: z.url().optional(),
     dither: z.string().optional(),
     draft: z.boolean().optional(),
