@@ -1,0 +1,10 @@
+{
+  "schema": "joyan-iteration-2-client-js-gzip-baseline/1",
+  "totalGzip": 91905,
+  "chunkCount": 3,
+  "chunks": {
+    "ClientRouter.astro_astro_type_script_index_0_lang.jmhnZfFy.js": 5491,
+    "client.BxDIQlYz.js": 59629,
+    "client.kF-MUc6b.js": 26785
+  }
+}

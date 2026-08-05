@@ -341,3 +341,116 @@
     display: none;
   }
 }
+
+/* Hardware CSS-only treatments (docs/DESIGN.md — Motion guide): the figure
+   tilts, a scan line sweeps, and a corner trace highlights on hover or
+   keyboard focus only — never idle — and every treatment is static under
+   reduced motion. The scan uses an amber gradient line (no purple) sweeping
+   via background-position; the trace is an accent corner bracket. */
+@keyframes hardware-scan {
+  0% {
+    background-position: 0 -0.5rem;
+    opacity: 0;
+  }
+  10%,
+  90% {
+    opacity: 1;
+  }
+  100% {
+    background-position: 0 100%;
+    opacity: 0;
+  }
+}
+
+.hardware-surface .hardware-figure {
+  transition: transform 0.4s ease;
+}
+
+.hardware-surface:hover .hardware-figure,
+.hardware-surface:focus-within .hardware-figure {
+  transform: perspective(900px) rotateX(1.5deg) rotateY(-1.5deg);
+}
+
+.hardware-scan {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(180deg, transparent 0%, rgb(255 176 0 / 0.35) 50%, transparent 100%);
+  background-size: 100% 0.5rem;
+  background-repeat: no-repeat;
+  background-position: 0 -0.5rem;
+  opacity: 0;
+}
+
+.hardware-surface:hover .hardware-scan,
+.hardware-surface:focus-within .hardware-scan {
+  animation: hardware-scan 2.4s ease-in-out infinite;
+}
+
+.hardware-trace {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.hardware-trace::before,
+.hardware-trace::after {
+  position: absolute;
+  width: 2.5rem;
+  height: 2.5rem;
+  content: '';
+  border: 1px solid var(--color-accent);
+}
+
+.hardware-trace::before {
+  top: 0;
+  left: 0;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.hardware-trace::after {
+  right: 0;
+  bottom: 0;
+  border-top: 0;
+  border-left: 0;
+}
+
+.hardware-surface:hover .hardware-trace,
+.hardware-surface:focus-within .hardware-trace {
+  opacity: 1;
+}
+
+/* Reduced motion: same selectors as the hover rules (later in source order)
+   so the static frame wins even while hovered or focused. */
+@media (prefers-reduced-motion: reduce) {
+  .hardware-surface .hardware-figure {
+    transition: none;
+  }
+
+  .hardware-surface:hover .hardware-figure,
+  .hardware-surface:focus-within .hardware-figure {
+    transform: none;
+  }
+
+  .hardware-surface:hover .hardware-scan,
+  .hardware-surface:focus-within .hardware-scan {
+    animation: none;
+  }
+
+  .hardware-scan {
+    opacity: 0;
+  }
+
+  .hardware-surface:hover .hardware-trace,
+  .hardware-surface:focus-within .hardware-trace {
+    transition: none;
+    opacity: 0;
+  }
+
+  .hardware-trace {
+    opacity: 0;
+  }
+}

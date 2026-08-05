@@ -21,3 +21,50 @@ const content = es;
   <EcosystemSection content={content.ecosystem} />
   <SiteFooter slot="footer" content={content.footer} nav={content.nav} />
 </PageLayout>
+
+<script>
+  import { animate, inView } from 'framer-motion/dom';
+
+  // Scroll reveals (docs/DESIGN.md — Motion guide): below-hero sections fade
+  // and rise once on first viewport entry. Server markup stays visible and
+  // static (no-JS and reduced-motion keep it that way); this script only
+  // animates opacity and transform. Every inView cleanup and animation
+  // control is stored so astro:before-swap can release it before the DOM
+  // swap and astro:page-load can reinitialize after it.
+
+  const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
+
+  const cleanups: Array<() => void> = [];
+  const controls: Array<{ stop: () => void }> = [];
+
+  function clearAll(): void {
+    for (const control of controls) control.stop();
+    for (const cleanup of cleanups) cleanup();
+    controls.length = 0;
+    cleanups.length = 0;
+  }
+
+  function init(): void {
+    clearAll();
+    if (window.matchMedia(REDUCED_MOTION_QUERY).matches) return;
+    const elements = Array.from(document.querySelectorAll<HTMLElement>('[data-reveal]'));
+    for (const element of elements) {
+      element.style.opacity = '0';
+      element.style.transform = 'translateY(1rem)';
+      const stopInView = inView(
+        element,
+        () => {
+          const control = animate(element, { opacity: 1, y: 0 }, { duration: 0.65, ease: 'easeOut' });
+          controls.push(control);
+          return () => control.stop();
+        },
+        { margin: '0px 0px -12% 0px', amount: 0.2 }
+      );
+      cleanups.push(stopInView);
+    }
+  }
+
+  document.addEventListener('astro:page-load', init);
+  document.addEventListener('astro:before-swap', clearAll);
+  init();
+</script>

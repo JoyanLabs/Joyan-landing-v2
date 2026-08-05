@@ -1,92 +1,90 @@
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { unified } from "@astrojs/markdown-remark";
-import tailwindcss from "@tailwindcss/vite";
-import mdx from "@astrojs/mdx";
-import partytown from "@astrojs/partytown";
-import react from "@astrojs/react";
-import sitemap from "@astrojs/sitemap";
-import vue from "@astrojs/vue";
-import type { AstroIntegration } from "astro";
-import { defineConfig } from "astro/config";
-import icon from "astro-icon";
-import {
-	lazyImagesRehypePlugin,
-	readingTimeRemarkPlugin,
-	responsiveTablesRehypePlugin,
-} from "./src/utils/frontmatter";
-import joyanlabs from "./vendor/integration";
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { unified } from '@astrojs/markdown-remark';
+import tailwindcss from '@tailwindcss/vite';
+import mdx from '@astrojs/mdx';
+import partytown from '@astrojs/partytown';
+import react from '@astrojs/react';
+import sitemap from '@astrojs/sitemap';
+import vue from '@astrojs/vue';
+import type { AstroIntegration } from 'astro';
+import { defineConfig } from 'astro/config';
+import icon from 'astro-icon';
+import { lazyImagesRehypePlugin, readingTimeRemarkPlugin, responsiveTablesRehypePlugin } from './src/utils/frontmatter';
+import joyanlabs from './vendor/integration';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const hasExternalScripts = false;
-const whenExternalScripts = (
-	items: (() => AstroIntegration) | (() => AstroIntegration)[] = [],
-) =>
-	hasExternalScripts
-		? Array.isArray(items)
-			? items.map((item) => item())
-			: [items()]
-		: [];
+const whenExternalScripts = (items: (() => AstroIntegration) | (() => AstroIntegration)[] = []) =>
+  hasExternalScripts ? (Array.isArray(items) ? items.map((item) => item()) : [items()]) : [];
 
 export default defineConfig({
-	output: "static",
+  output: 'static',
 
-	// Iteration 2: ES at `/`, EN at `/en` — never `/en/`.
-	trailingSlash: "never",
+  // Iteration 2: ES at `/`, EN at `/en` — never `/en/`.
+  trailingSlash: 'never',
 
-	integrations: [
-		sitemap(),
-		mdx(),
-		vue(),
-		icon({
-			include: {
-				tabler: ["*"],
-				"flat-color-icons": [
-					"template",
-					"gallery",
-					"approval",
-					"document",
-					"advertising",
-					"currency-exchange",
-					"voice-presentation",
-					"business-contact",
-					"database",
-				],
-			},
-		}),
+  integrations: [
+    sitemap(),
+    mdx(),
+    vue(),
+    icon({
+      include: {
+        tabler: ['*'],
+        'flat-color-icons': [
+          'template',
+          'gallery',
+          'approval',
+          'document',
+          'advertising',
+          'currency-exchange',
+          'voice-presentation',
+          'business-contact',
+          'database',
+        ],
+      },
+    }),
 
-		...whenExternalScripts(() =>
-			partytown({
-				config: { forward: ["dataLayer.push"] },
-			}),
-		),
+    ...whenExternalScripts(() =>
+      partytown({
+        config: { forward: ['dataLayer.push'] },
+      })
+    ),
 
-		joyanlabs({
-			config: "./src/config.yaml",
-		}),
-		react(),
-	],
+    joyanlabs({
+      config: './src/config.yaml',
+    }),
+    react(),
+  ],
 
-	image: {
-		domains: ["cdn.pixabay.com"],
-	},
+  image: {
+    domains: ['cdn.pixabay.com'],
+  },
 
-	markdown: {
-		processor: unified(),
-		remarkPlugins: [readingTimeRemarkPlugin],
-		rehypePlugins: [responsiveTablesRehypePlugin, lazyImagesRehypePlugin],
-	},
+  markdown: {
+    processor: unified(),
+    remarkPlugins: [readingTimeRemarkPlugin],
+    rehypePlugins: [responsiveTablesRehypePlugin, lazyImagesRehypePlugin],
+  },
 
-	// Preserve the v5/v6 whitespace behavior (v7 defaults to 'jsx')
-	compressHTML: true,
+  // Preserve the v5/v6 whitespace behavior (v7 defaults to 'jsx')
+  compressHTML: true,
 
-	vite: {
-		plugins: [tailwindcss()],
-		resolve: {
-			alias: {
-				"~": path.resolve(__dirname, "./src"),
-			},
-		},
-	},
+  vite: {
+    plugins: [tailwindcss()],
+    resolve: {
+      alias: {
+        '~': path.resolve(__dirname, './src'),
+      },
+    },
+    build: {
+      // The MAGI canvas controller must stay a self-contained inline
+      // module (check-iteration-2.mjs executes the shipped inline
+      // script in its runtime harness). The 30/24-particle model grows
+      // the bundle past Vite's default 4 KiB inline limit, so raise it
+      // to keep the established inline-script contract.
+      assetsInlineLimit: 16384,
+    },
+  },
 });

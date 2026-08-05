@@ -25,7 +25,7 @@
  *   7. Unit C dither assets — every output PNG exists with exact intrinsic
  *      dimensions, stays within its byte budget, and keeps the two-color
  *      ink-950/bone-50 palette; the generator exits 1 over budget.
- *   8. Unit D MAGI motion — executed network model (7 nodes/6 edges/12
+ *   8. Unit D MAGI motion — executed network model (7 nodes/6 edges/30
  *      particles on the diagram grid), canvas island wiring + a11y on both
  *      locales, compiled canvas chunk guards (DPR cap, 30fps, observers,
  *      reduced-motion, Astro navigation cleanup), opacity-only SVG edge
@@ -753,7 +753,7 @@ if (gate.status === 1) {
 //
 //    The MAGI particle overlay is a vanilla Canvas island over the static
 //    480x300 SVG diagram. Assertions cover: the network model (7 nodes/6
-//    edges/12 particles on the diagram grid), the island wiring and a11y
+//    edges/30 particles on the diagram grid), the island wiring and a11y
 //    semantics in both locales, the compiled canvas chunk guards (DPR cap,
 //    30fps, observers, reduced-motion and Astro navigation cleanup), the
 //    opacity-only SVG edge pulses, and the import scope of the new files
@@ -785,10 +785,10 @@ if (magiNetwork?.edges?.length === 6) {
 } else {
   fail(`model: MAGI_NETWORK must declare 6 edges, got ${magiNetwork?.edges?.length}`);
 }
-if (magiNetwork?.particles?.length === 12) {
-  pass('model: MAGI_NETWORK declares 12 particles');
+if (magiNetwork?.particles?.length === 30) {
+  pass('model: MAGI_NETWORK declares 30 particles');
 } else {
-  fail(`model: MAGI_NETWORK must declare 12 particles, got ${magiNetwork?.particles?.length}`);
+  fail(`model: MAGI_NETWORK must declare 30 particles, got ${magiNetwork?.particles?.length}`);
 }
 if (magiNetwork?.nodes?.[0]?.x === 240 && magiNetwork?.nodes?.[0]?.y === 150) {
   pass('model: hub node sits at the grid center (240, 150)');
@@ -847,7 +847,7 @@ for (const [page, html, content] of [
   for (const [attr, expected] of [
     ['data-node-count', '7'],
     ['data-edge-count', '6'],
-    ['data-particle-count', '12'],
+    ['data-particle-count', '30'],
     ['data-max-dpr', '2'],
     ['data-fps', '30'],
   ]) {
