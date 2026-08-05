@@ -822,7 +822,7 @@ const REQUIRED_COLLECTION_TOKENS = [
   ['journal', 'declares the journal collection'],
   ['defineCollection', 'defines a content collection'],
   ['src/data/journal', 'loads Markdown from src/data/journal'],
-  ['publishDate: z.date()', 'requires publishDate'],
+  ['date: z.date()', 'requires date'],
   ['area: z.enum(JOURNAL_AREAS)', 'types area from the shared const list'],
   ['status: z.enum(JOURNAL_STATUSES)', 'types status from the shared const list'],
   ['link: z.url().optional()', 'optional external link'],
@@ -922,13 +922,13 @@ for (const [localeKey, dirName] of [
       fail(`journal-seed: ${location} must carry valid YAML frontmatter`);
       continue;
     }
-    const isoDate = toIsoDate(frontmatter.publishDate);
+    const isoDate = toIsoDate(frontmatter.date);
     const title = frontmatter.title;
     const summary = frontmatter.summary;
     const area = frontmatter.area;
     const status = frontmatter.status;
     const issues = [];
-    if (!isoDate) issues.push('publishDate must be an ISO date (yyyy-mm-dd)');
+    if (!isoDate) issues.push('date must be an ISO date (yyyy-mm-dd)');
     if (typeof title !== 'string' || title.trim() === '') issues.push('title must be a non-empty string');
     if (typeof summary !== 'string' || summary.trim() === '') issues.push('summary must be a non-empty string');
     if (!AREA_VALUES.includes(area)) issues.push(`area must be one of ${AREA_VALUES.join('/')}`);
@@ -952,7 +952,7 @@ for (const [localeKey, dirName] of [
       summary: String(summary),
       area: String(area),
       status: String(status),
-      publishDate: isoDate,
+      date: isoDate,
       draft: frontmatter.draft === true,
       raw,
     });
@@ -981,10 +981,10 @@ if (draftCount >= 1) {
 }
 
 // A published EN entry is a translation of the ES entry sharing its
-// publishDate/area/status (titles differ per language). ES-authoritative
+// date/area/status (titles differ per language). ES-authoritative
 // means translations mirror a source entry and omissions are allowed — an
 // EN entry without a matching source would violate the authority policy.
-const enMirrorKey = (entry) => `${entry.publishDate}|${entry.area}|${entry.status}`;
+const enMirrorKey = (entry) => `${entry.date}|${entry.area}|${entry.status}`;
 const esMirrorKeys = new Set(publishedByLocale.es.map(enMirrorKey));
 const orphanEn = publishedByLocale.en.filter((entry) => !esMirrorKeys.has(enMirrorKey(entry)));
 if (orphanEn.length === 0) {
@@ -1015,7 +1015,7 @@ if (draftEntries.length > 0) {
   pass(`journal-draft: all ${draftEntries.length} draft title(s) absent from every built page`);
 }
 
-const esNewestFirst = [...publishedByLocale.es].sort((a, b) => (a.publishDate < b.publishDate ? 1 : -1));
+const esNewestFirst = [...publishedByLocale.es].sort((a, b) => (a.date < b.date ? 1 : -1));
 const esTopThree = esNewestFirst.slice(0, 3);
 for (const entry of esTopThree) {
   if (esHtml.includes(entry.title) && bitacoraHtml.includes(entry.title)) {
@@ -1059,10 +1059,10 @@ for (const entry of publishedByLocale.es) {
   } else {
     fail(`journal-labels: ES "${entry.title}" must render area label ${areaLabel} and status label ${statusLabel}`);
   }
-  if (bitacoraHtml.includes(`datetime="${entry.publishDate}"`)) {
-    pass(`journal-dates: ES "${entry.title}" renders <time datetime="${entry.publishDate}">`);
+  if (bitacoraHtml.includes(`datetime="${entry.date}"`)) {
+    pass(`journal-dates: ES "${entry.title}" renders <time datetime="${entry.date}">`);
   } else {
-    fail(`journal-dates: ES "${entry.title}" must render <time datetime="${entry.publishDate}">`);
+    fail(`journal-dates: ES "${entry.title}" must render <time datetime="${entry.date}">`);
   }
 }
 for (const entry of publishedByLocale.en) {
@@ -1073,10 +1073,10 @@ for (const entry of publishedByLocale.en) {
   } else {
     fail(`journal-labels: EN "${entry.title}" must render area label ${areaLabel} and status label ${statusLabel}`);
   }
-  if (logHtml.includes(`datetime="${entry.publishDate}"`)) {
-    pass(`journal-dates: EN "${entry.title}" renders <time datetime="${entry.publishDate}">`);
+  if (logHtml.includes(`datetime="${entry.date}"`)) {
+    pass(`journal-dates: EN "${entry.title}" renders <time datetime="${entry.date}">`);
   } else {
-    fail(`journal-dates: EN "${entry.title}" must render <time datetime="${entry.publishDate}">`);
+    fail(`journal-dates: EN "${entry.title}" must render <time datetime="${entry.date}">`);
   }
 }
 

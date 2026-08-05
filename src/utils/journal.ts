@@ -16,7 +16,7 @@ export const getPublishedJournal = async (locale: Locale): Promise<JournalEntry[
   const entries = await getCollection('journal', ({ id }) => id.startsWith(localePrefix(locale)));
   return entries
     .filter((entry) => entry.data.draft !== true)
-    .sort((a, b) => b.data.publishDate.valueOf() - a.data.publishDate.valueOf());
+    .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
 };
 
 /** Latest N published entries for a locale (landing section 05 shows three). */

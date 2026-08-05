@@ -1,5 +1,5 @@
 ---
-publishDate: 2026-08-05
+date: 2026-08-05
 title: 'Probando superficies para dar órdenes a los agentes'
 summary: 'Estamos probando botones, perillas y comandos de voz como formas simples de dar órdenes a un agente. Aprendemos qué superficies se sienten naturales en una operación real y cuáles todavía no.'
 area: research

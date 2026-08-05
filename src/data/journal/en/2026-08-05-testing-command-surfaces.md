@@ -1,5 +1,5 @@
 ---
-publishDate: 2026-08-05
+date: 2026-08-05
 title: 'Testing surfaces for giving agents orders'
 summary: 'We are testing buttons, dials and voice commands as simple ways to give an agent orders. We are learning which surfaces feel natural in a real operation and which do not yet.'
 area: research
