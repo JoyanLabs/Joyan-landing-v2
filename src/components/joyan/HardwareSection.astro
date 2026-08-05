@@ -39,5 +39,10 @@ const { content } = Astro.props;
         class="self-start"
       />
     </div>
+
+    <div class="mt-14 border-t border-hairline pt-10">
+      <p class="font-mono text-xs uppercase tracking-widest text-accent">{content.prototypeInvitation.status}</p>
+      <p class="mt-4 max-w-2xl leading-relaxed text-plomo-400">{content.prototypeInvitation.body}</p>
+    </div>
   </div>
 </section>

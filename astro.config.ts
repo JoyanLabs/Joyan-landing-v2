@@ -32,6 +32,9 @@ const whenExternalScripts = (
 export default defineConfig({
 	output: "static",
 
+	// Iteration 2: ES at `/`, EN at `/en` — never `/en/`.
+	trailingSlash: "never",
+
 	integrations: [
 		sitemap(),
 		mdx(),

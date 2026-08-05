@@ -10,20 +10,27 @@ export interface Props {
 
 const { locale, label } = Astro.props;
 const target = locale === LOCALES.ES ? LOCALES.EN : LOCALES.ES;
+const currentPath = getAlternateLocalePath(locale);
 const altPath = getAlternateLocalePath(target);
 const current = locale.toUpperCase();
+
+/** Shared focus-visible treatment for both toggle links (ADR-4). */
+const focusRing =
+  'focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent focus-visible:outline-offset-2';
 ---
 
 <span class="font-mono text-xs uppercase tracking-widest text-plomo-400">
-  <span>{current}</span>
+  <a href={currentPath} aria-current="page" class={`transition-colors ${focusRing}`}>
+    {current}
+  </a>
   <span class="text-plomo-400"> / </span>
-  <a href={altPath} data-lang-toggle data-alt={altPath} class="hover:text-bone-50">
+  <a href={altPath} data-lang-toggle data-alt={altPath} class={`transition-colors hover:text-bone-50 ${focusRing}`}>
     {label}
   </a>
 </span>
 
 <script is:inline>
-  // ADR-3: keep the current anchor across locale switches (/en/#magi).
+  // ADR-3: keep the current anchor across locale switches (/#magi → /en#magi).
   for (const link of document.querySelectorAll('[data-lang-toggle]')) {
     const alt = link.getAttribute('data-alt') ?? '/';
     const preset = () => link.setAttribute('href', alt + window.location.hash);

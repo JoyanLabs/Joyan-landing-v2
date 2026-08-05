@@ -1,30 +1,85 @@
 ---
 import SectionHeader from '~/components/joyan/SectionHeader.astro';
-import type { SectionContent } from '~/lib/i18n/types';
+import DitherFigure from '~/components/joyan/DitherFigure.astro';
+import type { EcosystemContent } from '~/lib/i18n/types';
 
 export interface Props {
-  content: SectionContent;
+  content: EcosystemContent;
 }
 
 const { content } = Astro.props;
+const { community } = content;
+
+/** The four in-progress community offers, in a stable display order. */
+const communityOffers = [
+  community.offers.guidesAndContent,
+  community.offers.training,
+  community.offers.agentBetaParticipation,
+  community.offers.hardwareAgentPrototypeInvitation,
+] as const;
 ---
 
 <section id="ecosystem" class="scroll-mt-24">
   <div class="mx-auto max-w-6xl px-6 py-24">
-    <SectionHeader index={content.index} kicker={content.kicker} title={content.title} />
-    <p class="mt-8 max-w-2xl text-lg leading-relaxed text-bone-100">{content.lead}</p>
-    <ul class="mt-14">
-      {
-        content.items.map((item, i) => (
-          <li class="grid gap-3 border-t border-hairline py-8 md:grid-cols-[4rem_1fr] md:gap-8">
-            <p class="font-mono text-xs tracking-widest text-plomo-400">{String(i + 1).padStart(2, '0')}</p>
-            <div>
-              <h3 class="text-xl font-semibold text-bone-50">{item.title}</h3>
-              <p class="mt-3 max-w-xl leading-relaxed text-plomo-400">{item.body}</p>
-            </div>
-          </li>
-        ))
-      }
-    </ul>
+    <div class="grid gap-14 lg:grid-cols-[1fr_0.85fr] lg:gap-16">
+      <div>
+        <SectionHeader index={content.index} kicker={content.kicker} title={content.title} />
+        <p class="mt-8 max-w-2xl text-lg leading-relaxed text-bone-100">{content.lead}</p>
+        <ul class="mt-14">
+          {
+            content.items.map((item, i) => (
+              <li class="grid gap-3 border-t border-hairline py-8 md:grid-cols-[4rem_1fr] md:gap-8">
+                <p class="font-mono text-xs tracking-widest text-plomo-400">{String(i + 1).padStart(2, '0')}</p>
+                <div>
+                  <h3 class="text-xl font-semibold text-bone-50">{item.title}</h3>
+                  <p class="mt-3 max-w-xl leading-relaxed text-plomo-400">{item.body}</p>
+                </div>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+      <DitherFigure
+        src="/assets/dither/ecosystem-dither.png"
+        alt={content.figure.alt}
+        caption={content.figure.caption}
+        width={1200}
+        height={750}
+        class="self-start"
+      />
+    </div>
+
+    <div class="mt-20 border-t border-hairline pt-12">
+      <p class="font-mono text-xs uppercase tracking-widest text-accent">{community.status}</p>
+      <h3 class="text-display mt-4 text-2xl text-bone-50 md:text-3xl">{community.title}</h3>
+      <p class="mt-6 max-w-2xl leading-relaxed text-bone-100">{community.lead}</p>
+
+      <div class="mt-10 grid gap-10 md:grid-cols-2">
+        <div>
+          <h4 class="font-mono text-xs uppercase tracking-widest text-plomo-400">{community.audiences.mipes.title}</h4>
+          <p class="mt-3 max-w-md leading-relaxed text-plomo-400">{community.audiences.mipes.body}</p>
+        </div>
+        <div>
+          <h4 class="font-mono text-xs uppercase tracking-widest text-plomo-400">
+            {community.audiences.developmentTeams.title}
+          </h4>
+          <p class="mt-3 max-w-md leading-relaxed text-plomo-400">{community.audiences.developmentTeams.body}</p>
+        </div>
+      </div>
+
+      <ul class="mt-14">
+        {
+          communityOffers.map((offer, i) => (
+            <li class="grid gap-3 border-t border-hairline py-8 md:grid-cols-[4rem_1fr] md:gap-8">
+              <p class="font-mono text-xs tracking-widest text-plomo-400">{String(i + 1).padStart(2, '0')}</p>
+              <div>
+                <h4 class="text-xl font-semibold text-bone-50">{offer.title}</h4>
+                <p class="mt-3 max-w-xl leading-relaxed text-plomo-400">{offer.body}</p>
+              </div>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
   </div>
 </section>
