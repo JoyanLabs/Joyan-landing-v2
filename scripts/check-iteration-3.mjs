@@ -275,7 +275,6 @@ if (revealChunks.length > 0) {
     ['prefers-reduced-motion', 'gate reveals under reduced motion'],
     ['matchMedia', 'query the reduced-motion media feature'],
     ['opacity', 'animate opacity only'],
-    ['transform', 'animate transform only'],
     ['astro:page-load', 'initialize after every Astro navigation'],
     ['astro:before-swap', 'clear cleanups/controls before the DOM swap'],
   ];
@@ -478,6 +477,16 @@ if (canvasChunks.length > 0) {
 // ---------------------------------------------------------------------------
 const cssFiles = existsSync(ASTRO_JS_DIR) ? readdirSync(ASTRO_JS_DIR).filter((file) => file.endsWith('.css')) : [];
 const compiledCss = cssFiles.map((file) => read(resolve(ASTRO_JS_DIR, file))).join('\n');
+
+// The reveal initial state is a JS-added CSS class (opacity/transform-only,
+// no layout properties), so the transform contract lives in compiled CSS
+// instead of inline style mutations in the reveal script.
+const pendingRevealRule = compiledCss.match(/\.is-reveal-pending\{[^}]*\}/)?.[0] ?? '';
+if (/opacity:0/.test(pendingRevealRule) && /transform:translateY\(1rem\)/.test(pendingRevealRule)) {
+  pass('reveal: compiled .is-reveal-pending rule holds the opacity/transform initial state');
+} else {
+  fail('reveal: compiled CSS must define .is-reveal-pending with opacity: 0 and transform: translateY(1rem)');
+}
 
 for (const [page, html] of [
   ['ES', esHtml],
