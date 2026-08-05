@@ -10,7 +10,7 @@ export interface Props {
 const { content } = Astro.props;
 ---
 
-<section id="hardware" class="scroll-mt-24">
+<section id="hardware" class="scroll-mt-24" data-reveal>
   <div class="mx-auto max-w-6xl px-6 py-24">
     <div class="grid gap-14 lg:grid-cols-[1fr_0.85fr] lg:gap-16">
       <div>
@@ -30,14 +30,30 @@ const { content } = Astro.props;
           }
         </ul>
       </div>
-      <DitherFigure
-        src="/assets/dither/hardware-dither.png"
-        alt={content.figure.alt}
-        caption={content.figure.caption}
-        width={1024}
-        height={1024}
-        class="self-start"
-      />
+      <!--
+        CSS-only hardware surface (docs/DESIGN.md — Motion guide): the figure
+        tilts, a scan line sweeps, and a corner trace highlights on hover or
+        keyboard focus only — never idle — and all treatments are static under
+        reduced motion. The wrapper is the keyboard-visible focus target.
+      -->
+      <div
+        class="hardware-surface relative self-start overflow-hidden border border-hairline bg-ink-900 focus-visible:outline focus-visible:outline-accent"
+        role="group"
+        aria-label={content.figure.caption}
+        data-hardware-surface
+        tabindex="0"
+      >
+        <DitherFigure
+          src="/assets/dither/hardware-dither.png"
+          alt={content.figure.alt}
+          caption={content.figure.caption}
+          width={1024}
+          height={1024}
+          class="hardware-figure border-0"
+        />
+        <span class="hardware-scan" aria-hidden="true"></span>
+        <span class="hardware-trace" aria-hidden="true"></span>
+      </div>
     </div>
 
     <div class="mt-14 border-t border-hairline pt-10">
