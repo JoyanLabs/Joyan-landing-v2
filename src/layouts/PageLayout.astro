@@ -11,9 +11,98 @@ const { metadata, lang } = Astro.props;
 ---
 
 <Layout metadata={metadata} lang={lang}>
-  <div class="bg-ink-950 text-bone-100">
+  <!--
+    L1 shell texture (docs/DESIGN.md — Dither levels L1): a fixed, decorative
+    8x8 Bayer dot grid in CSS-pixel scale (one 8px cell per Bayer threshold,
+    opacity 0.03..0.10), painted at z-index -1 inside an isolated wrapper so it
+    always renders behind the opaque content shell (main + footer) and never
+    under text. Canvas-free, static (reduced-motion safe), out of flow — zero
+    layout/CLS cost.
+  -->
+  <div class="bg-ink-950 text-bone-100 isolate">
+    <div class="shell-texture" data-shell-texture aria-hidden="true">
+      <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <!--
+            One bone dot per 8x8 cell; dot opacity follows the Bayer 8x8
+            threshold matrix normalized to 0.03..0.10 (subtle, L1). The 10%
+            cap keeps worst-case body contrast above 4.5:1 wherever the
+            texture could show (docs/DESIGN.md — Dither levels).
+          -->
+          <pattern id="shell-dots" width="64" height="64" patternUnits="userSpaceOnUse">
+            <circle cx="4" cy="4" r="1.75" fill="#F4F2ED" fill-opacity="0.03"></circle>
+            <circle cx="12" cy="4" r="1.75" fill="#F4F2ED" fill-opacity="0.07"></circle>
+            <circle cx="20" cy="4" r="1.75" fill="#F4F2ED" fill-opacity="0.04"></circle>
+            <circle cx="28" cy="4" r="1.75" fill="#F4F2ED" fill-opacity="0.07"></circle>
+            <circle cx="36" cy="4" r="1.75" fill="#F4F2ED" fill-opacity="0.03"></circle>
+            <circle cx="44" cy="4" r="1.75" fill="#F4F2ED" fill-opacity="0.07"></circle>
+            <circle cx="52" cy="4" r="1.75" fill="#F4F2ED" fill-opacity="0.04"></circle>
+            <circle cx="60" cy="4" r="1.75" fill="#F4F2ED" fill-opacity="0.08"></circle>
+            <circle cx="4" cy="12" r="1.75" fill="#F4F2ED" fill-opacity="0.08"></circle>
+            <circle cx="12" cy="12" r="1.75" fill="#F4F2ED" fill-opacity="0.05"></circle>
+            <circle cx="20" cy="12" r="1.75" fill="#F4F2ED" fill-opacity="0.09"></circle>
+            <circle cx="28" cy="12" r="1.75" fill="#F4F2ED" fill-opacity="0.06"></circle>
+            <circle cx="36" cy="12" r="1.75" fill="#F4F2ED" fill-opacity="0.09"></circle>
+            <circle cx="44" cy="12" r="1.75" fill="#F4F2ED" fill-opacity="0.05"></circle>
+            <circle cx="52" cy="12" r="1.75" fill="#F4F2ED" fill-opacity="0.09"></circle>
+            <circle cx="60" cy="12" r="1.75" fill="#F4F2ED" fill-opacity="0.06"></circle>
+            <circle cx="4" cy="20" r="1.75" fill="#F4F2ED" fill-opacity="0.04"></circle>
+            <circle cx="12" cy="20" r="1.75" fill="#F4F2ED" fill-opacity="0.08"></circle>
+            <circle cx="20" cy="20" r="1.75" fill="#F4F2ED" fill-opacity="0.03"></circle>
+            <circle cx="28" cy="20" r="1.75" fill="#F4F2ED" fill-opacity="0.07"></circle>
+            <circle cx="36" cy="20" r="1.75" fill="#F4F2ED" fill-opacity="0.05"></circle>
+            <circle cx="44" cy="20" r="1.75" fill="#F4F2ED" fill-opacity="0.08"></circle>
+            <circle cx="52" cy="20" r="1.75" fill="#F4F2ED" fill-opacity="0.04"></circle>
+            <circle cx="60" cy="20" r="1.75" fill="#F4F2ED" fill-opacity="0.07"></circle>
+            <circle cx="4" cy="28" r="1.75" fill="#F4F2ED" fill-opacity="0.10"></circle>
+            <circle cx="12" cy="28" r="1.75" fill="#F4F2ED" fill-opacity="0.06"></circle>
+            <circle cx="20" cy="28" r="1.75" fill="#F4F2ED" fill-opacity="0.09"></circle>
+            <circle cx="28" cy="28" r="1.75" fill="#F4F2ED" fill-opacity="0.05"></circle>
+            <circle cx="36" cy="28" r="1.75" fill="#F4F2ED" fill-opacity="0.10"></circle>
+            <circle cx="44" cy="28" r="1.75" fill="#F4F2ED" fill-opacity="0.06"></circle>
+            <circle cx="52" cy="28" r="1.75" fill="#F4F2ED" fill-opacity="0.09"></circle>
+            <circle cx="60" cy="28" r="1.75" fill="#F4F2ED" fill-opacity="0.05"></circle>
+            <circle cx="4" cy="36" r="1.75" fill="#F4F2ED" fill-opacity="0.03"></circle>
+            <circle cx="12" cy="36" r="1.75" fill="#F4F2ED" fill-opacity="0.07"></circle>
+            <circle cx="20" cy="36" r="1.75" fill="#F4F2ED" fill-opacity="0.04"></circle>
+            <circle cx="28" cy="36" r="1.75" fill="#F4F2ED" fill-opacity="0.08"></circle>
+            <circle cx="36" cy="36" r="1.75" fill="#F4F2ED" fill-opacity="0.03"></circle>
+            <circle cx="44" cy="36" r="1.75" fill="#F4F2ED" fill-opacity="0.07"></circle>
+            <circle cx="52" cy="36" r="1.75" fill="#F4F2ED" fill-opacity="0.04"></circle>
+            <circle cx="60" cy="36" r="1.75" fill="#F4F2ED" fill-opacity="0.08"></circle>
+            <circle cx="4" cy="44" r="1.75" fill="#F4F2ED" fill-opacity="0.09"></circle>
+            <circle cx="12" cy="44" r="1.75" fill="#F4F2ED" fill-opacity="0.05"></circle>
+            <circle cx="20" cy="44" r="1.75" fill="#F4F2ED" fill-opacity="0.10"></circle>
+            <circle cx="28" cy="44" r="1.75" fill="#F4F2ED" fill-opacity="0.06"></circle>
+            <circle cx="36" cy="44" r="1.75" fill="#F4F2ED" fill-opacity="0.08"></circle>
+            <circle cx="44" cy="44" r="1.75" fill="#F4F2ED" fill-opacity="0.05"></circle>
+            <circle cx="52" cy="44" r="1.75" fill="#F4F2ED" fill-opacity="0.09"></circle>
+            <circle cx="60" cy="44" r="1.75" fill="#F4F2ED" fill-opacity="0.06"></circle>
+            <circle cx="4" cy="52" r="1.75" fill="#F4F2ED" fill-opacity="0.05"></circle>
+            <circle cx="12" cy="52" r="1.75" fill="#F4F2ED" fill-opacity="0.08"></circle>
+            <circle cx="20" cy="52" r="1.75" fill="#F4F2ED" fill-opacity="0.04"></circle>
+            <circle cx="28" cy="52" r="1.75" fill="#F4F2ED" fill-opacity="0.07"></circle>
+            <circle cx="36" cy="52" r="1.75" fill="#F4F2ED" fill-opacity="0.04"></circle>
+            <circle cx="44" cy="52" r="1.75" fill="#F4F2ED" fill-opacity="0.08"></circle>
+            <circle cx="52" cy="52" r="1.75" fill="#F4F2ED" fill-opacity="0.04"></circle>
+            <circle cx="60" cy="52" r="1.75" fill="#F4F2ED" fill-opacity="0.07"></circle>
+            <circle cx="4" cy="60" r="1.75" fill="#F4F2ED" fill-opacity="0.10"></circle>
+            <circle cx="12" cy="60" r="1.75" fill="#F4F2ED" fill-opacity="0.06"></circle>
+            <circle cx="20" cy="60" r="1.75" fill="#F4F2ED" fill-opacity="0.09"></circle>
+            <circle cx="28" cy="60" r="1.75" fill="#F4F2ED" fill-opacity="0.06"></circle>
+            <circle cx="36" cy="60" r="1.75" fill="#F4F2ED" fill-opacity="0.10"></circle>
+            <circle cx="44" cy="60" r="1.75" fill="#F4F2ED" fill-opacity="0.06"></circle>
+            <circle cx="52" cy="60" r="1.75" fill="#F4F2ED" fill-opacity="0.09"></circle>
+            <circle cx="60" cy="60" r="1.75" fill="#F4F2ED" fill-opacity="0.05"></circle>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#shell-dots)"></rect>
+      </svg>
+    </div>
     <slot name="header" />
-    <main class="relative">
+    <!-- tabindex -1: programmatic focus target for the Astro view-transition swap -->
+    <!-- bg-ink-950: opaque content shell keeps the L1 texture behind surfaces, never under text -->
+    <main id="main" tabindex="-1" class="relative bg-ink-950">
       <slot />
     </main>
     <slot name="footer" />

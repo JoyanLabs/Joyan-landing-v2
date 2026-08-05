@@ -4,9 +4,12 @@
  *
  * Source art (P3.2): there are no real hardware photos yet, so every source is
  * procedural brand art committed under scripts/dither-src/:
- *   - hero-network.svg    abstract agent-network: nodes + PCB-style traces
- *   - hardware-board.svg  conceptual PCB: IC package, pins, traces, vias
- *   - wordmark.svg        "JOYAN" wordmark, composited onto the OG texture
+ *   - hero-network.svg      abstract agent-network: nodes + PCB-style traces
+ *   - hardware-board.svg    conceptual PCB: IC package, pins, traces, vias
+ *   - agents-network.svg    three agent clusters + orthogonal wiring (L2)
+ *   - magi-network.svg      MAGI grid: hub, six satellites, dashed orbits (L2)
+ *   - ecosystem-network.svg cooperative ecosystem: hub, rings, spokes (L2)
+ *   - wordmark.svg          "JOYAN" wordmark, composited onto the OG texture
  * No stock photos, no logos, no UI mockups (design.md — File Changes).
  *
  * Pipeline: SVG source -> grayscale -> resize -> normalize -> raw buffer ->
@@ -15,8 +18,13 @@
  * dithered texture.
  *
  * Budgets (bytes): hero 1600x900 <= 80 KB, hardware 1024x1024 <= 60 KB,
- * og-default 1200x628 <= 100 KB. Prints every output size and exits 1 when
- * any asset exceeds its budget.
+ * agents 1200x900 <= 70 KB, magi 1200x750 <= 75 KB, ecosystem 1200x750 <=
+ * 75 KB, og-default 1200x628 <= 100 KB. Prints every output size and exits 1
+ * when any asset exceeds its budget.
+ *
+ * DITHER_BUDGET_SCALE (env, default 1): multiplies every budget for testing
+ * the failure gate deterministically — scripts/check-iteration-2.mjs runs the
+ * generator with a tiny scale to prove exit code 1 over budget.
  */
 import { mkdir, stat } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -61,6 +69,33 @@ const ASSETS = [
     darkBias: 16,
   },
   {
+    name: 'agents-dither.png',
+    out: 'public/assets/dither/agents-dither.png',
+    src: 'scripts/dither-src/agents-network.svg',
+    width: 1200,
+    height: 900,
+    maxBytes: 70 * 1024,
+    darkBias: 13,
+  },
+  {
+    name: 'magi-dither.png',
+    out: 'public/assets/dither/magi-dither.png',
+    src: 'scripts/dither-src/magi-network.svg',
+    width: 1200,
+    height: 750,
+    maxBytes: 75 * 1024,
+    darkBias: 13,
+  },
+  {
+    name: 'ecosystem-dither.png',
+    out: 'public/assets/dither/ecosystem-dither.png',
+    src: 'scripts/dither-src/ecosystem-network.svg',
+    width: 1200,
+    height: 750,
+    maxBytes: 75 * 1024,
+    darkBias: 13,
+  },
+  {
     name: 'og-default.png',
     out: 'public/assets/brand/og-default.png',
     src: 'scripts/dither-src/hardware-board.svg',
@@ -77,6 +112,13 @@ const ASSETS = [
 function thresholdAt(x, y, darkBias) {
   return ((BAYER_8[y & 7][x & 7] + 0.5) / 64) * 255 + darkBias;
 }
+
+/**
+ * Budget multiplier for deterministic gate testing (see file header).
+ * scripts/check-iteration-2.mjs runs with a tiny scale to prove that the
+ * generator exits 1 when any asset exceeds its budget. Pixels are unaffected.
+ */
+const BUDGET_SCALE = Number(process.env.DITHER_BUDGET_SCALE ?? '1');
 
 function formatBytes(bytes) {
   return `${(bytes / 1024).toFixed(1)} KB`;
@@ -139,7 +181,7 @@ async function renderAsset(config) {
   await image.png({ palette: true, colours: 2, quality: 100 }).toFile(outPath);
 
   const { size } = await stat(outPath);
-  const withinBudget = size <= config.maxBytes;
+  const withinBudget = size <= config.maxBytes * BUDGET_SCALE;
   console.log(
     `${withinBudget ? 'PASS' : 'FAIL'} ${config.name}: ${formatBytes(size)} / ${formatBytes(config.maxBytes)} (${config.width}x${config.height})`
   );

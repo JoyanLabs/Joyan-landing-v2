@@ -31,7 +31,7 @@ export const en = {
     index: '01',
     kicker: 'Agents as a service',
     title: 'Digital specialists, built to fit',
-    lead: "We don't sell software: we create agents. Each agent is a digital specialist designed for one concrete task of your operation, executed autonomously.",
+    lead: "We don't sell generic software: we create agents. Each agent is a digital specialist designed for one concrete task of your operation, executed autonomously.",
     items: [
       {
         title: 'One specialist per task',
@@ -46,6 +46,10 @@ export const en = {
         body: 'Behind every agent there is a human team from the cooperative that designs it, tunes it and responds when something changes.',
       },
     ],
+    figure: {
+      alt: 'Abstract illustration of a network of specialized agents',
+      caption: 'Network of specialized agents — original illustration',
+    },
   },
   magi: {
     index: '02',
@@ -72,6 +76,15 @@ export const en = {
       '[magi] 09:42 — order #1042 processed',
       '[magi] 09:42 — report sent to the team',
     ],
+    figure: {
+      alt: 'Abstract illustration of the MAGI core',
+      caption: 'MAGI, the main agent — original illustration',
+    },
+    motion: {
+      canvasLabel: 'MAGI agent network in motion',
+      staticStatus: 'MAGI network at rest',
+      activeStatus: 'MAGI network in motion',
+    },
   },
   hardware: {
     index: '03',
@@ -96,6 +109,10 @@ export const en = {
       alt: 'Abstract illustration of a board for agents',
       caption: 'Device concept for agents — original illustration',
     },
+    prototypeInvitation: {
+      status: 'In development',
+      body: 'We are exploring device prototypes together with our community. Nothing is open for enrollment and no dates are promised: when something concrete exists, you will read about it here.',
+    },
   },
   ecosystem: {
     index: '04',
@@ -108,14 +125,51 @@ export const en = {
         body: 'We are people who cooperate: knowledge, tools and results are shared, not concentrated.',
       },
       {
-        title: 'Technical community',
-        body: 'We share patterns, learnings and open tools so more people can build their own agents.',
+        title: 'Collective creation',
+        body: 'We design and operate agents together with each business; what one project teaches improves the next one.',
       },
       {
         title: 'Made by people',
         body: 'No smoke and mirrors: a human team designs, operates and improves every agent from real feedback from real businesses.',
       },
     ],
+    figure: {
+      alt: 'Abstract illustration of the Joyan ecosystem',
+      caption: 'Joyan ecosystem — original illustration',
+    },
+    community: {
+      status: 'In development',
+      title: 'The community is taking shape',
+      lead: 'We want more people to create, operate and share agents. Today we are putting together guides, content and training, and looking for first partners to build with us. None of these are an enrollment, a form or a delivery offer yet: they are paths under development that we will open right here.',
+      audiences: {
+        mipes: {
+          title: 'Small businesses',
+          body: 'Guides and content for businesses that want agents working their real operation, without tech jargon.',
+        },
+        developmentTeams: {
+          title: 'Development teams',
+          body: 'Training and materials for teams that want to build their own agents with judgment and autonomy.',
+        },
+      },
+      offers: {
+        guidesAndContent: {
+          title: 'Guides and content',
+          body: 'We are writing materials that explain how we design and operate agents, aimed at small businesses and development teams.',
+        },
+        training: {
+          title: 'Training',
+          body: 'We are designing training so more people can learn to create and operate specialized agents.',
+        },
+        agentBetaParticipation: {
+          title: 'Agent beta participation',
+          body: 'We are looking for businesses that want to build agents with us in an early stage. It is still in development: when we open slots, we will announce it here, without promising availability.',
+        },
+        hardwareAgentPrototypeInvitation: {
+          title: 'Hardware-agent prototypes',
+          body: 'We invite conversations about device prototypes for agents. This is ongoing exploration: no dates, no enrollment and no delivery.',
+        },
+      },
+    },
   },
   footer: {
     tagline: 'Specialized agents. People in charge.',

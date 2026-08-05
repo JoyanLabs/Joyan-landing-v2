@@ -285,3 +285,59 @@
     margin-top: 0;
   }
 }
+
+/* L1 shell texture (docs/DESIGN.md — Dither levels L1): a fixed decorative
+   8x8 Bayer dot grid (CSS-pixel scale, dot opacity 0.03..0.10) hosted by
+   PageLayout. Painted at z-index -1 inside the isolated page wrapper, below
+   the opaque content shell (main + footer), so it only shows in shell
+   gutters and never under text. Canvas-free, static, out of flow — zero
+   layout/CLS cost. The 0.10 opacity cap keeps worst-case contrast >= 4.5:1. */
+.shell-texture {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.shell-texture svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Reduced-motion: the shell texture is static by design; keep it that way. */
+@media (prefers-reduced-motion: reduce) {
+  .shell-texture {
+    animation: none;
+  }
+}
+
+/* MAGI edge-energy pulses (docs/DESIGN.md — Motion guide): the six
+   hub-to-satellite edges breathe opacity so energy reads as traveling the
+   network. Opacity-only — no transform/scale — and static under reduced
+   motion. The canvas overlay adds amber particles on the same edges. */
+@keyframes magi-edge-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.edge-pulse {
+  animation: magi-edge-pulse 3s ease-in-out infinite;
+}
+
+/* Reduced motion: no canvas overlay and no pulses — the static SVG diagram
+   is the renderer (docs/DESIGN.md — Motion guide). */
+@media (prefers-reduced-motion: reduce) {
+  .edge-pulse {
+    animation: none;
+  }
+
+  canvas[data-magi-particles] {
+    display: none;
+  }
+}

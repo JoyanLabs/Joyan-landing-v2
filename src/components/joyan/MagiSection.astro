@@ -1,7 +1,8 @@
 ---
 import SectionHeader from '~/components/joyan/SectionHeader.astro';
 import TerminalBlock from '~/components/joyan/TerminalBlock.astro';
-import AgentNetworkDiagram from '~/components/joyan/AgentNetworkDiagram.astro';
+import MagiParticleCanvas from '~/components/joyan/MagiParticleCanvas.astro';
+import DitherFigure from '~/components/joyan/DitherFigure.astro';
 import type { MagiContent } from '~/lib/i18n/types';
 
 export interface Props {
@@ -30,8 +31,15 @@ const { content } = Astro.props;
         }
       </ul>
       <div class="flex flex-col gap-8">
-        <AgentNetworkDiagram class="lg:mt-4" />
+        <MagiParticleCanvas motion={content.motion} class="lg:mt-4" />
         <TerminalBlock lines={content.terminalLines} />
+        <DitherFigure
+          src="/assets/dither/magi-dither.png"
+          alt={content.figure.alt}
+          caption={content.figure.caption}
+          width={1200}
+          height={750}
+        />
       </div>
     </div>
   </div>

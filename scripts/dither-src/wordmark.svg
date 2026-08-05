@@ -1,15 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="628" viewBox="0 0 1200 628">
-  <!-- JOYAN wordmark for the OG image (P3.2). Transparent background —
-       composited over the dithered texture by scripts/generate-dither.mjs.
-       Rendered as a raster by sharp/librsvg at pipeline time. -->
-  <text
-    x="600"
-    y="396"
-    text-anchor="middle"
-    font-family="'Archivo Variable', 'Archivo', Arial, Helvetica, sans-serif"
-    font-size="220"
-    font-weight="900"
-    letter-spacing="26"
-    fill="#F4F2ED"
-  >JOYAN</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="628" viewBox="0 0 1200 628"><text x="600" y="396" fill="#f4f2ed" font-family="'Archivo Variable', 'Archivo', Arial, Helvetica, sans-serif" font-size="220" font-weight="900" letter-spacing="26" text-anchor="middle">JOYAN</text></svg>
