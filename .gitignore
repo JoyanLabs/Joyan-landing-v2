@@ -20,6 +20,10 @@ pnpm-debug.log*
 # Stitch generated designs
 .stitch/
 
+# Local planning and agent work-in-progress
+.atl/
+openspec/
+
 # macOS-specific files
 .DS_Store
 

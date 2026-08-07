@@ -1,4 +1,43 @@
 dist/
 node_modules/
-.vscode/
+
+# Environment files and credentials
+.env
+.env.*
+.npmrc
+credentials
+credentials.*
+**/credentials/
+*.key
+*.pem
+*.crt
+*.cer
+*.der
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# Local planning, agent, and repository metadata
+.git/
+.atl/
+openspec/
 .github/
+.opencode/
+.stitch/
+
+# Local deployment overrides
+docker-compose.override.yml
+docker-compose.*.yml
+
+# Editor, operating system, and local build artifacts
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+.astro/
+.cache/
+coverage/
+*.swp
+*.swo
+*~
