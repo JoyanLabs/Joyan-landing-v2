@@ -67,7 +67,31 @@ function assertSafeOutput(dir) {
   if (parts.includes('.git')) refuse('it is inside a git directory');
   if (parts.includes('node_modules')) refuse('it is inside node_modules');
 
-  if (fromRepo.startsWith('..') || isAbsolute(fromRepo)) return; // external scratch dir
+  // Outside the repository the tracked-file inventory says nothing, so it is
+  // not enough to wave the target through. A previous version returned early
+  // for every external path and then rmSync'd it, which made `--out ~/` a
+  // one-command way to delete a home directory.
+  //
+  // Outside the repo this script may only reclaim a directory it owns: one
+  // that does not exist yet, or one whose entire contents are this renderer's
+  // own previous output. Anything else is somebody else's data.
+  if (fromRepo.startsWith('..') || isAbsolute(fromRepo)) {
+    if (!existsSync(dir)) return; // we will create it
+    let entries;
+    try {
+      entries = readdirSync(dir);
+    } catch (e) {
+      refuse(`it cannot be read as a render directory (${e.message})`);
+    }
+    const owned = new Set(['frames', `${FILM.title}.mp4`, `${FILM.title}.av1.mp4`]);
+    const strangers = entries.filter((e) => !owned.has(e));
+    if (strangers.length === 0) return; // empty, or our own last render
+    refuse(
+      `it exists outside the repository and holds ${strangers.length} entr` +
+        `${strangers.length === 1 ? 'y' : 'ies'} this renderer did not create ` +
+        `(e.g. ${strangers.slice(0, 3).join(', ')})`
+    );
+  }
 
   // Fail closed. If the inventory cannot be read, an in-repository target
   // looks empty of tracked files and the guard would wave through a recursive
