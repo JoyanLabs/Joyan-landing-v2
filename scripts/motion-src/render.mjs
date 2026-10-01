@@ -89,8 +89,21 @@ function assertSafeOutput(dir) {
     } catch (e) {
       refuse(`it cannot be read as a render directory (${e.message})`);
     }
-    const owned = new Set(['frames', `${FILM.file}.mp4`, `${FILM.file}.av1.mp4`]);
-    const strangers = entries.filter((e) => !owned.has(e));
+    const owned = new Set([`${FILM.file}.mp4`, `${FILM.file}.av1.mp4`]);
+    // `frames` is only ours if it holds nothing but our own numbered frames.
+    // Trusting the directory name let anything a user had put inside it be
+    // reclaimed and deleted.
+    const strangers = entries.filter((e) => {
+      if (owned.has(e)) return false;
+      if (e === 'frames') {
+        try {
+          return readdirSync(join(dir, e)).some((f) => !/^f\d{4}\.png$/.test(f));
+        } catch {
+          return true;
+        }
+      }
+      return true;
+    });
     if (strangers.length === 0) return; // empty, or our own last render
     refuse(
       `it exists outside the repository and holds ${strangers.length} entr` +

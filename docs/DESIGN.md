@@ -210,8 +210,8 @@ The L3 hero figure carries a 15 s seamlessly looping film, stacked **on top of**
 
 | Source (`scripts/motion-src/`) | Output (`public/assets/motion/`) | Dimensions | Budget | Unit |
 |---|---|---|---|---|
-| `composition.html` + `film.mjs` | `el-caret.av1.mp4` | 1280×720, 30 fps, 15.0 s | 300 KiB | V1 |
-| `composition.html` + `film.mjs` | `el-caret.mp4` | 960×540, 30 fps, 15.0 s | 300 KiB | V1 (H.264 fallback) |
+| `films/F1.js` | `harness-outcome.av1.mp4` | 1280×720, 30 fps, 15.0 s | 300 KiB | V1 |
+| `films/F1.js` | `harness-outcome.mp4` | 1280×720, 30 fps, 15.0 s | 300 KiB | V1 (H.264 fallback) |
 
 Frames are always rendered at the composition's native 1920×1080 and only the encode is downscaled; rendering small and blurring it is how hairlines disappear.
 
@@ -228,9 +228,9 @@ Frames are always rendered at the composition's native 1920×1080 and only the e
 mkdir -p ~/.cache/joyan-motion && cd ~/.cache/joyan-motion && npm init -y && npm i -D playwright && npx playwright install chromium
 
 pnpm build   # populate dist/_astro/*.woff2 (the renderer stages the brand fonts from there)
-node scripts/motion-src/render.mjs --out dist-motion --blur 5 --out-width 960 --crf 34 --av1-width 1280 --av1-crf 46
-node scripts/motion-src/probe.mjs --frames dist-motion/frames   # must print "accepted"
-cp dist-motion/el-caret.mp4 dist-motion/el-caret.av1.mp4 public/assets/motion/
+node scripts/motion-src/render.mjs --film F1 --out dist-motion --blur 5 --out-width 1280 --crf 34 --av1-width 1280 --av1-crf 46
+node scripts/motion-src/probe.mjs --film F1 --frames dist-motion/frames   # must print "accepted"
+cp dist-motion/harness-outcome*.mp4 public/assets/motion/
 ```
 
 `probe.mjs` is an **oracle, not a linter**: it reads the rendered frames and rejects a film that reads as a slideshow — uniform cadence, beats that replace each other instead of carrying, a subject that dissolves into full-frame haze, or a visible loop seam. A rejected film is a slideshow with good typography.

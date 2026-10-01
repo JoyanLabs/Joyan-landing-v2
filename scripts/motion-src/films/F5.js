@@ -153,6 +153,12 @@ export function build(scene) {
       return { x: lerp(a.x, b.x, k), y: lerp(a.y, b.y, k), i };
     };
 
+    // The echoes exist only on the split leg. Writing them here, outside the
+    // branch, means seeking backwards past the gate cannot leave them behind
+    // — every value in this film is a function of t and nothing is inherited.
+    if (t < 5.4) {
+      for (const e of echoes) scene.set(e, { opacity: '0' });
+    }
     // Forward run 0→1, held at 1 (the gate), forward 1→0 again, then back.
     const uBefore = pTravel;
     const uAfter = pAfter;
@@ -162,7 +168,10 @@ export function build(scene) {
     if (t < 4.6) {
       pos = segAt(uBefore);
       const w = outQuart(seg(t, 1.8, 2.6));
-      scene.set(pulse, { x: (pos.x - 34).toFixed(1), y: (pos.y - 34).toFixed(1), opacity: w.toFixed(3) });
+      scene.set(pulse, {
+        x: (pos.x - 34).toFixed(1), y: (pos.y - 34).toFixed(1),
+        fill: PALETTE.bone, opacity: w.toFixed(3),
+      });
     } else if (t < 5.6) {
       // Held. The person has not decided yet.
       pos = segAt(1);

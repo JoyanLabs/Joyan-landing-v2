@@ -149,10 +149,12 @@ export function build(scene) {
       'stroke-width': flash > 0.05 ? 3 : 1.5,
       opacity: (0.55 + flash * 0.45).toFixed(3),
     });
-    for (const c of [...gapLayer.children]) {
-      if (c !== gapFrame && c.getAttribute('stroke') === DEAD) {
-        scene.set(c, { stroke: flash > 0.05 ? LIVE : DEAD });
-      }
+    // Write every child's stroke every frame. An earlier version only
+    // repainted children whose stroke was still DEAD, so after the flash the
+    // whole gap stayed amber forever and seeking the same t gave a different
+    // frame depending on what had been seeked before it.
+    for (const c of gapLayer.children) {
+      if (c !== gapFrame) scene.set(c, { stroke: flash > 0.05 ? LIVE : DEAD });
     }
 
     // The agent works the whole film and is identical in every frame of it.

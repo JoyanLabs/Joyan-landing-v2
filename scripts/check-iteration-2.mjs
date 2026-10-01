@@ -1370,10 +1370,16 @@ const HERO_POSTER = '/assets/dither/hero-dither.png';
 // given visitor. AV1 is listed first and is delivered one resolution higher
 // at fewer bytes than the H.264 fallback it sits in front of.
 // docs/DESIGN.md - Hero film asset contract.
+const FILM_STEM = '/assets/motion/harness-outcome';
 const FILM_SOURCES = [
-  { path: '/assets/motion/el-caret.av1.mp4', label: 'AV1 (primary)', maxBytes: 300 * 1024 },
-  { path: '/assets/motion/el-caret.mp4', label: 'H.264 (fallback)', maxBytes: 300 * 1024 },
+  { path: `${FILM_STEM}.av1.mp4`, label: 'AV1 (primary)', maxBytes: 300 * 1024 },
+  { path: `${FILM_STEM}.mp4`, label: 'H.264 (fallback)', maxBytes: 300 * 1024 },
 ];
+// The film the hero consumes must be the one the renderer actually produces,
+// at the size it is actually authored. A mismatch here is how a hero ends up
+// pointing at an asset nothing regenerates.
+const FILM_WIDTH = 1280;
+const FILM_HEIGHT = 720;
 
 for (const src of FILM_SOURCES) {
   const file = resolve(ROOT, 'public', src.path.replace(/^\//, ''));
@@ -1411,8 +1417,8 @@ for (const [page, html] of [
   // AV1 must be listed before H.264 or the quality tier is dead weight: the
   // browser stops at the first source it can decode.
   const heroVideo = region.match(/<video\b[\s\S]*?<\/video>/)?.[0] ?? '';
-  const av1At = heroVideo.indexOf('el-caret.av1.mp4');
-  const h264At = heroVideo.indexOf('el-caret.mp4');
+  const av1At = heroVideo.indexOf('harness-outcome.av1.mp4');
+  const h264At = heroVideo.indexOf('harness-outcome.mp4');
   if (av1At !== -1 && h264At !== -1 && av1At < h264At) {
     pass(`film: ${page} AV1 source precedes the H.264 fallback`);
   } else {
@@ -1436,8 +1442,8 @@ for (const [page, html] of [
       ['playsinline', 'playsinline (required for iOS inline playback)'],
       ['aria-hidden="true"', 'aria-hidden (decorative)'],
       ['tabindex="-1"', 'tabindex="-1" (never focusable)'],
-      ['width="960"', 'intrinsic width'],
-      ['height="540"', 'intrinsic height'],
+      [`width="${FILM_WIDTH}"`, 'intrinsic width'],
+      [`height="${FILM_HEIGHT}"`, 'intrinsic height'],
     ]) {
       if (videoTag.includes(attr)) {
         pass(`film: ${page} hero video carries ${label}`);
