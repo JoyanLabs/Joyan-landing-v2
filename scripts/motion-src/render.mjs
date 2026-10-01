@@ -69,7 +69,16 @@ function assertSafeOutput(dir) {
 
   if (fromRepo.startsWith('..') || isAbsolute(fromRepo)) return; // external scratch dir
 
-  const tracked = spawnSync('git', ['ls-files', '-z'], { cwd: REPO, encoding: 'utf8' }).stdout ?? '';
+  // Fail closed. If the inventory cannot be read, an in-repository target
+  // looks empty of tracked files and the guard would wave through a recursive
+  // delete of the source tree — the exact failure it exists to prevent.
+  const res = spawnSync('git', ['ls-files', '-z'], { cwd: REPO, encoding: 'utf8' });
+  if (res.error || res.status !== 0 || typeof res.stdout !== 'string') {
+    refuse(
+      `the git tracked-file inventory is unavailable (${res.error?.message ?? `git exited ${res.status}`})`
+    );
+  }
+  const tracked = res.stdout;
   for (const file of tracked.split('\0')) {
     if (!file) continue;
     const abs = resolve(REPO, file);
@@ -208,7 +217,12 @@ async function main() {
         c.width = imgs[0].width;
         c.height = imgs[0].height;
         const ctx = c.getContext('2d', { willReadFrequently: true });
-        const acc = new Float32Array(c.width * c.height * 3);
+        // getImageData is RGBA — four bytes per pixel, not three. Sizing the
+        // accumulator at three averaged only the first three quarters of each
+        // frame's byte stream and left the tail of out.data at zero, so every
+        // blurred frame was a quarter short and partly transparent.
+        const CHANNELS = 4;
+        const acc = new Float32Array(c.width * c.height * CHANNELS);
         for (const img of imgs) {
           ctx.clearRect(0, 0, c.width, c.height);
           ctx.drawImage(img, 0, 0);
