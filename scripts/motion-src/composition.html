@@ -2,10 +2,10 @@
 <html lang="es">
   <head>
     <meta charset="utf-8" />
-    <title>Joyan — El bloque</title>
+    <title>Joyan motion</title>
     <style>
       /* Brand tokens (docs/DESIGN.md — Visual tokens). Radius 0, no italics,
-         no purple gradients. */
+         no purple gradients. Two-value dither only. */
       @font-face {
         font-family: 'Archivo';
         src: url('./archivo.woff2') format('woff2-variations');
@@ -19,301 +19,39 @@
       }
       * { margin: 0; padding: 0; box-sizing: border-box; }
       html, body { background: #0b0b0c; overflow: hidden; }
-      body { width: 1920px; height: 1080px; font-family: 'Archivo', sans-serif; }
+      body { font-family: 'Archivo', sans-serif; }
       svg { position: absolute; inset: 0; display: block; }
     </style>
   </head>
   <body>
-    <svg id="world" width="1920" height="1080" viewBox="0 0 1920 1080"></svg>
     <script type="module">
-      import * as F from './film.mjs';
+      import { createScene, cameraAt, operatorAt } from './lib.js';
 
-      const { clamp, seg, spring, springBack, outCubic, outQuart, outExpo,
-              inOutCubic, shake } = F;
-      const lerp = (a, b, p) => a + (b - a) * p;
+      // One page, five films. The film is a parameter so every asset is
+      // rendered by the same code path and therefore cannot drift.
+      const id = new URLSearchParams(location.search).get('film') ?? 'F1';
+      const mod = await import(`./films/${id}.js`);
+      const film = mod.default;
 
-      const NS = 'http://www.w3.org/2000/svg';
-      const W = 1920, H = 1080;
-      const INK = '#0b0b0c', INK900 = '#121214', BONE = '#f4f2ed',
-            ACCENT = '#ffb000', HAIR = 'rgba(255,255,255,0.16)';
-      // The film's own lines are brighter than the UI hairline. At 1920x1080
-      // a 16%-alpha 1px line disappears.
-      const WIRE = { stroke: 'rgba(255,255,255,0.45)', 'stroke-width': 1.5,
-                     'vector-effect': 'non-scaling-stroke' };
+      const scene = createScene(film.meta);
+      const seek = film.build(scene);
+      // Camera: one continuous move per film, never a cut.
+      const cam = film.meta.camera;
+      const hits = film.meta.hits ?? [];
 
-      const root = document.getElementById('world');
-      const el = (tag, attrs = {}) => {
-        const n = document.createElementNS(NS, tag);
-        for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
-        return n;
-      };
-      const set = (n, attrs) => {
-        for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
-      };
-
-      const CAM = el('g', {});
-      root.appendChild(CAM);
-
-      const L = {};
-      const add = (k, node) => { L[k] = node; CAM.appendChild(node); return node; };
-
-      add('ground', el('rect', { x: 0, y: 0, width: W, height: H, fill: INK }));
-
-      const grid = add('grid', el('g', { opacity: 0 }));
-      // Deliberately faint. Pushing the ground up was the wrong lever: the
-      // hero reads through its ELEMENTS, not through the grid, and a strong
-      // ground both looks like a wireframe and swamps the carry metric with
-      // structure that is on screen at every boundary anyway.
-      const GW = { stroke: 'rgba(255,255,255,0.24)', 'stroke-width': 1.25,
-                   'vector-effect': 'non-scaling-stroke' };
-      for (let i = 0; i <= 16; i++)
-        grid.appendChild(el('line', { x1: i * 120, y1: 0, x2: i * 120, y2: H, ...GW }));
-      for (let j = 0; j <= 9; j++)
-        grid.appendChild(el('line', { x1: 0, y1: j * 120, x2: W, y2: j * 120, ...GW }));
-
-      // The rule lands on grid row 3 (y = 3 * 120), so "the bar becomes a
-      // grid line" is literally true rather than merely claimed.
-      add('rule', el('rect', { x: 0, y: F.TYPE_RULE_Y - 1.5, width: 0, height: 3, fill: BONE }));
-
-      add('block', el('rect', { x: F.TYPE_ORIGIN.x, y: F.TYPE_ORIGIN.y, width: 32, height: 64, fill: ACCENT }));
-
-      L.edges = add('edges', el('g', {}));
-      const edgeEls = F.EDGES.map((_, i) =>
-        L.edges.appendChild(el('line', {
-          ...WIRE, 'stroke-dasharray': i % 2 === 0 ? 'none' : '6 7', opacity: 0,
-        })));
-
-      L.rings = add('rings', el('g', {}));
-      const ringEls = F.NODES.map(() => L.rings.appendChild(el('circle', {
-        fill: 'none', stroke: ACCENT, 'stroke-width': 2,
-        'vector-effect': 'non-scaling-stroke', opacity: 0, r: 0,
-      })));
-
-      L.nodes = add('nodes', el('g', {}));
-      const nodeEls = F.NODES.map((n) => L.nodes.appendChild(el('circle', {
-        cx: n.x, cy: n.y, r: F.CORE.satellite, fill: INK900,
-        stroke: 'rgba(255,255,255,0.55)', 'stroke-width': 1.5,
-        'vector-effect': 'non-scaling-stroke',
-      })));
-      const glow = L.nodes.appendChild(el('circle', {
-        cx: F.CORE.x, cy: F.CORE.y, r: F.CORE.coreLit, fill: ACCENT, opacity: 0,
-      }));
-
-      L.field = add('field', el('g', { opacity: 0 }));
-      const cells = [];
-      // 24px cells, not 60: the field has to read as dither at the scale the
-      // camera holds, not as a checkerboard of grey blocks.
-      const COLS = 80, ROWS = 45, CELL = 24;
-      for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-          const rect = el('rect', { x: c * CELL, y: r * CELL, width: CELL, height: CELL, opacity: 0 });
-          L.field.appendChild(rect);
-          cells.push({
-            rect,
-            cx: c * CELL + CELL / 2,
-            cy: r * CELL + CELL / 2,
-            // Bayer threshold: the cell lights when local density exceeds it.
-            threshold: (F.BAYER8[r % 8][c % 8] + 0.5) / 64,
-            grain: hash2(c * CELL + CELL / 2, r * CELL + CELL / 2),
-          });
-        }
-      }
-
-      add('rule2', el('rect', { x: (W - 460) / 2, y: 700, width: 0, height: 1, fill: HAIR }));
-
-      // Seeded grain — deterministic. No Math.random anywhere in the film.
-      function hash2(x, y) {
-        const s = Math.sin(x * 0.1271 + y * 0.3117) * 43758.5453123;
-        return s - Math.floor(s);
-      }
-
-      const CURSOR_X = F.TYPE_ORIGIN.x;
-      const CARET_W = 32, CARET_H = 64;
-
-      // =====================================================================
-      // seek(t) — the whole film is a pure function of t.
-      //
-      // No text anywhere. The first version typed a mono line, which landed on
-      // top of the hero's own headline once the film went full-bleed: two
-      // pieces of copy competing, which no scrim fixes. The block now
-      // stretches into the rule instead — the film is purely geometric. It is
-      // the world; the copy is the message.
-      // =====================================================================
       window.__seek = (t) => {
-        // ---- Visibility windows.
-        // Written explicitly rather than left to emerge from the beat maths,
-        // because the loop contract requires the last frame to equal the
-        // first. Anything left implicit drifts and breaks the seam.
-        const win = (a, b, f = 0.3) => clamp(seg(t, a - f, a)) * (1 - clamp(seg(t, b, b + f)));
-        const wGrid = win(4.1, 13.0, 0.45);
-        const wSat = win(4.9, 12.2, 0.35);
-        const wEdge = win(5.1, 10.7, 0.3);
-        const wCore = win(5.0, 12.9, 0.35);
-        const wRule = win(3.35, 12.5, 0.4);
-        const unrollProbe = (t) => seg(seg(t, 10.6, 12.6), 0, 0.7);
-
-        const pWrites = seg(t, 1.2, 3.5);
-        const pCollapse = seg(t, 3.5, 4.4);
-        const pConverge = seg(t, 8.2, 10.6);
-        const pField = seg(t, 10.6, 12.6);
-        const pResolve = seg(t, 12.6, 14.0);
-        const pSeal = seg(t, 14.0, 15.0);
-
-        // ---- One camera, continuous, never a cut.
-        const cam = F.cameraAt(t);
-        const op = F.operatorAt(t);
-        set(CAM, {
+        const c = cameraAt(t, cam);
+        const op = operatorAt(t, film.meta.quiet, hits);
+        scene.set(scene.cam, {
           transform:
-            `translate(${(cam.x + op.x).toFixed(3)} ${(cam.y + op.y).toFixed(3)}) ` +
-            `scale(${cam.scale.toFixed(4)}) translate(${-F.CORE.x} ${-F.CORE.y})`,
+            `translate(${(c.x + op.x).toFixed(3)} ${(c.y + op.y).toFixed(3)}) ` +
+            `scale(${c.scale.toFixed(4)}) ` +
+            `translate(${-film.meta.focal.x} ${-film.meta.focal.y})`,
         });
-
-        // ---- Beat 1: the block TRAVELS and the line grows behind it.
-        // The first version had the block stretch into a 64px amber bar; at
-        // full bleed that read as a solid rectangle bolted to the right of the
-        // headline, not as a considered shot. Travelling keeps the accent
-        // small and makes the line read as something being written.
-        const draw = outQuart(pWrites);
-        const drawX = lerp(F.TYPE_ORIGIN.x, W - CARET_W - 24, draw);
-        const ruleGrow = lerp(0, W - F.TYPE_ORIGIN.x, outCubic(pWrites));
-
-        // Blink through the rest, then hold solid. The cut-off is 2.1, not
-        // 2.2: at t = 66/30 the comparison t < 2.2 is true in floating point,
-        // so the block was still blinking on the first typing frame.
-        const blink = t < 1.15 ? (Math.floor(t * 2.2) % 2 === 0 ? 1 : 0.25) : 1;
-
-        // ---- Beat 2: the line settles onto grid row 3 and becomes the rule.
-        const collapse = inOutCubic(pCollapse);
-        set(L.rule, {
-          x: lerp(F.TYPE_ORIGIN.x, 0, collapse).toFixed(1),
-          y: lerp(F.TYPE_ORIGIN.y, F.TYPE_RULE_Y - 1.5, collapse).toFixed(1),
-          width: lerp(ruleGrow, W, outCubic(pCollapse)).toFixed(1),
-          height: 3,
-          opacity: (outCubic(seg(t, 1.35, 2.0)) * wRule).toFixed(3),
-        });
-        // The grid is the world's ground and is on screen from the first
-        // frame: a full-bleed hero that opens on pure black reads as a hole
-        // in the page, not as a composed shot.
-        set(grid, { opacity: (0.42 + outCubic(pCollapse) * 0.4 * wGrid).toFixed(3) });
-
-        // ---- Beat 3: seven signals land; edges draw, staggered so the
-        // cadence never becomes uniform.
-        const conv = outQuart(pConverge);
-        const slide = 1 - conv * 0.72;
-
-        for (let i = 0; i < 6; i++) {
-          const n = F.NODES[i + 1];
-          const nx = F.CORE.x + (n.x - F.CORE.x) * slide;
-          const ny = F.CORE.y + (n.y - F.CORE.y) * slide;
-          const land = springBack(seg(t, F.LAND[i], F.LAND[i] + 0.6), 2.6, 0.5);
-
-          set(nodeEls[i + 1], {
-            cx: nx.toFixed(2), cy: ny.toFixed(2),
-            r: (F.CORE.satellite * (0.18 + 0.82 * land)).toFixed(2),
-            opacity: (clamp(land * 1.5) * wSat).toFixed(3),
-          });
-
-          // Contact ring: cause is visible, the effect is not a surprise.
-          const rp = seg(t, F.LAND[i], F.LAND[i] + 0.95);
-          set(ringEls[i + 1], {
-            cx: nx.toFixed(2), cy: ny.toFixed(2),
-            r: (F.CORE.satellite + outQuart(rp) * 120).toFixed(2),
-            opacity: ((1 - outCubic(rp)) * 0.9 * clamp(rp * 9)).toFixed(3),
-          });
-
-          const len = Math.hypot(nx - F.CORE.x, ny - F.CORE.y);
-          const d = outCubic(seg(t, 4.95 + i * 0.3, 5.6 + i * 0.3));
-          set(edgeEls[i], {
-            x1: F.CORE.x, y1: F.CORE.y, x2: nx.toFixed(2), y2: ny.toFixed(2),
-            'stroke-dashoffset': (i % 2 === 0 ? len * (1 - d) : 0).toFixed(2),
-            opacity: (clamp(d * 2.2) * wEdge).toFixed(3),
-          });
-        }
-
-        // ---- Beat 4: converge. Exactly one amber node (docs/DESIGN.md).
-        const ignite = outExpo(seg(t, 9.5, 10.4));
-        const coreR = lerp(F.CORE.coreIdle, F.CORE.coreLit, spring(ignite, 2.4, 0.9));
-        set(nodeEls[0], {
-          r: coreR.toFixed(2),
-          fill: ignite > 0.02 ? ACCENT : INK900,
-          stroke: ignite > 0.02 ? 'none' : 'rgba(255,255,255,0.55)',
-          'stroke-width': ignite > 0.02 ? 0 : 1.5,
-          opacity: wCore.toFixed(3),
-        });
-        set(glow, {
-          r: (coreR * 1.06).toFixed(2),
-          opacity: (clamp(ignite * wCore) * 0.22 * (1 - unrollProbe(t))).toFixed(3),
-        });
-
-        // The block is now the core, then the field, then itself again. One
-        // element, five roles across the film.
-        const toCore = inOutCubic(seg(t, 9.05, 9.8));
-        const rise = spring(seg(pSeal, 0, 0.5), 2.8, 1);
-        // Home is reached at 90% of the closing beat, not at 100%: the last
-        // ~0.15 s is a dead hold, which both the rhythm contract wants and
-        // the loop seam needs (a return that lands a third of a pixel short
-        // shows up as a lit edge column between the last frame and the first).
-        const home = inOutCubic(seg(pSeal, 0.45, 0.9));
-        // `rise` is scoped to the closing beat only. Applied unconditionally
-        // it is zero at t=0, which erases the block from the first frame and
-        // puts a visible hole in the loop.
-        const sizeK = lerp(1, rise, clamp(seg(t, 14.0, 14.02)));
-        // The block yields to the field, then comes back for the rest. Both
-        // terms are needed: without the second one it never returns and the
-        // loop seam shows a hole where the last frame's block should be.
-        const blockOpacity = Math.max(clamp(1 - pField * 1.05), outCubic(seg(pSeal, 0.18, 0.62)));
-        // The block detaches from the line it drew and becomes the core.
-        const toCoreX = lerp(drawX, F.CORE.x - coreR * 0.19, toCore);
-        set(L.block, {
-          x: lerp(toCoreX, CURSOR_X, home).toFixed(1),
-          y: lerp(lerp(F.TYPE_ORIGIN.y, F.CORE.y - coreR * 0.39, toCore), F.TYPE_ORIGIN.y, home).toFixed(1),
-          width: lerp(lerp(CARET_W, coreR * 0.38, toCore), CARET_W, home).toFixed(1),
-          height: (lerp(lerp(CARET_H, coreR * 0.78, toCore), CARET_H, home) * sizeK).toFixed(1),
-          opacity: (blockOpacity * blink).toFixed(3),
-        });
-
-        // ---- Beats 5-6: the core unrolls into a dither field, and the field
-        // COLLAPSES back into a single point.
-        const unroll = seg(pField, 0, 0.7);
-        const fold = outQuart(pResolve);
-        set(L.nodes, { opacity: (1 - unroll * 1.05).toFixed(3) });
-
-        // Short enough to die out before the copy column: the left third must
-        // stay clean ink for text contrast.
-        const BLOOM = 1080;
-        const extent = lerp(BLOOM, 110, fold);
-        for (const c of cells) {
-          const dist = Math.hypot(c.cx - F.CORE.x, c.cy - F.CORE.y);
-          const radial = clamp(1 - dist / BLOOM);
-          // Unroll: density blooms outward from the core. Kept sparse on
-          // purpose — at 60% coverage this reads as television static, not
-          // as data. A bloom is mostly absence.
-          const bloom = clamp((unroll - 0.03) * 2.1 - dist / 2600);
-          const spread = radial * bloom * (0.1 + c.grain * 0.42);
-          // Compressing: density rises as the radius shrinks.
-          const gathered = dist < extent ? (0.55 + c.grain * 0.45) * clamp(1 - dist / 700) : 0;
-          const density = lerp(spread, gathered, fold);
-          const lit = density > c.threshold;
-          set(c.rect, {
-            fill: ACCENT,
-            opacity: lit ? (1 - fold * 0.35).toFixed(3) : '0',
-          });
-        }
-        set(L.field, { opacity: '1' });
-
-        // ---- Beat 7: the field clears, the block rises out of it and returns
-        // to where it started. The closing hairline is gone by 88% of the
-        // beat so the last frame equals the first.
-        const fadeField = outCubic(seg(pSeal, 0.18, 0.62));
-        set(L.field, { opacity: (1 - fadeField).toFixed(3) });
-        set(L['rule2'], {
-          width: (460 * outQuart(seg(pSeal, 0.42, 0.72))).toFixed(1),
-          opacity: (outCubic(seg(pSeal, 0.5, 0.72)) * (1 - seg(pSeal, 0.78, 0.88))).toFixed(3),
-        });
-
-        return t;
+        return seek(t);
       };
 
+      window.__meta = film.meta;
       window.__seek(0);
       window.__ready = true;
     </script>

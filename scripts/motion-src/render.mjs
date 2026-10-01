@@ -25,8 +25,13 @@ import { extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = resolve(fileURLToPath(new URL('.', import.meta.url)));
+const argv0 = process.argv.slice(2);
+const filmArg0 = (() => { const i = argv0.indexOf('--film'); return i === -1 ? 'F1' : argv0[i + 1]; })();
+// Beat sheet comes from the film itself, so the renderer and the composition
+// cannot disagree about duration or frame count.
+const { default: filmModule } = await import(`./films/${filmArg0}.js`);
+const FILM = filmModule.meta;
 const REPO = resolve(HERE, '../..');
-const { FILM } = await import('./film.mjs');
 
 const argv = process.argv.slice(2);
 const arg = (name, fallback) => {
@@ -35,6 +40,7 @@ const arg = (name, fallback) => {
 };
 
 const OUT = resolve(REPO, arg('out', 'dist-motion'));
+const FILM_ID = filmArg0;
 
 /**
  * The output directory is removed recursively before rendering starts, so a
@@ -83,7 +89,7 @@ function assertSafeOutput(dir) {
     } catch (e) {
       refuse(`it cannot be read as a render directory (${e.message})`);
     }
-    const owned = new Set(['frames', `${FILM.title}.mp4`, `${FILM.title}.av1.mp4`]);
+    const owned = new Set(['frames', `${FILM.file}.mp4`, `${FILM.file}.av1.mp4`]);
     const strangers = entries.filter((e) => !owned.has(e));
     if (strangers.length === 0) return; // empty, or our own last render
     refuse(
@@ -210,8 +216,14 @@ async function main() {
     viewport: { width: FILM.width, height: FILM.height },
     deviceScaleFactor: SCALE,
   });
-  await page.goto(`http://127.0.0.1:${port}/composition.html`);
-  await page.waitForFunction('window.__ready === true');
+  // A silent page error shows up here only as a 30s timeout, which is exactly
+  // the failure this renderer hit three times before logging was added.
+  page.on('pageerror', (e) => console.error(`  [pageerror] ${e.message}`));
+  page.on('console', (m) => {
+    if (m.type() === 'error') console.error(`  [console] ${m.text()}`);
+  });
+  await page.goto(`http://127.0.0.1:${port}/composition.html?film=${FILM_ID}`);
+  await page.waitForFunction('window.__ready === true', null, { timeout: 15000 });
   // Fonts must be resolved before frame 0 or the wordmark rasterizes wrong.
   await page.evaluate(() => document.fonts.ready);
 
@@ -297,14 +309,14 @@ async function main() {
   };
 
   // H.264 fallback first: it must exist even when AV1 is the headline.
-  const fallback = await encode(`${FILM.title}.mp4`, OUT_WIDTH, [
+  const fallback = await encode(`${FILM.file}.mp4`, OUT_WIDTH, [
     '-c:v', 'libx264', '-preset', 'slow', '-crf', String(CRF),
   ]);
   console.log(`\n  ${total} frames in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
   console.log(`  -> ${fallback.out}  (h264 ${OUT_WIDTH}px crf${CRF}, ${fallback.kb} KB)`);
 
   if (AV1_WIDTH > 0) {
-    const av1 = await encode(`${FILM.title}.av1.mp4`, AV1_WIDTH, [
+    const av1 = await encode(`${FILM.file}.av1.mp4`, AV1_WIDTH, [
       '-c:v', 'libsvtav1', '-preset', String(AV1_PRESET), '-crf', String(AV1_CRF),
     ]);
     console.log(`  -> ${av1.out}  (av1 ${AV1_WIDTH}px crf${AV1_CRF}, ${av1.kb} KB)`);
