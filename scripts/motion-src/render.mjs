@@ -1,0 +1,212 @@
+#!/usr/bin/env node
+/**
+ * Render the Joyan motion film.
+ *
+ * The renderer is deliberately dumb: the composition owns every value as a
+ * pure function of `t` (window.__seek), so the renderer only has to walk a
+ * clock and take a picture. Nothing here can desynchronize the film from its
+ * beat sheet — that lives in film.mjs, shared with the probe.
+ *
+ * Motion blur is real, not faked: each output frame is the linear-light
+ * average of N sub-frame captures spread across an open shutter, which is
+ * what makes a fast move smear instead of strobe. Drafts pass --blur 1.
+ *
+ * Usage:
+ *   node scripts/motion-src/render.mjs --out dist-motion --blur 5 [--scale 1]
+ *
+ * Requires Playwright + chromium. Kept out of the landing's own dependency
+ * tree on purpose: see docs/DESIGN.md — Motion film.
+ */
+
+import { createServer } from 'node:http';
+import { spawn } from 'node:child_process';
+import { createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { extname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const HERE = resolve(fileURLToPath(new URL('.', import.meta.url)));
+const REPO = resolve(HERE, '../..');
+const { FILM } = await import('./film.mjs');
+
+const argv = process.argv.slice(2);
+const arg = (name, fallback) => {
+  const i = argv.indexOf(`--${name}`);
+  return i === -1 ? fallback : argv[i + 1];
+};
+
+const OUT = resolve(REPO, arg('out', 'dist-motion'));
+const BLUR = Math.max(1, Number(arg('blur', 1)));
+const SCALE = Number(arg('scale', 1));
+// Delivery size. Frames are always rendered at the composition's native
+// 1920x1080 so motion blur has real detail to smear; only the encode is
+// downscaled. Rendering small and blurring it is how hairlines disappear.
+const OUT_WIDTH = Number(arg('out-width', FILM.width));
+const CRF = Number(arg('crf', 18));
+const SHUTTER = 180 / (360 * 30); // 180 degrees at 30 fps, in frames
+
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.woff2': 'font/woff2',
+  '.css': 'text/css; charset=utf-8',
+};
+
+/**
+ * Playwright lives in an isolated toolchain (a ~150 MB browser download that
+ * has no business in the landing's `pnpm install`). MOTION_TOOLCHAIN points at
+ * it; fall back to a normal resolution so the script still works if somebody
+ * did install it locally.
+ */
+async function loadPlaywright() {
+  const toolchain = process.env.MOTION_TOOLCHAIN ?? join(process.env.HOME ?? '', '.cache/joyan-motion');
+  const candidates = [join(toolchain, 'node_modules/playwright')];
+  try {
+    candidates.push(import.meta.resolve('playwright'));
+  } catch {
+    /* not installed locally — the toolchain path is the expected route */
+  }
+  for (const spec of candidates) {
+    try {
+      return await import(`file://${spec}/index.mjs`);
+    } catch {
+      /* try the next candidate */
+    }
+  }
+  throw new Error(
+    'playwright not found. Install the motion toolchain first:\n' +
+      `  mkdir -p ${toolchain} && cd ${toolchain} && npm init -y && npm i -D playwright && npx playwright install chromium`
+  );
+}
+
+function stageFonts() {
+  const fs = readdirSync(join(REPO, 'node_modules/@fontsource-variable/archivo/files'));
+  const mono = readdirSync(join(REPO, 'node_modules/@fontsource-variable/jetbrains-mono/files'));
+  const pick = (list) => list.find((f) => f === 'archivo-latin-wght-normal.woff2' || f === 'jetbrains-mono-latin-wght-normal.woff2');
+  const pairs = [
+    [join(REPO, 'node_modules/@fontsource-variable/archivo/files', pick(fs)), join(HERE, 'archivo.woff2')],
+    [join(REPO, 'node_modules/@fontsource-variable/jetbrains-mono/files', pick(mono)), join(HERE, 'mono.woff2')],
+  ];
+  for (const [from, to] of pairs) {
+    if (!existsSync(from)) throw new Error(`missing font source: ${from} (run pnpm install)`);
+    writeFileSync(to, readFileSync(from));
+  }
+}
+
+function serve(root) {
+  const server = createServer((req, res) => {
+    const path = decodeURIComponent((req.url ?? '/').split('?')[0]);
+    const file = join(root, path === '/' ? 'composition.html' : path);
+    if (!file.startsWith(root) || !existsSync(file)) {
+      res.writeHead(404).end('not found');
+      return;
+    }
+    res.writeHead(200, { 'content-type': MIME[extname(file)] ?? 'application/octet-stream' });
+    createReadStream(file).pipe(res);
+  });
+  return new Promise((ok) => server.listen(0, '127.0.0.1', () => ok({ server, port: server.address().port })));
+}
+
+function ffmpeg(args) {
+  return new Promise((ok, fail) => {
+    const p = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] });
+    let err = '';
+    p.stderr.on('data', (b) => (err += b));
+    p.on('close', (code) => (code === 0 ? ok() : fail(new Error(`ffmpeg ${code}\n${err.slice(-2000)}`))));
+  });
+}
+
+async function main() {
+  stageFonts();
+  rmSync(OUT, { recursive: true, force: true });
+  mkdirSync(join(OUT, 'frames'), { recursive: true });
+
+  const { chromium } = await loadPlaywright();
+  const { server, port } = await serve(HERE);
+  const browser = await chromium.launch();
+  const page = await browser.newPage({
+    viewport: { width: FILM.width, height: FILM.height },
+    deviceScaleFactor: SCALE,
+  });
+  await page.goto(`http://127.0.0.1:${port}/composition.html`);
+  await page.waitForFunction('window.__ready === true');
+  // Fonts must be resolved before frame 0 or the wordmark rasterizes wrong.
+  await page.evaluate(() => document.fonts.ready);
+
+  const total = Math.round(FILM.duration * FILM.fps);
+  const t0 = Date.now();
+
+  for (let f = 0; f < total; f++) {
+    const t = f / FILM.fps;
+    if (BLUR === 1) {
+      await page.evaluate((time) => window.__seek(time), t);
+      await page.screenshot({ path: join(OUT, 'frames', `f${String(f).padStart(4, '0')}.png`) });
+    } else {
+      // Average N sub-captures across the shutter. Sub-frame times WRAP
+      // around the loop instead of clamping to zero: the film is a seamless
+      // loop, so the shutter at t=0 legitimately reaches back into the tail
+      // of the film. Clamping made frame 0 sharp and frame N-1 smeared,
+      // which is exactly the seam the loop contract forbids.
+      const subs = [];
+      for (let s = 0; s < BLUR; s++) {
+        const st = t - (SHUTTER * (s + 0.5)) / BLUR;
+        const wrapped = ((st % FILM.duration) + FILM.duration) % FILM.duration;
+        await page.evaluate((time) => window.__seek(time), wrapped);
+        subs.push(await page.screenshot());
+      }
+      const stacked = await page.evaluate(async ({ buffers, n }) => {
+        const load = (b) =>
+          new Promise((ok) => {
+            const img = new Image();
+            img.onload = () => ok(img);
+            img.src = 'data:image/png;base64,' + b;
+          });
+        const imgs = await Promise.all(buffers.map(load));
+        const c = document.createElement('canvas');
+        c.width = imgs[0].width;
+        c.height = imgs[0].height;
+        const ctx = c.getContext('2d', { willReadFrequently: true });
+        const acc = new Float32Array(c.width * c.height * 3);
+        for (const img of imgs) {
+          ctx.clearRect(0, 0, c.width, c.height);
+          ctx.drawImage(img, 0, 0);
+          const d = ctx.getImageData(0, 0, c.width, c.height).data;
+          for (let i = 0; i < acc.length; i++) acc[i] += d[i];
+        }
+        const out = ctx.createImageData(c.width, c.height);
+        for (let i = 0; i < acc.length; i++) out.data[i] = acc[i] / n;
+        // No palette snapping here. The composition already paints flat brand
+        // colours; the only intermediate values are the moving edges, which
+        // real motion blur has to produce. An earlier version re-quantized to
+        // ink/bone and silently deleted the grid, because a 20%-alpha
+        // hairline lands at luminance 60 — under any sane bone threshold.
+        ctx.putImageData(out, 0, 0);
+        return c.toDataURL('image/png').split(',')[1];
+      }, { buffers: subs.map((b) => b.toString('base64')), n: BLUR });
+      writeFileSync(join(OUT, 'frames', `f${String(f).padStart(4, '0')}.png`), Buffer.from(stacked, 'base64'));
+    }
+    if (f % 30 === 0) {
+      const pct = ((f / total) * 100).toFixed(0);
+      process.stdout.write(`\r  rendering ${pct}%  (frame ${f}/${total})   `);
+    }
+  }
+  process.stdout.write('\n');
+
+  await browser.close();
+  server.close();
+
+  const mp4 = join(OUT, `${FILM.title}.mp4`);
+  await ffmpeg([
+    '-y', '-framerate', String(FILM.fps),
+    '-i', join(OUT, 'frames', 'f%04d.png'),
+    '-vf', `scale=${OUT_WIDTH}:${Math.round((OUT_WIDTH * FILM.height) / FILM.width / 2) * 2}:flags=lanczos,format=yuv420p`,
+    '-c:v', 'libx264', '-preset', 'slow', '-crf', String(CRF),
+    '-movflags', '+faststart',
+    mp4,
+  ]);
+
+  console.log(`\n  ${total} frames in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+  console.log(`  -> ${mp4}  (${OUT_WIDTH}px, crf ${CRF}, ${(statSync(mp4).size / 1024).toFixed(0)} KB)`);
+}
+
+await main();

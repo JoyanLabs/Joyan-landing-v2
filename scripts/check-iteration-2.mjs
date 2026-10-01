@@ -1361,6 +1361,104 @@ for (const [page, html, content] of [
 }
 
 // ---------------------------------------------------------------------------
+// 8g5. Hero film contract (docs/DESIGN.md - Hero film).
+//
+//     The film is progressive enhancement, and that is the whole claim. These
+//     assertions exist so that claim cannot be quietly broken: a hero that
+//     starts depending on the video, or a reduced-motion path that leaves a
+//     paused first frame on screen, both fail here rather than in production.
+// ---------------------------------------------------------------------------
+const HERO_FILM = '/assets/motion/el-caret.mp4';
+const HERO_POSTER = '/assets/dither/hero-dither.png';
+const FILM_MAX_BYTES = 300 * 1024; // docs/DESIGN.md - Hero film asset contract
+
+const filmPath = resolve(ROOT, 'public', HERO_FILM.replace(/^\//, ''));
+if (!existsSync(filmPath)) {
+  fail(`film: committed hero film ${HERO_FILM} is missing`);
+} else {
+  const bytes = statSync(filmPath).size;
+  if (bytes <= FILM_MAX_BYTES) {
+    pass(`film: ${HERO_FILM} is within budget (${bytes} / ${FILM_MAX_BYTES} bytes)`);
+  } else {
+    fail(`film: ${HERO_FILM} must be <= ${FILM_MAX_BYTES} bytes, got ${bytes}`);
+  }
+}
+
+for (const [page, html] of [
+  ['ES', esHtml],
+  ['EN', enHtml],
+]) {
+  if (!html) continue;
+  const region = sectionRegion(html, 'top');
+  if (!region) {
+    fail(`film: ${page} #top section must render`);
+    continue;
+  }
+  const occurrences = (html.match(new RegExp(`src="${escapeRegex(HERO_FILM)}"`, 'g')) ?? []).length;
+  if (occurrences === 1) {
+    pass(`film: ${page} hero film appears exactly once (containment, no repeats)`);
+  } else {
+    fail(`film: ${page} ${HERO_FILM} must appear exactly once, found ${occurrences}`);
+  }
+
+  const videoTag = region.match(/<video\b[^>]*>/)?.[0] ?? '';
+  if (!videoTag) {
+    fail(`film: ${page} hero must render the <video> film`);
+  } else {
+    // Autoplay only works muted; without these the hero shows a dead frame.
+    for (const [attr, label] of [
+      ['autoplay', 'autoplay'],
+      ['muted', 'muted (required for autoplay)'],
+      ['loop', 'loop'],
+      ['playsinline', 'playsinline (required for iOS inline playback)'],
+      ['aria-hidden="true"', 'aria-hidden (decorative)'],
+      ['tabindex="-1"', 'tabindex="-1" (never focusable)'],
+      ['width="960"', 'intrinsic width'],
+      ['height="540"', 'intrinsic height'],
+    ]) {
+      if (videoTag.includes(attr)) {
+        pass(`film: ${page} hero video carries ${label}`);
+      } else {
+        fail(`film: ${page} hero video must carry ${label}`);
+      }
+    }
+    if (!/\bcontrols\b/.test(videoTag)) {
+      pass(`film: ${page} hero video has no controls (ambient, not a player)`);
+    } else {
+      fail(`film: ${page} hero video must not expose controls`);
+    }
+    if (/\bon[a-z]+=/.test(videoTag)) {
+      fail(`film: ${page} hero video must not carry inline event handlers`);
+    } else {
+      pass(`film: ${page} hero film runs with no JS`);
+    }
+  }
+
+  // The stack contract: the poster is a real <img> in the DOM, not a `poster`
+  // attribute. That is what makes no-JS and reduced-motion land on the image.
+  const heroFigure = region.match(/<figure\b[\s\S]*?<\/figure>/)?.[0] ?? '';
+  if (heroFigure.includes(`src="${HERO_POSTER}"`)) {
+    pass(`film: ${page} hero stacks the film over the static poster (no-JS path)`);
+  } else {
+    fail(`film: ${page} hero figure must keep the ${HERO_POSTER} poster underneath`);
+  }
+  if (heroFigure.indexOf(HERO_POSTER) < heroFigure.indexOf('<video')) {
+    pass(`film: ${page} poster precedes the video (poster is the base layer)`);
+  } else {
+    fail(`film: ${page} the poster <img> must come before the <video> in the hero figure`);
+  }
+}
+
+// Reuse the brace-aware reduced-motion block extraction already built above
+// (reducedMotionBlocks): the minifier merges sibling media blocks, so the film
+// rule shares a block with the disclosure rules and plain regex truncates.
+if (reducedMotionBlocks.some((b) => /\.joyan-film\{display:none\}/.test(b))) {
+  pass('film: reduced-motion users get the static poster (film removed, not paused)');
+} else {
+  fail('film: compiled CSS must remove .joyan-film under prefers-reduced-motion');
+}
+
+// ---------------------------------------------------------------------------
 // Report.
 // ---------------------------------------------------------------------------
 console.log(`\niteration-2 checks: ${passed.length} passed, ${failures.length} failed`);

@@ -1,0 +1,43 @@
+---
+import { cn } from '~/lib/utils';
+
+export interface Props {
+  /**
+   * Static poster. Kept in the DOM underneath the film rather than passed as
+   * the video's `poster`, so the hero degrades through the same path as every
+   * other figure: no JS, no motion preference, or a slow connection all land
+   * on this image instead of on nothing.
+   */
+  src: string;
+  /** Seamlessly looping film. Decorative, muted, no controls. */
+  videoSrc: string;
+  /** Empty for decorative art (the hero figure). */
+  alt?: string;
+  /** Intrinsic poster dimensions reserve layout and avoid CLS. */
+  width: number;
+  height: number;
+  /** Intrinsic film dimensions; the film is authored at the same aspect. */
+  videoWidth: number;
+  videoHeight: number;
+  class?: string;
+}
+
+const { src, videoSrc, alt = '', width, height, videoWidth, videoHeight, class: className } = Astro.props;
+---
+
+<figure class={cn('relative border border-hairline bg-ink-900', className)}>
+  <img src={src} alt={alt} width={width} height={height} class="block h-auto w-full" />
+  <video
+    class="joyan-film absolute inset-0 h-full w-full object-cover"
+    data-hero-film
+    src={videoSrc}
+    width={videoWidth}
+    height={videoHeight}
+    autoplay
+    muted
+    loop
+    playsinline
+    preload="metadata"
+    aria-hidden="true"
+    tabindex="-1"></video>
+</figure>

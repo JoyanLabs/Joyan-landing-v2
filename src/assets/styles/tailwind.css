@@ -531,3 +531,17 @@
     transition: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Hero film
+   The L3 hero figure carries a seamlessly looping film. It is the only
+   animation on the page besides the MAGI particle overlay and the below-hero
+   reveals. Under reduced motion the element is removed entirely rather than
+   paused: the static poster underneath is the intended state, so leaving a
+   frozen first frame on screen would show a frame the film never rests on.
+   --------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .joyan-film {
+    display: none;
+  }
+}

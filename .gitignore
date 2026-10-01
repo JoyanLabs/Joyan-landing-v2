@@ -30,3 +30,7 @@ openspec/
 
 
 .astro
+
+# Motion film render output (scripts/motion-src renders into this; the
+# committed artifact lives in public/assets/motion/)
+dist-motion/

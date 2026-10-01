@@ -120,7 +120,7 @@ Formats: **SVG sources** (vector, ink/bone palette, 1px strokes, no embedded ras
 | `ecosystem-network.svg` | `dither/ecosystem-dither.png` | 1200×750 | 75 KiB | C (L2) |
 | `wordmark.svg` | `brand/og-default.png` | 1200×628 | 100 KiB | V1 (OG) |
 
-**Five dither illustrations, one separate OG output.** `hero-dither`, `hardware-dither`, `agents-dither`, `magi-dither`, and `ecosystem-dither` are the five dither illustrations. `og-default.png` is the **separate brand output** — it composites the `wordmark.svg` over a dithered texture derived from `hardware-board.svg` and is only used for social/OpenGraph sharing, never as an in-page figure.
+**Five dither illustrations, one separate OG output, one motion film.** `hero-dither`, `hardware-dither`, `agents-dither`, `magi-dither`, and `ecosystem-dither` are the five dither illustrations. `og-default.png` is the **separate brand output** — it composites the `wordmark.svg` over a dithered texture derived from `hardware-board.svg` and is only used for social/OpenGraph sharing, never as an in-page figure. `motion/el-caret.mp4` is the separate [hero film](#hero-film--motion-film); it is deliberately the heaviest asset on the site (~257 KiB against a 7 KiB poster) and that asymmetry is the cost of the format, stated rather than hidden.
 
 **Naming rules:** kebab-case source SVG names in `scripts/dither-src/`; matching kebab-case PNG names in `public/assets/dither/`; the sole exception is `brand/og-default.png`. Consuming paths are **absolute** `/assets/...` with **intrinsic dimensions** (`width`/`height` attributes on the `<img>`, as `DitherFigure` requires) to reserve layout and avoid CLS.
 
@@ -166,7 +166,7 @@ The static diagram (`AgentNetworkDiagram.astro`, and the three new sources in Un
 
 ## Motion guide
 
-There is exactly **one** continuous runtime loop: the optional MAGI particle overlay (`src/components/joyan/MagiParticleCanvas.astro` + `src/lib/magi-network.ts`) over the static diagram. Below-hero reveals are one-shot progressive enhancements, never a hero animation.
+There are exactly **two** continuous runtime loops: the optional MAGI particle overlay (`src/components/joyan/MagiParticleCanvas.astro` + `src/lib/magi-network.ts`) over the static diagram, and the L3 hero film (see [Hero film](#hero-film--motion-film)). Below-hero reveals are one-shot progressive enhancements; no section-level animation exists anywhere else.
 
 | Concern | Contract |
 |---|---|
@@ -183,7 +183,54 @@ There is exactly **one** continuous runtime loop: the optional MAGI particle ove
 
 **Performance proof:** before implementation, run `pnpm build && node scripts/check-iteration-3.mjs --capture-baseline .artifacts/iteration-2-client-js.json`. For a candidate, run `pnpm build && node scripts/check-iteration-3.mjs --baseline .artifacts/iteration-2-client-js.json`. The checker gzip-sums every emitted `dist/_astro/*.js` client chunk and requires a delta of **≤22 KiB (22528 bytes)**. `pnpm build` verifies static structure and emitted assets; intrinsic dimensions, static hero markup, and transform/opacity-only below-hero motion are CLS/LCP safeguards, not metric measurements. Measure CLS/LCP later in a browser or CI performance run.
 
-No idle motion anywhere outside the MAGI section.
+No idle motion anywhere outside the MAGI section and the L3 hero figure.
+
+## Hero film (motion film)
+
+The L3 hero figure carries a 15 s seamlessly looping film, stacked **on top of** the committed `hero-dither.png` rather than replacing it.
+
+**Why the film exists:** it is the page's own diagram in motion. The caret is the hero's amber caret, the grid is the shell grid, and the network is the 7-node / 6-edge MAGI model with exactly one amber node — so the film narrates the brand's identity rather than decorating it. It carries no wordmark, no letters and no logo lockup.
+
+**Progressive enhancement (the whole contract):**
+
+| Concern | Rule |
+|---|---|
+| Delivery | `MotionFigure.astro` renders the static `<img>` first and the `<video>` absolutely on top. No JS, `prefers-reduced-motion`, a missing codec or a slow connection all land on the poster. |
+| Reduced motion | `.joyan-film { display: none }` — the element is **removed**, not paused. The poster is the intended resting state; a paused first frame is not a frame the film rests on. |
+| Autoplay | `autoplay muted loop playsinline`, no `controls`, `preload="metadata"`, `aria-hidden="true"`, `tabindex="-1"` — decorative, never focusable, never announced. |
+| Layout | Intrinsic `width`/`height` on both `<img>` and `<video>`; `object-cover` over an identical 16:9 aspect, so the poster reserves the space and the swap causes no CLS. |
+| Contrast | The film lives inside the figure's own `bg-ink-900` box and never overlaps text. It is never used as a full-bleed background — that would put an amber bloom under the H1 and break the contrast contract above. |
+| LCP | The hero LCP candidate stays the 7 KiB poster, not the film's first frame. |
+
+**Asset contract:**
+
+| Source (`scripts/motion-src/`) | Output (`public/assets/motion/`) | Dimensions | Budget | Unit |
+|---|---|---|---|---|
+| `composition.html` + `film.mjs` | `el-caret.mp4` | 960×540, 30 fps, 15.0 s | 300 KiB | V1 |
+
+Frames are always rendered at the composition's native 1920×1080 and only the encode is downscaled; rendering small and blurring it is how hairlines disappear.
+
+**The loop is a contract, not an aspiration.** The last rendered frame must be pixel-identical to the first. Two things enforce it and both were found by measurement, not by reading the code:
+
+- sub-frame shutter times **wrap** around the duration instead of clamping to zero — the film is a loop, so the shutter at `t=0` legitimately reaches back into the tail;
+- every moving element has an explicit visibility window rather than one left to emerge from the beat maths, because emergent values drift.
+
+**Build and verify:**
+
+```bash
+# Requires an isolated toolchain; see the script header for why Playwright is
+# deliberately absent from the landing's own dependencies.
+mkdir -p ~/.cache/joyan-motion && cd ~/.cache/joyan-motion && npm init -y && npm i -D playwright && npx playwright install chromium
+
+pnpm build   # populate dist/_astro/*.woff2 (the renderer stages the brand fonts from there)
+node scripts/motion-src/render.mjs --out dist-motion --blur 5 --out-width 960 --crf 32
+node scripts/motion-src/probe.mjs --frames dist-motion/frames   # must print "accepted"
+cp dist-motion/el-caret.mp4 public/assets/motion/el-caret.mp4
+```
+
+`probe.mjs` is an **oracle, not a linter**: it reads the rendered frames and rejects a film that reads as a slideshow — uniform cadence, beats that replace each other instead of carrying, a subject that dissolves into full-frame haze, or a visible loop seam. A rejected film is a slideshow with good typography.
+
+The committed MP4 is rendered with `--blur 5` (real motion blur: each output frame is the linear-light average of five sub-captures across a 180° shutter). Do not re-encode it without re-running the oracle.
 
 ## Component & file consumption map
 
@@ -196,18 +243,23 @@ No idle motion anywhere outside the MAGI section.
 | `src/pages/index.astro` | ES landing at `/` |
 | `src/pages/en/index.astro` | EN landing at `/en` (never `/en/`; `trailingSlash: "never"`) |
 | `src/layouts/{Layout,PageLayout}.astro` | `Layout` owns path-aware canonical/hreflang; `PageLayout` only forwards pathname/lang; `main#main` focus target and L1 texture host |
-| `src/components/joyan/Hero.astro` | L3 hero figure (`/assets/dither/hero-dither.png`, empty alt), caret, CTA buttons |
+| `src/components/joyan/Hero.astro` | L3 hero figure via `MotionFigure` (poster `/assets/dither/hero-dither.png`, empty alt, film `/assets/motion/el-caret.mp4`), caret, CTA buttons |
 | `src/components/joyan/Wordmark.astro` | JOYAN wordmark (hero + OG source) |
 | `src/components/joyan/AgentNetworkDiagram.astro` | Static 480×300 MAGI diagram, `aria-hidden`, one amber state |
 | `src/components/joyan/MagiParticleCanvas.astro` | Iteration-3 Unit A — bounded 30/24 MAGI overlay (motion contract above) |
 | `src/lib/magi-network.ts` | Shared 480×300 model; replace V1's 12 particles with the 30/24 depth-layer contract above |
 | `src/components/joyan/DitherFigure.astro` | Figure wrapper: absolute `/assets/...` src, intrinsic `width`/`height`, localized alt/caption |
+| `src/components/joyan/MotionFigure.astro` | Hero figure wrapper: static poster `<img>` with the decorative loop `<video>` stacked on top; the film contract lives here |
 | `src/components/joyan/{AgentsSection,MagiSection,HardwareSection,EcosystemSection}.astro` | Section figures (Unit E) + community/prototype blocks |
 | `src/components/joyan/{SectionHeader,TerminalBlock,SiteHeader,SiteFooter,LanguageToggle}.astro` | Index/kicker/title, terminal motif, nav + toggle (current pathname + hash-preserving, `aria-current="page"`) |
 | `scripts/generate-dither.mjs` | Bayer 8×8 generator + deterministic budgets |
+| `scripts/motion-src/{film.mjs,composition.html}` | Hero film source: beat sheet, closed-form move library, camera track, `seek(t)` composition. `film.mjs` is shared with the oracle so the two cannot drift |
+| `scripts/motion-src/render.mjs` | Playwright walk of the clock, real motion blur (sub-captures averaged across a 180° shutter, times wrapped around the loop), ffmpeg encode |
+| `scripts/motion-src/probe.mjs` | The oracle: cadence, carry, stillness, focus retention and loop seam, measured from rendered frames |
 | `scripts/svgo.config.mjs` | SVGO config for all source SVGs (Unit C) |
 | `scripts/dither-src/*.svg` | kebab-case vector sources (3 V1 + 3 Unit C) |
 | `public/assets/dither/*.png` | Five dither illustrations (2 V1 + 3 Unit C) |
+| `public/assets/motion/el-caret.mp4` | The hero film, committed, 960×540 / 15 s / ≤300 KiB |
 | `public/assets/brand/og-default.png` | Separate OG brand output |
 | `src/{content.config.ts,utils/journal.ts}` | Isolated typed Journal collection and locale queries; never use blog helpers |
 | `src/components/joyan/{JournalSection,JournalEntryRow}.astro` | Section 05 and archive rows: hairline-separated mono metadata, title, summary, optional dither/link, no cards/radius |
@@ -311,7 +363,14 @@ The five scoped repeated lists — Agents, MAGI, Hardware, Ecosystem items, and 
 
 ---
 
-**Version:** 1.2 — **Last updated:** 2026-10-01 — **Maintainer:** JoyanLabs
+**Version:** 1.3 — **Last updated:** 2026-10-01 — **Maintainer:** JoyanLabs
+
+> **1.3 — Hero film.** Added the L3 hero film and its asset/progressive-
+> enhancement contract. This is the second continuous runtime loop the
+> design system allows, and the first animation in the hero: the previous
+> rule was "never a hero animation". The film is stacked over the existing
+> poster rather than replacing it, so every no-JS / reduced-motion /
+> slow-connection guarantee still holds unchanged.
 
 > **1.2 — Narrative alignment.** Brand essence, MAGI definition and the
 > connected-systems framing were rewritten to match the 2026 product

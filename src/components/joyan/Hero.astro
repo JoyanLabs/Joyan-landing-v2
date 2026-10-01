@@ -1,6 +1,6 @@
 ---
 import Wordmark from '~/components/joyan/Wordmark.astro';
-import DitherFigure from '~/components/joyan/DitherFigure.astro';
+import MotionFigure from '~/components/joyan/MotionFigure.astro';
 import type { HeroContent } from '~/lib/i18n/types';
 
 export interface Props {
@@ -35,7 +35,15 @@ const { content } = Astro.props;
         </a>
       </div>
     </div>
-    <DitherFigure src="/assets/dither/hero-dither.png" alt="" width={1600} height={900} />
+    <MotionFigure
+      src="/assets/dither/hero-dither.png"
+      videoSrc="/assets/motion/el-caret.mp4"
+      alt=""
+      width={1600}
+      height={900}
+      videoWidth={960}
+      videoHeight={540}
+    />
   </div>
 </section>
 
