@@ -34,3 +34,7 @@ openspec/
 # Motion film render output (scripts/motion-src renders into this; the
 # committed artifact lives in public/assets/motion/)
 dist-motion/
+
+# Brand fonts staged by scripts/motion-src/render.mjs at render time (copied
+# from the build output; never committed)
+scripts/motion-src/*.woff2

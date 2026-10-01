@@ -19,9 +19,9 @@
  */
 
 import { createServer } from 'node:http';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { extname, join, resolve } from 'node:path';
+import { extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = resolve(fileURLToPath(new URL('.', import.meta.url)));
@@ -35,6 +35,47 @@ const arg = (name, fallback) => {
 };
 
 const OUT = resolve(REPO, arg('out', 'dist-motion'));
+
+/**
+ * The output directory is removed recursively before rendering starts, so a
+ * mistyped `--out` is destructive: `resolve(REPO, '.')` is the repository
+ * root, `'..'` is its parent, `'src'` is the source tree, and
+ * `'public/assets/motion'` holds the committed film. Every one of those would
+ * have been deleted with no further prompt.
+ *
+ * Refuse anything that is the repository root, contains the repository, sits
+ * in a git directory or node_modules, or — inside the repository — holds a
+ * git-tracked file. An external scratch directory carries no source, so it
+ * stays allowed.
+ */
+function assertSafeOutput(dir) {
+  const refuse = (why) => {
+    throw new Error(
+      `refusing --out ${dir}: ${why}.\n` +
+        '  --out is removed recursively before rendering, so it must never be, or contain, source.'
+    );
+  };
+
+  const fromRepo = relative(REPO, dir); // dir seen from the repository root
+  const toRepo = relative(dir, REPO); // repository seen from dir
+
+  if (fromRepo === '') refuse('it is the repository root');
+  if (toRepo !== '' && !toRepo.startsWith('..') && !isAbsolute(toRepo)) {
+    refuse('it contains the repository');
+  }
+  const parts = dir.split(sep);
+  if (parts.includes('.git')) refuse('it is inside a git directory');
+  if (parts.includes('node_modules')) refuse('it is inside node_modules');
+
+  if (fromRepo.startsWith('..') || isAbsolute(fromRepo)) return; // external scratch dir
+
+  const tracked = spawnSync('git', ['ls-files', '-z'], { cwd: REPO, encoding: 'utf8' }).stdout ?? '';
+  for (const file of tracked.split('\0')) {
+    if (!file) continue;
+    const abs = resolve(REPO, file);
+    if (abs === dir || abs.startsWith(dir + sep)) refuse(`it holds tracked file ${file}`);
+  }
+}
 const BLUR = Math.max(1, Number(arg('blur', 1)));
 const SCALE = Number(arg('scale', 1));
 // Delivery size. Frames are always rendered at the composition's native
@@ -117,6 +158,7 @@ function ffmpeg(args) {
 }
 
 async function main() {
+  assertSafeOutput(OUT);
   stageFonts();
   rmSync(OUT, { recursive: true, force: true });
   mkdirSync(join(OUT, 'frames'), { recursive: true });
