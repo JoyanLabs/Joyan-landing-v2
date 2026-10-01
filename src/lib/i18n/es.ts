@@ -2,32 +2,47 @@ import type { LocaleContent } from './types';
 
 /**
  * Spanish locale content — authoritative copy.
- * Narrative: Joyan is a people-centered cooperative that creates specialized
- * agents as a service; MAGI is the main agent (24/7, headless operation of
- * business systems); hardware for agents means devices to control and talk
- * with agents. Community offers are honest and in progress: no vendor names,
- * no banned copy, no overpromises, no fake product claims.
+ *
+ * Narrative (aligned with the 2026 direction): Joyan is a people-centered
+ * cooperative that builds agents *and* connected systems for real-world
+ * operations, following `Human purpose → Data → Context → Intelligence →
+ * Action → Human outcome`. Two distinctions carry the copy:
+ *
+ * - MAGI is the reusable intelligence layer agents are built on — context,
+ *   tools, memory, explicit policies, graded autonomy, human review. It is
+ *   not an always-on autonomous worker.
+ * - Section 03 is connected systems: registering what physically happened,
+ *   with timestamp, precision and source. Not buttons, knobs or voice
+ *   controllers for agents.
+ *
+ * Naming guardrail: the first vertical product is still in brand validation,
+ * so no product name appears here — only the problem it addresses.
+ *
+ * Community offers are honest and in progress: no vendor names, no banned
+ * copy, no overpromises, no fake product claims.
  */
 export const es = {
   meta: {
-    title: 'Agentes especializados para tu negocio',
+    title: 'Agentes y sistemas conectados para operaciones reales',
     titleTemplate: '%s — Joyan',
     description:
-      'Joyan es una cooperativa centrada en las personas que crea agentes especializados como servicio. MAGI, nuestro agente principal, opera los sistemas de tu negocio las 24 horas. También diseñamos dispositivos para controlar y hablar con tus agentes.',
+      'Joyan es una cooperativa centrada en las personas. Construimos agentes que trabajan dentro de límites acordados y sistemas conectados que registran lo que ocurre en el mundo físico, para que la información de una operación se convierta en decisiones revisables.',
   },
   nav: {
     links: [
       { label: 'Agentes', anchor: 'agents' },
       { label: 'MAGI', anchor: 'magi' },
-      { label: 'Hardware', anchor: 'hardware' },
+      // Anchor stays `hardware`: the section is reframed as connected
+      // systems, but the locale-invariant id is a published contract.
+      { label: 'Conectados', anchor: 'hardware' },
       { label: 'Ecosistema', anchor: 'ecosystem' },
     ],
     toggle: 'EN',
   },
   hero: {
     kicker: 'Cooperativa centrada en las personas',
-    title: 'Agentes especializados que trabajan por tu negocio',
-    lead: 'Creamos agentes de IA que se ponen a trabajar en tu operación todos los días, a toda hora. Los diseñamos para ampliar tu equipo, no para reemplazarlo: personas reales definen los objetivos, revisan cada acción y responden por cada agente.',
+    title: 'Agentes y sistemas conectados para el mundo real',
+    lead: 'Diseñamos agentes que entienden el contexto de tu operación y sistemas que registran lo que ocurre en el mundo físico. Los construimos para ampliar a tu equipo, no para reemplazarlo: personas reales definen los objetivos, revisan cada acción y responden por cada sistema.',
     ctaPrimary: 'Conocer MAGI',
     ctaSecondary: 'Ver el ecosistema',
   },
@@ -35,7 +50,7 @@ export const es = {
     index: '01',
     kicker: 'Agentes como servicio',
     title: 'Especialistas digitales hechos a medida',
-    lead: 'No vendemos software genérico: creamos agentes. Cada agente es un especialista digital que se diseña para una tarea concreta de tu operación y la ejecuta con autonomía acotada: trabaja sola, pero las decisiones importantes las revisa una persona.',
+    lead: 'No vendemos software genérico: creamos agentes. Cada uno se diseña para una tarea concreta de tu operación y la ejecuta con autonomía acotada: trabaja sin supervisión constante, con las decisiones importantes reservadas a una persona. Y puede hacerlo sin nada del mundo físico.',
     items: [
       {
         title: 'Un especialista por tarea',
@@ -57,32 +72,32 @@ export const es = {
   },
   magi: {
     index: '02',
-    kicker: 'Nuestro agente principal',
-    title: 'MAGI coordina tu operación, sin descanso',
-    lead: 'MAGI es nuestro agente principal: trabaja las 24 horas, de forma autónoma, dentro de límites acordados, y en segundo plano, operando los sistemas de tu negocio sin depender de una pantalla ni de una persona pendiente.',
+    kicker: 'La inteligencia de Joyan',
+    title: 'MAGI convierte información en acciones verificables',
+    lead: 'MAGI no es un trabajador que nunca descansa: es la capa de inteligencia con la que construimos cada agente. Recibe el contexto de una operación, usa herramientas, conserva lo que importa, actúa dentro de políticas explícitas y deja registro de cada paso que da.',
     items: [
       {
-        title: 'Siempre activo',
-        body: 'MAGI no duerme ni se toma feriados: supervisa y ejecuta las tareas de tu operación a cualquier hora del día.',
+        title: 'Contexto, no suposiciones',
+        body: 'Un agente no debería recibir «todo lo que sabemos», sino la información correcta para el siguiente paso. MAGI construye ese contexto a partir de lo que tu operación ya sabe: datos, documentos, historial.',
       },
       {
-        title: 'Operación en segundo plano',
-        body: 'Ejecuta directamente sobre tus sistemas, sin intervención constante: tú defines los objetivos y MAGI se ocupa del trabajo de fondo.',
+        title: 'Con herramientas y límites',
+        body: 'MAGI usa herramientas declaradas y opera dentro de políticas explícitas: sabe qué puede hacer, con qué permisos y qué necesita aprobación antes de actuar. La última palabra sigue siendo de una persona.',
       },
       {
-        title: 'Decisiones humanas',
-        body: 'Definimos sus objetivos, revisamos sus acciones y lo ajustamos contigo. La última palabra siempre es de una persona.',
+        title: 'Autonomía por niveles',
+        body: 'No todo se hace igual. Hay observaciones y recomendaciones que corren solas; las acciones reversibles pasan por una política y quedan auditadas; y las acciones sensibles o críticas las aprueba siempre una persona responsable.',
       },
     ],
     terminalLines: [
-      '[magi] 09:41 — operación diaria en curso',
-      '[magi] 09:41 — facturación sincronizada',
-      '[magi] 09:42 — pedido #1042 procesado',
-      '[magi] 09:42 — reporte enviado al equipo',
+      '[magi] 09:41 — contexto listo · permisos: lectura',
+      '[magi] 09:41 — 37 de 38 señales al día',
+      '[magi] 09:42 — 1 señal requiere revisión',
+      '[magi] 09:42 — recomendación preparada · pendiente de aprobación',
     ],
     figure: {
-      alt: 'Ilustración abstracta del núcleo de MAGI',
-      caption: 'MAGI, el agente principal — ilustración propia',
+      alt: 'Ilustración abstracta de la capa de inteligencia de Joyan',
+      caption: 'MAGI, la capa de inteligencia de Joyan — ilustración propia',
     },
     motion: {
       canvasLabel: 'Red de agentes de MAGI en movimiento',
@@ -92,37 +107,37 @@ export const es = {
   },
   hardware: {
     index: '03',
-    kicker: 'Hardware para agentes',
-    title: 'Dispositivos para controlar y hablar con tus agentes',
-    lead: 'Estamos diseñando objetos físicos para que tus agentes no vivan solo dentro de una computadora: dispositivos simples para darles órdenes, escucharlos y verlos trabajar.',
+    kicker: 'Sistemas conectados',
+    title: 'Lo que ocurre en el mundo real, con evidencia',
+    lead: 'No todas las operaciones pasan por una pantalla. Cuando hace falta, conectamos dispositivos, sensores y gateways para registrar lo que está pasando —con hora, precisión y origen— y para que el sistema siga siendo útil incluso cuando la conexión falla.',
     items: [
       {
-        title: 'Órdenes sin teclado',
-        body: 'Un botón, una perilla, la voz: la misma intención, otra superficie. El agente entiende igual.',
+        title: 'Estado, no inferencia',
+        body: 'Cada lectura lleva hora, precisión y fuente. El estado del mundo se registra de manera determinista; la interpretación es un paso aparte, y siempre queda identificada como tal.',
       },
       {
-        title: 'Tu operación, en voz propia',
-        body: 'Dispositivos que te cuentan qué está pasando con tus agentes en el idioma de tu negocio, sin dashboards interminables.',
+        title: 'Datos con fecha de frescura',
+        body: 'Un dato viejo con apariencia de dato actual es un riesgo. Por eso mostramos siempre desde cuándo sabemos lo que sabemos, y qué parte quedó pendiente de sincronizar.',
       },
       {
-        title: 'Concepto en desarrollo',
-        body: 'Estamos prototipando esta línea junto a nuestra comunidad. Sin fechas prometidas: cuando esté lista, lo vas a saber acá.',
+        title: 'Útiles sin conexión',
+        body: 'Los sistemas que diseñamos siguen funcionando cuando la red se cae: registran en el sitio y sincronizan cuando vuelve. La visibilidad de una operación no debería depender de tener señal.',
       },
     ],
     figure: {
-      alt: 'Ilustración abstracta de una placa para agentes',
-      caption: 'Concepto de dispositivo para agentes — ilustración propia',
+      alt: 'Ilustración abstracta de un dispositivo conectado a una red',
+      caption: 'Sistemas conectados al mundo físico — ilustración propia',
     },
     prototypeInvitation: {
       status: 'En desarrollo',
-      body: 'Estamos explorando prototipos de dispositivos junto a nuestra comunidad. Nada está abierto a inscripción y no prometemos fechas: cuando haya algo concreto, lo vas a saber acá.',
+      body: 'Estamos construyendo esta capa de sistemas conectados junto a nuestra comunidad. No hay venta, no hay plazos y no prometemos disponibilidad: cuando haya algo concreto, lo vas a saber acá.',
     },
   },
   ecosystem: {
     index: '04',
     kicker: 'Ecosistema',
     title: 'Una cooperativa, una comunidad',
-    lead: 'Joyan es un proyecto colectivo: personas que crean agentes, los operan y comparten lo que aprenden. Creemos que la IA vale cuando sus beneficios se reparten: cuantos más negocios la adoptan con criterio, más fuerte es cada agente y cada comunidad.',
+    lead: 'Joyan es un proyecto colectivo: personas que construyen agentes y sistemas, los operan y comparten lo que aprenden. Creemos que esta tecnología vale cuando sus beneficios se reparten: cuantos más negocios la adoptan con criterio, más fuerte se vuelve cada agente y cada comunidad.',
     items: [
       {
         title: 'Cooperativa',
@@ -165,12 +180,12 @@ export const es = {
           body: 'Estamos diseñando formaciones para que más personas aprendan a crear y operar agentes especializados.',
         },
         agentBetaParticipation: {
-          title: 'Participación en la beta de agentes',
-          body: 'Buscamos negocios que quieran construir agentes con nosotras en una primera etapa. Sigue en desarrollo: cuando abramos cupos, lo anunciaremos acá, sin prometer disponibilidad.',
+          title: 'Trabajar con un agente desde el inicio',
+          body: 'Buscamos negocios que quieran construir un agente con nosotras en una primera etapa. Sigue en desarrollo: no hay cupos ni fechas, y lo anunciaremos acá cuando los haya.',
         },
         hardwareAgentPrototypeInvitation: {
-          title: 'Prototipos de agentes de hardware',
-          body: 'Invitamos a conversar sobre prototipos de dispositivos para agentes. Es exploración en curso: sin fechas, sin inscripción y sin entregas.',
+          title: 'Conversaciones sobre sistemas conectados',
+          body: 'Nos interesa conversar con quienes tienen una operación donde saber lo que ocurre en el sitio es un problema real. Es exploración en curso: sin fechas, sin inscripción y sin entregas.',
         },
       },
     },
@@ -204,7 +219,7 @@ export const es = {
     },
   },
   footer: {
-    tagline: 'Agentes especializados. Personas al mando.',
+    tagline: 'Del contexto a la acción. Personas al mando.',
     legal: '© 2026 Joyan — Cooperativa. Todos los derechos reservados.',
   },
 } satisfies LocaleContent;

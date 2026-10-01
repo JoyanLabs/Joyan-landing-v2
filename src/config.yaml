@@ -12,7 +12,9 @@ metadata:
   title:
     default: Joyan
     template: '%s — Joyan'
-  description: 'Joyan es una cooperativa centrada en las personas que crea agentes especializados como servicio. MAGI, nuestro agente principal, opera los sistemas de tu negocio las 24 horas. También diseñamos dispositivos para controlar y hablar con tus agentes.'
+  # Site-level fallback. The locale modules (`src/lib/i18n/es.ts` / `en.ts`)
+  # are authoritative for the landings; keep this string aligned with `es.meta`.
+  description: 'Joyan es una cooperativa centrada en las personas. Construimos agentes que trabajan dentro de límites acordados y sistemas conectados que registran lo que ocurre en el mundo físico, para que la información de una operación se convierta en decisiones revisables.'
   robots:
     index: true
     follow: true

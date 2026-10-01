@@ -5,13 +5,13 @@ layout: '~/layouts/MarkdownLayout.astro'
 
 **Última actualización: 4 de agosto de 2026**
 
-Joyan es una cooperativa centrada en las personas que crea agentes digitales especializados como servicio. Estos términos rigen el uso de nuestro sitio web y la prestación de nuestros servicios.
+Joyan es una cooperativa centrada en las personas que construye agentes digitales especializados y sistemas conectados para operaciones reales. Estos términos rigen el uso de nuestro sitio web y la prestación de nuestros servicios.
 
 ## Sobre el servicio
 
-Joyan diseña, implementa y acompaña agentes digitales especializados para operar procesos concretos de tu negocio. Cada agente se define para una tarea puntual, con objetivos claros y un modo de trabajo acordado con el cliente.
+Joyan diseña, implementa y acompaña agentes digitales especializados para operar procesos concretos de tu negocio, y sistemas conectados que registran lo que ocurre en el mundo físico cuando el problema lo requiere. Cada agente se define para una tarea puntual, con objetivos claros y un modo de trabajo acordado con el cliente.
 
-El servicio se presta como una relación de trabajo continua: personas de la cooperativa diseñan, ajustan y responden por cada agente. No vendemos licencias de software, no garantizamos resultados específicos y no presentamos los agentes como sustitutos del criterio humano.
+El servicio se presta como una relación de trabajo continua: personas de la cooperativa diseñan, ajustan y responden por cada agente y cada sistema. No vendemos licencias de software, no garantizamos resultados específicos y no presentamos los agentes como sustitutos del criterio humano.
 
 ## Uso del sitio y del servicio
 

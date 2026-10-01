@@ -14,7 +14,19 @@ The single source of truth for the Joyan landing visual, copy, asset, diagram, m
 
 ## Brand essence and voice
 
-Joyan is a **people-centered cooperative that creates specialized agents as a service** — never generic software. Agents are digital specialists for one concrete operational task, acting within agreed limits; humans design, tune, review important decisions, and answer for each agent. MAGI is the main agent, operating business systems in the background.
+Joyan is a **people-centered cooperative that builds agents and connected systems for real-world operations** — never generic software, never an autonomous worker that runs itself. The organizing principle is `Human purpose → Data → Context → Intelligence → Action → Human outcome`: capture a reality, build context, apply intelligence within explicit limits, produce a result useful for people.
+
+Two distinctions carry every page and must never collapse into each other:
+
+| Concept | What it is | What it is **not** | Where it lives |
+|---|---|---|---|
+| **Agents** | Digital specialists for one concrete operational task, acting within agreed limits | Generic software; a replacement for a team | `hero`, `agents` |
+| **MAGI** | The reusable intelligence layer agents are built on: context, tools, memory, explicit policies, graded autonomy, human review | An always-on autonomous worker; "the main agent" that never sleeps | `magi` |
+| **Connected systems** | Deterministic recording of what physically happened — timestamp, precision, source — staying useful with imperfect connectivity | Buttons, knobs or voice controllers for agents; a device manufacturer claim | `hardware` (id kept; the section is reframed) |
+
+Humans set goals, review important decisions and answer for every agent and system. A person is part of the responsibility architecture, not a fallback for when the AI failed.
+
+**Naming guardrail:** the first vertical product is still in brand validation. Describe the problem it addresses; do **not** publish its name until branding clears it.
 
 **Voice: warm, specific, people-centered.** Real people are behind every agent; decisions are human; nothing is overpromised.
 
@@ -22,8 +34,8 @@ Joyan is a **people-centered cooperative that creates specialized agents as a se
 
 | Layer | What it is | Where it lives | Tone rule |
 |---|---|---|---|
-| **Cooperative model** | What Joyan does today: agents as a service, MAGI, hardware concepts | `hero`, `agents`, `magi`, `hardware`, `ecosystem.items` | Present tense, concrete, no caveats |
-| **Community offers** | Guides, content, training, and prototype invitations — explicitly **in development** | `ecosystem.community` (status/audiences/offers) and `hardware.prototypeInvitation` | Explain what agents can do, cannot do, and need human review; no dates, enrollment/forms, beta, or delivery promises |
+| **Cooperative model** | What Joyan builds: agents, MAGI, connected systems | `hero`, `agents`, `magi`, `hardware`, `ecosystem.items` | Present tense, concrete, no caveats |
+| **Community offers** | Guides, content, training, and working-together invitations — explicitly **in development** | `ecosystem.community` (status/audiences/offers) and `hardware.prototypeInvitation` | Explain what agents can do, cannot do, and need human review; no dates, enrollment/forms, beta, or delivery promises |
 
 ## Visual tokens & contrast
 
@@ -299,6 +311,12 @@ The five scoped repeated lists — Agents, MAGI, Hardware, Ecosystem items, and 
 
 ---
 
-**Version:** 1.1 — **Last updated:** 2026-08-05 — **Maintainer:** JoyanLabs
+**Version:** 1.2 — **Last updated:** 2026-10-01 — **Maintainer:** JoyanLabs
+
+> **1.2 — Narrative alignment.** Brand essence, MAGI definition and the
+> connected-systems framing were rewritten to match the 2026 product
+> direction. Section 03 is no longer "hardware for agents"; its anchor stays
+> `hardware` because locale-invariant ids are a published contract. Added the
+> naming guardrail for the first vertical product.
 **Related skills:** [`design-taste-frontend`](../skills/design-taste-frontend/SKILL.md) (architecture rules), [`frontend-design`](../skills/frontend-design/SKILL.md) (design quality), [`documentation`](../skills/documentation/SKILL.md) (docs standards)
 **Related docs:** [VIRTUAL-MODULE.md](./VIRTUAL-MODULE.md)

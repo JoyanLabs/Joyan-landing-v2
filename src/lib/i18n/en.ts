@@ -3,27 +3,30 @@ import type { LocaleContent } from './types';
 /**
  * English locale content — translation of the authoritative ES copy.
  * Keys are identical to `es.ts`; a missing key fails `pnpm check` (ADR-2).
+ * MAGI is the reusable intelligence layer, not an always-on worker; section
+ * 03 is connected systems, not devices that control agents.
  */
 export const en = {
   meta: {
-    title: 'Specialized agents for your business',
+    title: 'Agents and connected systems for real operations',
     titleTemplate: '%s — Joyan',
     description:
-      'Joyan is a people-centered cooperative that creates specialized agents as a service. MAGI, our main agent, operates your business systems around the clock. We also design devices to control and talk with your agents.',
+      'Joyan is a people-centered cooperative. We build agents that work within agreed limits and connected systems that record what happens in the physical world, so the information in an operation becomes reviewable decisions.',
   },
   nav: {
     links: [
       { label: 'Agents', anchor: 'agents' },
       { label: 'MAGI', anchor: 'magi' },
-      { label: 'Hardware', anchor: 'hardware' },
+      // Anchor stays `hardware`: a locale-invariant published contract.
+      { label: 'Connected', anchor: 'hardware' },
       { label: 'Ecosystem', anchor: 'ecosystem' },
     ],
     toggle: 'ES',
   },
   hero: {
     kicker: 'People-centered cooperative',
-    title: 'Specialized agents that work for your business',
-    lead: 'We build AI agents that get to work on your operation every day, around the clock. They are designed to extend your team, not replace it: real people set the goals, review every action and answer for each agent.',
+    title: 'Agents and connected systems for the real world',
+    lead: 'We design agents that understand the context of your operation and systems that record what happens in the physical world. They are built to extend your team, not replace it: real people set the goals, review every action and answer for each system.',
     ctaPrimary: 'Meet MAGI',
     ctaSecondary: 'See the ecosystem',
   },
@@ -31,7 +34,7 @@ export const en = {
     index: '01',
     kicker: 'Agents as a service',
     title: 'Digital specialists, built to fit',
-    lead: "We don't sell generic software: we create agents. Each agent is a digital specialist designed for one concrete task of your operation, executed with bounded autonomy: it works on its own, but a person reviews the important decisions.",
+    lead: "We don't sell generic software: we create agents. Each one is designed for a single concrete task of your operation and executes it with bounded autonomy: it works without constant supervision, with the important decisions reserved for a person. And it can do so with nothing from the physical world.",
     items: [
       {
         title: 'One specialist per task',
@@ -53,32 +56,32 @@ export const en = {
   },
   magi: {
     index: '02',
-    kicker: 'Our main agent',
-    title: 'MAGI runs your operation, non-stop',
-    lead: 'MAGI is our main agent: it works around the clock, autonomously, within agreed limits, and in the background, operating your business systems without depending on a screen or someone watching over it.',
+    kicker: "Joyan's intelligence",
+    title: 'MAGI turns information into verifiable actions',
+    lead: "MAGI is not a worker that never rests: it is the intelligence layer we build every agent on. It receives the context of an operation, uses tools, keeps what matters, acts within explicit policies and leaves a record of every step it takes.",
     items: [
       {
-        title: 'Always on',
-        body: "MAGI doesn't sleep or take holidays: it monitors and executes your operation tasks at any hour of the day.",
+        title: 'Context, not guesses',
+        body: 'An agent should not receive "everything we know", but the right information for the next step. MAGI builds that context from what your operation already knows: data, documents, history.',
       },
       {
-        title: 'Headless operation',
-        body: 'It executes directly on your systems, without constant intervention: you set the goals and MAGI takes care of the work in the background.',
+        title: 'Tools and limits',
+        body: 'MAGI uses declared tools and operates within explicit policies: it knows what it can do, with which permissions, and what needs approval before acting. The final word is still a person’s.',
       },
       {
-        title: 'Human decisions',
-        body: "We set its goals, review its actions and tune it with you. The final word is always a person's.",
+        title: 'Graded autonomy',
+        body: 'Not everything is done the same way. Observations and recommendations run on their own; reversible actions go through a policy and stay auditable; and sensitive or critical actions are always approved by a responsible person.',
       },
     ],
     terminalLines: [
-      '[magi] 09:41 — daily operation running',
-      '[magi] 09:41 — billing synchronized',
-      '[magi] 09:42 — order #1042 processed',
-      '[magi] 09:42 — report sent to the team',
+      '[magi] 09:41 — context ready · permissions: read',
+      '[magi] 09:41 — 37 of 38 signals current',
+      '[magi] 09:42 — 1 signal requires review',
+      '[magi] 09:42 — recommendation prepared · pending approval',
     ],
     figure: {
-      alt: 'Abstract illustration of the MAGI core',
-      caption: 'MAGI, the main agent — original illustration',
+      alt: "Abstract illustration of Joyan's intelligence layer",
+      caption: 'MAGI, the intelligence layer of Joyan — original illustration',
     },
     motion: {
       canvasLabel: 'MAGI agent network in motion',
@@ -88,37 +91,37 @@ export const en = {
   },
   hardware: {
     index: '03',
-    kicker: 'Hardware for agents',
-    title: 'Devices to control and talk with your agents',
-    lead: "We are designing physical objects so your agents don't live only inside a computer: simple devices to give them orders, listen to them and watch them work.",
+    kicker: 'Connected systems',
+    title: 'What happens in the real world, with evidence',
+    lead: 'Not every operation happens on a screen. When it needs to, we connect devices, sensors and gateways to record what is happening —with time, precision and origin— and so the system stays useful even when the connection fails.',
     items: [
       {
-        title: 'Orders without a keyboard',
-        body: 'A button, a dial, your voice: the same intention, another surface. The agent understands either way.',
+        title: 'State, not inference',
+        body: 'Every reading carries time, precision and source. The state of the world is recorded deterministically; interpretation is a separate step, and is always labeled as such.',
       },
       {
-        title: 'Your operation, in plain words',
-        body: 'Devices that tell you what your agents are doing in the language of your business, without endless dashboards.',
+        title: 'Data with a freshness date',
+        body: 'Old data that looks current is a risk. That is why we always show since when we know what we know, and which part is still pending synchronization.',
       },
       {
-        title: 'Concept in development',
-        body: 'We are prototyping this line together with our community. No promised dates: when it is ready, you will read about it here.',
+        title: 'Useful without a connection',
+        body: 'The systems we design keep working when the network drops: they record on site and sync when it is back. The visibility of an operation should not depend on having signal.',
       },
     ],
     figure: {
-      alt: 'Abstract illustration of a board for agents',
-      caption: 'Device concept for agents — original illustration',
+      alt: 'Abstract illustration of a device connected to a network',
+      caption: 'Systems connected to the physical world — original illustration',
     },
     prototypeInvitation: {
       status: 'In development',
-      body: 'We are exploring device prototypes together with our community. Nothing is open for enrollment and no dates are promised: when something concrete exists, you will read about it here.',
+      body: 'We are building this connected-systems layer together with our community. There is no sale, no schedule and we promise no availability: when something concrete exists, you will read about it here.',
     },
   },
   ecosystem: {
     index: '04',
     kicker: 'Ecosystem',
     title: 'A cooperative, a community',
-    lead: 'Joyan is a collective project: people who create agents, run them and share what they learn. We believe AI is worth it when its benefits are shared: the more businesses adopt it with judgment, the stronger every agent and every community.',
+    lead: 'Joyan is a collective project: people who build agents and systems, run them and share what they learn. We believe this technology is worth it when its benefits are shared: the more businesses adopt it with judgment, the stronger every agent and every community becomes.',
     items: [
       {
         title: 'Cooperative',
@@ -161,12 +164,12 @@ export const en = {
           body: 'We are designing training so more people can learn to create and operate specialized agents.',
         },
         agentBetaParticipation: {
-          title: 'Agent beta participation',
-          body: 'We are looking for businesses that want to build agents with us in an early stage. It is still in development: when we open slots, we will announce it here, without promising availability.',
+          title: 'Building an agent from the start',
+          body: 'We are looking for businesses that want to build an agent with us in an early stage. It is still in development: there are no slots and no dates, and we will announce them here when there are.',
         },
         hardwareAgentPrototypeInvitation: {
-          title: 'Hardware-agent prototypes',
-          body: 'We invite conversations about device prototypes for agents. This is ongoing exploration: no dates, no enrollment and no delivery.',
+          title: 'Conversations about connected systems',
+          body: 'We want to talk with people whose operation makes knowing what happens on site a real problem. This is ongoing exploration: no dates, no enrollment and no delivery.',
         },
       },
     },
@@ -200,7 +203,7 @@ export const en = {
     },
   },
   footer: {
-    tagline: 'Specialized agents. People in charge.',
+    tagline: 'From context to action. People in charge.',
     legal: '© 2026 Joyan — Cooperative. All rights reserved.',
   },
 } satisfies LocaleContent;
