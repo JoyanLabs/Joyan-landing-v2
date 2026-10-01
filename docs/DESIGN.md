@@ -97,7 +97,7 @@ Pre-baked, deterministic, palette-limited ordered-dither art. Levels define **wh
 |---|---|---|---|
 | L0 | None | Nav, labels, body text, footer | No texture anywhere text lives |
 | L1 | Subtle global texture | Static CSS/SVG shell texture in page gutters, **behind opaque surfaces** | Canvas-free; never under text; kept in `tailwind.css` + `PageLayout` |
-| L2 | Section illustration | Bounded figures: Agents, MAGI, Hardware, Ecosystem | `agents-dither`, `magi-dither`, `ecosystem-dither` (new), `hardware-dither` (V1) |
+| L2 | Section illustration | Three inline SVG diagrams: Agents, Connected systems, Ecosystem | `OperationFlowFigure`, `SignalTraceFigure`, `CooperativeRingFigure` |
 | L3 | Focal illustration | **Hero only** | `hero-dither` is the single focal piece; V1 hardware illustration stays a bounded L2 figure |
 
 **Rules:**
@@ -114,13 +114,13 @@ Formats: **SVG sources** (vector, ink/bone palette, 1px strokes, no embedded ras
 | Source (`scripts/dither-src/`) | Output (`public/assets/`) | Dimensions | Budget | Unit |
 |---|---|---|---|---|
 | `hero-network.svg` | `dither/hero-dither.png` | 1600×900 | 80 KiB | V1 (L3) |
-| `hardware-board.svg` | `dither/hardware-dither.png` | 1024×1024 | 60 KiB | V1 (L2) |
-| `agents-network.svg` | `dither/agents-dither.png` | 1200×900 | 70 KiB | C (L2) |
-| `magi-network.svg` | `dither/magi-dither.png` | 1200×750 | 75 KiB | C (L2) |
-| `ecosystem-network.svg` | `dither/ecosystem-dither.png` | 1200×750 | 75 KiB | C (L2) |
 | `wordmark.svg` | `brand/og-default.png` | 1200×628 | 100 KiB | V1 (OG) |
 
-**Five dither illustrations, one separate OG output, one motion film.** `hero-dither`, `hardware-dither`, `agents-dither`, `magi-dither`, and `ecosystem-dither` are the five dither illustrations. `og-default.png` is the **separate brand output** — it composites the `wordmark.svg` over a dithered texture derived from `hardware-board.svg` and is only used for social/OpenGraph sharing, never as an in-page figure. `motion/el-caret.mp4` is the separate [hero film](#hero-film--motion-film); it is deliberately the heaviest asset on the site (~257 KiB against a 7 KiB poster) and that asymmetry is the cost of the format, stated rather than hidden.
+**One baked illustration, one OG output, one motion film.** The four section dither textures were removed. They carried no information — a reader could not tell what any of them depicted — and they were the weakest thing on the page. Sections 01, 03 and 04 now ship **inline SVG diagrams** that state each section's actual claim: the agent pipeline with its human approval gate, recorded signals with their freshness, and a flat ring of peers with no hierarchy. Inline SVG stays crisp at any density, inherits the palette instead of freezing one copy of it, and costs nothing to load. Section 02 (MAGI) has no figure at all: the real 7-node diagram and its live particle overlay are already the figure.
+
+`hero-dither.png` remains the **hero poster** — the static layer under the film, which is what no-JS, reduced-motion and slow connections land on. `og-default.png` is the **separate brand output**, compositing `wordmark.svg` over a dithered texture derived from `hardware-board.svg`; it is only used for social/OpenGraph sharing. `motion/` is the separate [hero film](#hero-film--motion-film) and is deliberately the heaviest thing on the site; that asymmetry is the cost of the format, stated rather than hidden.
+
+**Type inside inline SVG figures is sized in viewBox units, not CSS pixels.** The figures render around 475px from a 720-unit viewBox, so a `font-size` of 9 lands near 6 real pixels and is unreadable. The floor is **15 units** (~10px rendered). Enlarging type without re-laying out the figure puts labels on top of each other; spacing is part of the contract.
 
 **Naming rules:** kebab-case source SVG names in `scripts/dither-src/`; matching kebab-case PNG names in `public/assets/dither/`; the sole exception is `brand/og-default.png`. Consuming paths are **absolute** `/assets/...` with **intrinsic dimensions** (`width`/`height` attributes on the `<img>`, as `DitherFigure` requires) to reserve layout and avoid CLS.
 
@@ -202,11 +202,16 @@ The L3 hero figure carries a 15 s seamlessly looping film, stacked **on top of**
 | Contrast | The film lives inside the figure's own `bg-ink-900` box and never overlaps text. It is never used as a full-bleed background — that would put an amber bloom under the H1 and break the contrast contract above. |
 | LCP | The hero LCP candidate stays the 7 KiB poster, not the film's first frame. |
 
+**Two encodes, one visitor.** AV1 is listed first in `<source>`; the browser downloads the first source it can decode and never requests the rest, so this is a quality tier and not a double cost. AV1 is delivered one resolution higher (1280 vs 960) at a *smaller* byte count than the H.264 it sits in front of, which is what pays for the resolution.
+
+**Why resolution, not a super-resolution model.** The softness was never an upscale — the film is rendered at 1920×1080 natively and was being *downscaled* to 960×540 at encode time, then upscaled again by the browser on a 1440px-wide hero. An upscaler on top of that would add invented detail; on flat geometric content with 1px hairlines it mostly softens. Delivering native pixels at a higher resolution is strictly better here, and it is also free in bytes thanks to AV1.
+
 **Asset contract:**
 
 | Source (`scripts/motion-src/`) | Output (`public/assets/motion/`) | Dimensions | Budget | Unit |
 |---|---|---|---|---|
-| `composition.html` + `film.mjs` | `el-caret.mp4` | 960×540, 30 fps, 15.0 s | 300 KiB | V1 |
+| `composition.html` + `film.mjs` | `el-caret.av1.mp4` | 1280×720, 30 fps, 15.0 s | 300 KiB | V1 |
+| `composition.html` + `film.mjs` | `el-caret.mp4` | 960×540, 30 fps, 15.0 s | 300 KiB | V1 (H.264 fallback) |
 
 Frames are always rendered at the composition's native 1920×1080 and only the encode is downscaled; rendering small and blurring it is how hairlines disappear.
 
@@ -223,9 +228,9 @@ Frames are always rendered at the composition's native 1920×1080 and only the e
 mkdir -p ~/.cache/joyan-motion && cd ~/.cache/joyan-motion && npm init -y && npm i -D playwright && npx playwright install chromium
 
 pnpm build   # populate dist/_astro/*.woff2 (the renderer stages the brand fonts from there)
-node scripts/motion-src/render.mjs --out dist-motion --blur 5 --out-width 960 --crf 32
+node scripts/motion-src/render.mjs --out dist-motion --blur 5 --out-width 960 --crf 34 --av1-width 1280 --av1-crf 46
 node scripts/motion-src/probe.mjs --frames dist-motion/frames   # must print "accepted"
-cp dist-motion/el-caret.mp4 public/assets/motion/el-caret.mp4
+cp dist-motion/el-caret.mp4 dist-motion/el-caret.av1.mp4 public/assets/motion/
 ```
 
 `probe.mjs` is an **oracle, not a linter**: it reads the rendered frames and rejects a film that reads as a slideshow — uniform cadence, beats that replace each other instead of carrying, a subject that dissolves into full-frame haze, or a visible loop seam. A rejected film is a slideshow with good typography.
@@ -258,7 +263,8 @@ The committed MP4 is rendered with `--blur 5` (real motion blur: each output fra
 | `scripts/motion-src/probe.mjs` | The oracle: cadence, carry, stillness, focus retention and loop seam, measured from rendered frames |
 | `scripts/svgo.config.mjs` | SVGO config for all source SVGs (Unit C) |
 | `scripts/dither-src/*.svg` | kebab-case vector sources (3 V1 + 3 Unit C) |
-| `public/assets/dither/*.png` | Five dither illustrations (2 V1 + 3 Unit C) |
+| `public/assets/dither/hero-dither.png` | The hero poster — the static layer under the film |
+| `src/components/joyan/{OperationFlowFigure,SignalTraceFigure,CooperativeRingFigure}.astro` | The three inline SVG section figures (vector, themed, zero bytes of asset) |
 | `public/assets/motion/el-caret.mp4` | The hero film, committed, 960×540 / 15 s / ≤300 KiB |
 | `public/assets/brand/og-default.png` | Separate OG brand output |
 | `src/{content.config.ts,utils/journal.ts}` | Isolated typed Journal collection and locale queries; never use blog helpers |
@@ -363,7 +369,15 @@ The five scoped repeated lists — Agents, MAGI, Hardware, Ecosystem items, and 
 
 ---
 
-**Version:** 1.3 — **Last updated:** 2026-10-01 — **Maintainer:** JoyanLabs
+**Version:** 1.4 — **Last updated:** 2026-10-01 — **Maintainer:** JoyanLabs
+
+> **1.4 — Immersive hero and real section figures.** The hero film is now
+> full-bleed behind the copy with a directional scrim that is opaque across
+> the whole text column, replacing the boxed figure. The film was re-authored
+> for that layout: composed right-of-centre, geometric with no text of its
+> own, and delivered as AV1 1280 with an H.264 960 fallback. The four dither
+> section textures are gone, replaced by three inline SVG diagrams; MAGI has
+> no figure because its real diagram already is one.
 
 > **1.3 — Hero film.** Added the L3 hero film and its asset/progressive-
 > enhancement contract. This is the second continuous runtime loop the

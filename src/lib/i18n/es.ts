@@ -66,8 +66,8 @@ export const es = {
       },
     ],
     figure: {
-      alt: 'Ilustración abstracta de una red de agentes especializados',
-      caption: 'Red de agentes especializados — ilustración propia',
+      alt: 'Esquema: datos, documentos, historial y señales entran por un contexto común, un agente trabaja sobre ellos y una acción sensible requiere aprobación de una persona.',
+      caption: 'Del contexto a la acción, con aprobación humana',
     },
   },
   magi: {
@@ -96,8 +96,8 @@ export const es = {
       '[magi] 09:42 — recomendación preparada · pendiente de aprobación',
     ],
     figure: {
-      alt: 'Ilustración abstracta de la capa de inteligencia de Joyan',
-      caption: 'MAGI, la capa de inteligencia de Joyan — ilustración propia',
+      alt: 'Red de agentes convergen en un único centro encendido: la capa de inteligencia de Joyan.',
+      caption: 'MAGI, la capa de inteligencia de Joyan',
     },
     motion: {
       canvasLabel: 'Red de agentes de MAGI en movimiento',
@@ -125,8 +125,8 @@ export const es = {
       },
     ],
     figure: {
-      alt: 'Ilustración abstracta de un dispositivo conectado a una red',
-      caption: 'Sistemas conectados al mundo físico — ilustración propia',
+      alt: 'Trazas de tres señales registradas con su marca de tiempo: dos recientes y una tercera desactualizada, dibujada en trazo discontinuo y marcada como pendiente de sincronizar.',
+      caption: 'Señales registradas, con su frescura a la vista',
     },
     prototypeInvitation: {
       status: 'En desarrollo',
@@ -153,8 +153,8 @@ export const es = {
       },
     ],
     figure: {
-      alt: 'Ilustración abstracta del ecosistema de Joyan',
-      caption: 'Ecosistema de Joyan — ilustración propia',
+      alt: 'Anillo de ocho personas de igual tamaño conectadas entre sí, sin jerarquía, alrededor de una marca compartida.',
+      caption: 'Una cooperativa: sin jerarquía',
     },
     community: {
       status: 'En desarrollo',

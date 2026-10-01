@@ -17,10 +17,10 @@
  * Usage: node scripts/motion-src/probe.mjs --frames dist-motion/frames
  */
 
-import { spawnSync } from 'node:child_process';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { inflateSync } from 'node:zlib';
 import { FILM } from './film.mjs';
 
 const HERE = resolve(fileURLToPath(new URL('.', import.meta.url)));
@@ -80,16 +80,10 @@ function paeth(a, b, c) {
   return pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
 }
 
+/** PNG IDAT is zlib, which node has had all along. The previous version shelled
+ *  out to python once per frame, which made the oracle slower than the render. */
 function inflate(buf) {
-  // Node ships no raw inflate; zlib's is one line of Python and always
-  // present. Done per frame, so keep the payload a single stdio write.
-  const r = spawnSync(
-    'python3',
-    ['-c', 'import sys,zlib;sys.stdout.buffer.write(zlib.decompress(sys.stdin.buffer.read()))'],
-    { input: buf, maxBuffer: 1 << 30 }
-  );
-  if (r.status !== 0) throw new Error(`inflate failed: ${r.stderr}`);
-  return r.stdout;
+  return inflateSync(buf);
 }
 
 // --- Frame metrics -------------------------------------------------------
@@ -98,32 +92,45 @@ const files = readdirSync(FRAMES).filter((f) => f.endsWith('.png')).sort();
 if (files.length < 2) throw new Error(`no frames in ${FRAMES}`);
 
 const STEP = 6; // sample every 6th pixel row-wise: enough signal, 1/36 the work
+// 240x135 = 8px cells at the 1920x1080 render size. Coarse enough to stay
+// cheap, fine enough that a 1.5px stroke lands inside a cell instead of being
+// averaged into its neighbours.
+const COLS = 240, ROWS = 135;
 const sigs = files.map((f, i) => {
   const { w, h, channels, data } = readPng(join(FRAMES, f));
-  const cols = 96, rows = 54; // normalized grid, independent of output size
+  const cols = COLS, rows = ROWS; // independent of output size
   const grid = new Float32Array(cols * rows);
   const ink = [];
   for (let gy = 0; gy < rows; gy++) {
     for (let gx = 0; gx < cols; gx++) {
       const x0 = Math.floor((gx * w) / cols), x1 = Math.floor(((gx + 1) * w) / cols);
       const y0 = Math.floor((gy * h) / rows), y1 = Math.floor(((gy + 1) * h) / rows);
-      let lum = 0, n = 0, lit = 0;
+      // MAX, not mean. This film is built from 1px hairlines and 24px dots on
+      // a near-black ground; averaging a cell dilutes a 1.5px stroke to almost
+      // nothing and makes a composed frame read as empty.
+      let peak = 0;
       for (let y = y0; y < y1; y += STEP) {
         for (let x = x0; x < x1; x += STEP) {
           const o = (y * w + x) * channels;
           const l = data[o] * 0.2126 + data[o + 1] * 0.7152 + data[o + 2] * 0.0722;
-          lum += l; n++;
-          if (l > 60) lit++;
+          if (l > peak) peak = l;
         }
       }
-      grid[gy * cols + gx] = lum / Math.max(1, n);
-      ink.push(lit / Math.max(1, n));
+      grid[gy * cols + gx] = peak;
+      ink.push(peak);
     }
   }
   return { t: i / FILM.fps, grid, litFrac: ink.reduce((a, b) => a + b, 0) / ink.length };
 });
 
-const COLS = 96, ROWS = 54;
+// Structure above the declared ground, relative to each frame's own median.
+//
+// Not absolute brightness: this film is deliberately dark and an absolute
+// floor scored it as empty. Not 12 either: the hairline ground alone sits
+// ~34 above the frame median and covers a third of the frame, so a low delta
+// counted the declared ground as subject haze. 60 excludes the ground and
+// keeps edges (~105), the field bloom (~101) and amber (~169).
+const STRUCTURE_DELTA = 60;
 const diff = (a, b) => {
   let s = 0;
   for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]);
@@ -161,12 +168,17 @@ for (const p of peaks) {
 function overlapAt(frame) {
   const a = sigs[Math.max(0, frame - 3)].grid;
   const b = sigs[Math.min(sigs.length - 1, frame + 3)].grid;
+  // Same reasoning as the focus metric: compare each frame against its own
+  // median rather than an absolute floor, so a dark film is not scored as
+  // carrying nothing.
+  const med = (g) => { const s2 = [...g].sort((x, y) => x - y); return s2[Math.floor(s2.length / 2)]; };
+  const ta = med(a) + STRUCTURE_DELTA, tb = med(b) + STRUCTURE_DELTA;
   let shared = 0, changed = 0;
   for (let i = 0; i < a.length; i++) {
-    if (a[i] > 60 && b[i] > 60) shared++;
+    if (a[i] > ta && b[i] > tb) shared++;
     if (Math.abs(a[i] - b[i]) > 40) changed++;
   }
-  const survived = shared / Math.max(1, a.reduce((n, v) => n + (v > 60 ? 1 : 0), 0));
+  const survived = shared / Math.max(1, a.reduce((n, v) => n + (v > ta ? 1 : 0), 0));
   const churn = changed / a.length;
   return survived * (1 - Math.min(1, churn * 2.2));
 }
@@ -193,11 +205,20 @@ const isQuiet = (t) => (FILM.quiet ?? []).some((q) => t >= q.t0 && t < q.t1);
 // Beats where full-frame coverage is the intent (the dither field blooming).
 const isHaze = (t) => FILM.beats.some((b) => b.key === 'field' && t >= b.t0 && t < b.t0 + (b.t1 - b.t0) * 0.75);
 
+// Structure, not exposure. An absolute brightness threshold assumes the film
+// is exposed like a page; this one is deliberately dark, so a frame carrying
+// only the hairline ground legitimately peaks far below any fixed cutoff. A
+// cell counts as carrying structure when it rises meaningfully above that
+// frame's own median, which asks "is there anything composed here" without
+// assuming how bright the film is meant to be.
 const mass = sigs.map((s, i) => {
+  const sorted = [...s.grid].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+  const thresh = median + STRUCTURE_DELTA;
   let cells = 0, peak = 0, minX = COLS, maxX = -1, minY = ROWS, maxY = -1;
   for (let gy = 0; gy < ROWS; gy++) for (let gx = 0; gx < COLS; gx++) {
     const v = s.grid[gy * COLS + gx];
-    if (v <= 60) continue;
+    if (v <= thresh) continue;
     cells++;
     peak = Math.max(peak, v);
     if (gx < minX) minX = gx;
@@ -209,7 +230,7 @@ const mass = sigs.map((s, i) => {
   return {
     empty: cells === 0,
     coverage: cells / total,
-    focus: cells === 0 ? 0 : peak / (s.grid.reduce((a, v) => a + Math.max(0, v - 60), 0) / cells),
+    focus: cells === 0 ? 0 : peak / (s.grid.reduce((a, v) => a + Math.max(0, v - thresh), 0) / cells),
     insideFrame: maxX >= 0 && minX >= 0 && maxX < COLS && minY >= 0 && maxY < ROWS,
     i,
   };

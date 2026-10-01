@@ -50,8 +50,8 @@ export const en = {
       },
     ],
     figure: {
-      alt: 'Abstract illustration of a network of specialized agents',
-      caption: 'Network of specialized agents — original illustration',
+      alt: 'Diagram: data, documents, history and signals enter through one shared context, an agent works on them, and a sensitive action requires a person to approve it.',
+      caption: 'From context to action, with human approval',
     },
   },
   magi: {
@@ -80,8 +80,8 @@ export const en = {
       '[magi] 09:42 — recommendation prepared · pending approval',
     ],
     figure: {
-      alt: "Abstract illustration of Joyan's intelligence layer",
-      caption: 'MAGI, the intelligence layer of Joyan — original illustration',
+      alt: 'A network of agents converging on one lit centre: the intelligence layer of Joyan.',
+      caption: 'MAGI, the intelligence layer of Joyan',
     },
     motion: {
       canvasLabel: 'MAGI agent network in motion',
@@ -109,8 +109,8 @@ export const en = {
       },
     ],
     figure: {
-      alt: 'Abstract illustration of a device connected to a network',
-      caption: 'Systems connected to the physical world — original illustration',
+      alt: 'Traces of three recorded signals with their timestamps: two recent, and a third stale, drawn dashed and marked as pending synchronization.',
+      caption: 'Recorded signals, with their freshness in view',
     },
     prototypeInvitation: {
       status: 'In development',
@@ -137,8 +137,8 @@ export const en = {
       },
     ],
     figure: {
-      alt: 'Abstract illustration of the Joyan ecosystem',
-      caption: 'Joyan ecosystem — original illustration',
+      alt: 'A ring of eight equally sized people connected to one another, with no hierarchy, around one shared mark.',
+      caption: 'A cooperative: no hierarchy',
     },
     community: {
       status: 'In development',

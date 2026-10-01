@@ -92,6 +92,13 @@ const SCALE = Number(arg('scale', 1));
 // downscaled. Rendering small and blurring it is how hairlines disappear.
 const OUT_WIDTH = Number(arg('out-width', FILM.width));
 const CRF = Number(arg('crf', 18));
+
+// AV1 is emitted alongside the H.264 fallback. The browser picks the first
+// source it can decode, so this is a quality tier rather than a cost: modern
+// engines get the sharper encode and only pay for it.
+const AV1_WIDTH = Number(arg('av1-width', 0));
+const AV1_CRF = Number(arg('av1-crf', 46));
+const AV1_PRESET = Number(arg('av1-preset', 6));
 const SHUTTER = 180 / (360 * 30); // 180 degrees at 30 fps, in frames
 
 const MIME = {
@@ -251,18 +258,33 @@ async function main() {
   await browser.close();
   server.close();
 
-  const mp4 = join(OUT, `${FILM.title}.mp4`);
-  await ffmpeg([
-    '-y', '-framerate', String(FILM.fps),
-    '-i', join(OUT, 'frames', 'f%04d.png'),
-    '-vf', `scale=${OUT_WIDTH}:${Math.round((OUT_WIDTH * FILM.height) / FILM.width / 2) * 2}:flags=lanczos,format=yuv420p`,
-    '-c:v', 'libx264', '-preset', 'slow', '-crf', String(CRF),
-    '-movflags', '+faststart',
-    mp4,
-  ]);
+  const encHeight = (w) => Math.round((w * FILM.height) / FILM.width / 2) * 2;
+  const encode = async (file, width, args) => {
+    const out = join(OUT, file);
+    await ffmpeg([
+      '-y', '-framerate', String(FILM.fps),
+      '-i', join(OUT, 'frames', 'f%04d.png'),
+      '-vf', `scale=${width}:${encHeight(width)}:flags=lanczos,format=yuv420p`,
+      ...args,
+      '-movflags', '+faststart',
+      out,
+    ]);
+    return { out, kb: Math.round(statSync(out).size / 1024) };
+  };
 
+  // H.264 fallback first: it must exist even when AV1 is the headline.
+  const fallback = await encode(`${FILM.title}.mp4`, OUT_WIDTH, [
+    '-c:v', 'libx264', '-preset', 'slow', '-crf', String(CRF),
+  ]);
   console.log(`\n  ${total} frames in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
-  console.log(`  -> ${mp4}  (${OUT_WIDTH}px, crf ${CRF}, ${(statSync(mp4).size / 1024).toFixed(0)} KB)`);
+  console.log(`  -> ${fallback.out}  (h264 ${OUT_WIDTH}px crf${CRF}, ${fallback.kb} KB)`);
+
+  if (AV1_WIDTH > 0) {
+    const av1 = await encode(`${FILM.title}.av1.mp4`, AV1_WIDTH, [
+      '-c:v', 'libsvtav1', '-preset', String(AV1_PRESET), '-crf', String(AV1_CRF),
+    ]);
+    console.log(`  -> ${av1.out}  (av1 ${AV1_WIDTH}px crf${AV1_CRF}, ${av1.kb} KB)`);
+  }
 }
 
 await main();

@@ -1,5 +1,4 @@
 ---
-import Wordmark from '~/components/joyan/Wordmark.astro';
 import MotionFigure from '~/components/joyan/MotionFigure.astro';
 import type { HeroContent } from '~/lib/i18n/types';
 
@@ -10,44 +9,101 @@ export interface Props {
 const { content } = Astro.props;
 ---
 
-<section id="top" class="flex min-h-[100dvh] items-center">
-  <div class="mx-auto grid w-full max-w-6xl gap-14 px-6 py-24 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
-    <div>
-      <Wordmark class="mb-10" />
-      <p class="font-mono text-xs uppercase tracking-widest text-plomo-400">
+<section id="top" class="relative isolate flex min-h-[100svh] flex-col justify-end overflow-hidden lg:justify-center">
+  <MotionFigure
+    src="/assets/dither/hero-dither.png"
+    videoSrc="/assets/motion/el-caret.mp4"
+    videoSrcAv1="/assets/motion/el-caret.av1.mp4"
+    alt=""
+    width={1600}
+    height={900}
+    videoWidth={960}
+    videoHeight={540}
+    class="hero-backdrop absolute inset-0 -z-10 border-0"
+  />
+
+  <div class="mx-auto w-full max-w-6xl px-6 pb-24 pt-40 sm:pb-28 lg:pb-0 lg:pt-0">
+    <div class="max-w-xl lg:max-w-[36rem]">
+      <p class="font-mono text-[0.6875rem] uppercase tracking-[0.2em] text-plomo-400">
         {content.kicker}
         <span class="caret ml-2 inline-block h-[1.05em] w-[0.5em] bg-accent align-middle" aria-hidden="true"></span>
       </p>
-      <h1 class="text-display mt-6 text-4xl text-bone-50 md:text-6xl">{content.title}</h1>
-      <p class="mt-8 max-w-xl text-lg leading-relaxed text-bone-100">{content.lead}</p>
-      <div class="mt-10 flex flex-wrap gap-4">
+      <h1 class="text-display mt-6 text-[2.125rem] leading-[1.05] text-bone-50 sm:text-5xl lg:text-[3.125rem]">
+        {content.title}
+      </h1>
+      <p class="mt-7 max-w-lg text-base leading-relaxed text-bone-100 sm:text-lg">
+        {content.lead}
+      </p>
+      <div class="mt-9 flex flex-wrap items-center gap-3">
         <a
           href="#magi"
-          class="bg-accent px-6 py-3 font-mono text-xs uppercase tracking-widest text-accent-ink transition-opacity hover:opacity-90"
+          class="bg-accent px-6 py-3.5 font-mono text-xs uppercase tracking-widest text-accent-ink transition-transform duration-200 hover:-translate-y-0.5 focus-visible:-translate-y-0.5"
         >
           {content.ctaPrimary}
         </a>
         <a
           href="#ecosystem"
-          class="border border-hairline px-6 py-3 font-mono text-xs uppercase tracking-widest text-bone-100 transition-colors hover:border-plomo-400"
+          class="border border-hairline px-6 py-3.5 font-mono text-xs uppercase tracking-widest text-bone-100 transition-colors duration-200 hover:border-plomo-400"
         >
           {content.ctaSecondary}
         </a>
       </div>
     </div>
-    <MotionFigure
-      src="/assets/dither/hero-dither.png"
-      videoSrc="/assets/motion/el-caret.mp4"
-      alt=""
-      width={1600}
-      height={900}
-      videoWidth={960}
-      videoHeight={540}
-    />
   </div>
+
+  <a
+    href="#agents"
+    aria-label="Ir a la siguiente sección"
+    class="absolute bottom-8 left-1/2 hidden -translate-x-1/2 flex-col items-center gap-3 text-plomo-500 transition-colors hover:text-bone-100 lg:flex"
+  >
+    <span class="font-mono text-[0.625rem] uppercase tracking-[0.3em]">Scroll</span>
+    <span class="scroll-cue block h-9 w-px bg-hairline"></span>
+  </a>
 </section>
 
 <style>
+  /* The film is composed right-of-centre and its bloom dies out before the
+     copy column, so the left third already carries clean ink. The scrim only
+     has to buy the remaining contrast for bone-100 body text over the moving
+     grid, and it has to be a directional gradient: a flat veil would flatten
+     the film into a grey rectangle and throw away the whole point of it. */
+  /* :global() on BOTH selectors: Astro scopes a component's styles with a
+     data attribute, and .hero-backdrop is rendered by MotionFigure, a
+     different component. Without it the scrim silently never applied and the
+     film ran straight through the headline. */
+  :global(.hero-backdrop) :global(.joyan-film) {
+    object-position: 62% 50%;
+  }
+
+  :global(.hero-backdrop)::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      /* Opaque across the whole copy column, not just its left edge. The
+         film's amber field bloom reaches the text at its brightest moment;
+         relying on the film's composition to stay clear of the copy was
+         relying on art direction for an accessibility floor. The scrim
+         guarantees it whatever the film does. */
+      linear-gradient(
+        100deg,
+        var(--color-ink-950) 0%,
+        rgb(11 11 12 / 1) 38%,
+        rgb(11 11 12 / 0.97) 50%,
+        rgb(11 11 12 / 0.62) 62%,
+        rgb(11 11 12 / 0.16) 74%,
+        rgb(11 11 12 / 0) 86%
+      ),
+      linear-gradient(
+        180deg,
+        rgb(11 11 12 / 0.92) 0%,
+        rgb(11 11 12 / 0) 22%,
+        rgb(11 11 12 / 0) 62%,
+        rgb(11 11 12 / 0.85) 88%,
+        var(--color-ink-950) 100%
+      );
+  }
+
   @keyframes joyan-caret {
     0%,
     100% {
@@ -62,9 +118,40 @@ const { content } = Astro.props;
     animation: joyan-caret 1.1s step-end infinite;
   }
 
+  @keyframes joyan-scroll-cue {
+    0% {
+      transform: scaleY(0);
+      transform-origin: top;
+      opacity: 0;
+    }
+    40% {
+      transform: scaleY(1);
+      transform-origin: top;
+      opacity: 1;
+    }
+    60% {
+      transform: scaleY(1);
+      transform-origin: bottom;
+      opacity: 1;
+    }
+    100% {
+      transform: scaleY(0);
+      transform-origin: bottom;
+      opacity: 0;
+    }
+  }
+
+  .scroll-cue {
+    animation: joyan-scroll-cue 2.6s ease-in-out infinite;
+  }
+
   @media (prefers-reduced-motion: reduce) {
-    .caret {
+    .caret,
+    .scroll-cue {
       animation: none;
+    }
+    .scroll-cue {
+      transform: scaleY(1);
     }
   }
 </style>

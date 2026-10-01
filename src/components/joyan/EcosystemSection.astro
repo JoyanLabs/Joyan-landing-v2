@@ -1,6 +1,6 @@
 ---
 import SectionHeader from '~/components/joyan/SectionHeader.astro';
-import DitherFigure from '~/components/joyan/DitherFigure.astro';
+import CooperativeRingFigure from '~/components/joyan/CooperativeRingFigure.astro';
 import JournalDisclosureList from '~/components/joyan/JournalDisclosureList.astro';
 import type { EcosystemContent } from '~/lib/i18n/types';
 
@@ -30,14 +30,7 @@ const communityOffers = [
           <JournalDisclosureList idPrefix="ecosystem-disclosure" items={content.items} titleLevel={3} />
         </div>
       </div>
-      <DitherFigure
-        src="/assets/dither/ecosystem-dither.png"
-        alt={content.figure.alt}
-        caption={content.figure.caption}
-        width={1200}
-        height={750}
-        class="self-start"
-      />
+      <CooperativeRingFigure alt={content.figure.alt} class="self-start" />
     </div>
 
     <div class="mt-20 border-t border-hairline pt-12">

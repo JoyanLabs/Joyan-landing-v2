@@ -693,10 +693,6 @@ if (!/animation:/.test(shellTextureRule)) {
 // ---------------------------------------------------------------------------
 const ASSET_CONTRACT = [
   { path: 'public/assets/dither/hero-dither.png', width: 1600, height: 900, maxBytes: 80 * 1024 },
-  { path: 'public/assets/dither/hardware-dither.png', width: 1024, height: 1024, maxBytes: 60 * 1024 },
-  { path: 'public/assets/dither/agents-dither.png', width: 1200, height: 900, maxBytes: 70 * 1024 },
-  { path: 'public/assets/dither/magi-dither.png', width: 1200, height: 750, maxBytes: 75 * 1024 },
-  { path: 'public/assets/dither/ecosystem-dither.png', width: 1200, height: 750, maxBytes: 75 * 1024 },
   { path: 'public/assets/brand/og-default.png', width: 1200, height: 628, maxBytes: 100 * 1024 },
 ];
 
@@ -1244,38 +1240,6 @@ const FIGURE_CONTRACT = [
     localeKey: 'hero',
     decorative: true,
   },
-  {
-    section: 'agents',
-    path: '/assets/dither/agents-dither.png',
-    width: 1200,
-    height: 900,
-    localeKey: 'agents',
-    decorative: false,
-  },
-  {
-    section: 'magi',
-    path: '/assets/dither/magi-dither.png',
-    width: 1200,
-    height: 750,
-    localeKey: 'magi',
-    decorative: false,
-  },
-  {
-    section: 'hardware',
-    path: '/assets/dither/hardware-dither.png',
-    width: 1024,
-    height: 1024,
-    localeKey: 'hardware',
-    decorative: false,
-  },
-  {
-    section: 'ecosystem',
-    path: '/assets/dither/ecosystem-dither.png',
-    width: 1200,
-    height: 750,
-    localeKey: 'ecosystem',
-    decorative: false,
-  },
 ];
 
 for (const [page, html, content] of [
@@ -1348,10 +1312,41 @@ for (const [page, html, content] of [
     fail(`figure: ${page} og-default.png must appear only in social meta tags, never as an in-page image`);
   }
   const figures = [...html.matchAll(/<figure[\s\S]*?<\/figure>/g)].map((m) => m[0]);
-  if (figures.length === 5) {
-    pass(`figure: ${page} renders exactly the 5 section figures (L2 x4 + L3 hero)`);
+  // L3 hero + three inline SVG section figures. MAGI has no figure: it already
+  // carries the real 7-node diagram and its live overlay.
+  if (figures.length === 4) {
+    pass(`figure: ${page} renders exactly 4 figures (L3 hero + 3 inline SVG section figures)`);
   } else {
-    fail(`figure: ${page} must render exactly 5 figure elements, found ${figures.length}`);
+    fail(`figure: ${page} must render exactly 4 figure elements, found ${figures.length}`);
+  }
+  if (figures.every((f) => !/<script/i.test(f))) {
+    pass(`figure: ${page} figures are static markup (no JS, no script inside)`);
+  } else {
+    fail(`figure: ${page} figure elements must not contain scripts`);
+  }
+
+  // Every informative inline SVG figure must expose an accessible name. The
+  // section figures replaced `<img alt>` with `role="img"` + `aria-label`, so
+  // this is the check that keeps that equivalent.
+  for (const [label, key] of [
+    ['agents', 'agents'],
+    ['hardware', 'hardware'],
+    ['ecosystem', 'ecosystem'],
+  ]) {
+    const region = sectionRegion(html, label);
+    if (!region) continue;
+    const svg = region.match(/<svg\b[\s\S]*?<\/svg>/)?.[0] ?? '';
+    const expected = content[key]?.figure?.alt;
+    if (svg.includes('role="img"') && svg.includes(`aria-label="${expected}"`)) {
+      pass(`figure: ${page} #${label} inline SVG carries its localized accessible name`);
+    } else {
+      fail(`figure: ${page} #${label} inline SVG must expose role="img" with its localized aria-label`);
+    }
+    if (!/<(text|script|style)/.test(svg.replace(/<text[\s\S]*?<\/text>/g, ''))) {
+      pass(`figure: ${page} #${label} inline SVG holds no raster or embedded content`);
+    } else {
+      fail(`figure: ${page} #${label} inline SVG must stay vector-only`);
+    }
   }
   if (figures.every((figure) => !/<script/i.test(figure))) {
     pass(`figure: ${page} figures are static markup (no-JS fallback, plain <img> PNG)`);
@@ -1368,19 +1363,29 @@ for (const [page, html, content] of [
 //     starts depending on the video, or a reduced-motion path that leaves a
 //     paused first frame on screen, both fail here rather than in production.
 // ---------------------------------------------------------------------------
-const HERO_FILM = '/assets/motion/el-caret.mp4';
 const HERO_POSTER = '/assets/dither/hero-dither.png';
-const FILM_MAX_BYTES = 300 * 1024; // docs/DESIGN.md - Hero film asset contract
 
-const filmPath = resolve(ROOT, 'public', HERO_FILM.replace(/^\//, ''));
-if (!existsSync(filmPath)) {
-  fail(`film: committed hero film ${HERO_FILM} is missing`);
-} else {
-  const bytes = statSync(filmPath).size;
-  if (bytes <= FILM_MAX_BYTES) {
-    pass(`film: ${HERO_FILM} is within budget (${bytes} / ${FILM_MAX_BYTES} bytes)`);
+// Two encodes of the same 15 s film. The browser downloads the first source
+// it can decode and never requests the rest, so only ONE of these reaches any
+// given visitor. AV1 is listed first and is delivered one resolution higher
+// at fewer bytes than the H.264 fallback it sits in front of.
+// docs/DESIGN.md - Hero film asset contract.
+const FILM_SOURCES = [
+  { path: '/assets/motion/el-caret.av1.mp4', label: 'AV1 (primary)', maxBytes: 300 * 1024 },
+  { path: '/assets/motion/el-caret.mp4', label: 'H.264 (fallback)', maxBytes: 300 * 1024 },
+];
+
+for (const src of FILM_SOURCES) {
+  const file = resolve(ROOT, 'public', src.path.replace(/^\//, ''));
+  if (!existsSync(file)) {
+    fail(`film: committed hero film ${src.path} is missing`);
+    continue;
+  }
+  const bytes = statSync(file).size;
+  if (bytes <= src.maxBytes) {
+    pass(`film: ${src.path} within budget (${bytes} / ${src.maxBytes} bytes, ${src.label})`);
   } else {
-    fail(`film: ${HERO_FILM} must be <= ${FILM_MAX_BYTES} bytes, got ${bytes}`);
+    fail(`film: ${src.path} must be <= ${src.maxBytes} bytes, got ${bytes}`);
   }
 }
 
@@ -1394,11 +1399,29 @@ for (const [page, html] of [
     fail(`film: ${page} #top section must render`);
     continue;
   }
-  const occurrences = (html.match(new RegExp(`src="${escapeRegex(HERO_FILM)}"`, 'g')) ?? []).length;
-  if (occurrences === 1) {
-    pass(`film: ${page} hero film appears exactly once (containment, no repeats)`);
+  for (const src of FILM_SOURCES) {
+    const occurrences = (html.match(new RegExp(`src="${escapeRegex(src.path)}"`, 'g')) ?? []).length;
+    if (occurrences === 1) {
+      pass(`film: ${page} ${src.path} appears exactly once (containment, no repeats)`);
+    } else {
+      fail(`film: ${page} ${src.path} must appear exactly once, found ${occurrences}`);
+    }
+  }
+
+  // AV1 must be listed before H.264 or the quality tier is dead weight: the
+  // browser stops at the first source it can decode.
+  const heroVideo = region.match(/<video\b[\s\S]*?<\/video>/)?.[0] ?? '';
+  const av1At = heroVideo.indexOf('el-caret.av1.mp4');
+  const h264At = heroVideo.indexOf('el-caret.mp4');
+  if (av1At !== -1 && h264At !== -1 && av1At < h264At) {
+    pass(`film: ${page} AV1 source precedes the H.264 fallback`);
   } else {
-    fail(`film: ${page} ${HERO_FILM} must appear exactly once, found ${occurrences}`);
+    fail(`film: ${page} the AV1 source must be listed before the H.264 fallback`);
+  }
+  if (/type="video\/mp4; codecs=&quot;av01/.test(heroVideo)) {
+    pass(`film: ${page} AV1 source declares its codec in the type`);
+  } else {
+    fail(`film: ${page} AV1 source must declare codecs="av01..." in its type`);
   }
 
   const videoTag = region.match(/<video\b[^>]*>/)?.[0] ?? '';

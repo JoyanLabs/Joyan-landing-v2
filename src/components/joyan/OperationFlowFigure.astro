@@ -1,0 +1,88 @@
+---
+/**
+ * Section 01 — "Especialistas digitales hechos a medida".
+ *
+ * Replaces a dither texture that carried no information with a diagram that
+ * states the section's actual claim: one specialist agent per task, working on
+ * real inputs, bounded autonomy, and a human approval gate before anything
+ * sensitive happens.
+ *
+ * Drawn as inline SVG rather than a baked PNG: it stays crisp at any density,
+ * inherits the palette instead of freezing one copy of it, costs nothing to
+ * load, and the "freshness" ticks are real values rather than dots of noise.
+ */
+export interface Props {
+  /** Localized accessible description. */
+  alt: string;
+  class?: string;
+}
+const { alt, class: className } = Astro.props;
+---
+
+<figure class:list={['border border-hairline bg-ink-900', className]}>
+  <svg
+    viewBox="0 0 720 340"
+    class="block h-auto w-full"
+    role="img"
+    aria-label={alt}
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <g fill="none" stroke-width="1" vector-effect="non-scaling-stroke">
+      <!-- Inputs: three distinct sources, because each agent reads a different
+           part of the operation rather than one generic feed. -->
+      <g stroke="rgba(255,255,255,0.42)">
+        <path d="M56 84h104" />
+        <path d="M56 168h104" />
+        <path d="M56 252h104" />
+        <path d="M56 336h104" />
+      </g>
+      <g stroke="rgba(255,255,255,0.24)">
+        <path d="M160 84v168M160 252v84" />
+        <path d="M160 168h44" />
+      </g>
+      <!-- The spine: everything the agent sees arrives through one context. -->
+      <path d="M204 84v252" stroke="rgba(255,255,255,0.32)" />
+      <path d="M204 252h84" stroke="rgba(255,255,255,0.32)" />
+
+      <!-- The agent: one node, and the only filled shape on the left half. -->
+      <rect x="288" y="222" width="72" height="60" fill="#121214" stroke="rgba(255,255,255,0.55)" />
+      <path d="M360 252h56" stroke="rgba(255,255,255,0.42)" />
+
+      <!-- The gate. Amber, and the only amber in the figure: this is the point
+           the whole section is about, so it is the only thing that glows. -->
+      <path d="M452 216l36 36-36 36-36-36z" fill="#ffb000" fill-opacity="0.12" stroke="#ffb000" />
+      <path d="M488 252h52" stroke="rgba(255,255,255,0.42)" />
+
+      <!-- Action only happens past the gate. -->
+      <rect x="540" y="232" width="124" height="40" fill="#121214" stroke="rgba(255,255,255,0.42)" />
+      <path d="M602 232v-56h62" stroke="rgba(255,255,255,0.28)" stroke-dasharray="3 4" />
+      <circle cx="664" cy="176" r="13" fill="#121214" stroke="rgba(255,255,255,0.55)" />
+    </g>
+
+    <!-- Freshness ticks along the spine: bounded autonomy reads as a window,
+         not as a promise. -->
+    <g fill="rgba(255,255,255,0.3)">
+      <rect x="212" y="96" width="2" height="16" />
+      <rect x="212" y="140" width="2" height="16" />
+      <rect x="212" y="184" width="2" height="16" />
+      <rect x="212" y="308" width="2" height="16" />
+      <rect x="212" y="352" width="2" height="16" />
+    </g>
+
+    <g
+      font-family="'JetBrains Mono Variable', monospace"
+      font-size="16"
+      letter-spacing="2.2"
+      fill="#8a8a90"
+    >
+      <text x="56" y="70">DATOS</text>
+      <text x="56" y="154">DOCUMENTOS</text>
+      <text x="56" y="238">HISTORIAL</text>
+      <text x="56" y="322">SEÑALES</text>
+
+      <text x="288" y="316" fill="#e8e6e1">AGENTE</text>
+      <text x="452" y="316" fill="#ffb000" text-anchor="middle">APROBACIÓN</text>
+      <text x="556" y="316" text-anchor="middle">ACCIÓN</text>
+    </g>
+  </svg>
+</figure>

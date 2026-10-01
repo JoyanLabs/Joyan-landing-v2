@@ -1,6 +1,6 @@
 ---
 import SectionHeader from '~/components/joyan/SectionHeader.astro';
-import DitherFigure from '~/components/joyan/DitherFigure.astro';
+import SignalTraceFigure from '~/components/joyan/SignalTraceFigure.astro';
 import JournalDisclosureList from '~/components/joyan/JournalDisclosureList.astro';
 import type { HardwareContent } from '~/lib/i18n/types';
 
@@ -34,13 +34,9 @@ const { content } = Astro.props;
         data-hardware-surface
         tabindex="0"
       >
-        <DitherFigure
-          src="/assets/dither/hardware-dither.png"
+        <SignalTraceFigure
           alt={content.figure.alt}
-          caption={content.figure.caption}
-          width={1024}
-          height={1024}
-          class="hardware-figure border-0"
+          class="hardware-figure w-full border-0"
         />
         <span class="hardware-scan" aria-hidden="true"></span>
         <span class="hardware-trace" aria-hidden="true"></span>

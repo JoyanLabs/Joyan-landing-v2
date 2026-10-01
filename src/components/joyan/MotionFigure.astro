@@ -9,8 +9,17 @@ export interface Props {
    * on this image instead of on nothing.
    */
   src: string;
-  /** Seamlessly looping film. Decorative, muted, no controls. */
+  /** Seamlessly looping film, H.264 fallback. */
   videoSrc: string;
+  /**
+   * AV1 source, listed first. The browser downloads the first source it can
+   * decode and never requests the rest, so this is a quality tier rather than
+   * a double cost: AV1 is delivered one resolution higher at a smaller byte
+   * count than the H.264 fallback it sits in front of.
+   */
+  videoSrcAv1?: string;
+  /** MIME type including the codec parameter browsers match on. */
+  videoTypeAv1?: string;
   /** Empty for decorative art (the hero figure). */
   alt?: string;
   /** Intrinsic poster dimensions reserve layout and avoid CLS. */
@@ -22,15 +31,27 @@ export interface Props {
   class?: string;
 }
 
-const { src, videoSrc, alt = '', width, height, videoWidth, videoHeight, class: className } = Astro.props;
+const {
+  src,
+  videoSrc,
+  videoSrcAv1,
+  videoTypeAv1 = 'video/mp4; codecs="av01.0.05M.08"',
+  alt = '',
+  width,
+  height,
+  videoWidth,
+  videoHeight,
+  class: className,
+} = Astro.props;
 ---
 
-<figure class={cn('relative border border-hairline bg-ink-900', className)}>
-  <img src={src} alt={alt} width={width} height={height} class="block h-auto w-full" />
+<figure class={cn('relative overflow-hidden bg-ink-950', className)}>
+  <div class="h-full w-full [&>img]:h-full [&>img]:w-full [&>img]:object-cover">
+    <img src={src} alt={alt} width={width} height={height} class="block h-auto w-full" />
+  </div>
   <video
     class="joyan-film absolute inset-0 h-full w-full object-cover"
     data-hero-film
-    src={videoSrc}
     width={videoWidth}
     height={videoHeight}
     autoplay
@@ -39,5 +60,9 @@ const { src, videoSrc, alt = '', width, height, videoWidth, videoHeight, class: 
     playsinline
     preload="metadata"
     aria-hidden="true"
-    tabindex="-1"></video>
+    tabindex="-1"
+  >
+    {videoSrcAv1 && <source src={videoSrcAv1} type={videoTypeAv1} />}
+    <source src={videoSrc} type="video/mp4" />
+  </video>
 </figure>

@@ -1,0 +1,111 @@
+---
+/**
+ * Section 03 — "Lo que ocurre en el mundo real, con evidencia".
+ *
+ * The section's whole argument is that a reading is not the same thing as what
+ * is true right now, so the figure shows exactly that: three recorded signals,
+ * each stamped, each ending at its own "last seen" marker. The third signal is
+ * stale and is drawn dashed and dimmed — old data that still looks like data is
+ * the failure mode the copy warns about, so it is shown rather than asserted.
+ *
+ * Type inside these figures is sized in viewBox units, not CSS pixels. The
+ * figures render around 475px from a 720-unit viewBox, so anything below ~15
+ * units lands under 10 real pixels and becomes unreadable.
+ */
+export interface Props {
+  alt: string;
+  class?: string;
+}
+const { alt, class: className } = Astro.props;
+
+const TRACE_Y = [66, 122, 178];
+
+/** The stale row loses its solid stroke and its accent: it is no longer live. */
+const traces = [
+  {
+    label: 'PULSO',
+    stamp: '09:41:22',
+    age: 'hace 4 s',
+    stale: false,
+    d: 'M232 66h40l9-16 11 34 10-24 12 15 11-11h138',
+  },
+  {
+    label: 'TEMPERATURA',
+    stamp: '09:41:19',
+    age: 'hace 7 s',
+    stale: false,
+    d: 'M232 122h52l8 8 10-14 9 17 11-9 12 6h129',
+  },
+  {
+    label: 'POSICIÓN',
+    stamp: '09:22:03',
+    age: 'hace 19 min',
+    stale: true,
+    d: 'M232 178h66l10-6 11 10 10-5 13 4h106',
+  },
+];
+---
+
+<figure class:list={['border border-hairline bg-ink-900', className]}>
+  <svg
+    viewBox="0 0 720 300"
+    class="block h-auto w-full"
+    role="img"
+    aria-label={alt}
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <g stroke="rgba(255,255,255,0.14)" fill="none" stroke-width="1" vector-effect="non-scaling-stroke">
+      <path d="M24 40h672M24 94h672M24 150h672M24 206h672" />
+    </g>
+
+    {
+      traces.map((t, i) => (
+        <g>
+          <path
+            d={t.d}
+            fill="none"
+            stroke={t.stale ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.6)'}
+            stroke-width="1.5"
+            stroke-dasharray={t.stale ? '5 6' : 'none'}
+            vector-effect="non-scaling-stroke"
+          />
+          {/* The last-seen mark is the whole point: evidence stops where the
+              signal stops arriving. The stale one gets no accent. */}
+          <circle
+            cx="512"
+            cy={TRACE_Y[i]}
+            r="5"
+            fill={t.stale ? '#6e6e73' : '#ffb000'}
+            stroke="#0b0b0c"
+            stroke-width="3"
+          />
+          <path
+            d={`M512 ${TRACE_Y[i]}h${t.stale ? 96 : 184}`}
+            stroke="rgba(255,255,255,0.10)"
+            stroke-dasharray="2 7"
+            stroke-width="1"
+            vector-effect="non-scaling-stroke"
+          />
+        </g>
+      ))
+    }
+
+    <g font-family="'JetBrains Mono Variable', monospace" font-size="15" letter-spacing="1.8" fill="#8a8a90">
+      <text x="24" y="{TRACE_Y[0] - 22}">PULSO</text>
+      <text x="24" y="{TRACE_Y[1] - 22}">TEMPERATURA</text>
+      <text x="24" y="{TRACE_Y[2] - 22}">POSICIÓN</text>
+    </g>
+
+    <g font-family="'JetBrains Mono Variable', monospace" font-size="15" letter-spacing="1.4" text-anchor="end">
+      <text x="696" y="{TRACE_Y[0] + 5}" fill="#e8e6e1">{traces[0].stamp}</text>
+      <text x="696" y="{TRACE_Y[1] + 5}" fill="#e8e6e1">{traces[1].stamp}</text>
+      <text x="696" y="{TRACE_Y[2] + 5}" fill="#6e6e73">{traces[2].stamp}</text>
+    </g>
+
+    <g font-family="'JetBrains Mono Variable', monospace" font-size="15" letter-spacing="1.6">
+      <text x="24" y="252" fill="#8a8a90">ÚLTIMA SEÑAL</text>
+      <text x="696" y="252" fill="#ffb000" text-anchor="end">{traces[0].age}</text>
+      <text x="696" y="280" fill="#6e6e73" text-anchor="end">{traces[2].age} · PENDIENTE</text>
+    </g>
+  </svg>
+</figure>

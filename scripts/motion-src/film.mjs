@@ -50,9 +50,9 @@ export const FILM = {
   duration: 15,
   fps: 30,
   beats: [
-    { key: 'rest', t0: 0.0, t1: 2.2 },
-    { key: 'writes', t0: 2.2, t1: 3.9 },
-    { key: 'collapse', t0: 3.9, t1: 4.6 },
+    { key: 'rest', t0: 0.0, t1: 1.2 },
+    { key: 'writes', t0: 1.2, t1: 3.5 },
+    { key: 'collapse', t0: 3.5, t1: 4.4 },
     { key: 'signals', t0: 4.6, t1: 8.2 },
     { key: 'converge', t0: 8.2, t1: 10.6 },
     { key: 'field', t0: 10.6, t1: 12.6 },
@@ -65,13 +65,25 @@ export const FILM = {
    * these frames as "the subject left the frame".
    */
   quiet: [
-    { key: 'rest', t0: 0.0, t1: 2.2 },
-    { key: 'seal-hold', t0: 14.6, t1: 15.0 },
+    { key: 'rest', t0: 0.0, t1: 1.2 },
+    { key: 'seal-hold', t0: 14.55, t1: 15.0 },
   ],
 };
 
-/** The 7-node / 6-edge MAGI model. */
-export const CORE = { x: 960, y: 540, orbit: 340, satellite: 24, coreIdle: 44, coreLit: 96 };
+/**
+ * The 7-node / 6-edge MAGI model.
+ *
+ * The composition is biased to the RIGHT. In the first version the core sat at
+ * x=960 (dead centre) and the typed line started at x=600 — which put the
+ * film's bright beats directly under the hero's text column once the film was
+ * laid full-bleed. Right-of-centre keeps the left third clear for copy and
+ * lets the film own the right, which is also where the eye lands on a wide
+ * screen.
+ */
+export const CORE = { x: 1420, y: 545, orbit: 450, satellite: 38, coreIdle: 70, coreLit: 152 };
+
+/** Where the caret types. Clear of the copy column, which ends near x=760. */
+export const TYPE_ORIGIN = { x: 1230, y: 430 };
 
 /** The line the caret types. It is also the rule and the grid's first line. */
 export const TYPED = 'datos · contexto · acción';
@@ -160,14 +172,14 @@ export const mix = (v) => v.reduce((a, b) => a * b, 1);
  * dither past legibility.
  */
 const CAM_KEYS = [
-  [0.0, 1.0, 960, 540],
-  [2.2, 1.0, 960, 540],
-  [4.6, 1.04, 960, 540],
-  [8.2, 1.12, 960, 540],
-  [10.6, 1.55, 960, 540],
-  [11.9, 1.24, 960, 540],
-  [12.7, 1.0, 960, 540],
-  [15.0, 1.0, 960, 540],
+  [0.0, 1.0, 1420, 545],
+  [1.2, 1.0, 1420, 545],
+  [4.4, 1.04, 1420, 545],
+  [8.2, 1.12, 1420, 545],
+  [10.6, 1.5, 1420, 545],
+  [11.9, 1.22, 1420, 545],
+  [12.7, 1.02, 1420, 545],
+  [15.0, 1.0, 1420, 545],
 ];
 
 export function cameraAt(t) {
@@ -184,7 +196,7 @@ export function cameraAt(t) {
  * each time something lands hard. Both are pure functions of t.
  */
 export function operatorAt(t) {
-  const rests = [t < 2.2, t > 14.0];
+  const rests = [t < 1.2, t > 14.0];
   const still = rests[0] || rests[1];
   // Landing times: each satellite contact, then the core ignition.
   const hits = [5.15, 5.62, 6.09, 6.56, 7.03, 7.5, 9.9];
@@ -214,7 +226,11 @@ export const NODES = Array.from({ length: 7 }, (_, i) => {
 export const EDGES = Array.from({ length: 6 }, (_, i) => ({ from: 0, to: i + 1 }));
 
 /** When each satellite touches down (drives the shake and the contact ring). */
-export const LAND = [5.15, 5.62, 6.09, 6.56, 7.03, 7.5];
+export const LAND = [4.75, 5.22, 5.69, 6.16, 6.63, 7.1];
+
+/** The typed line sits on grid row 3 so the rule it collapses into is a
+ *  real grid line, not a line that merely looks like one. */
+export const TYPE_RULE_Y = 360;
 
 // ---------------------------------------------------------------------------
 // Dither field. Bayer 8x8 two-value palette (docs/DESIGN.md).

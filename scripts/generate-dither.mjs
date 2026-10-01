@@ -49,6 +49,10 @@ const BAYER_8 = [
   [63, 31, 55, 23, 61, 29, 53, 21],
 ];
 
+// Only two baked dither outputs remain. The four section figures were
+// replaced by inline SVG (OperationFlowFigure, SignalTraceFigure,
+// CooperativeRingFigure): they carry real structure instead of texture, stay
+// crisp at any density, inherit the palette, and cost nothing to load.
 const ASSETS = [
   {
     name: 'hero-dither.png',
@@ -58,42 +62,6 @@ const ASSETS = [
     height: 900,
     maxBytes: 80 * 1024,
     darkBias: 12,
-  },
-  {
-    name: 'hardware-dither.png',
-    out: 'public/assets/dither/hardware-dither.png',
-    src: 'scripts/dither-src/hardware-board.svg',
-    width: 1024,
-    height: 1024,
-    maxBytes: 60 * 1024,
-    darkBias: 16,
-  },
-  {
-    name: 'agents-dither.png',
-    out: 'public/assets/dither/agents-dither.png',
-    src: 'scripts/dither-src/agents-network.svg',
-    width: 1200,
-    height: 900,
-    maxBytes: 70 * 1024,
-    darkBias: 13,
-  },
-  {
-    name: 'magi-dither.png',
-    out: 'public/assets/dither/magi-dither.png',
-    src: 'scripts/dither-src/magi-network.svg',
-    width: 1200,
-    height: 750,
-    maxBytes: 75 * 1024,
-    darkBias: 13,
-  },
-  {
-    name: 'ecosystem-dither.png',
-    out: 'public/assets/dither/ecosystem-dither.png',
-    src: 'scripts/dither-src/ecosystem-network.svg',
-    width: 1200,
-    height: 750,
-    maxBytes: 75 * 1024,
-    darkBias: 13,
   },
   {
     name: 'og-default.png',
