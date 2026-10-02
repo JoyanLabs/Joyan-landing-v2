@@ -8,6 +8,7 @@ Guía breve para desarrollar, revisar y desplegar el sitio real de JoyanLabs. El
 - [Desarrollo local](#desarrollo-local)
 - [Estructura real](#estructura-real)
 - [Contenido y configuración](#contenido-y-configuración)
+- [Motion graphics](#motion-graphics)
 - [Validación](#validación)
 - [Docker y Dokploy](#docker-y-dokploy)
 - [Colaboración](#colaboración)
@@ -64,6 +65,17 @@ Para cambiar el sitio, revisá primero:
 5. `src/assets/styles/` para los tokens y estilos globales.
 
 No agregues como contenido publicado borradores internos, credenciales ni datos que no estén autorizados para exposición pública.
+
+## Motion graphics
+
+Los films de la landing se generan desde `scripts/motion-src/` y se versionan en
+`public/assets/motion/`. Para reproducirlos, entender el pipeline o leer lo que
+se aprendió al hacerlo:
+
+- [`docs/GUIA-MOTION.md`](./docs/GUIA-MOTION.md)
+
+El contrato visual (qué color significa qué, presupuestos, accesibilidad) sigue
+en [`docs/DESIGN.md`](./docs/DESIGN.md).
 
 ## Validación
 
