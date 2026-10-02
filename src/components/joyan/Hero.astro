@@ -48,6 +48,11 @@ const { content } = Astro.props;
           {content.ctaSecondary}
         </a>
       </div>
+      {/* Names what the film behind the page is doing. This is the only place
+          a visitor is told, and without it the film is just wallpaper. */}
+      <p class="mt-8 max-w-lg border-l-2 border-accent/60 pl-4 text-sm leading-relaxed text-plomo-400">
+        {content.filmNote}
+      </p>
     </div>
   </div>
 

@@ -29,6 +29,8 @@ export const en = {
     lead: 'We design agents that understand the context of your operation and systems that record what happens in the physical world. They are built to extend your team, not replace it: real people set the goals, review every action and answer for each system.',
     ctaPrimary: 'Meet MAGI',
     ctaSecondary: 'See the ecosystem',
+    filmNote:
+      'Behind this, two identical agents do the same work. One has the pieces that support it around it and comes out right; the other works with none of that, and its result comes apart.',
   },
   agents: {
     index: '01',
@@ -52,6 +54,10 @@ export const en = {
     figure: {
       alt: 'Diagram: data, documents, history and signals enter through one shared context, an agent works on them, and a sensitive action requires a person to approve it.',
       caption: 'From context to action, with human approval',
+    },
+    film: {
+      shows: 'Three classes of action descending in parallel. The ones that can be repeated pass on their own. The one that cannot be undone stops at a gate and waits for someone to approve it.',
+      means: 'So what you decide is where the gate goes: never on everything, which turns you into a bottleneck, and never on nothing, which lets the expensive ones through.',
     },
   },
   magi: {
@@ -83,6 +89,10 @@ export const en = {
       alt: 'A network of agents converging on one lit centre: the intelligence layer of Joyan.',
       caption: 'MAGI, the intelligence layer of Joyan',
     },
+    film: {
+      shows: 'One motionless agent in the centre. The pieces that hold it up are placed around it: context, tools, memory, record. One whole row never arrives.',
+      means: 'The row that is missing is limits, budget, checks and approvals: the pieces that get left out almost every time, and without which a result cannot be called sound.',
+    },
     motion: {
       canvasLabel: 'MAGI agent network in motion',
       staticStatus: 'MAGI network at rest',
@@ -112,6 +122,10 @@ export const en = {
       alt: 'Traces of three recorded signals with their timestamps: two recent, and a third stale, drawn dashed and marked as pending synchronization.',
       caption: 'Recorded signals, with their freshness in view',
     },
+    film: {
+      shows: 'Signals that arrive with their own clock. Each one ages; when it stops arriving it loses the link and is drawn dashed, without pretending to still be current.',
+      means: 'Old data that looks current is a risk. That is why we always show since when we know what we know, and which part is still pending.',
+    },
     prototypeInvitation: {
       status: 'In development',
       body: 'We are building this connected-systems layer together with our community. There is no sale, no schedule and we promise no availability: when something concrete exists, you will read about it here.',
@@ -139,6 +153,10 @@ export const en = {
     figure: {
       alt: 'A ring of eight equally sized people connected to one another, with no hierarchy, around one shared mark.',
       caption: 'A cooperative: no hierarchy',
+    },
+    film: {
+      shows: 'One pulse crosses the whole cycle and comes back transformed, now as context for the next pulse. It stops twice: at people.',
+      means: 'What one project learns enters the next one. Knowledge does not stay in a chat, and it does not depend on who happened to be there that day.',
     },
     community: {
       status: 'In development',

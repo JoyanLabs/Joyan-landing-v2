@@ -187,6 +187,30 @@ No idle motion anywhere outside the MAGI section and the L3 hero figure.
 
 ## Hero film (motion film)
 
+### The legend — one shape, one meaning
+
+A viewer has to read these films without a caption. That only works if the same shape means the same thing everywhere, so `lib.js` owns the vocabulary and no film may invent its own. Before the legend the same concepts were drawn at four sizes — the agent was r=64 in one film, r=58 in another, r=74 in a third — and nothing carried over.
+
+| Glyph | Means |
+|---|---|
+| Ring with a block inside | something that works |
+| Small rect in a band | one piece that makes it work |
+| **Amber diamond** | a gate: it stops and waits for a person |
+| Solid line that stays | evidence, what was recorded |
+| Same line, dashed | no longer current |
+
+**The hero (F1) is where the legend is taught.** F3 then shows the same agent with the same gate *missing*, and it reads without further explanation. Amber is reserved for the gate and for what is live; nothing else is amber.
+
+### Every film must be named
+
+A film nobody can name is decoration. Each section carries two lines beside it, and the checker asserts both are present in both locales:
+
+- **`shows`** — what is literally on screen, in the visitor's words, no internal vocabulary.
+- **`means`** — why that matters to them, marked with the reserved amber rule.
+
+They are real text, so the argument survives with the film removed. `hero.filmNote` does the same job for the background film, which is otherwise the first thing on the page and completely unnamed.
+
+
 The L3 hero figure carries a 15 s seamlessly looping film, stacked **on top of** the committed `hero-dither.png` rather than replacing it.
 
 **Why the film exists:** it is the page's own diagram in motion. The caret is the hero's amber caret, the grid is the shell grid, and the network is the 7-node / 6-edge MAGI model with exactly one amber node — so the film narrates the brand's identity rather than decorating it. It carries no wordmark, no letters and no logo lockup.
@@ -228,9 +252,12 @@ Frames are always rendered at the composition's native 1920×1080 and only the e
 mkdir -p ~/.cache/joyan-motion && cd ~/.cache/joyan-motion && npm init -y && npm i -D playwright && npx playwright install chromium
 
 pnpm build   # populate dist/_astro/*.woff2 (the renderer stages the brand fonts from there)
-node scripts/motion-src/render.mjs --film F1 --out dist-motion --blur 5 --out-width 1280 --crf 34 --av1-width 1280 --av1-crf 46
-node scripts/motion-src/probe.mjs --film F1 --frames dist-motion/frames   # must print "accepted"
-cp dist-motion/harness-outcome*.mp4 public/assets/motion/
+for F in F1 F2 F3 F4 F5; do
+  node scripts/motion-src/render.mjs --film $F --out dist-motion --blur 5 \
+    --out-width 960 --crf 34 --av1-width 960 --av1-crf 46
+  node scripts/motion-src/probe.mjs --film $F --frames dist-motion/frames   # must print "accepted"
+done
+cp dist-motion/*.mp4 public/assets/motion/
 ```
 
 `probe.mjs` is an **oracle, not a linter**: it reads the rendered frames and rejects a film that reads as a slideshow — uniform cadence, beats that replace each other instead of carrying, a subject that dissolves into full-frame haze, or a visible loop seam. A rejected film is a slideshow with good typography.

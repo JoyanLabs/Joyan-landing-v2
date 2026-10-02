@@ -17,7 +17,8 @@
  */
 
 import {
-  PALETTE, LIVE, DEAD, clamp, seg, arrive, land, outQuart, outCubic, outExpo, lerp,
+  PALETTE, LIVE, DEAD, AGENT_R, AGENT_IN, STROKES,
+  clamp, seg, arrive, land, outQuart, outCubic, outExpo, lerp,
 } from '../lib.js';
 
 export const meta = {
@@ -69,12 +70,13 @@ export function build(scene) {
   const ticks = scene.add('g', {});
 
   const core = scene.add('circle', {
-    cx: CORE.x, cy: CORE.y, r: 74, fill: PALETTE.ink900,
-    stroke: 'rgba(255,255,255,0.55)', 'stroke-width': 1.5,
+    cx: CORE.x, cy: CORE.y, r: AGENT_R, fill: PALETTE.ink900,
+    stroke: STROKES.agent, 'stroke-width': 1.5,
     'vector-effect': 'non-scaling-stroke',
   });
   const coreInner = scene.add('rect', {
-    x: CORE.x - 20, y: CORE.y - 20, width: 40, height: 40, fill: PALETTE.bone,
+    x: CORE.x - AGENT_IN / 2, y: CORE.y - AGENT_IN / 2,
+    width: AGENT_IN, height: AGENT_IN, fill: PALETTE.bone,
   });
 
   const satEls = nodes.map((n) =>

@@ -1,6 +1,6 @@
 ---
 import SectionHeader from '~/components/joyan/SectionHeader.astro';
-import SignalTraceFigure from '~/components/joyan/SignalTraceFigure.astro';
+import SectionFilm from '~/components/joyan/SectionFilm.astro';
 import JournalDisclosureList from '~/components/joyan/JournalDisclosureList.astro';
 import type { HardwareContent } from '~/lib/i18n/types';
 
@@ -27,20 +27,13 @@ const { content } = Astro.props;
         keyboard focus only — never idle — and all treatments are static under
         reduced motion. The wrapper is the keyboard-visible focus target.
       -->
-      <div
-        class="hardware-surface relative self-start overflow-hidden border border-hairline bg-ink-900 focus-visible:outline focus-visible:outline-accent"
-        role="group"
-        aria-label={content.figure.caption}
-        data-hardware-surface
-        tabindex="0"
-      >
-        <SignalTraceFigure
-          alt={content.figure.alt}
-          class="hardware-figure w-full border-0"
-        />
-        <span class="hardware-scan" aria-hidden="true"></span>
-        <span class="hardware-trace" aria-hidden="true"></span>
-      </div>
+      <SectionFilm
+        stem="signal-freshness"
+        copy={content.film}
+        alt={content.figure.alt}
+        class="hardware-surface self-start"
+        surface
+      />
     </div>
 
     <div class="mt-14 border-t border-hairline pt-10">

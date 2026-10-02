@@ -1,0 +1,74 @@
+---
+import { cn } from '~/lib/utils';
+import MotionFigure from '~/components/joyan/MotionFigure.astro';
+import type { FilmCopy } from '~/lib/i18n/types';
+
+export interface Props {
+  /** Film basename under /assets/motion/, without extension. */
+  stem: string;
+  copy: FilmCopy;
+  /** Localized alt for the poster; the film itself is decorative. */
+  alt: string;
+  class?: string;
+  /**
+   * Optional focusable-surface treatment. The hardware section carries a
+   * hover/focus scan overlay; keeping it on the wrapper rather than inside
+   * the film means reduced motion still shows the poster cleanly.
+   */
+  surface?: boolean;
+}
+
+const { stem, copy, alt, class: className, surface = false } = Astro.props;
+---
+
+{/*
+  A section film and the two lines that make it readable.
+
+  The copy is not a caption. `shows` names what is literally on screen and
+  `means` says why it matters to the visitor — a film nobody can name reads as
+  decoration no matter how well it was made. Both lines are real text, so the
+  argument survives with the film removed.
+*/}
+<figure
+  class={cn(
+    'flex flex-col border border-hairline bg-ink-900',
+    surface &&
+      'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+    className
+  )}
+  data-hardware-surface={surface ? true : undefined}
+  tabindex={surface ? '0' : undefined}
+>
+  <MotionFigure
+    src="/assets/dither/hero-dither.png"
+    videoSrc={`/assets/motion/${stem}.mp4`}
+    videoSrcAv1={`/assets/motion/${stem}.av1.mp4`}
+    alt={alt}
+    width={1600}
+    height={900}
+    videoWidth={960}
+    videoHeight={540}
+    class="border-0"
+  />
+  <figcaption class="flex flex-col gap-3 border-t border-hairline px-5 py-5">
+    <p class="text-sm leading-relaxed text-bone-100">{copy.shows}</p>
+    <p class="border-l-2 border-accent pl-4 text-sm leading-relaxed text-plomo-400">
+      {copy.means}
+    </p>
+  </figcaption>
+  {
+    surface && (
+      <>
+        <span class="hardware-scan" aria-hidden="true" />
+        <span class="hardware-trace" aria-hidden="true" />
+      </>
+    )
+  }
+</figure>
+
+<style>
+  @media (prefers-reduced-motion: reduce) {
+    /* Nothing to disable: the film is already removed under reduced motion by
+       the shared `.joyan-film` rule. The text carries the argument alone. */
+  }
+</style>

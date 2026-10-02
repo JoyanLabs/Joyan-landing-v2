@@ -1,6 +1,6 @@
 ---
 import SectionHeader from '~/components/joyan/SectionHeader.astro';
-import OperationFlowFigure from '~/components/joyan/OperationFlowFigure.astro';
+import SectionFilm from '~/components/joyan/SectionFilm.astro';
 import JournalDisclosureList from '~/components/joyan/JournalDisclosureList.astro';
 import type { IllustratedSectionContent } from '~/lib/i18n/types';
 
@@ -21,7 +21,12 @@ const { content } = Astro.props;
           <JournalDisclosureList idPrefix="agents-disclosure" items={content.items} titleLevel={3} />
         </div>
       </div>
-      <OperationFlowFigure alt={content.figure.alt} class="self-start" />
+      <SectionFilm
+        stem="action-gates"
+        copy={content.film}
+        alt={content.figure.alt}
+        class="self-start"
+      />
     </div>
   </div>
 </section>

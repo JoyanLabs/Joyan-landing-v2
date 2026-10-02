@@ -27,7 +27,8 @@
  */
 
 import {
-  PALETTE, LIVE, LIVE_DIM, DEAD, clamp, seg, arrive, land, outQuart, outCubic, outExpo,
+  PALETTE, LIVE, DEAD, AGENT_R, AGENT_IN, COMPONENT_W, COMPONENT_H, STROKES,
+  agentGlyph, clamp, seg, arrive, land, outQuart, outCubic, outExpo,
   lerp, inOutCubic,
 } from '../lib.js';
 
@@ -70,8 +71,6 @@ export const meta = {
 const A_UP = { x: 1250, y: 300 };
 const A_HOME = { x: 1250, y: 545 };
 const B_DOWN = { x: 1250, y: 800 };
-const AGENT_R = 64;
-const AGENT_IN = 30;
 const OUT_W = 320;
 const OUT_H = 92;
 
@@ -101,21 +100,13 @@ export function build(scene) {
   const results = scene.add('g', {});
 
   const makeAgent = () => {
-    const g = scene.el('g', {});
-    agents.appendChild(g);
-    const ring = scene.el('circle', {
-      r: AGENT_R, fill: 'none', stroke: PALETTE.bone,
-      'stroke-width': 2.5, 'vector-effect': 'non-scaling-stroke',
-    });
-    const inner = scene.el('rect', {
-      x: -AGENT_IN / 2, y: -AGENT_IN / 2, width: AGENT_IN, height: AGENT_IN, fill: PALETTE.bone,
-    });
+    const a = agentGlyph(scene, agents, 0, 0);
     const halo = scene.el('circle', {
       r: AGENT_R, fill: 'none', stroke: PALETTE.bone, 'stroke-width': 1,
       'stroke-dasharray': '5 9', 'vector-effect': 'non-scaling-stroke', opacity: 0,
     });
-    g.appendChild(ring); g.appendChild(inner); g.appendChild(halo);
-    return { g, ring, inner, halo };
+    a.g.appendChild(halo);
+    return { ...a, halo };
   };
   const a = makeAgent();
   const b = makeAgent();
@@ -124,8 +115,9 @@ export function build(scene) {
     const isControl = p.g === 2;
     const [x, y] = SLOT[PIECES.indexOf(p)];
     const node = scene.el('rect', {
-      x: x - 52, y: y - 11, width: 104, height: 22, fill: PALETTE.ink900,
-      stroke: isControl ? LIVE : 'rgba(255,255,255,0.55)',
+      x: x - COMPONENT_W / 2, y: y - COMPONENT_H / 2,
+      width: COMPONENT_W, height: COMPONENT_H, fill: PALETTE.ink900,
+      stroke: isControl ? LIVE : STROKES.component,
       'stroke-width': isControl ? 2.5 : 1.5,
       'vector-effect': 'non-scaling-stroke', opacity: 0,
     });

@@ -17,7 +17,8 @@
  */
 
 import {
-  PALETTE, LIVE, LIVE_DIM, DEAD, clamp, seg, arrive, land, outQuart, outCubic, outExpo, lerp,
+  PALETTE, LIVE, DEAD, COMPONENT_W, COMPONENT_H, STROKES, gateGlyph,
+  clamp, seg, arrive, land, outQuart, outCubic, outExpo, lerp,
 } from '../lib.js';
 
 export const meta = {
@@ -60,8 +61,8 @@ const LANES = [
 const X0 = 300;
 const X1 = 1620;
 const GATE_X = 1060;
-const BLOCK_W = 128;
-const BLOCK_H = 58;
+const BLOCK_W = COMPONENT_W;
+const BLOCK_H = COMPONENT_H * 2.4;
 
 export function build(scene) {
   scene.ground();
@@ -124,19 +125,13 @@ export function build(scene) {
     return { ...l, trace, blocks, tick };
   });
 
-  const gate = scene.add('g', { opacity: 0 });
-  const gd = scene.el('path', {
-    d: 'M0 -46L46 0 0 46 -46 0Z', fill: LIVE_DIM, stroke: LIVE,
-    'stroke-width': 3, 'vector-effect': 'non-scaling-stroke',
-  });
-  gd.setAttribute('transform', `translate(${GATE_X} ${LANES[2].y})`);
-  gate.appendChild(gd);
+  const gate = gateGlyph(scene, scene.cam, GATE_X, LANES[2].y);
 
   return (t) => {
     scene.set(grid, { opacity: '0.34' });
 
     const gatesIn = arrive(seg(t, 5.7, 6.5), 3.0, 1);
-    scene.set(gate, { opacity: (gatesIn * fade(t)).toFixed(3) });
+    scene.set(gate.g, { opacity: (gatesIn * fade(t)).toFixed(3) });
 
     for (const lane of lanes) {
       lane.blocks.forEach((b, k) => {
@@ -167,7 +162,7 @@ export function build(scene) {
           const waiting = clamp(seg(t, 6.6, 7.0)) * (1 - clamp(seg(t, 9.2, 9.5)));
           scene.set(b, {
             fill: waiting > 0.35 ? PALETTE.ink800 : PALETTE.ink900,
-            stroke: waiting > 0.35 ? LIVE : 'rgba(255,255,255,0.55)',
+            stroke: waiting > 0.35 ? LIVE : STROKES.component,
             'stroke-width': waiting > 0.35 ? 3 : 1.5,
           });
         }

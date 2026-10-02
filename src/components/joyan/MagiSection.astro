@@ -3,6 +3,7 @@ import SectionHeader from '~/components/joyan/SectionHeader.astro';
 import TerminalBlock from '~/components/joyan/TerminalBlock.astro';
 import MagiParticleCanvas from '~/components/joyan/MagiParticleCanvas.astro';
 import JournalDisclosureList from '~/components/joyan/JournalDisclosureList.astro';
+import SectionFilm from '~/components/joyan/SectionFilm.astro';
 import type { MagiContent } from '~/lib/i18n/types';
 
 export interface Props {
@@ -23,10 +24,13 @@ const { content } = Astro.props;
       <div class="flex flex-col gap-8">
         <MagiParticleCanvas motion={content.motion} class="lg:mt-4" />
         <TerminalBlock lines={content.terminalLines} />
-        {/* The dither figure was removed: the section already carries the real
-            7-node diagram with its live particle overlay directly above it.
-            A second, meaningless version of the same idea was pure noise. */}
       </div>
+      <SectionFilm
+        stem="harness-assembly"
+        copy={content.film}
+        alt={content.figure.alt}
+        class="mt-10"
+      />
     </div>
   </div>
 </section>

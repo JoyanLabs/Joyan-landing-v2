@@ -1,6 +1,6 @@
 ---
 import SectionHeader from '~/components/joyan/SectionHeader.astro';
-import CooperativeRingFigure from '~/components/joyan/CooperativeRingFigure.astro';
+import SectionFilm from '~/components/joyan/SectionFilm.astro';
 import JournalDisclosureList from '~/components/joyan/JournalDisclosureList.astro';
 import type { EcosystemContent } from '~/lib/i18n/types';
 
@@ -30,7 +30,12 @@ const communityOffers = [
           <JournalDisclosureList idPrefix="ecosystem-disclosure" items={content.items} titleLevel={3} />
         </div>
       </div>
-      <CooperativeRingFigure alt={content.figure.alt} class="self-start" />
+      <SectionFilm
+        stem="knowledge-cycle"
+        copy={content.film}
+        alt={content.figure.alt}
+        class="self-start"
+      />
     </div>
 
     <div class="mt-20 border-t border-hairline pt-12">

@@ -17,7 +17,8 @@
  */
 
 import {
-  PALETTE, LIVE, LIVE_DIM, DEAD, clamp, seg, arrive, land, outQuart, outCubic, outExpo, lerp,
+  PALETTE, LIVE, DEAD, AGENT_R, AGENT_IN, STROKES, gateGlyph,
+  clamp, seg, arrive, land, outQuart, outCubic, outExpo, lerp,
 } from '../lib.js';
 
 export const meta = {
@@ -91,12 +92,9 @@ export function build(scene) {
     const g = scene.el('g', { opacity: 0 });
     stLayer.appendChild(g);
     if (STATIONS[i].live) {
-      const gate = scene.el('path', {
-        d: 'M0 -38L38 0 0 38 -38 0Z', fill: LIVE_DIM, stroke: LIVE,
-        'stroke-width': 2.5, 'vector-effect': 'non-scaling-stroke',
-      });
-      gate.setAttribute('transform', `translate(${p.x} ${p.y})`);
-      g.appendChild(gate);
+      const gate = gateGlyph(scene, g, 0, 0);
+      gate.g.removeAttribute('transform');
+      void gate;
     } else {
       g.appendChild(
         scene.el('circle', {

@@ -1312,12 +1312,11 @@ for (const [page, html, content] of [
     fail(`figure: ${page} og-default.png must appear only in social meta tags, never as an in-page image`);
   }
   const figures = [...html.matchAll(/<figure[\s\S]*?<\/figure>/g)].map((m) => m[0]);
-  // L3 hero + three inline SVG section figures. MAGI has no figure: it already
-  // carries the real 7-node diagram and its live overlay.
-  if (figures.length === 4) {
-    pass(`figure: ${page} renders exactly 4 figures (L3 hero + 3 inline SVG section figures)`);
+  // L3 hero + one film per section, MAGI included.
+  if (figures.length === 5) {
+    pass(`figure: ${page} renders exactly 5 figures (L3 hero + 4 section films)`);
   } else {
-    fail(`figure: ${page} must render exactly 4 figure elements, found ${figures.length}`);
+    fail(`figure: ${page} must render exactly 5 figure elements, found ${figures.length}`);
   }
   if (figures.every((f) => !/<script/i.test(f))) {
     pass(`figure: ${page} figures are static markup (no JS, no script inside)`);
@@ -1325,27 +1324,19 @@ for (const [page, html, content] of [
     fail(`figure: ${page} figure elements must not contain scripts`);
   }
 
-  // Every informative inline SVG figure must expose an accessible name. The
-  // section figures replaced `<img alt>` with `role="img"` + `aria-label`, so
-  // this is the check that keeps that equivalent.
-  for (const [label, key] of [
-    ['agents', 'agents'],
-    ['hardware', 'hardware'],
-    ['ecosystem', 'ecosystem'],
-  ]) {
-    const region = sectionRegion(html, label);
+  // Every section figure must carry its poster alt. The films replaced the
+  // inline SVGs, and this keeps the accessible name from being lost with them:
+  // the film is decorative and removed under reduced motion, so the poster is
+  // the only thing a screen reader ever meets.
+  for (const key of ['agents', 'magi', 'hardware', 'ecosystem']) {
+    const region = sectionRegion(html, key);
     if (!region) continue;
-    const svg = region.match(/<svg\b[\s\S]*?<\/svg>/)?.[0] ?? '';
     const expected = content[key]?.figure?.alt;
-    if (svg.includes('role="img"') && svg.includes(`aria-label="${expected}"`)) {
-      pass(`figure: ${page} #${label} inline SVG carries its localized accessible name`);
+    const imgTag = region.match(/<img\b[^>]*>/)?.[0] ?? '';
+    if (expected && imgTag.includes(`alt="${expected}"`)) {
+      pass(`figure: ${page} #${key} poster carries its localized alt`);
     } else {
-      fail(`figure: ${page} #${label} inline SVG must expose role="img" with its localized aria-label`);
-    }
-    if (!/<(text|script|style)/.test(svg.replace(/<text[\s\S]*?<\/text>/g, ''))) {
-      pass(`figure: ${page} #${label} inline SVG holds no raster or embedded content`);
-    } else {
-      fail(`figure: ${page} #${label} inline SVG must stay vector-only`);
+      fail(`figure: ${page} #${key} poster must carry alt="${expected}"`);
     }
   }
   if (figures.every((figure) => !/<script/i.test(figure))) {
@@ -1356,85 +1347,67 @@ for (const [page, html, content] of [
 }
 
 // ---------------------------------------------------------------------------
-// 8g5. Hero film contract (docs/DESIGN.md - Hero film).
+// 8g5. Motion film contract (docs/DESIGN.md - Hero film).
 //
-//     The film is progressive enhancement, and that is the whole claim. These
-//     assertions exist so that claim cannot be quietly broken: a hero that
-//     starts depending on the video, or a reduced-motion path that leaves a
-//     paused first frame on screen, both fail here rather than in production.
-// ---------------------------------------------------------------------------
-const HERO_POSTER = '/assets/dither/hero-dither.png';
+//     Every film the page consumes is asserted here: it exists, it is in
+//     budget, it appears exactly once, in its declared section, with its AV1
+//     source ahead of its H.264 fallback and its own intrinsic size. A hero
+//     pointing at a film nothing regenerates is exactly how R3-003 happened.
+const FILMS = [
+  { stem: 'harness-outcome', section: 'top', w: 1280, h: 720 },
+  { stem: 'action-gates', section: 'agents', w: 960, h: 540 },
+  { stem: 'harness-assembly', section: 'magi', w: 960, h: 540 },
+  { stem: 'signal-freshness', section: 'hardware', w: 960, h: 540 },
+  { stem: 'knowledge-cycle', section: 'ecosystem', w: 960, h: 540 },
+].map((f) => ({
+  ...f,
+  maxBytes: 300 * 1024,
+  sources: [
+    { path: `/assets/motion/${f.stem}.av1.mp4`, label: 'AV1 (primary)' },
+    { path: `/assets/motion/${f.stem}.mp4`, label: 'H.264 (fallback)' },
+  ],
+}));
 
-// Two encodes of the same 15 s film. The browser downloads the first source
-// it can decode and never requests the rest, so only ONE of these reaches any
-// given visitor. AV1 is listed first and is delivered one resolution higher
-// at fewer bytes than the H.264 fallback it sits in front of.
-// docs/DESIGN.md - Hero film asset contract.
-const FILM_STEM = '/assets/motion/harness-outcome';
-const FILM_SOURCES = [
-  { path: `${FILM_STEM}.av1.mp4`, label: 'AV1 (primary)', maxBytes: 300 * 1024 },
-  { path: `${FILM_STEM}.mp4`, label: 'H.264 (fallback)', maxBytes: 300 * 1024 },
-];
-// The film the hero consumes must be the one the renderer actually produces,
-// at the size it is actually authored. A mismatch here is how a hero ends up
-// pointing at an asset nothing regenerates.
-const FILM_WIDTH = 1280;
-const FILM_HEIGHT = 720;
-
-for (const src of FILM_SOURCES) {
-  const file = resolve(ROOT, 'public', src.path.replace(/^\//, ''));
-  if (!existsSync(file)) {
-    fail(`film: committed hero film ${src.path} is missing`);
-    continue;
-  }
-  const bytes = statSync(file).size;
-  if (bytes <= src.maxBytes) {
-    pass(`film: ${src.path} within budget (${bytes} / ${src.maxBytes} bytes, ${src.label})`);
-  } else {
-    fail(`film: ${src.path} must be <= ${src.maxBytes} bytes, got ${bytes}`);
+for (const film of FILMS) {
+  for (const src of film.sources) {
+    const file = resolve(ROOT, 'public', src.path.replace(/^\//, ''));
+    if (!existsSync(file)) {
+      fail(`film: committed film ${src.path} is missing`);
+      continue;
+    }
+    const bytes = statSync(file).size;
+    if (bytes <= film.maxBytes) {
+      pass(`film: ${src.path} within budget (${bytes} / ${film.maxBytes} bytes, ${src.label})`);
+    } else {
+      fail(`film: ${src.path} must be <= ${film.maxBytes} bytes, got ${bytes}`);
+    }
   }
 }
 
-for (const [page, html] of [
-  ['ES', esHtml],
-  ['EN', enHtml],
+for (const [page, html, content] of [
+  ['ES', esHtml, esContent],
+  ['EN', enHtml, enContent],
 ]) {
   if (!html) continue;
-  const region = sectionRegion(html, 'top');
-  if (!region) {
-    fail(`film: ${page} #top section must render`);
-    continue;
-  }
-  for (const src of FILM_SOURCES) {
-    const occurrences = (html.match(new RegExp(`src="${escapeRegex(src.path)}"`, 'g')) ?? []).length;
-    if (occurrences === 1) {
-      pass(`film: ${page} ${src.path} appears exactly once (containment, no repeats)`);
-    } else {
-      fail(`film: ${page} ${src.path} must appear exactly once, found ${occurrences}`);
+  for (const film of FILMS) {
+    const region = sectionRegion(html, film.section);
+    if (!region) {
+      fail(`film: ${page} #${film.section} must render to host ${film.stem}`);
+      continue;
     }
-  }
-
-  // AV1 must be listed before H.264 or the quality tier is dead weight: the
-  // browser stops at the first source it can decode.
-  const heroVideo = region.match(/<video\b[\s\S]*?<\/video>/)?.[0] ?? '';
-  const av1At = heroVideo.indexOf('harness-outcome.av1.mp4');
-  const h264At = heroVideo.indexOf('harness-outcome.mp4');
-  if (av1At !== -1 && h264At !== -1 && av1At < h264At) {
-    pass(`film: ${page} AV1 source precedes the H.264 fallback`);
-  } else {
-    fail(`film: ${page} the AV1 source must be listed before the H.264 fallback`);
-  }
-  if (/type="video\/mp4; codecs=&quot;av01/.test(heroVideo)) {
-    pass(`film: ${page} AV1 source declares its codec in the type`);
-  } else {
-    fail(`film: ${page} AV1 source must declare codecs="av01..." in its type`);
-  }
-
-  const videoTag = region.match(/<video\b[^>]*>/)?.[0] ?? '';
-  if (!videoTag) {
-    fail(`film: ${page} hero must render the <video> film`);
-  } else {
-    // Autoplay only works muted; without these the hero shows a dead frame.
+    for (const src of film.sources) {
+      const occurrences = (html.match(new RegExp(`src="${escapeRegex(src.path)}"`, 'g')) ?? []).length;
+      if (occurrences === 1) {
+        pass(`film: ${page} ${src.path} appears exactly once (containment)`);
+      } else {
+        fail(`film: ${page} ${src.path} must appear exactly once, found ${occurrences}`);
+      }
+    }
+    const heroVideo = region.match(/<video\b[\s\S]*?<\/video>/)?.[0] ?? '';
+    if (!heroVideo) {
+      fail(`film: ${page} #${film.section} must render a <video> for ${film.stem}`);
+      continue;
+    }
     for (const [attr, label] of [
       ['autoplay', 'autoplay'],
       ['muted', 'muted (required for autoplay)'],
@@ -1442,45 +1415,68 @@ for (const [page, html] of [
       ['playsinline', 'playsinline (required for iOS inline playback)'],
       ['aria-hidden="true"', 'aria-hidden (decorative)'],
       ['tabindex="-1"', 'tabindex="-1" (never focusable)'],
-      [`width="${FILM_WIDTH}"`, 'intrinsic width'],
-      [`height="${FILM_HEIGHT}"`, 'intrinsic height'],
+      [`width="${film.w}"`, 'its declared intrinsic width'],
+      [`height="${film.h}"`, 'its declared intrinsic height'],
     ]) {
-      if (videoTag.includes(attr)) {
-        pass(`film: ${page} hero video carries ${label}`);
+      if (heroVideo.includes(attr)) {
+        pass(`film: ${page} ${film.stem} video carries ${label}`);
       } else {
-        fail(`film: ${page} hero video must carry ${label}`);
+        fail(`film: ${page} ${film.stem} video must carry ${label}`);
       }
     }
-    if (!/\bcontrols\b/.test(videoTag)) {
-      pass(`film: ${page} hero video has no controls (ambient, not a player)`);
+    if (!/\bcontrols\b/.test(heroVideo)) {
+      pass(`film: ${page} ${film.stem} video has no controls (ambient, not a player)`);
     } else {
-      fail(`film: ${page} hero video must not expose controls`);
+      fail(`film: ${page} ${film.stem} video must not expose controls`);
     }
-    if (/\bon[a-z]+=/.test(videoTag)) {
-      fail(`film: ${page} hero video must not carry inline event handlers`);
+    if (/\bon[a-z]+=/.test(heroVideo)) {
+      fail(`film: ${page} ${film.stem} video must not carry inline event handlers`);
     } else {
-      pass(`film: ${page} hero film runs with no JS`);
+      pass(`film: ${page} ${film.stem} runs with no JS`);
+    }
+    // AV1 first: the browser stops at the first source it can decode, so a
+    // reversed order makes the sharper encode dead weight.
+    const av1At = heroVideo.indexOf(`${film.stem}.av1.mp4`);
+    const h264At = heroVideo.indexOf(`${film.stem}.mp4`);
+    if (av1At !== -1 && h264At !== -1 && av1At < h264At) {
+      pass(`film: ${page} ${film.stem} lists AV1 before the H.264 fallback`);
+    } else {
+      fail(`film: ${page} ${film.stem} must list AV1 before the H.264 fallback`);
     }
   }
 
-  // The stack contract: the poster is a real <img> in the DOM, not a `poster`
-  // attribute. That is what makes no-JS and reduced-motion land on the image.
-  const heroFigure = region.match(/<figure\b[\s\S]*?<\/figure>/)?.[0] ?? '';
-  if (heroFigure.includes(`src="${HERO_POSTER}"`)) {
-    pass(`film: ${page} hero stacks the film over the static poster (no-JS path)`);
-  } else {
-    fail(`film: ${page} hero figure must keep the ${HERO_POSTER} poster underneath`);
+  // Every film must be NAMED. A film nobody can name reads as decoration, and
+  // the two lines beside it are the only thing that carries the argument when
+  // the film is removed for reduced motion.
+  for (const key of ['agents', 'magi', 'hardware', 'ecosystem']) {
+    const region = sectionRegion(html, key);
+    if (!region) continue;
+    // Each page's own locale: comparing EN output against the ES copy would
+    // fail the mirror for the right reason but the wrong message.
+    const shows = content[key]?.film?.shows;
+    const means = content[key]?.film?.means;
+    if (shows && region.includes(shows)) {
+      pass(`film: ${page} #${key} names what its film shows`);
+    } else {
+      fail(`film: ${page} #${key} must render its localized film "shows" line`);
+    }
+    if (means && region.includes(means)) {
+      pass(`film: ${page} #${key} states what its film means`);
+    } else {
+      fail(`film: ${page} #${key} must render its localized film "means" line`);
+    }
   }
-  if (heroFigure.indexOf(HERO_POSTER) < heroFigure.indexOf('<video')) {
-    pass(`film: ${page} poster precedes the video (poster is the base layer)`);
+
+  const heroRegion = sectionRegion(html, 'top');
+  if (heroRegion && content.hero?.filmNote && heroRegion.includes(content.hero.filmNote)) {
+    pass(`film: ${page} hero names what its background film is showing`);
   } else {
-    fail(`film: ${page} the poster <img> must come before the <video> in the hero figure`);
+    fail(`film: ${page} hero must render its localized filmNote`);
   }
 }
 
-// Reuse the brace-aware reduced-motion block extraction already built above
-// (reducedMotionBlocks): the minifier merges sibling media blocks, so the film
-// rule shares a block with the disclosure rules and plain regex truncates.
+// The hero keeps the static poster underneath; every section film falls back
+// to the same one, so no-JS / reduced-motion always land on an image.
 if (reducedMotionBlocks.some((b) => /\.joyan-film\{display:none\}/.test(b))) {
   pass('film: reduced-motion users get the static poster (film removed, not paused)');
 } else {

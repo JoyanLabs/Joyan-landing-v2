@@ -45,6 +45,8 @@ export const es = {
     lead: 'Diseñamos agentes que entienden el contexto de tu operación y sistemas que registran lo que ocurre en el mundo físico. Los construimos para ampliar a tu equipo, no para reemplazarlo: personas reales definen los objetivos, revisan cada acción y responden por cada sistema.',
     ctaPrimary: 'Conocer MAGI',
     ctaSecondary: 'Ver el ecosistema',
+    filmNote:
+      'En el fondo, dos agentes idénticos hacen el mismo trabajo. Uno tiene alrededor las piezas que lo sostienen y sale bien; el otro trabaja sin nada de eso, y su resultado se deshace.',
   },
   agents: {
     index: '01',
@@ -68,6 +70,10 @@ export const es = {
     figure: {
       alt: 'Esquema: datos, documentos, historial y señales entran por un contexto común, un agente trabaja sobre ellos y una acción sensible requiere aprobación de una persona.',
       caption: 'Del contexto a la acción, con aprobación humana',
+    },
+    film: {
+      shows: 'Tres clases de acción bajando en paralelo. Las que se pueden repetir pasan solas. La que no se puede deshacer se detiene en un portón y espera a que alguien la apruebe.',
+      means: 'Por eso lo que decides es dónde va el portón: nunca sobre todo, que te convierte en cuello de botella, ni sobre nada, que deja pasar lo caro.',
     },
   },
   magi: {
@@ -99,6 +105,10 @@ export const es = {
       alt: 'Red de agentes convergen en un único centro encendido: la capa de inteligencia de Joyan.',
       caption: 'MAGI, la capa de inteligencia de Joyan',
     },
+    film: {
+      shows: 'Un agente quieto en el centro. Alrededor se colocan las piezas que lo sostienen: contexto, herramientas, memoria, registro. Una fila entera no llega nunca.',
+      means: 'Esa fila ausente son los límites, el presupuesto, las verificaciones y las aprobaciones: las piezas que casi siempre se omiten y sin las cuales un resultado no se puede dar por bueno.',
+    },
     motion: {
       canvasLabel: 'Red de agentes de MAGI en movimiento',
       staticStatus: 'Red de MAGI en reposo',
@@ -128,6 +138,10 @@ export const es = {
       alt: 'Trazas de tres señales registradas con su marca de tiempo: dos recientes y una tercera desactualizada, dibujada en trazo discontinuo y marcada como pendiente de sincronizar.',
       caption: 'Señales registradas, con su frescura a la vista',
     },
+    film: {
+      shows: 'Señales que llegan con su reloj. Cada una envejece; cuando deja de llegar, pierde el enlace y se dibuja punteada, sin fingir que sigue actual.',
+      means: 'Un dato viejo con aspecto de dato actual es un riesgo. Por eso siempre mostramos desde cuándo sabemos lo que sabemos, y qué parte quedó pendiente.',
+    },
     prototypeInvitation: {
       status: 'En desarrollo',
       body: 'Estamos construyendo esta capa de sistemas conectados junto a nuestra comunidad. No hay venta, no hay plazos y no prometemos disponibilidad: cuando haya algo concreto, lo vas a saber acá.',
@@ -155,6 +169,10 @@ export const es = {
     figure: {
       alt: 'Anillo de ocho personas de igual tamaño conectadas entre sí, sin jerarquía, alrededor de una marca compartida.',
       caption: 'Una cooperativa: sin jerarquía',
+    },
+    film: {
+      shows: 'Un impulso recorre el ciclo entero y vuelve transformado, ya como contexto para el impulso siguiente. Se detiene dos veces: en las personas.',
+      means: 'Lo que se aprende en un proyecto entra al siguiente. El conocimiento no se queda en un chat ni depende de quién estaba ese día.',
     },
     community: {
       status: 'En desarrollo',

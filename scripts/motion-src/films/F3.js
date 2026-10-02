@@ -17,7 +17,8 @@
  */
 
 import {
-  PALETTE, LIVE, LIVE_DIM, DEAD, clamp, seg, arrive, land, outQuart, outCubic, outExpo, lerp,
+  PALETTE, LIVE, DEAD, AGENT_R, AGENT_IN, COMPONENT_W, COMPONENT_H, STROKES,
+  agentGlyph, clamp, seg, arrive, land, outQuart, outCubic, outExpo, lerp,
 } from '../lib.js';
 
 export const meta = {
@@ -53,14 +54,13 @@ export const meta = {
 };
 
 const AGENT = { x: 960, y: 540 };
-const AGENT_R = 58;
 
 /** Four bands of the canonical model. Group 2 is CONTROL and never arrives. */
 const BANDS = [
-  { key: 0, count: 2, y: 210, arrive: 1.9, stroke: 'rgba(255,255,255,0.55)' },
-  { key: 1, count: 4, y: 330, arrive: 2.7, stroke: 'rgba(255,255,255,0.55)' },
+  { key: 0, count: 2, y: 210, arrive: 1.9, stroke: STROKES.component },
+  { key: 1, count: 4, y: 330, arrive: 2.7, stroke: STROKES.component },
   { key: 2, count: 4, y: 750, arrive: null, stroke: LIVE }, // never arrives
-  { key: 3, count: 3, y: 870, arrive: 3.5, stroke: 'rgba(255,255,255,0.55)' },
+  { key: 3, count: 3, y: 870, arrive: 3.5, stroke: STROKES.component },
 ];
 const SLOT_W = 150;
 
@@ -72,13 +72,8 @@ export function build(scene) {
   const agentLayer = scene.add('g', {});
   const gapLayer = scene.add('g', {});
 
-  const agent = scene.add('circle', {
-    cx: AGENT.x, cy: AGENT.y, r: AGENT_R, fill: 'none',
-    stroke: PALETTE.bone, 'stroke-width': 2.5, 'vector-effect': 'non-scaling-stroke',
-  });
-  const agentInner = scene.add('rect', {
-    x: AGENT.x - 15, y: AGENT.y - 15, width: 30, height: 30, fill: PALETTE.bone,
-  });
+  const a = agentGlyph(scene, scene.cam, AGENT.x, AGENT.y);
+  const agent = a.ring;
 
   const pieces = [];
   for (const b of BANDS) {
@@ -91,7 +86,8 @@ export function build(scene) {
       });
       spokes.appendChild(spoke);
       const node = scene.el('rect', {
-        x: cx - 52, y: b.y - 12, width: 104, height: 24, fill: PALETTE.ink900,
+        x: cx - COMPONENT_W / 2, y: b.y - COMPONENT_H / 2,
+        width: COMPONENT_W, height: COMPONENT_H, fill: PALETTE.ink900,
         stroke: b.stroke, 'stroke-width': 1.5,
         'vector-effect': 'non-scaling-stroke', opacity: 0,
       });
@@ -106,7 +102,8 @@ export function build(scene) {
     const cx = AGENT.x + (i - (gapSlots - 1) / 2) * SLOT_W;
     gapLayer.appendChild(
       scene.el('rect', {
-        x: cx - 52, y: BANDS[2].y - 12, width: 104, height: 24,
+        x: cx - COMPONENT_W / 2, y: BANDS[2].y - COMPONENT_H / 2,
+        width: COMPONENT_W, height: COMPONENT_H,
         fill: 'none', stroke: DEAD, 'stroke-width': 1.5,
         'stroke-dasharray': '7 6', 'vector-effect': 'non-scaling-stroke', opacity: 0,
       })
@@ -129,6 +126,9 @@ export function build(scene) {
 
   return (t) => {
     scene.set(grid, { opacity: '0.34' });
+    // agentGlyph is born hidden like every other element in the legend; the
+    // agent is the one thing that must be on screen from frame 0.
+    scene.set(a.g, { opacity: '1' });
     scene.set(agentLayer, { opacity: '1' });
 
     const fade = 1 - outCubic(seg(t, 11.6, 12.8));

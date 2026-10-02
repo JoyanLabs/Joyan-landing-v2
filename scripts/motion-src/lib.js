@@ -42,6 +42,71 @@ export const LIVE_DIM = 'rgba(255,176,0,0.34)';
 export const DEAD = PALETTE.plomo500;
 
 // ---------------------------------------------------------------------------
+// THE LEGEND
+//
+// A viewer has to read these films without a caption. That only works if one
+// shape means one thing, everywhere. Before this the same concepts were drawn
+// at four different sizes — the agent was r=64 in one film, r=58 in another,
+// r=74 in a third; the gate diamond was 46 and then 38 — so nothing carried
+// over between films and every frame needed its own explanation.
+//
+// The hero film (F1) is where the legend is taught: agent, the ring of
+// components around it, and the amber gate. F3 then shows the same agent with
+// the same gate MISSING, and it reads without any further explanation.
+//
+//   AGENT      a ring with a block inside  = something that works
+//   COMPONENT  a small rect in a band     = one piece that makes it work
+//   GATE       the amber diamond          = it stops and waits for a person
+//   TRACE      a solid line that stays    = evidence, what was recorded
+//   STALE      the same line, dashed      = no longer current
+//
+// AMBER IS RESERVED for the GATE and for what is live. Nothing else is amber.
+// ---------------------------------------------------------------------------
+
+export const AGENT_R = 60;
+export const AGENT_IN = 30;
+export const COMPONENT_W = 104;
+export const COMPONENT_H = 24;
+export const GATE_R = 38;
+export const TRACE_H = 6;
+
+export const STROKES = {
+  agent: 'rgba(255,255,255,0.55)',
+  component: 'rgba(255,255,255,0.55)',
+  strong: 'rgba(255,255,255,0.75)',
+};
+
+/** The agent glyph. Identical in every film, at every size. */
+export function agentGlyph(scene, parent, cx, cy, { r = AGENT_R } = {}) {
+  const g = scene.el('g', { transform: `translate(${cx} ${cy})`, opacity: 0 });
+  parent.appendChild(g);
+  const ring = scene.el('circle', {
+    r, fill: 'none', stroke: PALETTE.bone,
+    'stroke-width': 2.5, 'vector-effect': 'non-scaling-stroke',
+  });
+  const inner = scene.el('rect', {
+    x: -AGENT_IN / 2, y: -AGENT_IN / 2, width: AGENT_IN, height: AGENT_IN,
+    fill: PALETTE.bone,
+  });
+  g.appendChild(ring);
+  g.appendChild(inner);
+  return { g, ring, inner };
+}
+
+/** The gate. The only amber shape in the legend. */
+export function gateGlyph(scene, parent, cx, cy) {
+  const g = scene.el('g', { transform: `translate(${cx} ${cy})`, opacity: 0 });
+  parent.appendChild(g);
+  const d = scene.el('path', {
+    d: `M0 ${-GATE_R}L${GATE_R} 0 0 ${GATE_R} ${-GATE_R} 0Z`,
+    fill: LIVE_DIM, stroke: LIVE, 'stroke-width': 2.5,
+    'vector-effect': 'non-scaling-stroke',
+  });
+  g.appendChild(d);
+  return { g, d };
+}
+
+// ---------------------------------------------------------------------------
 // Moves. Closed-form and measured. No hand-rolled easings anywhere.
 // ---------------------------------------------------------------------------
 

@@ -36,6 +36,12 @@ export interface HeroContent {
   lead: string;
   ctaPrimary: string;
   ctaSecondary: string;
+  /**
+   * One line naming what the hero film is showing. The film is the first thing
+   * on the page; if the copy does not say what it depicts, it reads as
+   * background video and nothing else.
+   */
+  filmNote: string;
 }
 
 export interface FeatureItem {
@@ -56,8 +62,21 @@ export interface FigureCopy {
   caption: string;
 }
 
+/**
+ * The two lines that make a section film readable on its own.
+ *
+ * `shows` names what is literally on screen, in the visitor's words and
+ * without internal vocabulary. `means` states why that matters to them. A
+ * film that is not named is decoration, however well it is made.
+ */
+export interface FilmCopy {
+  shows: string;
+  means: string;
+}
+
 export interface IllustratedSectionContent extends SectionContent {
   figure: FigureCopy;
+  film: FilmCopy;
 }
 
 /**
