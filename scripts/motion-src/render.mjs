@@ -20,31 +20,25 @@
 
 import { createServer } from 'node:http';
 import { spawn, spawnSync } from 'node:child_process';
-import { createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = resolve(fileURLToPath(new URL('.', import.meta.url)));
-const argv0 = process.argv.slice(2);
-const filmArg0 = (() => { const i = argv0.indexOf('--film'); return i === -1 ? 'F1' : argv0[i + 1]; })();
-// Beat sheet comes from the film itself, so the renderer and the composition
-// cannot disagree about duration or frame count.
-// A scene lives beside the argument films, not among them: `films/` is the five
-// films that carry a claim, `scenes/` is art with tone. Resolve by what exists
-// so adding the next scene is a new file, not another special case here.
-const filmDir = existsSync(join(HERE, 'scenes', `${filmArg0}.js`)) ? 'scenes' : 'films';
-const { default: filmModule } = await import(`./${filmDir}/${filmArg0}.js`);
-const FILM = filmModule.meta;
 const REPO = resolve(HERE, '../..');
 
-const argv = process.argv.slice(2);
-const arg = (name, fallback) => {
-  const i = argv.indexOf(`--${name}`);
-  return i === -1 ? fallback : argv[i + 1];
-};
-
-const OUT = resolve(REPO, arg('out', 'dist-motion'));
-const FILM_ID = filmArg0;
+// Importable so the determinism gate can seek the same t in two orders using
+// this exact page setup. A harness that reimplements it tests another program.
+export async function loadFilm(filmId) {
+  // Beat sheet comes from the film itself, so the renderer and the composition
+  // cannot disagree about duration or frame count.
+  // A scene lives beside the argument films, not among them: `films/` is the five
+  // films that carry a claim, `scenes/` is art with tone. Resolve by what exists
+  // so adding the next scene is a new file, not another special case here.
+  const filmDir = existsSync(join(HERE, 'scenes', `${filmId}.js`)) ? 'scenes' : 'films';
+  const { default: filmModule } = await import(`./${filmDir}/${filmId}.js`);
+  return filmModule.meta;
+}
 
 /**
  * The output directory is removed recursively before rendering starts, so a
@@ -58,7 +52,7 @@ const FILM_ID = filmArg0;
  * git-tracked file. An external scratch directory carries no source, so it
  * stays allowed.
  */
-function assertSafeOutput(dir) {
+function assertSafeOutput(dir, FILM) {
   const refuse = (why) => {
     throw new Error(
       `refusing --out ${dir}: ${why}.\n` +
@@ -132,27 +126,6 @@ function assertSafeOutput(dir) {
     if (abs === dir || abs.startsWith(dir + sep)) refuse(`it holds tracked file ${file}`);
   }
 }
-const BLUR = Math.max(1, Number(arg('blur', 1)));
-const SCALE = Number(arg('scale', 1));
-// Delivery size. Frames are always rendered at the composition's native
-// 1920x1080 so motion blur has real detail to smear. Only the encode is
-// downscaled normally; halftone runs resize after blur but before dot painting.
-// Rendering small and blurring it is how hairlines disappear.
-const OUT_WIDTH = Number(arg('out-width', FILM.width));
-const CRF = Number(arg('crf', 18));
-const DITHER = argv.includes('--dither');
-const DITHER_CELL = Number(arg('dither-cell', 8));
-if (DITHER && (!Number.isInteger(DITHER_CELL) || DITHER_CELL < 1)) {
-  throw new RangeError('--dither-cell must be a positive integer');
-}
-const encHeight = (w) => Math.round((w * FILM.height) / FILM.width / 2) * 2;
-
-// AV1 is emitted alongside the H.264 fallback. The browser picks the first
-// source it can decode, so this is a quality tier rather than a cost: modern
-// engines get the sharper encode and only pay for it.
-const AV1_WIDTH = Number(arg('av1-width', 0));
-const AV1_CRF = Number(arg('av1-crf', 46));
-const AV1_PRESET = Number(arg('av1-preset', 6));
 const SHUTTER = 180 / (360 * 30); // 180 degrees at 30 fps, in frames
 
 const MIME = {
@@ -169,7 +142,7 @@ const MIME = {
  * it; fall back to a normal resolution so the script still works if somebody
  * did install it locally.
  */
-async function loadPlaywright() {
+export async function loadPlaywright() {
   const toolchain = process.env.MOTION_TOOLCHAIN ?? join(process.env.HOME ?? '', '.cache/joyan-motion');
   const candidates = [join(toolchain, 'node_modules/playwright')];
   try {
@@ -190,7 +163,7 @@ async function loadPlaywright() {
   );
 }
 
-function stageFonts() {
+export function stageFonts() {
   const fs = readdirSync(join(REPO, 'node_modules/@fontsource-variable/archivo/files'));
   const mono = readdirSync(join(REPO, 'node_modules/@fontsource-variable/jetbrains-mono/files'));
   const pick = (list) => list.find((f) => f === 'archivo-latin-wght-normal.woff2' || f === 'jetbrains-mono-latin-wght-normal.woff2');
@@ -204,7 +177,7 @@ function stageFonts() {
   }
 }
 
-function serve(root) {
+export function serve(root = HERE) {
   const server = createServer((req, res) => {
     const path = decodeURIComponent((req.url ?? '/').split('?')[0]);
     const file = join(root, path === '/' ? 'composition.html' : path);
@@ -227,18 +200,10 @@ function ffmpeg(args) {
   });
 }
 
-async function main() {
-  assertSafeOutput(OUT);
-  stageFonts();
-  rmSync(OUT, { recursive: true, force: true });
-  mkdirSync(join(OUT, 'frames'), { recursive: true });
-
-  const { chromium } = await loadPlaywright();
-  const { server, port } = await serve(HERE);
-  const browser = await chromium.launch();
+export async function setupPage(browser, { port, filmId, film, scale = 1 }) {
   const page = await browser.newPage({
-    viewport: { width: FILM.width, height: FILM.height },
-    deviceScaleFactor: SCALE,
+    viewport: { width: film.width, height: film.height },
+    deviceScaleFactor: scale,
   });
   // A silent page error shows up here only as a 30s timeout, which is exactly
   // the failure this renderer hit three times before logging was added.
@@ -246,10 +211,53 @@ async function main() {
   page.on('console', (m) => {
     if (m.type() === 'error') console.error(`  [console] ${m.text()}`);
   });
-  await page.goto(`http://127.0.0.1:${port}/composition.html?film=${FILM_ID}`);
+  await page.goto(`http://127.0.0.1:${port}/composition.html?film=${filmId}`);
   await page.waitForFunction('window.__ready === true', null, { timeout: 15000 });
   // Fonts must be resolved before frame 0 or the wordmark rasterizes wrong.
   await page.evaluate(() => document.fonts.ready);
+  const seek = (time) => page.evaluate((t) => window.__seek(t), time);
+  return { page, seek };
+}
+
+export async function main(argv = process.argv.slice(2)) {
+  const arg = (name, fallback) => {
+    const i = argv.indexOf(`--${name}`);
+    return i === -1 ? fallback : argv[i + 1];
+  };
+  const FILM_ID = arg('film', 'F1');
+  const FILM = await loadFilm(FILM_ID);
+  const OUT = resolve(REPO, arg('out', 'dist-motion'));
+  const BLUR = Math.max(1, Number(arg('blur', 1)));
+  const SCALE = Number(arg('scale', 1));
+  // Delivery size. Frames are always rendered at the composition's native
+  // 1920x1080 so motion blur has real detail to smear. Only the encode is
+  // downscaled normally; halftone runs resize after blur but before dot painting.
+  // Rendering small and blurring it is how hairlines disappear.
+  const OUT_WIDTH = Number(arg('out-width', FILM.width));
+  const CRF = Number(arg('crf', 18));
+  const DITHER = argv.includes('--dither');
+  const DITHER_CELL = Number(arg('dither-cell', 8));
+  if (DITHER && (!Number.isInteger(DITHER_CELL) || DITHER_CELL < 1)) {
+    throw new RangeError('--dither-cell must be a positive integer');
+  }
+  const encHeight = (w) => Math.round((w * FILM.height) / FILM.width / 2) * 2;
+
+  // AV1 is emitted alongside the H.264 fallback. The browser picks the first
+  // source it can decode, so this is a quality tier rather than a cost: modern
+  // engines get the sharper encode and only pay for it.
+  const AV1_WIDTH = Number(arg('av1-width', 0));
+  const AV1_CRF = Number(arg('av1-crf', 46));
+  const AV1_PRESET = Number(arg('av1-preset', 6));
+
+  assertSafeOutput(OUT, FILM);
+  stageFonts();
+  rmSync(OUT, { recursive: true, force: true });
+  mkdirSync(join(OUT, 'frames'), { recursive: true });
+
+  const { chromium } = await loadPlaywright();
+  const { server, port } = await serve(HERE);
+  const browser = await chromium.launch();
+  const { page, seek } = await setupPage(browser, { port, filmId: FILM_ID, film: FILM, scale: SCALE });
 
   const total = Math.round(FILM.duration * FILM.fps);
   const t0 = Date.now();
@@ -261,7 +269,7 @@ async function main() {
   for (let f = 0; f < total; f++) {
     const t = f / FILM.fps;
     if (BLUR === 1 && !DITHER) {
-      await page.evaluate((time) => window.__seek(time), t);
+      await seek(t);
       await page.screenshot({ path: join(OUT, 'frames', `f${String(f).padStart(4, '0')}.png`) });
     } else {
       // Average N sub-captures across the shutter. Sub-frame times WRAP
@@ -275,7 +283,7 @@ async function main() {
         const wrapped = ((st % FILM.duration) + FILM.duration) % FILM.duration;
         // A one-capture draft still seeks exactly t, just like the fast path;
         // enabling halftone alone must not introduce a shutter-time offset.
-        await page.evaluate((time) => window.__seek(time), BLUR === 1 ? t : wrapped);
+        await seek(BLUR === 1 ? t : wrapped);
         subs.push(await page.screenshot());
       }
       const stacked = await page.evaluate(async ({ buffers, n, dither, cell, width, height }) => {
@@ -376,4 +384,17 @@ async function main() {
   }
 }
 
-await main();
+// Node 22 has no import.meta.main. Resolve symlinks as well as the direct path
+// so a symlinked CLI still runs, while importing never parses flags or renders.
+function isEntryPoint() {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  if (pathToFileURL(resolve(entry)).href === import.meta.url) return true;
+  try {
+    return pathToFileURL(realpathSync(entry)).href === import.meta.url;
+  } catch {
+    // An importing host may supply a synthetic, nonexistent argv[1].
+    return false;
+  }
+}
+if (isEntryPoint()) await main();
