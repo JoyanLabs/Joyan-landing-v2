@@ -73,6 +73,9 @@ Los films de la landing se generan desde `scripts/motion-src/` y se versionan en
 se aprendió al hacerlo:
 
 - [`docs/GUIA-MOTION.md`](./docs/GUIA-MOTION.md)
+- [`docs/PLAN-ITERACION-DITHER.md`](./docs/PLAN-ITERACION-DITHER.md) — el plan
+  propuesto para llevar el efecto de dithering a `main`: qué superficies, en qué
+  orden, y cómo se corta en candidatos revisables.
 
 El contrato visual (qué color significa qué, presupuestos, accesibilidad) sigue
 en [`docs/DESIGN.md`](./docs/DESIGN.md).

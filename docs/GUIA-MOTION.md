@@ -438,6 +438,10 @@ bitácora (el schema ya tiene `dither` y no hay asset), el OG, y el mark animado
 SVG que la referencia exporta para READMEs. Lo que **no** es candidato es aplicar el
 pase encima de los cinco films de argumento.
 
+El plan que convierte todo esto en la iteración que va a `main` —superficies, orden y
+corte en candidatos revisables— está en
+[`PLAN-ITERACION-DITHER.md`](./PLAN-ITERACION-DITHER.md).
+
 ### Método: cómo se mira una trama de puntos
 
 - **A 1:1, nunca en un contact sheet.** Una tira de 360 px sobre un frame de 960
