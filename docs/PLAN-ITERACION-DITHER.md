@@ -199,57 +199,64 @@ dos superficies para ahorrar viajes.
 
 ## 5. Work units
 
-Cada uno con superficies permitidas, criterios de aceptación y checks. **Ninguno está
-empezado.** El orden es el de la tabla.
+Cada uno con superficies permitidas, criterios de aceptación y checks. El orden es el de
+la tabla, salvo donde el estado diga otra cosa. El estado y la evidencia de cada uno se
+registran acá mismo: este documento es la fuente de verdad de la iteración.
 
-### WU1 · El plan y los docs de método (candidato de calibración)
+### WU1 · El plan y los docs de método — **HECHO**
 
 - **Entrega:** este documento; `docs/GUIA-MOTION.md` con la sección de dither ya escrita
   (está en la rama); `odd/tasks/dither-look-spike.md` como registro.
 - **Por qué primero:** es el recorte más chico posible —unos 340 renglones de texto, cero
   binarios, nada de `src/`—, se revisa de una sentada, y fija el tono del corte para los
-  demás.
+  demás. Con RDD apagado ya no hay presupuesto que medir; hecho igual como primer recorte.
 - **Aceptación:** los documentos describen lo que el código hace; cero referencias a
-  archivos o mediciones que no existan.
+  archivos o mediciones que no existan. **Relajada por WU4**, que encontró una referencia
+  falsa en `GUIA-MOTION.md`.
 
-### WU2 · `render.mjs` testable en proceso
+### WU2 · `render.mjs` testable en proceso — **HECHO** (`9535e04`)
 
-- **Problema:** `render.mjs` no exporta ningún helper y ejecuta `main()` sin condición, así
-  que la prueba que el repo ya usa para F3 y F5 —buscar `t` en orden inverso y comparar
-  byte a byte— **no se puede correr** sobre una escena canvas. Es la deuda de
-  `GUIA-MOTION.md:422`.
-- **Superficies:** `scripts/motion-src/render.mjs`, más un script de prueba nuevo en
-  `scripts/motion-src/`.
-- **Aceptación:** `main()` sólo corre cuando el módulo es el punto de entrada; existe una
-  prueba de independencia de orden para la escena raster; **y un control negativo** que
-  demuestra que la prueba falla con una escena que hereda estado entre frames (el bug real
-  que tuvo F3, `GUIA-MOTION.md:151-156`).
-- **Checks:** re-renderizar J1 debe dar el **mismo sha256 conocido**
-  (`6ab891ce4c367cfe041f203072534196afb5e3e93383242c55a36532fee6cc1c`), prueba de orden en
-  verde, control negativo en rojo.
-- **Riesgo:** tocar el renderer toca todo. Por eso el criterio es una identidad
-  byte a byte, no una inspección visual.
+- **Problema:** `render.mjs` no exportaba ningún helper y hacía el parseo de `argv`, la
+  resolución del film y todas las constantes derivadas **a nivel de módulo**, así que
+  importarlo disparaba un render completo. Por eso la prueba que el repo ya invocaba para
+  F3 y F5 —buscar `t` en orden inverso y comparar byte a byte— **no existía como script**:
+  no había forma de reusar el setup de página sin copiarlo.
+- **Entrega:** el setup detrás de una frontera exportada y `main()` sólo cuando el módulo es
+  el punto de entrada (con el caso de symlink resuelto, no supuesto); y
+  `scripts/motion-src/check-determinism.mjs`, gate **local**, deliberadamente fuera de
+  `package.json` y de CI porque Playwright no es dependencia del repo.
+- **Aceptación cumplida:** J1 pasa directo, inverso, directo-otra-vez y carga nueva; el
+  control negativo falla como debe; y el MP4 de J1 re-renderizado da el sha256
+  `6ab891ce…` idéntico al de tres corridas previas, una de ellas de un verificador
+  independiente. Comportamiento intacto, probado y no afirmado.
+- **Lo que el gate no cubre, declarado:** el control negativo es **a nivel del comparador**,
+  no de una escena rota servida por `composition.html`. Y el digest de un film SVG es sobre
+  el **SVG serializado**, no sobre píxeles: es más estricto que lo visible, y esa diferencia
+  importa (ver WU11).
+- **Riesgo materializado:** tocar el renderer era el riesgo, y el criterio byte a byte lo
+  contuvo. En cambio destapó un defecto que no era el suyo.
 
-### WU3 · Los binarios de films que ya existen
+### WU3 · Los binarios de films que ya existen — **SUBSUMIDO, no se hace**
 
-- **Entrega:** `public/assets/motion/*` (5 stems × {AV1, H.264}) landea solo, en su propio
-  candidato.
-- **Aceptación:** cada archivo ≤300 KiB, sin cambios de contenido respecto de lo que hoy
-  está en la rama.
-- **Checks:** `pnpm check:iteration-2` en verde.
-- **Nota:** va antes que el código que los consume sólo si el consumo no existe todavía;
-  si ya está wireado en `src/`, este candidato tiene que incluir esos componentes o la
-  rama queda rota en el medio.
+Existía para que los ~860 KB de MP4 no engordaran un candidato de review nativo. Con RDD
+apagado no hay candidatos que cortar, así que los binarios landean con la rama. Se deja
+anotado por qué existía, no como trabajo pendiente.
 
-### WU4 · Reparar el drift de `docs/DESIGN.md`
+### WU4 · Reparar el drift de la documentación
 
-- **Problema:** el contrato cita archivos que no existen: `public/assets/motion/el-caret.mp4`
-  (`:278`, `:295`), `motion-src/film.mjs`, y tres figuras SVG inline
-  (`OperationFlowFigure`/`SignalTraceFigure`/`CooperativeRingFigure`, `:100`, `:294`). Un
-  contrato que miente es peor que no tener contrato, y lo que se revisa contra él.
-- **Superficies:** `docs/DESIGN.md` únicamente.
-- **Aceptación:** toda ruta citada existe en el árbol; la tabla de assets coincide con
-  `public/`; el changelog registra el cambio.
+- **Problema, ampliado:** el contrato cita archivos que no existen —`public/assets/motion/el-caret.mp4`
+  (`docs/DESIGN.md:278`, `:295`), `motion-src/film.mjs`, y tres figuras SVG inline
+  (`OperationFlowFigure`/`SignalTraceFigure`/`CooperativeRingFigure`, `:100`, `:294`)—. Y
+  WU2 destapó una segunda mentira, en el documento de método:
+  `docs/GUIA-MOTION.md:155-156` afirma que «buscar F3 y F5 en órdenes opuestos tiene que dar
+  SVG byte-idéntico», y **F5 no lo cumple** (medido: F3 sí, F5 falla en `t=3`). Era una
+  afirmación no verificable por nadie más, hecha cuando no existía script que la corriera.
+  Un contrato que miente es peor que no tener contrato, y es contra lo que se revisa.
+- **Superficies:** `docs/DESIGN.md` y `docs/GUIA-MOTION.md` únicamente.
+- **Aceptación:** toda ruta citada existe en el árbol; toda afirmación de verificación tiene
+  un comando que hoy la pueda correr; la tabla de assets coincide con `public/`; la
+  afirmación sobre F3/F5 se corrige con el resultado medido, no se borra; el changelog
+  registra el cambio.
 
 ### WU5 · M1 · Medir la densidad de celda (antes de dibujar nada)
 
@@ -304,6 +311,37 @@ empezado.** El orden es el de la tabla.
   `main`» cuando efectivamente esté integrado; el registro del spike se cierra; el espejo
   en memoria se actualiza.
 - **Aceptación:** el documento y el repositorio dicen lo mismo.
+
+### WU11 · Restaurar la pureza de `seek(t)` en F1 y F5 — **ABIERTO, es un defecto**
+
+Lo encontró WU2, que no lo buscaba. Medido con el gate nuevo, en los cinco films:
+
+| | F1 | F2 | F3 | F4 | F5 |
+|---|---|---|---|---|---|
+| Independencia de orden | **FAIL** (`t=0`) | PASS | PASS | PASS | **FAIL** (`t=3`) |
+
+- **Qué está probado:** el estado de atributos se filtra entre búsquedas. En `F1.js:212-214`
+  `place()` escribe `transform` y `opacity` del grupo y **después** hace
+  `if (presence < 0.01) return`, así que cuando el agente está oculto **no escribe** el `r`
+  del anillo ni el `r`/`opacity` del halo: quedan los de la búsqueda anterior. Es el mismo
+  modo de falla que `GUIA-MOTION.md:151-156` describe para F3, pero sobrevivió en F1 y F5.
+- **Qué NO está probado todavía, y es el primer paso:** que se **vea**. El digest de un film
+  SVG es sobre el SVG serializado, y para F1 el `opacity` del grupo sí se escribe antes del
+  `return`, así que los atributos filtrados cuelgan de un grupo invisible. **Probablemente
+  invisible; inferencia, no medición.** Así que el paso 1 de este WU es comparar **píxeles**
+  en el tiempo que diverge, en los dos órdenes, y recién ahí decidir la severidad.
+- **Por qué importa aunque no se vea:** el film que se entrega hoy se renderiza siempre hacia
+  adelante, así que **no hay defecto visible en el MP4 publicado**. Rompe el contrato
+  («`seek(t)` es una función pura del tiempo») y arma una trampa latente: re-renderizar un
+  tramo suelto —que es exactamente lo que va a pedir la iteración sobre assets, y lo que
+  recomienda el método de referencia— devolvería frames distintos a los del render completo.
+- **Superficies:** `scripts/motion-src/films/F1.js`, `scripts/motion-src/films/F5.js`.
+- **Aceptación:** el gate da PASS para los cinco films, y el render hacia adelante de F1 y F5
+  es **byte-idéntico al asset ya commiteado** — eso es lo que prueba que arreglar la pureza
+  no cambia lo que se ve. Si el render cambia, el arreglo no era un arreglo.
+- **Riesgo:** re-renderizar F1 con los flags exactos de su asset (`--blur 5`) es lento. Y si
+  el asset commiteado no se puede reproducir byte a byte por una razón ajena a este cambio,
+  hay que decirlo y no tocar el asset.
 
 ---
 
