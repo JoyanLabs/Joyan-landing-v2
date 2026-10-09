@@ -230,9 +230,10 @@ registran acá mismo: este documento es la fuente de verdad de la iteración.
   `6ab891ce…` idéntico al de tres corridas previas, una de ellas de un verificador
   independiente. Comportamiento intacto, probado y no afirmado.
 - **Lo que el gate no cubre, declarado:** el control negativo es **a nivel del comparador**,
-  no de una escena rota servida por `composition.html`. Y el digest de un film SVG es sobre
-  el **SVG serializado**, no sobre píxeles: es más estricto que lo visible, y esa diferencia
-  importa (ver WU11).
+  no de una escena rota servida por `composition.html`. Los controles son tres (markup-only,
+  visible, raster-only) y cubren las tres clasificaciones. **Actualizado por WU11:** el gate
+  pasó a reportar el digest del markup **y** el del raster pintado en cada tiempo, así que la
+  pregunta «¿esto se ve?» dejó de ser una inferencia (ver WU11).
 - **Riesgo materializado:** tocar el renderer era el riesgo, y el criterio byte a byte lo
   contuvo. En cambio destapó un defecto que no era el suyo.
 
@@ -312,36 +313,46 @@ anotado por qué existía, no como trabajo pendiente.
   en memoria se actualiza.
 - **Aceptación:** el documento y el repositorio dicen lo mismo.
 
-### WU11 · Restaurar la pureza de `seek(t)` en F1 y F5 — **ABIERTO, es un defecto**
+### WU11 · Restaurar la pureza de `seek(t)` en F1 y F5 — **HECHO** (`19b0d7c`)
 
-Lo encontró WU2, que no lo buscaba. Medido con el gate nuevo, en los cinco films:
+Lo encontró WU2, que no lo buscaba. Medido con el gate, en los cinco films, **antes**:
 
 | | F1 | F2 | F3 | F4 | F5 |
 |---|---|---|---|---|---|
 | Independencia de orden | **FAIL** (`t=0`) | PASS | PASS | PASS | **FAIL** (`t=3`) |
 
-- **Qué está probado:** el estado de atributos se filtra entre búsquedas. En `F1.js:212-214`
-  `place()` escribe `transform` y `opacity` del grupo y **después** hace
-  `if (presence < 0.01) return`, así que cuando el agente está oculto **no escribe** el `r`
-  del anillo ni el `r`/`opacity` del halo: quedan los de la búsqueda anterior. Es el mismo
-  modo de falla que `GUIA-MOTION.md:151-156` describe para F3, pero sobrevivió en F1 y F5.
-- **Qué NO está probado todavía, y es el primer paso:** que se **vea**. El digest de un film
-  SVG es sobre el SVG serializado, y para F1 el `opacity` del grupo sí se escribe antes del
-  `return`, así que los atributos filtrados cuelgan de un grupo invisible. **Probablemente
-  invisible; inferencia, no medición.** Así que el paso 1 de este WU es comparar **píxeles**
-  en el tiempo que diverge, en los dos órdenes, y recién ahí decidir la severidad.
-- **Por qué importa aunque no se vea:** el film que se entrega hoy se renderiza siempre hacia
-  adelante, así que **no hay defecto visible en el MP4 publicado**. Rompe el contrato
-  («`seek(t)` es una función pura del tiempo») y arma una trampa latente: re-renderizar un
-  tramo suelto —que es exactamente lo que va a pedir la iteración sobre assets, y lo que
-  recomienda el método de referencia— devolvería frames distintos a los del render completo.
-- **Superficies:** `scripts/motion-src/films/F1.js`, `scripts/motion-src/films/F5.js`.
-- **Aceptación:** el gate da PASS para los cinco films, y el render hacia adelante de F1 y F5
-  es **byte-idéntico al asset ya commiteado** — eso es lo que prueba que arreglar la pureza
-  no cambia lo que se ve. Si el render cambia, el arreglo no era un arreglo.
-- **Riesgo:** re-renderizar F1 con los flags exactos de su asset (`--blur 5`) es lento. Y si
-  el asset commiteado no se puede reproducir byte a byte por una razón ajena a este cambio,
-  hay que decirlo y no tocar el asset.
+**Después: los cinco en PASS.**
+
+- **Causas reales:** en `F5.js:157-158` el reset de la salida temprana ponía `opacity: '0'` a los
+  ecos de punta pero **no reescribía sus coordenadas**, que sólo se escribían más adelante
+  (`:195-196`); en `F1.js:212-214`, `place()` escribía el `opacity` del grupo y **después**
+  hacía `if (presence < 0.01) return`, así que el radio del anillo y el halo quedaban con los
+  valores de la búsqueda anterior.
+- **La severidad se midió, no se inferió.** Se extendió el gate para reportar el digest del
+  markup **y** el del raster pintado, y clasificar la divergencia como `visible` o
+  `markup-only`. Resultado: **las dos eran `markup-only`**. O sea que nunca hubo nada mal que
+  un visitante pudiera ver; lo que estaba roto era el contrato, y con él la posibilidad de
+  re-renderizar un tramo suelto —que es justo lo que va a pedir la iteración sobre assets, y
+  lo que recomienda el método de referencia—.
+- **F5:** los 450 frames hacia adelante quedaron byte-idénticos.
+- **F1:** seis frames **sí** cambiaron, y el arreglo se acepta igual porque el número que
+  importa estaba mal elegido en la primera versión de este WU. La medición: como máximo
+  **264 píxeles de 2 073 600** (0,013 %) con delta máximo **4/255**, y cinco de los seis
+  frames por debajo de 2/255. Todos sobre el agente que se desvanece. Y lo decisivo: **el
+  MP4 codificado del film arreglado es byte-idéntico al del baseline** con los mismos flags
+  (`ebe9d19f226c54e9`, 107 697 bytes). El encoder se come la diferencia entera.
+- **El criterio de aceptación se corrigió:** exigía identidad de frames. **Estaba mal.** Lo que
+  recibe el que mira es la salida codificada, así que ése es el listón: identidad del MP4. Con
+  identidad de frames el WU se habría rechazado a sí mismo por una diferencia que no llega a
+  ninguna pantalla.
+- **Los assets commiteados no se re-renderizan, a propósito:** la salida codificada es la
+  misma, así que re-encodear sólo puede agregar drift de encoder. **Inferencia marcada:** la
+  identidad del MP4 se probó a `--blur 1`, que es lo que se renderizó; el asset commiteado es
+  de `--blur 5`, y a más blur la diferencia sólo puede achicarse porque el blur promedia
+  subframes. Así que el asset no cambia, pero eso es inferencia: probarlo costaría veinte
+  minutos de render y el riesgo de re-encodear, y ninguna de las dos cosas compra nada.
+- **El oráculo sigue aceptando** F1 con los frames nuevos (`carry 0.54`, el valor que ya
+  documentaba `GUIA-MOTION.md`).
 
 ---
 
