@@ -151,12 +151,6 @@ export function build(scene) {
       return { x: lerp(a.x, b.x, k), y: lerp(a.y, b.y, k), i };
     };
 
-    // The echoes exist only on the split leg. Writing them here, outside the
-    // branch, means seeking backwards past the gate cannot leave them behind
-    // — every value in this film is a function of t and nothing is inherited.
-    if (t < 5.4) {
-      for (const e of echoes) scene.set(e, { opacity: '0' });
-    }
     // Forward run 0→1, held at 1 (the gate), forward 1→0 again, then back.
     const uBefore = pTravel;
     const uAfter = pAfter;
@@ -187,17 +181,19 @@ export function build(scene) {
         x: (pos.x - 34).toFixed(1), y: (pos.y - 34).toFixed(1),
         fill: PALETTE.bone, opacity: (1 - outCubic(seg(t, 13.4, 14.2))).toFixed(3),
       });
-      // The three echoes spread on the long leg and merge back on the last.
-      echoes.forEach((e, i) => {
-        const spread = pSplit * (1 - pReturn);
-        const off = (i - 1) * 46 * spread;
-        scene.set(e, {
-          x: (pos.x - 17 + off).toFixed(1),
-          y: (pos.y - 17 - Math.abs(i - 1) * 26 * spread).toFixed(1),
-          opacity: (spread * (1 - pReturn) * 0.75).toFixed(3),
-        });
-      });
     }
+    // The echoes exist only on the split leg, but hidden positions must also
+    // be written. Resetting opacity alone leaked later coordinates into early
+    // seeks and left opacity inherited during the end of the gate hold.
+    echoes.forEach((e, i) => {
+      const spread = pSplit * (1 - pReturn);
+      const off = (i - 1) * 46 * spread;
+      scene.set(e, {
+        x: (pos.x - 17 + off).toFixed(1),
+        y: (pos.y - 17 - Math.abs(i - 1) * 26 * spread).toFixed(1),
+        opacity: (spread * (1 - pReturn) * 0.75).toFixed(3),
+      });
+    });
 
     scene.set(trail, {
       d: `M${STATION_PTS[0].x} ${STATION_PTS[0].y} L${pos.x.toFixed(1)} ${pos.y.toFixed(1)}`,

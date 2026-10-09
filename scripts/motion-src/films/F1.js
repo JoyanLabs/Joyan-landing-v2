@@ -211,7 +211,8 @@ export function build(scene) {
 
 function place(scene, ag, x, y, presence, t, tWork0, tWork1) {
   scene.set(ag.g, { transform: `translate(${x.toFixed(1)} ${y.toFixed(1)})`, opacity: presence.toFixed(3) });
-  if (presence < 0.01) return;
+  // Hidden agents still need complete state: an arbitrary seek must not
+  // inherit ring or halo attributes from the last visible frame.
   // Periodic AND enveloped to zero before the end. Periodicity alone is not
   // enough: the last rendered frame is at t = duration - 1/fps, not duration,
   // so a sine that closes at t=15 is still 0.016 off at the frame that has to
