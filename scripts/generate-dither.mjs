@@ -4,7 +4,6 @@
  *
  * Source art (P3.2): there are no real hardware photos yet, so every source is
  * procedural brand art committed under scripts/dither-src/:
- *   - hero-network.svg      abstract agent-network: nodes + PCB-style traces
  *   - hardware-board.svg    conceptual PCB: IC package, pins, traces, vias
  *   - agents-network.svg    three agent clusters + orthogonal wiring (L2)
  *   - magi-network.svg      MAGI grid: hub, six satellites, dashed orbits (L2)
@@ -17,10 +16,14 @@
  * via sharp. The OG asset additionally composites the wordmark SVG over the
  * dithered texture.
  *
- * Budgets (bytes): hero 1600x900 <= 80 KB, hardware 1024x1024 <= 60 KB,
- * agents 1200x900 <= 70 KB, magi 1200x750 <= 75 KB, ecosystem 1200x750 <=
- * 75 KB, og-default 1200x628 <= 100 KB. Prints every output size and exits 1
- * when any asset exceeds its budget.
+ * The hero left this asset list because pnpm check runs this generator and
+ * Playwright is deliberately not a repository dependency. A browser-built
+ * asset can never be regenerated here: doing so would overwrite its tone
+ * poster with the old two-colour threshold. render-poster.mjs owns that local
+ * build; the OG keeps this ink/bone-only path.
+ *
+ * Budget (bytes): og-default 1200x628 <= 100 KiB. Prints its output size and
+ * exits 1 when the asset exceeds its budget.
  *
  * DITHER_BUDGET_SCALE (env, default 1): multiplies every budget for testing
  * the failure gate deterministically — scripts/check-iteration-2.mjs runs the
@@ -49,20 +52,9 @@ const BAYER_8 = [
   [63, 31, 55, 23, 61, 29, 53, 21],
 ];
 
-// Only two baked dither outputs remain. The four section figures were
-// replaced by inline SVG (OperationFlowFigure, SignalTraceFigure,
-// CooperativeRingFigure): they carry real structure instead of texture, stay
-// crisp at any density, inherit the palette, and cost nothing to load.
+// Only the OG can be rebuilt without a browser. Section figures are films;
+// the hero's tone poster is pre-baked locally, never by pnpm check.
 const ASSETS = [
-  {
-    name: 'hero-dither.png',
-    out: 'public/assets/dither/hero-dither.png',
-    src: 'scripts/dither-src/hero-network.svg',
-    width: 1600,
-    height: 900,
-    maxBytes: 80 * 1024,
-    darkBias: 12,
-  },
   {
     name: 'og-default.png',
     out: 'public/assets/brand/og-default.png',

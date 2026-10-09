@@ -720,11 +720,30 @@ for (const asset of ASSET_CONTRACT) {
       `asset: ${asset.path} is ${(size / 1024).toFixed(1)} KiB, over the ${(asset.maxBytes / 1024).toFixed(0)} KiB budget`
     );
   }
-  const paletteOk = info.palette.length <= 2 && info.palette.every((color) => color === INK_HEX || color === BONE_HEX);
-  if (paletteOk) {
-    pass(`asset: ${asset.path} uses only the ink-950/bone-50 two-color palette`);
+  if (asset.path === 'public/assets/dither/hero-dither.png') {
+    // Token greys span at most seven channel values (bone-50); dot coverage
+    // adds intermediate tones, not new hues. Amber's 30–50 degree window
+    // surrounds accent #FFB000 (~41 degrees) without admitting red or yellow.
+    // A palette cannot locate the gate: scene/raster review owns its placement.
+    const paletteOk = info.palette.length > 0 && info.palette.every((color) => {
+      const [r, g, b] = [1, 3, 5].map((offset) => parseInt(color.slice(offset, offset + 2), 16));
+      const neutral = Math.max(r, g, b) - Math.min(r, g, b) <= 7;
+      const hue = 60 * (g - b) / (r - b);
+      const amber = r > g && g > b && hue >= 30 && hue <= 50;
+      return neutral || amber;
+    });
+    if (paletteOk) {
+      pass(`asset: ${asset.path} uses only near-neutral token tones or reserved amber (hue 30–50)`);
+    } else {
+      fail(`asset: ${asset.path} palette must contain only near-neutral tones (channel spread <= 7) or amber (R > G > B, hue 30–50), got [${info.palette.join(', ')}]`);
+    }
   } else {
-    fail(`asset: ${asset.path} palette must be exactly ink-950/bone-50, got [${info.palette.join(', ')}]`);
+    const paletteOk = info.palette.length <= 2 && info.palette.every((color) => color === INK_HEX || color === BONE_HEX);
+    if (paletteOk) {
+      pass(`asset: ${asset.path} uses only the ink-950/bone-50 two-color palette`);
+    } else {
+      fail(`asset: ${asset.path} palette must be exactly ink-950/bone-50, got [${info.palette.join(', ')}]`);
+    }
   }
 }
 
