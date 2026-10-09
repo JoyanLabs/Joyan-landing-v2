@@ -107,7 +107,7 @@ Inventario real de figuras de la página, que es la lista de candidatas:
 | Poster del hero | `public/assets/dither/hero-dither.png`, Bayer 8×8 desde SVG, 2 colores, 7 256 B | **Sí, recomendado** | Es lo que ven no-JS, reduced-motion y conexión lenta. Cambiarlo a una escena con tono es el payoff más grande por el riesgo más chico, y no agrega nada al runtime. |
 | Film del hero | `harness-outcome` (F1), 1280 AV1 + 960 H.264 | **No reemplazar** | F1 es **donde se enseña la leyenda** (anillo+bloque, rect en banda, rombo ámbar). Cambiarlo por una escena rompe eso. Alternativa: que J1 sea un segundo panel, no el fondo. |
 | Films de sección (4) | `action-gates`, `harness-assembly`, `signal-freshness`, `knowledge-cycle` | **No** | Veredicto de T2, con evidencia a 1:1. |
-| Thumbs de bitácora | El schema tiene `dither` (`src/content.config.ts:97`), `JournalEntryRow.astro:57-61` lo renderiza, **no hay ningún asset** | **Sí, recomendado** | Ya está diseñado y a medio construir; hoy no se usa. Es la superficie más natural que quedó sin usar. |
+| Thumbs de bitácora | El schema tiene `dither` (`src/content.config.ts:97`), `JournalEntryRow.astro:57-61` lo renderiza, **no hay ningún asset** | **No — la medición lo descarta** | WU5: por debajo de ~400 px CSS mostrados el efecto deja de leerse como trama, y un thumb de 192 px con la celda que le tocaría son ~14 puntos de ancho. El schema y el componente quedan; la decisión es **no poblar `dither`**, y `DitherFigure` se elimina o se justifica. |
 | OG | `public/assets/brand/og-default.png`, 5 177 B, desde `hardware-board.svg` + wordmark | **Sí, recomendado** | Costo cero en runtime y es lo primero que se ve al compartir. |
 | Mark animado en SVG | No existe | **Opcional** | La referencia exporta un loop como SVG animado para READMEs. Costo cero en la página. Buen candidato para el README del repo. |
 | Textura L1 (shell) | SVG inline en `PageLayout.astro:25-26` | **No** | Es global y vive detrás de todo. Riesgo alto, valor bajo. |
@@ -317,26 +317,45 @@ anchoMostrado`. En concreto: **hero celda 6** en el encode de 1280 (pitch 7,5; l
 aceptable) y **secciones celda 14–16**, no 8. La regla se escribe en `docs/DESIGN.md` como parte
 del contrato de assets cuando se construya el primer asset.
 
-**Consecuencia que cambia otro work unit:** por debajo de ~400 px CSS de ancho mostrado el efecto
-deja de leerse como trama. WU7 (thumbs de bitácora) tiene que decidir **primero** si esos thumbs
-van a ser lo bastante grandes, o si no van ditherizados. Un thumb de 192 px con celda 14 son 14
-puntos de ancho: no es una trama, es un accidente.
+**Conclusión que cierra el asunto, y que sólo apareció al mirar las vistas del browser**
+(hojas en `dist-motion-verify/wu5/SHEET-real-*.png`):
 
-**Nota de método:** esto se resolvió con **un solo render** de J1 sin dither (77,7 s) más
-aplicar el `dither.js` real desde Node con cada celda, en vez de un render por candidato. La
-derivación se validó contra el frame real de `dist-motion-j1`: **764 px de 518 400 (0,147 %)**
-difieren, con 588 por encima de 32/255 y delta máximo 117. Es la cota esperable —el remuestreo lo
-hace un resampler distinto al del browser, y el dither es un umbral, así que una diferencia mínima
-de origen voltea un punto—, y la grilla y la estructura de celdas son idénticas por construcción.
-**También evitó el cuarto refactor del renderer** que un worker propuso para abaratar stills: para
-tres candidatos, tres renders costaban menos riesgo que otra cirugía sobre ese archivo.
+| presentación | celda 6 | 8 | 12 | 16 | 20 |
+|---|---|---|---|---|---|
+| hero @1440 (pitch) | **7,5** | 10,0 | 15,0 | 20,0 | 25,0 |
+| sección @1440 (pitch) | 3,0 | 4,0 | 5,9 | **7,9** | 9,9 |
+| sección @390 (pitch) | 2,1 | 2,8 | 4,3 | 5,7 | **7,1** |
 
-- **Checks corridos:** recortes a 1:1 con `crop=` y sin `scale`, y vistas simuladas escaladas
-exactamente como las presenta el CSS. `node --check` del script de derivación.
-- **Deuda declarada:** el script de derivación es **scratch y no se commitea**, así que la
-vía reproducible es el comando documentado, un render por celda:
-`node scripts/motion-src/render.mjs --film J1 --out <dir> --blur 1 --out-width 960 --crf 34 --av1-width 0 --dither --dither-cell N`.
-Se eligió velocidad sobre reproducibilidad acá, y se dice en vez de disimularlo.
+- **Hero: celda 6.** Con 4 los puntos casi no se individualizan —es una malla fina—; con 6 los
+  puntos se leen y el gradiente del halo sigue suave; con 8 es gruesa pero funciona.
+- **Sección: celda 16, no 8.** Con 6 y 8 el slab se lee como **alambre gris desenfocado**, no
+  como trama. Con 12 ya lee, con 16 lee mejor, con 20 empieza a perder detalle.
+- **La conclusión de fondo, que es la que cambia el plan: a ~340-480 px de ancho mostrado una
+  figura no puede ser a la vez un sujeto legible y una trama legible.** No es un problema de
+  constante; es que **el efecto necesita superficie**. Consecuencia: los thumbs de bitácora
+  (192 px) y los posters de las figuras de sección **no van ditherizados**. El dither queda para
+  las superficies grandes, el poster del hero y el OG. Eso **reduce** el alcance de D1, que es
+  justo lo que uno quiere que haga una medición.
+
+**Nota de método:** la medición es un script **commiteado** —`scripts/motion-src/measure-density.mjs`—,
+no una hoja suelta. Lee las cajas reales de la página viva con `pnpm dev`, deriva la escala por
+presentación, captura los stills por el **mismo** `captureFrame` que usa el renderer, y simula la
+presentación con una instancia **real de Chromium**, así que las imágenes de decisión llevan el
+filtro del browser y no el de ffmpeg. Uso: `--measure-only` primero (escribe `measurement.json` y
+la tabla de pitch), después la corrida normal (stills, vistas simuladas y `stills.json`).
+
+**Dos correcciones entraron antes de que esto contara como evidencia.** El script reemplazaba la
+caja medida del hero por el viewport, y el video del hero es **más alto que la ventana** (390×936
+en un viewport de 390×844), así que reportaba el pitch de mobile como 7,0 cuando la escala pintada
+es 1,3006 y el pitch real con celda 6 es **7,8**. Y el set de candidatas terminaba en celda 12,
+que excluye justo el rango que las secciones necesitan.
+
+- **Checks corridos:** `node --check` de los dos archivos; la tabla de pitch contra las cajas
+medidas del browser; vistas simuladas por Chromium real; y el sha256 de regresión del refactor
+que hizo falta para reusar la captura (`6ab891ce…`, idéntico).
+- **Trabajo rescatado, no confiado:** el script y la extracción de `captureFrame` los escribió una
+corrida de worker que **murió antes de reportar** y dejó el árbol sucio. Se mantienen porque
+pasaron la prueba, no porque su autor los haya declarado buenos. Ver el commit `0dd68f3`.
 
 ### WU6 · Poster del hero con tono
 
@@ -348,19 +367,21 @@ Se eligió velocidad sobre reproducibilidad acá, y se dice en vez de disimularl
 - **Checks:** `pnpm generate:dither` imprime `PASS`; `pnpm check` en verde; mirada a 1:1 en
   los tres anchos.
 
-### WU7 · Thumbs de bitácora
+### WU7 · Thumbs de bitácora — **la medición lo descarta; queda limpiar**
 
 - **Problema:** el schema tiene `dither` (`src/content.config.ts:97`), la fila lo renderiza
-  (`JournalEntryRow.astro:57-61`), **no hay assets** y `DitherFigure.astro` **no tiene
-  ningún importador**. O sea: contrato sin implementación y componente muerto.
-- **Superficies:** `src/components/joyan/JournalEntryRow.astro`,
-  `src/components/joyan/DitherFigure.astro`, `src/content.config.ts`, `public/assets/dither/`,
-  `docs/DESIGN.md`.
-- **Aceptación:** cada entrada con thumb tiene su asset; alternativa textual localizada
-  para ES/EN; presupuesto de bytes por thumb **y del total de la página de bitácora**
-  declarado; `DitherFigure` pasa a tener importadores o se elimina, pero no queda muerto.
-- **Decisión colgante:** si los thumbs van en la lista o sólo en el detalle — es una
-  decisión de peso de página, y hoy hay filas que además linkean a detalle.
+  (`JournalEntryRow.astro:57-61`), **no hay assets** y `DitherFigure.astro` **no tiene ningún
+  importador**. O sea: contrato sin implementación y componente muerto.
+- **Lo resolvió WU5:** a 192 px de ancho mostrado, el dither **no se lee como trama**. Poblarlo
+  sería producir un accidente con presupuesto de bytes. Así que el work unit cambia de
+  «implementar» a **«limpiar la promesa muerta»**.
+- **Aceptación:** el campo `dither` del schema y el `<img>` de la fila se **eliminan** (o se
+  documenta explícitamente por qué quedan y con qué criterio se poblarían); `DitherFigure` se
+  elimina o pasa a tener importadores; `docs/DESIGN.md` deja de describir una superficie que no
+  existe; y la alternativa textual localizada para ES/EN queda definida si alguna entrada la
+  necesita.
+- **Decisión colgante:** si los thumbs van en la lista o sólo en el detalle. Queda pendiente, pero
+  ya no depende del dither.
 
 ### WU8 · OG
 
