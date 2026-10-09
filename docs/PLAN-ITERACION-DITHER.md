@@ -272,15 +272,71 @@ anotado por qué existía, no como trabajo pendiente.
 - **Referencias del plan re-apuntadas** a las posiciones nuevas: Proyectos `:533`, densos
   `:549`, limitación del renderer `:491`, corrección F3/F5 `:174-185` (comando en `:181`).
 
-### WU5 · M1 · Medir la densidad de celda (antes de dibujar nada)
+### WU5 · M1 · Medir la densidad de celda — **HECHO**: la constante actual está mal para las secciones
 
-- **Entrega:** la misma escena renderizada con celda 4/6/8/10, medida contra los tres
-  anchos reales (~390, ~768, ~1440).
-- **Aceptación:** una tabla `celda × ancho → legibilidad (a ojo, a 1:1) × bytes`, y **una
-  constante elegida con esa tabla**, escrita en `docs/DESIGN.md` como parte del contrato de
-  assets.
-- **Checks:** recortes a 1:1 con `crop=` y sin `scale` — un contact sheet reduce la grilla y
-  aliasea, y eso ya nos hizo leer mal un resultado una vez (`GUIA-MOTION.md`, método).
+**La celda se había elegido como un número en píxeles de fuente, y es la unidad equivocada.** Nada
+se muestra a 1:1: el hero es `object-cover` a sangre y **magnifica** (una fuente 16:9 en un
+viewport más alto se agranda), mientras que las figuras de sección son cajas acotadas y
+**encogen**. Medido con un browser real, no leído del stylesheet:
+
+| presentación | caja CSS | fuente | escala |
+|---|---|---|---|
+| hero @390×844 | 390×936 | 1280×720 | **×1,30** |
+| hero @768×1024 | 768×1024 | 1280×720 | **×1,42** |
+| hero @1440×900 | 1440×900 | 1280×720 | **×1,25** |
+| sección @390 | 340×191 | 960×540 | **×0,35** |
+| sección @768 | 718×404 | 960×540 | **×0,75** |
+| sección @1440 | 476×268 | 960×540 | **×0,50** |
+
+Y el **pitch mostrado en px CSS** que sale de eso (el número que importa):
+
+| presentación | celda 4 | 5 | 6 | 8 | 12 | 16 | 20 |
+|---|---|---|---|---|---|---|---|
+| hero @390 | 5,2 | 6,5 | 7,8 | 10,4 | 15,6 | 20,8 | 26,0 |
+| hero @768 | 5,7 | 7,1 | 8,5 | 11,4 | 17,1 | 22,8 | 28,4 |
+| hero @1440 | 5,0 | 6,3 | 7,5 | 10,0 | 15,0 | 20,0 | 25,0 |
+| sección @390 | 1,4 | 1,8 | 2,1 | **2,8** | 4,2 | 5,7 | 7,1 |
+| sección @768 | 3,0 | 3,7 | 4,5 | **6,0** | 9,0 | 12,0 | 15,0 |
+| sección @1440 | 2,0 | 2,5 | 3,0 | **4,0** | 6,0 | 7,9 | 9,9 |
+
+**Lo que se ve, mirando a 1:1 las vistas simuladas** (hojas en
+`dist-motion-verify/wu5/SHEET-*.png`):
+
+- **Hero:** celda 4 y 5 se leen como una **grilla gris densa**, no como una trama de puntos;
+  celda 6 y 8 se leen como un screen deliberado. O sea que **la celda 8 actual del hero está
+  bien** (pitch 10–11,4). Mi sospecha inicial de que era demasiado gruesa era falsa.
+- **Secciones:** al revés. Celda 6 y 8 son **papilla gris** — la celda 8 da 2,8–4,0 px y a esa
+  escala la trama deja de leerse como trama. Celda 12 anda, **celda 16 es la que mejor lee**.
+- **Tensión real en mobile:** a 340 px de ancho la figura **no puede** ser a la vez un sujeto
+  legible y un screen legible. Celda 16 da pitch 5,7 (lectura marginal), celda 20 da 7,1 pero
+  convierte el slab en un mosaico de ~48 puntos y el anillo del agente en cuatro puntos.
+
+**Decisión:** la constante se expresa como **pitch mostrado objetivo (6–8 px CSS)**, no como
+píxeles de fuente, y de ahí se deriva por presentación: `celda = objetivo × anchoFuente ÷
+anchoMostrado`. En concreto: **hero celda 6** en el encode de 1280 (pitch 7,5; la 8 sigue siendo
+aceptable) y **secciones celda 14–16**, no 8. La regla se escribe en `docs/DESIGN.md` como parte
+del contrato de assets cuando se construya el primer asset.
+
+**Consecuencia que cambia otro work unit:** por debajo de ~400 px CSS de ancho mostrado el efecto
+deja de leerse como trama. WU7 (thumbs de bitácora) tiene que decidir **primero** si esos thumbs
+van a ser lo bastante grandes, o si no van ditherizados. Un thumb de 192 px con celda 14 son 14
+puntos de ancho: no es una trama, es un accidente.
+
+**Nota de método:** esto se resolvió con **un solo render** de J1 sin dither (77,7 s) más
+aplicar el `dither.js` real desde Node con cada celda, en vez de un render por candidato. La
+derivación se validó contra el frame real de `dist-motion-j1`: **764 px de 518 400 (0,147 %)**
+difieren, con 588 por encima de 32/255 y delta máximo 117. Es la cota esperable —el remuestreo lo
+hace un resampler distinto al del browser, y el dither es un umbral, así que una diferencia mínima
+de origen voltea un punto—, y la grilla y la estructura de celdas son idénticas por construcción.
+**También evitó el cuarto refactor del renderer** que un worker propuso para abaratar stills: para
+tres candidatos, tres renders costaban menos riesgo que otra cirugía sobre ese archivo.
+
+- **Checks corridos:** recortes a 1:1 con `crop=` y sin `scale`, y vistas simuladas escaladas
+exactamente como las presenta el CSS. `node --check` del script de derivación.
+- **Deuda declarada:** el script de derivación es **scratch y no se commitea**, así que la
+vía reproducible es el comando documentado, un render por celda:
+`node scripts/motion-src/render.mjs --film J1 --out <dir> --blur 1 --out-width 960 --crf 34 --av1-width 0 --dither --dither-cell N`.
+Se eligió velocidad sobre reproducibilidad acá, y se dice en vez de disimularlo.
 
 ### WU6 · Poster del hero con tono
 
