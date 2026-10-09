@@ -357,15 +357,33 @@ que hizo falta para reusar la captura (`6ab891ce…`, idéntico).
 corrida de worker que **murió antes de reportar** y dejó el árbol sucio. Se mantienen porque
 pasaron la prueba, no porque su autor los haya declarado buenos. Ver el commit `0dd68f3`.
 
-### WU6 · Poster del hero con tono
+### WU6 · Poster del hero con tono — **HECHO** (`1f95d7d`)
 
-- **Superficies:** la fuente de escena, `scripts/generate-dither.mjs` si se extiende, y los
-  presupuestos de bytes de `check-iteration-2.mjs`.
-- **Aceptación:** PNG de 2 colores con la paleta de tokens, dimensiones intrínsecas
-  declaradas (sin CLS), ≤80 KiB, contraste ≥4.5:1 en cualquier región que toque contenido,
-  y **ámbar sólo si significa portón o vivo**.
-- **Checks:** `pnpm generate:dither` imprime `PASS`; `pnpm check` en verde; mirada a 1:1 en
-  los tres anchos.
+- **Entrega:** `public/assets/dither/hero-dither.png` es ahora un still de `J1` por el mismo
+  `captureFrame` que usan los films: **1600×900, 38 entradas de paleta, 11 916 bytes** contra el
+  presupuesto intacto de 80 KiB, con **89 % de los píxeles en el suelo de ink** (el negro es
+  negro). sha256 `d1dd3cc0…`. Builder local nuevo: `scripts/motion-src/render-poster.mjs`.
+- **Celda 7, por la regla de WU5**, no copiando el número del film: la fuente del poster es 1600
+  y la del film 1280, así que el mismo número no es el mismo pitch. Pitch mostrado: **6,56** @390,
+  **7,96** @768, **7,00** @1440, los tres dentro del objetivo 6–8.
+- **Entregable extra que el unit destapó, y es el motivo de su forma:** el builder **no puede** ser
+  un modo de `generate-dither.mjs`, porque `pnpm check` corre ese generador y Playwright no es
+  dependencia del repo: un asset que necesita browser no se puede regenerar desde ahí. Así que el
+  hero **sale** de la lista de assets de ese generador y el OG se queda. **La trampa que esto
+  cierra:** si el hero se quedaba, el siguiente `pnpm check` **pisaba el poster nuevo con el viejo
+  de 2 colores**, y el unit parecía hecho mientras se deshacía. Probado, no afirmado: el sha256
+  del poster es idéntico antes y después de un `pnpm check` completo, y el del OG también.
+- **La aserción del checker se re-apuntó, no se debilitó.** `check-iteration-2.mjs` pedía «a lo
+  sumo dos colores ink/bone», que es justo la regla que cambió. Ahora pide que cada entrada de la
+  paleta sea neutra (spread ≤7) o ámbar en la ventana de hue del accent (30–50°), con todos los
+  presupuestos y dimensiones intactos y la aserción de 2 colores del OG sin tocar. Es un check
+  **más estricto** que el anterior, y se demostró que puede fallar: teal, púrpura, rojo, amarillo,
+  paleta vacía y spread 8 son rechazados; spread 7 y ámbar, aceptados.
+- **Checks:** `pnpm check` en verde —136 archivos, 0 errores, 0 warnings, 25 hints; iteration-2
+  **309 passed / 0 failed**; iteration-3 **469 passed / 0 failed**— y `pnpm generate:dither`
+  `PASS` para el OG.
+- **Caveat declarado:** la paleta es metadata y **no puede localizar el ámbar en el espacio**. El
+  uso reservado del ámbar lo verifica la revisión del raster, no el checker.
 
 ### WU7 · Thumbs de bitácora — **la medición lo descarta; queda limpiar**
 
@@ -390,11 +408,20 @@ pasaron la prueba, no porque su autor los haya declarado buenos. Ver el commit `
 - **Aceptación:** ≤100 KiB, 1200×628, wordmark compuesto preservando la paleta exacta.
 - **Checks:** `pnpm generate:dither` `PASS` y `pnpm check`.
 
-### WU9 · Encuadre vertical del hero (D4)
+### WU9 · Encuadre vertical del hero (D4) — **evidencia medida, ya no es sospecha**
 
-- **Entrega:** un encuadre vertical propio para el hero en mobile, o la deuda declarada.
-- **Aceptación:** a 390 px el sujeto no queda cruzado por el titular ni por el CTA.
-- **Checks:** captura a 390, 768 y 1440 leyendo el sujeto, no sólo el layout.
+- **Lo que ahora está medido:** mirando el poster nuevo en su lugar, a 390 el hero pinta el video
+  a escala **1,04** sobre la fuente de 1600, así que la ventana visible cubre las columnas
+  **612–987**, y **el portón ámbar está en ~1030**. O sea: **en mobile el recorte se come la marca
+  reservada**, justo la que la leyenda dice que hay que poder leer.
+- **Entrega:** un encuadre vertical propio para el hero en mobile, o la deuda declarada con este
+  número al lado.
+- **Aceptación:** a 390 el sujeto **y el portón** quedan dentro del recorte, y el sujeto no queda
+  cruzado por el titular ni por el CTA.
+- **Checks:** vistas simuladas por Chromium real a 390, 768 y 1440, y el recorte del portón
+  verificado adentro del encuadre.
+- **Nota:** esto afecta al **poster** (lo que ven no-JS, reduced-motion y carga lenta) y afectaría
+  igual a cualquier film con el mismo encuadre. No es un problema de la trama: es de composición.
 
 ### WU10 · Cerrar el estado de prueba
 
