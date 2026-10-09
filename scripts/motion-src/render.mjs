@@ -219,6 +219,65 @@ export async function setupPage(browser, { port, filmId, film, scale = 1 }) {
   return { page, seek };
 }
 
+// Share the exact blur/resize/dither/PNG callback with still measurements;
+// copying it into a harness would verify a different capture program.
+export async function captureFrame(page, options) {
+  return page.evaluate(async ({ buffers, n, dither, cell, width, height }) => {
+    const load = (b) =>
+      new Promise((ok) => {
+        const img = new Image();
+        img.onload = () => ok(img);
+        img.src = 'data:image/png;base64,' + b;
+      });
+    const imgs = await Promise.all(buffers.map(load));
+    const c = document.createElement('canvas');
+    c.width = imgs[0].width;
+    c.height = imgs[0].height;
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    // getImageData is RGBA — four bytes per pixel, not three. Sizing the
+    // accumulator at three averaged only the first three quarters of each
+    // frame's byte stream and left the tail of out.data at zero, so every
+    // blurred frame was a quarter short and partly transparent.
+    const CHANNELS = 4;
+    const acc = new Float32Array(c.width * c.height * CHANNELS);
+    for (const img of imgs) {
+      ctx.clearRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0);
+      const d = ctx.getImageData(0, 0, c.width, c.height).data;
+      for (let i = 0; i < acc.length; i++) acc[i] += d[i];
+    }
+    const out = ctx.createImageData(c.width, c.height);
+    for (let i = 0; i < acc.length; i++) out.data[i] = acc[i] / n;
+    if (dither) {
+      // Paint dots at delivery resolution, not at the capture size: any
+      // later ffmpeg scale would resample them back into soft grey hairlines.
+      // The existing server serves this pure module; Node uses it too, so
+      // there is only one algorithm to verify and no lib.js/DOM dependency.
+      const { ditherImageData } = await import('/dither.js');
+      const delivery = document.createElement('canvas');
+      delivery.width = width;
+      delivery.height = height;
+      const deliveryCtx = delivery.getContext('2d', { willReadFrequently: true });
+      deliveryCtx.imageSmoothingEnabled = true;
+      deliveryCtx.imageSmoothingQuality = 'high';
+      const averaged = await createImageBitmap(out);
+      deliveryCtx.drawImage(averaged, 0, 0, width, height);
+      averaged.close();
+      const pixels = deliveryCtx.getImageData(0, 0, width, height);
+      ditherImageData(pixels.data, width, height, { cell });
+      deliveryCtx.putImageData(pixels, 0, 0);
+      return delivery.toDataURL('image/png').split(',')[1];
+    }
+    // No palette snapping here. The composition already paints flat brand
+    // colours; the only intermediate values are the moving edges, which
+    // real motion blur has to produce. An earlier version re-quantized to
+    // ink/bone and silently deleted the grid, because a 20%-alpha
+    // hairline lands at luminance 60 — under any sane bone threshold.
+    ctx.putImageData(out, 0, 0);
+    return c.toDataURL('image/png').split(',')[1];
+  }, options);
+}
+
 export async function main(argv = process.argv.slice(2)) {
   const arg = (name, fallback) => {
     const i = argv.indexOf(`--${name}`);
@@ -286,60 +345,7 @@ export async function main(argv = process.argv.slice(2)) {
         await seek(BLUR === 1 ? t : wrapped);
         subs.push(await page.screenshot());
       }
-      const stacked = await page.evaluate(async ({ buffers, n, dither, cell, width, height }) => {
-        const load = (b) =>
-          new Promise((ok) => {
-            const img = new Image();
-            img.onload = () => ok(img);
-            img.src = 'data:image/png;base64,' + b;
-          });
-        const imgs = await Promise.all(buffers.map(load));
-        const c = document.createElement('canvas');
-        c.width = imgs[0].width;
-        c.height = imgs[0].height;
-        const ctx = c.getContext('2d', { willReadFrequently: true });
-        // getImageData is RGBA — four bytes per pixel, not three. Sizing the
-        // accumulator at three averaged only the first three quarters of each
-        // frame's byte stream and left the tail of out.data at zero, so every
-        // blurred frame was a quarter short and partly transparent.
-        const CHANNELS = 4;
-        const acc = new Float32Array(c.width * c.height * CHANNELS);
-        for (const img of imgs) {
-          ctx.clearRect(0, 0, c.width, c.height);
-          ctx.drawImage(img, 0, 0);
-          const d = ctx.getImageData(0, 0, c.width, c.height).data;
-          for (let i = 0; i < acc.length; i++) acc[i] += d[i];
-        }
-        const out = ctx.createImageData(c.width, c.height);
-        for (let i = 0; i < acc.length; i++) out.data[i] = acc[i] / n;
-        if (dither) {
-          // Paint dots at delivery resolution, not at the capture size: any
-          // later ffmpeg scale would resample them back into soft grey hairlines.
-          // The existing server serves this pure module; Node uses it too, so
-          // there is only one algorithm to verify and no lib.js/DOM dependency.
-          const { ditherImageData } = await import('/dither.js');
-          const delivery = document.createElement('canvas');
-          delivery.width = width;
-          delivery.height = height;
-          const deliveryCtx = delivery.getContext('2d', { willReadFrequently: true });
-          deliveryCtx.imageSmoothingEnabled = true;
-          deliveryCtx.imageSmoothingQuality = 'high';
-          const averaged = await createImageBitmap(out);
-          deliveryCtx.drawImage(averaged, 0, 0, width, height);
-          averaged.close();
-          const pixels = deliveryCtx.getImageData(0, 0, width, height);
-          ditherImageData(pixels.data, width, height, { cell });
-          deliveryCtx.putImageData(pixels, 0, 0);
-          return delivery.toDataURL('image/png').split(',')[1];
-        }
-        // No palette snapping here. The composition already paints flat brand
-        // colours; the only intermediate values are the moving edges, which
-        // real motion blur has to produce. An earlier version re-quantized to
-        // ink/bone and silently deleted the grid, because a 20%-alpha
-        // hairline lands at luminance 60 — under any sane bone threshold.
-        ctx.putImageData(out, 0, 0);
-        return c.toDataURL('image/png').split(',')[1];
-      }, {
+      const stacked = await captureFrame(page, {
         buffers: subs.map((b) => b.toString('base64')), n: BLUR,
         dither: DITHER, cell: DITHER_CELL, width: OUT_WIDTH, height: encHeight(OUT_WIDTH),
       });
