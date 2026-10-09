@@ -29,7 +29,11 @@ const argv0 = process.argv.slice(2);
 const filmArg0 = (() => { const i = argv0.indexOf('--film'); return i === -1 ? 'F1' : argv0[i + 1]; })();
 // Beat sheet comes from the film itself, so the renderer and the composition
 // cannot disagree about duration or frame count.
-const { default: filmModule } = await import(`./films/${filmArg0}.js`);
+// A scene lives beside the argument films, not among them: `films/` is the five
+// films that carry a claim, `scenes/` is art with tone. Resolve by what exists
+// so adding the next scene is a new file, not another special case here.
+const filmDir = existsSync(join(HERE, 'scenes', `${filmArg0}.js`)) ? 'scenes' : 'films';
+const { default: filmModule } = await import(`./${filmDir}/${filmArg0}.js`);
 const FILM = filmModule.meta;
 const REPO = resolve(HERE, '../..');
 
@@ -131,10 +135,17 @@ function assertSafeOutput(dir) {
 const BLUR = Math.max(1, Number(arg('blur', 1)));
 const SCALE = Number(arg('scale', 1));
 // Delivery size. Frames are always rendered at the composition's native
-// 1920x1080 so motion blur has real detail to smear; only the encode is
-// downscaled. Rendering small and blurring it is how hairlines disappear.
+// 1920x1080 so motion blur has real detail to smear. Only the encode is
+// downscaled normally; halftone runs resize after blur but before dot painting.
+// Rendering small and blurring it is how hairlines disappear.
 const OUT_WIDTH = Number(arg('out-width', FILM.width));
 const CRF = Number(arg('crf', 18));
+const DITHER = argv.includes('--dither');
+const DITHER_CELL = Number(arg('dither-cell', 8));
+if (DITHER && (!Number.isInteger(DITHER_CELL) || DITHER_CELL < 1)) {
+  throw new RangeError('--dither-cell must be a positive integer');
+}
+const encHeight = (w) => Math.round((w * FILM.height) / FILM.width / 2) * 2;
 
 // AV1 is emitted alongside the H.264 fallback. The browser picks the first
 // source it can decode, so this is a quality tier rather than a cost: modern
@@ -242,10 +253,14 @@ async function main() {
 
   const total = Math.round(FILM.duration * FILM.fps);
   const t0 = Date.now();
+  if (DITHER) {
+    console.log(`  dither: on (cell ${DITHER_CELL}px, output ${OUT_WIDTH}x${encHeight(OUT_WIDTH)})`);
+    console.log('  AV1 variant skipped under --dither (a second output-width dither pass is out of scope)');
+  }
 
   for (let f = 0; f < total; f++) {
     const t = f / FILM.fps;
-    if (BLUR === 1) {
+    if (BLUR === 1 && !DITHER) {
       await page.evaluate((time) => window.__seek(time), t);
       await page.screenshot({ path: join(OUT, 'frames', `f${String(f).padStart(4, '0')}.png`) });
     } else {
@@ -258,10 +273,12 @@ async function main() {
       for (let s = 0; s < BLUR; s++) {
         const st = t - (SHUTTER * (s + 0.5)) / BLUR;
         const wrapped = ((st % FILM.duration) + FILM.duration) % FILM.duration;
-        await page.evaluate((time) => window.__seek(time), wrapped);
+        // A one-capture draft still seeks exactly t, just like the fast path;
+        // enabling halftone alone must not introduce a shutter-time offset.
+        await page.evaluate((time) => window.__seek(time), BLUR === 1 ? t : wrapped);
         subs.push(await page.screenshot());
       }
-      const stacked = await page.evaluate(async ({ buffers, n }) => {
+      const stacked = await page.evaluate(async ({ buffers, n, dither, cell, width, height }) => {
         const load = (b) =>
           new Promise((ok) => {
             const img = new Image();
@@ -287,6 +304,26 @@ async function main() {
         }
         const out = ctx.createImageData(c.width, c.height);
         for (let i = 0; i < acc.length; i++) out.data[i] = acc[i] / n;
+        if (dither) {
+          // Paint dots at delivery resolution, not at the capture size: any
+          // later ffmpeg scale would resample them back into soft grey hairlines.
+          // The existing server serves this pure module; Node uses it too, so
+          // there is only one algorithm to verify and no lib.js/DOM dependency.
+          const { ditherImageData } = await import('/dither.js');
+          const delivery = document.createElement('canvas');
+          delivery.width = width;
+          delivery.height = height;
+          const deliveryCtx = delivery.getContext('2d', { willReadFrequently: true });
+          deliveryCtx.imageSmoothingEnabled = true;
+          deliveryCtx.imageSmoothingQuality = 'high';
+          const averaged = await createImageBitmap(out);
+          deliveryCtx.drawImage(averaged, 0, 0, width, height);
+          averaged.close();
+          const pixels = deliveryCtx.getImageData(0, 0, width, height);
+          ditherImageData(pixels.data, width, height, { cell });
+          deliveryCtx.putImageData(pixels, 0, 0);
+          return delivery.toDataURL('image/png').split(',')[1];
+        }
         // No palette snapping here. The composition already paints flat brand
         // colours; the only intermediate values are the moving edges, which
         // real motion blur has to produce. An earlier version re-quantized to
@@ -294,7 +331,10 @@ async function main() {
         // hairline lands at luminance 60 — under any sane bone threshold.
         ctx.putImageData(out, 0, 0);
         return c.toDataURL('image/png').split(',')[1];
-      }, { buffers: subs.map((b) => b.toString('base64')), n: BLUR });
+      }, {
+        buffers: subs.map((b) => b.toString('base64')), n: BLUR,
+        dither: DITHER, cell: DITHER_CELL, width: OUT_WIDTH, height: encHeight(OUT_WIDTH),
+      });
       writeFileSync(join(OUT, 'frames', `f${String(f).padStart(4, '0')}.png`), Buffer.from(stacked, 'base64'));
     }
     if (f % 30 === 0) {
@@ -307,13 +347,13 @@ async function main() {
   await browser.close();
   server.close();
 
-  const encHeight = (w) => Math.round((w * FILM.height) / FILM.width / 2) * 2;
   const encode = async (file, width, args) => {
     const out = join(OUT, file);
     await ffmpeg([
       '-y', '-framerate', String(FILM.fps),
       '-i', join(OUT, 'frames', 'f%04d.png'),
-      '-vf', `scale=${width}:${encHeight(width)}:flags=lanczos,format=yuv420p`,
+      // Halftone frames are already delivery-sized; preserve their dot edges.
+      '-vf', DITHER ? 'format=yuv420p' : `scale=${width}:${encHeight(width)}:flags=lanczos,format=yuv420p`,
       ...args,
       '-movflags', '+faststart',
       out,
@@ -328,7 +368,7 @@ async function main() {
   console.log(`\n  ${total} frames in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
   console.log(`  -> ${fallback.out}  (h264 ${OUT_WIDTH}px crf${CRF}, ${fallback.kb} KB)`);
 
-  if (AV1_WIDTH > 0) {
+  if (!DITHER && AV1_WIDTH > 0) {
     const av1 = await encode(`${FILM.file}.av1.mp4`, AV1_WIDTH, [
       '-c:v', 'libsvtav1', '-preset', String(AV1_PRESET), '-crf', String(AV1_CRF),
     ]);

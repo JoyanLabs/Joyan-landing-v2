@@ -17,7 +17,7 @@
  * Usage: node scripts/motion-src/probe.mjs --frames dist-motion/frames
  */
 
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inflateSync } from 'node:zlib';
@@ -26,7 +26,11 @@ const argv0 = process.argv.slice(2);
 // Beat sheet comes from the film, so the oracle can never grade a different
 // film than the one that was rendered.
 const filmId = (() => { const i = argv0.indexOf('--film'); return i === -1 ? 'F1' : argv0[i + 1]; })();
-const { default: filmModule } = await import(`./films/${filmId}.js`);
+// A scene lives beside the argument films, not among them: `films/` is the five
+// films that carry a claim, `scenes/` is art with tone. Resolve by what exists
+// so adding the next scene is a new file, not another special case here.
+const inScenes = existsSync(join(HERE, 'scenes', `${filmId}.js`));
+const { default: filmModule } = await import(`./${inScenes ? 'scenes' : 'films'}/${filmId}.js`);
 const FILM = filmModule.meta;
 const REPO = resolve(HERE, '../..');
 const argv = process.argv.slice(2);
