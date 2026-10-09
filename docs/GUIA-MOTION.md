@@ -2,7 +2,7 @@
 
 > **Estado:** PRUEBA. La rama `test/motion-graphics` contiene este trabajo.
 > No está integrada a `main` y no tiene aprobación formal de review.
-> **Última actualización:** 2026-10-01
+> **Última actualización:** 2026-10-09 (se agregó la prueba de dithering)
 
 Este documento explica **cómo se hicieron** los films de la landing y, sobre
 todo, **qué se aprendió por el camino**. Los films se pueden regenerar desde el
@@ -25,6 +25,7 @@ guía de método.
 - [Los errores que cometí](#los-errores-que-cometí)
 - [Decisiones de diseño](#decisiones-de-diseño)
 - [Qué haría distinto](#qué-haría-distinto)
+- [El efecto de dithering](#el-efecto-de-dithering-prueba-2026-10)
 - [Pendientes](#pendientes)
 
 ---
@@ -322,6 +323,135 @@ omito el que no probé.** Mi verificación siempre fue de un camino feliz.
 
 ---
 
+## El efecto de dithering (prueba 2026-10)
+
+La primera mitad de esta rama probó cinco films de hairline. Después entró otra
+pregunta: el efecto de **dithering ordenado** de [`ascii.rest`](https://ascii.rest)
+(bas3line, MIT), el que parece una impresión de puntos y no arte ASCII. La
+respuesta corta: **el efecto se puede construir acá, y no se puede aplicar encima
+de lo que ya teníamos**. Vale la pena entender por qué.
+
+### Qué es la referencia, exactamente
+
+`github.com/bas3line/ascii` es `ascii.rest@0.2.1`: TypeScript, **MIT, cero
+dependencias, sin WebGL**. Cada pieza es una función pura del tiempo que devuelve
+una grilla de `cols × rows` caracteres — la misma ley que nuestro `seek(t)`, sobre
+caracteres en lugar de SVG.
+
+Las escenas que parecen fotos no son ASCII. Se sombrean celda por celda en color y
+después se dibujan como halftone: **cada celda es un punto cuyo tamaño es su
+brillo**, diteado ordenadamente, en el color de paleta más cercano a su tono. La
+receta chica y precisa, en `src/pieces/night-coast.ts`:
+
+- rampa de puntos `" ·•●"`, cuatro pasos;
+- **Bayer 4×4** normalizado, con sesgo de centrado `-0,47`;
+- **compensación de color**: un punto chico se pinta más brillante y uno grande más
+  oscuro, para que el gradiente siga siendo suave entre los escalones del dither;
+- color por LUT de cubo RGB de 32 pasos, distancia ponderada `0,3R / 0,5G / 0,2B`;
+- geometría por hash entero + value noise/fbm con período envolvente, nunca
+  `Math.random`.
+
+### Qué construimos
+
+`scripts/motion-src/dither.js` (nuevo) + `--dither` en `render.mjs`, y
+`scripts/motion-src/scenes/J1.js` con modo canvas en `composition.html`.
+
+El dither corre **dentro del bloque que ya promedia los subframes de motion blur**,
+después del blur y antes de codificar, y **a la resolución de salida**: si se ditea
+a 1920 y después ffmpeg baja a 960, el remuestreo ablanda los puntos y el halftone
+se vuelve gris. Por eso, con `--dither`, el `scale=` sale del filtro de ffmpeg y la
+variante AV1 no se emite: sería una segunda pasada con otro dither.
+
+### Lo que aprendimos
+
+**1. Un halftone necesita tono, y nuestros films no tienen.** El pase sobre F1
+funciona técnicamente — lo acepta el oráculo, la costura queda exacta en `0.0/255`,
+es determinista — pero el resultado no sirve: a 1:1 el ámbar desaparece, los
+hairlines se degradan a cúmulos de puntos, y aparece una trama casi invisible en
+**todo** el frame, incluso donde no hay nada (auditoría de píxeles: dominancia de
+grises 11/12 contra ink 11 puro en el baseline). Eso último explica el **+34 % de
+bytes** (141 KB contra 105 KB). La causa no es el algoritmo: es que nuestros films
+son diagramas de trazo sobre ink plano. Donde no hay tono, un halftone sólo puede
+inventar una trama.
+
+**2. Con tono, el efecto aparece, y el oráculo lo exige de verdad.** `J1` sombrea
+un slab iluminado, un disco con borde suave, un portón ámbar con glow y ruido fbm
+determinista. A 1:1 se lee como una impresión, no como un diagrama. Histograma de
+celdas: **71,6 % en step 0** (hay ink negro real), **1,08 % en la rampa ámbar**,
+**0,20 % en el escalón más alto**.
+
+La primera versión fue **rechazada** por el oráculo: 92,7 % de frames quietos. El
+diagnóstico medido — diferencias frame a frame con PIL, no a ojo — fue útil y
+poco halagador: el film llegaba a ~3 % de píxeles cambiados en t=3 s, se estancaba
+ahí, y quedaban **1,5 s de aire muerto** antes de la costura. Era una foto que
+respira, no motion graphics.
+
+**3. Los dos contratos se contradicen si no hay un golpe corto.** `DESIGN.md` pide
+«algo nuevo cada 2 a 4 segundos». El oráculo pide `beat máximo / beat mínimo ≥ 4`.
+Con beats parejos de 2-4 s el cociente no puede pasar de 2: **la aceptación es
+imposible**. Los cinco films ya lo resolvían sin que estuviera escrito — un golpe
+corto dentro de un ritmo largo. `J1` quedó en `3 / 3 / 3 / 0,75 / 3 / 2,25 s`
+(cociente 4), y el golpe de 0,75 s es el destello del portón, no relleno.
+
+**4. El oráculo mide dos cosas distintas.** El cociente de cadencia sale de la
+**beat sheet declarada** en `meta`; el CV y el carry salen de **picos de energía
+detectados**. Declarar un golpe no alcanza: tiene que pasar algo en el frame.
+
+**5. El aire muerto es el enemigo, no la quietud.** El oráculo *quiere* al menos
+~12 % de frames quietos: los reposos son los que hacen aterrizar los movimientos.
+Lo que no tolera es un tramo final quieto. Pasamos de 91 frames de quietud
+consecutiva (3,03 s) a **19 frames (0,63 s)**, con 3 frames (0,10 s) en el cierre.
+
+### Resultado
+
+| | F1 hairline | F1 con dither | J1 (escena con tono) |
+|---|---|---|---|
+| H.264 960 px crf34, `--blur 1` | 105 KB | 141 KB | **197 KB** |
+| Oráculo | accepted | accepted | **accepted, carry 0,92** |
+| Costura | — | 0.0/255 | **0.0/255, f0000 y f0449 byte-idénticos** |
+| ¿Sirve el look? | — | **no** | **sí** |
+
+Reproducibilidad verificada por un verificador independiente: dos corridas
+completas del mismo fuente dan el **mismo sha256 en los frames muestreados y en el
+MP4 entero** (202 057 bytes). El render actual es reproducible extremo a extremo.
+
+### Lo que hay que arreglar antes de la iteración de verdad
+
+- **`render.mjs` no se puede testear en proceso.** No exporta ningún helper y
+ejecuta `main()` sin condición, así que la prueba que el repo ya usa para F3 y F5
+—buscar `t` en orden inverso y comparar byte a byte— **no se puede correr** sobre
+una escena canvas. Hay que exportar el setup. La costura byte-idéntica de `J1` es
+evidencia fuerte *contra* herencia de estado entre frames (una escena con estado no
+volvería exactamente al estado inicial después de 15 s), pero no reemplaza la
+prueba de orden.
+- **Densidad de celda.** `cell = 8 px` a 960 de ancho da puntos de 8 px, que en el
+hero se ven bien. Falta medir el tamaño de celda contra el ancho de presentación
+real y contra el costo en bytes, en vez de elegirlo a ojo.
+- **El ámbar por mayoría de celda era el defecto que borraba el color reservado.**
+Ahora la celda es elegible para la rampa ámbar por **máximo**, así que un hairline
+ámbar de 1 px sobrevive. El piso de tinta (`deadZone`) es lo que permite que el
+negro sea negro.
+- **Regla de resolución generalizada** —por existencia, no por nombre— ya aplicada
+en los tres lugares, con prueba de que no cambia el resultado byte a byte.
+- **Superficies candidatas**, para decidir en el plan: el hero, los thumbs de
+bitácora (el schema ya tiene `dither` y no hay asset), el OG, y el mark animado en
+SVG que la referencia exporta para READMEs. Lo que **no** es candidato es aplicar el
+pase encima de los cinco films de argumento.
+
+### Método: cómo se mira una trama de puntos
+
+- **A 1:1, nunca en un contact sheet.** Una tira de 360 px sobre un frame de 960
+*reduce* la grilla y la aliasea; en la primera revisión eso se leyó como «ruido»
+cuando era remuestreo. Los recortes van con `crop=` y sin `scale`.
+- **La animación se mide, no se mira.** `%` de píxeles cambiados contra el frame 0
+cada 0,5 s, más la racha más larga de frames por debajo de 0,05 % de cambio. Eso
+dijo en un minuto lo que el ojo iba a discutir veinte.
+- **Cuando una métrica y lo que ves discrepan, sospechá primero de la métrica —
+pero comprobalo contra los frames.** El «90/183/197 KB» parecía un renderer no
+determinista y era el historial de tres revisiones de la escena.
+
+---
+
 ## Pendientes
 
 - **La sección Proyectos** no se agregó. Es contenido nuevo y quedó fuera de
@@ -332,5 +462,9 @@ omito el que no probé.** Mi verificación siempre fue de un camino feliz.
   un candidato demasiado grande, y un intento anterior que se atascó pidiendo
   autorizar un re-scope por una vía que el facade no soporta. Los CRÍTICOS que
   encontró están corregidos y verificados; lo que falta es el veredicto.
+- **La prueba de dithering** (sección propia más arriba) dejó el efecto construido
+y aceptado por el oráculo en una escena con tono, y dejó escrito qué hay que
+arreglar antes de la iteración de verdad: `render.mjs` testable en proceso,
+densidad de celda medida, y las superficies candidatas decididas.
 - **Los diagrams técnicos densos** que se imaginaron para el detalle de bitácora
   no se hicieron. Falta decidir si esa superficie existe.
