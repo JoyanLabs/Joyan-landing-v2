@@ -50,35 +50,46 @@ O sea: **nuestro trabajo es PR C, y está adelantado respecto de A y B.** Ademá
 branding». Esto no es un detalle de proceso: es la decisión más grande de este plan, y
 está en la sección 3 como **D5**.
 
-### 2.2 La rama entera no puede ser un candidato de review — y eso es una restricción de diseño
+### 2.2 La rama entera nunca fue revisada, y quedó así por decisión explícita
 
 El preflight nativo de review falló con `lens_context_budget_exceeded` en `phase:
 preflight`: la evidencia de las lentes excede el presupuesto de contexto, la evidencia
 inmutable **nunca se trunca**, y «retrying this exact candidate cannot succeed». No se creó
-autoridad, no se mutó nada. La continuación que da el proveedor es textual: partirlo en
-**una secuencia encadenada de candidatos más chicos**, cada uno bajo el presupuesto.
+autoridad y no se mutó nada. El proveedor ofrecía dos continuaciones: reducir el alcance, o
+que el dueño del repo apague el switch.
 
-Consecuencia que cambia el diseño de la iteración: **el corte en candidatos es una
-restricción previa, no un trámite posterior.** Se diseña junto con el cambio.
+Se eligió la segunda. Lo que sigue es el registro de qué pasó, qué implica y qué deja de
+aplicar, porque el corte de la sección 4 ya no se apoya en un presupuesto nativo.
 
-**El candidato acumulado ya está declarado terminal.** El `next_action` que devolvió el
-proveedor fue `stop`, y su texto es explícito: «retrying this exact candidate cannot
-succeed, so split it into a chained sequence of smaller reviewable commits, each under the
-budget». Eso trae una consecuencia mecánica que conviene decir antes de que sorprenda:
-**agregar commits al acumulado sólo empeora el candidato**, porque el target nuevo contiene
-estrictamente toda la evidencia del anterior más la nueva. Si un rango ya excede el
-presupuesto, un superconjunto suyo también. No se reintenta: se reduce.
+**Y es terminal por candidato, no transitorio.** El `next_action` fue `stop`, y el modo de
+falla es monótono: verifiqué con dos
+preflights consecutivos que el `base-ref` es el mismo (`2d13d13`, o sea `main`), que el
+`base_tree` es el mismo, y que el árbol del candidato **sólo avanzó** —un path más entre una
+corrida y la otra—. Un superconjunto de un rango que ya excede el presupuesto también lo
+excede, así que reintentar era ejecutar a sabiendas algo declarado imposible.
 
-**Y hay un detalle de mecánica que corrige la primera versión de este plan:** `inspect` y
-`START` evalúan siempre el rango del workspace (`main..HEAD`), así que **el presupuesto no
-se puede medir mientras el candidato sea la rama acumulada**. Para medirlo hay que aislar el
-primer recorte en su propio rango —su propia rama o worktree— y correr el preflight desde
-ahí. La primera tarea dejó de ser «un candidato chico» y pasó a ser «cortar el primer
-candidato».
+**Consecuencia elegida por el humano:** RDD quedó **desactivado para este clon**
+(`gentle-ai review mode disable --scope clone` → `clone-local: off`, `global: unset`). No hay
+receipt y no va a haberlo: la entrega se decide por política ordinaria, y `commit`, `push`,
+PR y merge son decisiones del dueño del repo. El override es local al clon, así que ningún
+otro repositorio lo hereda.
 
-**Hipótesis, no hecho probado:** que el peso sean los binarios (`public/assets/motion/`,
-10 MP4, ~860 KB, el mayor `harness-outcome.mp4` de 198 422 bytes) más los 3 817 renglones
-de texto. No está medido, y **no se puede medir en esta rama**: ver arriba.
+**Lo que NO cambia, y ahora importa más:** sin gate automático, lo único que impide que
+material de PR A (el copy narrativo) llegue a `main` sin la revisión de branding que pide
+`JOYAN_DIRECTION_2026.md:1720` es nuestra propia disciplina. **D5 dejó de ser «en qué
+orden» y pasó a ser «qué nos protege ahora».**
+
+**Lo que sí cambia:** el corte en candidatos deja de ser una imposición del presupuesto
+nativo y vuelve a ser lo que es en el resto del repo — una cuestión de **carga de revisión
+humana**. Sigue valiendo partir por unidad de trabajo y mantener los binarios separados del
+código (es lo que dicen los skills `work-unit-commits` y `chained-pr` del propio proyecto),
+pero ya no hay ningún número que medir, y la regla «cada recorte en su propio rango» era
+mecánica del facade: sin RDD no hace falta una rama por slice.
+
+**Hipótesis que queda sin medir, y ya sin forma de medirla:** que el peso del candidato sean
+los binarios (`public/assets/motion/`, 10 MP4, ~860 KB, el mayor `harness-outcome.mp4` de
+198 422 bytes) más los 3 817 renglones de texto. Queda anotado porque explica **por qué la
+rama no era revisable como unidad**, no porque haya que actuar sobre él.
 
 ---
 
@@ -165,11 +176,10 @@ pronto; la 3 si te importa más la trazabilidad. La 1 es la más correcta y la m
 
 Reglas de diseño del corte, derivadas de la restricción de 2.2:
 
-1. **De menor a mayor, y cada uno en su propio rango.** El primer candidato es el más chico
-   posible y sirve para **medir el presupuesto real** de las lentes. Pero `inspect` y
-   `START` evalúan `main..HEAD` del workspace: mientras el candidato sea la rama acumulada,
-   el presupuesto no se puede medir, porque ese rango ya está declarado terminal. **Cada
-   recorte vive en su propia rama y su preflight se corre desde ahí.**
+1. **De menor a mayor.** El primer recorte es el más chico posible, para que la revisión
+   humana pueda empezar por algo que se lee de una sentada. Sin RDD no hay presupuesto
+   nativo que medir, así que la regla «cada recorte en su propio rango» —que era mecánica
+   del facade— ya no aplica: los slices son **commits o PRs encadenados**, no ramas.
 2. **Binarios separados del código.** Un candidato puede ser sólo assets. Los assets
    pueden landear *antes* que su consumo: assets sin consumidor no rompen nada, y así los
    candidatos de código no cargan ~860 KB de MP4.
@@ -179,8 +189,8 @@ Reglas de diseño del corte, derivadas de la restricción de 2.2:
    aparte: `check-iteration-2.mjs` valida existencia, tamaño (≤300 KiB por film, `:1364`), unicidad
    dentro de su sección, orden AV1-antes-de-H.264 y los atributos del `<video>`
    (bloque del contrato de films, `:1349-1486`), más los presupuestos de PNG de dither (80/100 KiB, `:695-696`).
-5. **Si un candidato no entra, se corta otra vez.** No se pide una excepción al
-   presupuesto: se parte.
+5. **Si un slice crece de más, se parte otra vez.** Ningún slice se justifica por «ahorrar
+   viajes»: un slice que no se lee de una sentada no es un slice.
 
 **Prohibido por diseño:** un candidato que sea «toda la rama», y un candidato que junte
 dos superficies para ahorrar viajes.
@@ -196,9 +206,9 @@ empezado.** El orden es el de la tabla.
 
 - **Entrega:** este documento; `docs/GUIA-MOTION.md` con la sección de dither ya escrita
   (está en la rama); `odd/tasks/dither-look-spike.md` como registro.
-- **Por qué primero:** es el candidato más chico posible y, además, **el único lugar donde
-  el presupuesto se puede medir**: hay que correrlo en su propio rango, no en la rama
-  acumulada. Su review calibra todos los demás.
+- **Por qué primero:** es el recorte más chico posible —unos 340 renglones de texto, cero
+  binarios, nada de `src/`—, se revisa de una sentada, y fija el tono del corte para los
+  demás.
 - **Aceptación:** los documentos describen lo que el código hace; cero referencias a
   archivos o mediciones que no existan.
 
@@ -312,8 +322,8 @@ empezado.** El orden es el de la tabla.
 
 | Riesgo | Cómo se maneja |
 |---|---|
-| El presupuesto de las lentes es más chico de lo esperado y ni un candidato entra | WU1 existe para medirlo primero, en su propio rango. Si ni siquiera el recorte de documentación entra, el problema es el tamaño base del repo y hay que hablarlo antes de escribir una línea de código. |
-| El supuesto de que los binarios son el peso del candidato es una hipótesis | No se actúa sobre ella: se mide con WU1. |
+| El supuesto de que los binarios son el peso del candidato es una hipótesis | No se actúa sobre ella: queda anotado como explicación de por qué la rama no era revisable como unidad. |
+| **Sin gate automático**, el copy de PR A puede llegar a `main` sin la revisión de branding que exige `JOYAN_DIRECTION_2026.md:1720` | Es la decisión D5, y ahora es la que más pesa. Si no se decide, el corte por defecto **excluye el copy**. |
 | Cambiar el renderer rompe films que ya funcionan | WU2 tiene como criterio una identidad sha256, no una inspección visual. |
 | El look no sobrevive al ancho de mobile | M1 (WU5) y D4 existen exactamente por esto, y van antes de dibujar los assets finales. |
 | El copy de la rama se cuela a `main` sin revisión de branding | Es la decisión D5. Si no se decide, el corte de la sección 4 tendría que excluir el copy por defecto. |
@@ -324,7 +334,9 @@ empezado.** El orden es el de la tabla.
   (`.github/workflows/ci.yml:36-42`).
 - **Gate de arte:** cualquier film nuevo pasa `probe.mjs` con veredicto `accepted`, y
   cualquier asset visual se mira **a 1:1** en los tres anchos.
-- **Gate de review:** un candidato por vez, de menor a mayor, y la review es de vos: cada
-  START abre su envelope de consentimiento y lo decidís vos. `push`, PR y merge también.
+- **Gate de review:** desactivado para este clon por decisión explícita del dueño. La
+  revisión pasa a ser humana y por política ordinaria: un slice por vez, de menor a mayor.
+  Sin línea de base común no hay receipt, así que la trazabilidad de esta iteración son los
+  commits y este documento. `commit`, `push`, PR y merge los decidís vos.
 - **Cierre:** cuando `main` tenga el efecto y este documento esté cumplido o explícitamente
   diferido, la rama `test/motion-graphics` se archiva con su registro.
