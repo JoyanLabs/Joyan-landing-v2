@@ -61,10 +61,24 @@ autoridad, no se mutó nada. La continuación que da el proveedor es textual: pa
 Consecuencia que cambia el diseño de la iteración: **el corte en candidatos es una
 restricción previa, no un trámite posterior.** Se diseña junto con el cambio.
 
+**El candidato acumulado ya está declarado terminal.** El `next_action` que devolvió el
+proveedor fue `stop`, y su texto es explícito: «retrying this exact candidate cannot
+succeed, so split it into a chained sequence of smaller reviewable commits, each under the
+budget». Eso trae una consecuencia mecánica que conviene decir antes de que sorprenda:
+**agregar commits al acumulado sólo empeora el candidato**, porque el target nuevo contiene
+estrictamente toda la evidencia del anterior más la nueva. Si un rango ya excede el
+presupuesto, un superconjunto suyo también. No se reintenta: se reduce.
+
+**Y hay un detalle de mecánica que corrige la primera versión de este plan:** `inspect` y
+`START` evalúan siempre el rango del workspace (`main..HEAD`), así que **el presupuesto no
+se puede medir mientras el candidato sea la rama acumulada**. Para medirlo hay que aislar el
+primer recorte en su propio rango —su propia rama o worktree— y correr el preflight desde
+ahí. La primera tarea dejó de ser «un candidato chico» y pasó a ser «cortar el primer
+candidato».
+
 **Hipótesis, no hecho probado:** que el peso sean los binarios (`public/assets/motion/`,
 10 MP4, ~860 KB, el mayor `harness-outcome.mp4` de 198 422 bytes) más los 3 817 renglones
-de texto. No está medido. **El primer candidato de la secuencia sirve justamente para
-medirlo** (sección 4).
+de texto. No está medido, y **no se puede medir en esta rama**: ver arriba.
 
 ---
 
@@ -151,9 +165,11 @@ pronto; la 3 si te importa más la trazabilidad. La 1 es la más correcta y la m
 
 Reglas de diseño del corte, derivadas de la restricción de 2.2:
 
-1. **De menor a mayor.** El primer candidato es el más chico posible y sirve para **medir
-   el presupuesto real** de las lentes. Hoy no lo conocemos: sólo sabemos que la rama
-   entera no entra.
+1. **De menor a mayor, y cada uno en su propio rango.** El primer candidato es el más chico
+   posible y sirve para **medir el presupuesto real** de las lentes. Pero `inspect` y
+   `START` evalúan `main..HEAD` del workspace: mientras el candidato sea la rama acumulada,
+   el presupuesto no se puede medir, porque ese rango ya está declarado terminal. **Cada
+   recorte vive en su propia rama y su preflight se corre desde ahí.**
 2. **Binarios separados del código.** Un candidato puede ser sólo assets. Los assets
    pueden landear *antes* que su consumo: assets sin consumidor no rompen nada, y así los
    candidatos de código no cargan ~860 KB de MP4.
@@ -180,8 +196,9 @@ empezado.** El orden es el de la tabla.
 
 - **Entrega:** este documento; `docs/GUIA-MOTION.md` con la sección de dither ya escrita
   (está en la rama); `odd/tasks/dither-look-spike.md` como registro.
-- **Por qué primero:** es el candidato más chico posible. **Su review mide el presupuesto**
-  y con eso se calibran todos los demás.
+- **Por qué primero:** es el candidato más chico posible y, además, **el único lugar donde
+  el presupuesto se puede medir**: hay que correrlo en su propio rango, no en la rama
+  acumulada. Su review calibra todos los demás.
 - **Aceptación:** los documentos describen lo que el código hace; cero referencias a
   archivos o mediciones que no existan.
 
@@ -295,7 +312,7 @@ empezado.** El orden es el de la tabla.
 
 | Riesgo | Cómo se maneja |
 |---|---|
-| El presupuesto de las lentes es más chico de lo esperado y ni un candidato entra | WU1 existe para medirlo primero. Si ni el plan entra, el problema es el repo, no el corte, y hay que hablarlo antes de escribir una línea. |
+| El presupuesto de las lentes es más chico de lo esperado y ni un candidato entra | WU1 existe para medirlo primero, en su propio rango. Si ni siquiera el recorte de documentación entra, el problema es el tamaño base del repo y hay que hablarlo antes de escribir una línea de código. |
 | El supuesto de que los binarios son el peso del candidato es una hipótesis | No se actúa sobre ella: se mide con WU1. |
 | Cambiar el renderer rompe films que ya funcionan | WU2 tiene como criterio una identidad sha256, no una inspección visual. |
 | El look no sobrevive al ancho de mobile | M1 (WU5) y D4 existen exactamente por esto, y van antes de dibujar los assets finales. |
