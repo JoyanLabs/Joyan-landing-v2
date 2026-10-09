@@ -2,7 +2,7 @@
 
 > **Estado:** PRUEBA. La rama `test/motion-graphics` contiene este trabajo.
 > No está integrada a `main` y no tiene aprobación formal de review.
-> **Última actualización:** 2026-10-09 (se agregó la prueba de dithering)
+> **Última actualización:** 2026-10-16 (contrato y evidencia reconciliados con el árbol)
 
 Este documento explica **cómo se hicieron** los films de la landing y, sobre
 todo, **qué se aprendió por el camino**. Los films se pueden regenerar desde el
@@ -12,6 +12,13 @@ La referencia de contrato visual (qué color significa qué, presupuestos,
 reglas de accesibilidad) está en [`DESIGN.md`](./DESIGN.md). Este archivo es la
 guía de método.
 
+**Cómo leer la evidencia.** Los números históricos, las comparaciones visuales y
+los hallazgos de review de abajo son observaciones puntuales de la prueba: el repo
+no conserva en archivos versionados los baselines, las capturas ni todos los
+scripts ad hoc para repetirlos.
+No son gates reproducibles. Donde hay un check actual, se nombra el comando; volver
+a correrlo mide el fuente actual, no reconstruye automáticamente aquella medición.
+
 ---
 
 ## Tabla de contenidos
@@ -20,7 +27,7 @@ guía de método.
 - [El pipeline](#el-pipeline)
 - [Cómo reproducirlo](#cómo-reproducirlo)
 - [El oráculo](#el-oráculo)
-- [Los cinco films](#los-cinco-films)
+- [Los cinco films](#qué-es-esto)
 - [Lo aprendido](#lo-aprendido)
 - [Los errores que cometí](#los-errores-que-cometí)
 - [Decisiones de diseño](#decisiones-de-diseño)
@@ -37,16 +44,17 @@ serio**, con una fuente canónica:
 
 | Film | Afirmación | Fuente |
 |---|---|---|
-| `harness-outcome` | Dos agentes idénticos producen el mismo resultado; solo el que tiene alrededor lo que lo sostiene sale bien | `plan/…/HARNESS_ENGINEERING.md` §1 — *6× de diferencia con el mismo modelo* |
+| `harness-outcome` | Dos agentes idénticos producen el mismo resultado; solo el que tiene alrededor lo que lo sostiene sale bien | HARNESS_ENGINEERING, documento externo al repo, §1 — *6× de diferencia con el mismo modelo* |
 | `action-gates` | Solo la acción irreversible se detiene, y espera a una persona | ibidem §5 — *un gate sobre todo es cuello de botella; sobre nada, nadie mira* |
 | `harness-assembly` | El harness se arma alrededor del agente y **una banda entera nunca llega** | ibidem §4 — *el bloque de control es el que suele faltar* |
 | `signal-freshness` | Las señales envejecen; la más vieja deja de fingir que está actual | dirección §5 + el copy de frescura |
-| `knowledge-cycle` | Un pulso recorre el ciclo del conocimiento y vuelve transformado, detenido dos veces | `plan/…/decision-flow.mmd` |
+| `knowledge-cycle` | Un pulso recorre el ciclo del conocimiento y vuelve transformado, detenido dos veces | decision-flow, diagrama externo al repo |
 
 El origen de la dirección visual está en el trabajo previo del equipo, no acá:
-`pantallo/docs/style/style-directions.html` (tres composiciones originales con
-animación por estado) y el piloto Archify en
-`plan/docs/research/2026-09-07-visual-artifacts.md`. De ahí sale el principio que
+las direcciones de estilo de Pantallo (tres composiciones originales con
+animación por estado) y el piloto Archify del informe de artefactos visuales del
+2026-09-07 en el repo de planificación. Son fuentes externas: este árbol no las
+incluye y no permite verificar esas referencias localmente. De ahí sale el principio que
 gobierna todo lo demás:
 
 > *Tres composiciones originales para comparar **jerarquía y movimiento**, no
@@ -56,7 +64,7 @@ gobierna todo lo demás:
 
 ## El pipeline
 
-Cuatro archivos en `scripts/motion-src/`:
+El pipeline en `scripts/motion-src/`:
 
 ```
 lib.js            el vocabulario: movimientos, paleta, cámara, primitivas
@@ -64,6 +72,7 @@ films/F1..F5.js   los cinco guiones, uno por film
 composition.html  una sola página; el film es un parámetro (?film=FN)
 render.mjs        recorre el reloj, captura, codifica
 probe.mjs         el oráculo
+check-determinism.mjs  el gate local de independencia de orden
 ```
 
 La idea central: **`seek(t)` es una función pura del tiempo**. No hay `rAF`, no
@@ -78,8 +87,8 @@ frame. ffmpeg arma el MP4.
 tienen por qué estar en el `pnpm install` de todos:
 
 ```bash
-mkdir -p ~/.cache/joyan-motion && cd ~/.cache/joyan-motion
-npm init -y && npm i -D playwright && npx playwright install chromium
+(mkdir -p ~/.cache/joyan-motion && cd ~/.cache/joyan-motion &&
+  npm init -y && npm i -D playwright && npx playwright install chromium)
 ```
 
 `MOTION_TOOLCHAIN` lo apunta a otro lado si vivís el toolchain en otro lugar.
@@ -88,25 +97,30 @@ npm init -y && npm i -D playwright && npx playwright install chromium
 
 ## Cómo reproducirlo
 
+Desde la raíz del repo, con el toolchain ya instalado:
+
 ```bash
-# 1. dist/_astro/*.woff2 tiene que existir: el renderer copia de ahí las
-#    tipografías de marca a scripts/motion-src/.
+# 1. Validar el build. stageFonts() copia las tipografías de marca desde
+#    node_modules a scripts/motion-src/, no desde dist/_astro/.
 pnpm build
 
 # 2. Renderizar y verificar. El oráculo tiene que decir "accepted".
 for F in F1 F2 F3 F4 F5; do
-  node scripts/motion-src/render.mjs --film $F --out dist-motion --blur 5 \
-    --out-width 960 --crf 34 --av1-width 960 --av1-crf 46
-  node scripts/motion-src/probe.mjs --film $F --frames dist-motion/frames
+  W=960; B=5
+  if [ "$F" = F1 ]; then W=1280; fi
+  if [ "$F" = F5 ]; then B=1; fi
+  node scripts/motion-src/render.mjs --film $F --out dist-motion --blur $B \
+    --out-width $W --crf 34 --av1-width $W --av1-crf 46 || exit 1
+  node scripts/motion-src/probe.mjs --film $F --frames dist-motion/frames || exit 1
+  # Recién entonces, a public/. El próximo render reemplaza dist-motion.
+  cp dist-motion/*.mp4 public/assets/motion/
 done
-
-# 3. Recién entonces, a public/.
-cp dist-motion/*.mp4 public/assets/motion/
 ```
 
 `--blur 5` es motion blur real: cada frame es el promedio en luz lineal de cinco
 capturas sub-frame repartidas en un obturador de 180°. F5 se renderiza **sin
-blur** a propósito (ver [Lo aprendido](#lo-aprendido)).
+blur** a propósito (ver [Lo aprendido](#lo-aprendido)). Es una receta de autoría,
+no una garantía de MP4 byte-idéntico entre versiones de navegador y encoder.
 
 ---
 
@@ -121,16 +135,20 @@ slideshow. No es un linter: mide cosas que un ojo no puede medir solo.
 | **quietud** | % de frames realmente muertos | los reposos son los que hacen aterrizar los movimientos |
 | **carry** | cuánto de lo que estaba en pantalla sobrevive a cada frontera | si nada sobrevive, es un cambio de slide |
 | **foco** | si el sujeto se disuelve en una niebla de frame completo, o sale de cuadro | algo tiene que estar mirando |
-| **costura** | si el último frame es igual al primero | en un video de fondo el empalme se ve en cada loop |
+| **costura** | celdas muestreadas del último frame contra el primero, con tolerancia >24/255 | en un video de fondo el empalme se ve en cada loop |
 
-Estado actual:
+Resultado registrado durante la autoría (no recalculado por este documento).
+El check actual es `node scripts/motion-src/probe.mjs --film <F> --frames dist-motion/frames`
+para F1..F5, inmediatamente después de renderizar cada film como arriba:
 
 ```
 F1 carry 0.54 · F2 0.49 · F3 0.66 · F4 0.51 · F5 0.48   → los 5 accepted
 ```
 
 **El oráculo encontró cosas que yo no había visto.** No es decoración del
-proceso: tres de los que_importantes errores de esta rama los detectó él.
+proceso: tres de los errores importantes de esta rama los detectó él. Es una
+observación histórica; el repo no conserva una prueba que reproduzca esos tres
+fallos originales.
 
 ---
 
@@ -153,13 +171,27 @@ Tres reglas que costaron una corrección cada una:
   quedaba ámbar para siempre: el "sentido" que se veía venía de un bug de
   determinismo. Ahora se escribe el estado actual en cada frame, siempre.
 
-Esto se verifica explícitamente: buscar F3 y F5 en órdenes opuestos tiene que
-dar SVG byte-idéntico.
+Antes escribí que buscar F3 y F5 en órdenes opuestos «tenía que dar SVG
+byte-idéntico». **El check no existía cuando lo afirmé.** Cuando se pudo medir,
+F3 pasó y F5 divergió en `t=3`; al correr los cinco, F1 también falló en `t=0`.
+F1 y F5 tenían estado heredado en atributos invisibles: ambas divergencias eran
+`markup-only`, no diferencias en el raster pintado. Se corrigieron en `19b0d7c`;
+el resultado registrado después del arreglo es **PASS en los cinco films**.
+
+Hoy podés correr `node scripts/motion-src/check-determinism.mjs --film <F>`
+para F1..F5. Compara SVG serializado **y** RGBA pintado en tiempos muestreados,
+en orden directo, inverso, directo otra vez y con una página nueva; no prueba
+todos los instantes del film. Necesita el toolchain aislado de Playwright,
+es deliberadamente local y no entra en `pnpm check` ni en CI.
 
 ### 2. El motion blur baja el carry, y hay que decidirlo
 
 F5 con blur 3 daba carry 0.44 y sin blur daba 0.48. Tiene sentido: difuminar
 reduce la superposición entre frames, que es justamente lo que el oráculo mide.
+Esos dos valores son una comparación puntual, sin frames baseline conservados
+para reproducirla en el repo. Hoy medís cada variante con
+`node scripts/motion-src/probe.mjs --film F5 --frames dist-motion/frames` después
+de renderizarla con `--blur 3` o `--blur 1`.
 
 En un film de hairlines de 1 px, nitidez ganó. **Regla: el blur es un trade
 medible, no un default.** Medilo antes de decidirlo.
@@ -177,7 +209,11 @@ acá, porque el detalle no existe en el origen.
 Lo que sí sirvió fue **entregar píxeles nativos con mejor códec**: AV1 (SVT) a
 1280×720 quedó en 96 KB contra 194 KB del H.264 equivalente — más nítido *y*
 más chico. Un browser descarga solo la fuente que puede decodificar, así que es
-un escalón de calidad, no un costo doble.
+un escalón de calidad, no un costo doble. Esa comparación fue puntual; hoy
+ambos encodes del hero son 1280×720 y los de sección, 960×540. Podés inspeccionar
+cada salida con `ffprobe -v error -show_streams -show_format public/assets/motion/harness-outcome.mp4`
+(repetí para cada MP4). No hay un runner conservado para repetir el juicio visual
+sobre super-res.
 
 ### 4. El CRF no es comparable entre encoders
 
@@ -189,10 +225,12 @@ estaba mal configurado.
 Ojo también: un intento de medir con VMAF dio ~23 para todas las resoluciones y
 la alta puntuaba **peor** que la baja. Eso era un grafo mal armado, no un
 resultado. **No decidir sobre una medición rota**; comparar el detalle a ojo.
+Son mediciones puntuales: el repo no conserva el grafo VMAF ni los encodes de esa
+comparación, así que no puede reproducir esos valores.
 
 ### 5. Las métricas del oráculo también se rompen
 
-Dos veces el oráculo dio verde/rojo por la métrica y no por el film:
+El oráculo dio verde/rojo por la métrica y no por el film:
 
 - **Promedio por celda mata las líneas finas.** Un trazo de 1,5 px promediado en
   su celda desaparece, y un frame compuesto se leía como vacío. Se cambió a
@@ -206,6 +244,12 @@ Dos veces el oráculo dio verde/rojo por la métrica y no por el film:
   12/255 son invisibles. Ahora pasa por comparación **por celda** (>24/255) y
   reporta las dos cifras, para que el cambio no quede escondido detrás del
   veredicto.
+
+Los fallos de las métricas y los 147 píxeles fueron observaciones puntuales sin
+baseline conservado. El oráculo actual se corre con
+`node scripts/motion-src/probe.mjs --film <F> --frames dist-motion/frames`;
+reporta delta máximo **por celda** y celdas muestreadas con delta >24/255, no
+un conteo exhaustivo de píxeles ni identidad byte a byte.
 
 La lección de fondo: **cuando una métrica y lo que uno ve discrepan, primero
 sospechá de la métrica** — pero comprobalo contra el frame, no de memoria.
@@ -231,11 +275,13 @@ solo, sin explicación.
 
 ### 7. Un film que nadie nombra es decoración
 
-Cinco films correctos y cero visitantes entendían nada. Dos arreglos:
+Cinco films correctos y cero visitantes entendían nada — una observación
+puntual de lectura, no un estudio de usuarios reproducible en este repo.
+Dos arreglos:
 
 - **El copy nombra la imagen**: cada sección lleva dos líneas, *qué se ve
   literalmente* y *qué significa para vos*, en idioma de visitante y sin jerga
-  interna. El checker las exige en ES y EN.
+  interna. El checker las exige en ES y EN (`pnpm check`).
 - **El hero nombra su propio fondo**, que es lo primero que se ve y no decía
   nada.
 
@@ -265,7 +311,8 @@ valores**: el scrim "no hacía nada" y no había error visible.
 
 `page.on('pageerror')` está en el renderer porque un error de página aparecía
 solo como un timeout de 30 s, sin mensaje. Pasó **tres veces** antes de que
-estuviera el log.
+estuviera el log. Es un registro puntual: no quedó un caso que reproduzca esos
+tres errores en el repo.
 
 ---
 
@@ -283,6 +330,10 @@ son el mismo patrón:
 
 La lección que se repite: **escribo una guardia que cubre el caso que probé y
 omito el que no probé.** Mi verificación siempre fue de un camino feliz.
+Son hallazgos históricos de review; el repo no conserva un runner para repetir
+las cuatro versiones rotas. Para la pureza actual de F3 está
+`node scripts/motion-src/check-determinism.mjs --film F3`; el gate no es un test
+de las guardias destructivas del renderer.
 
 ---
 
@@ -297,7 +348,7 @@ omito el que no probé.** Mi verificación siempre fue de un camino feliz.
 - **Un solo punto de entrada.** `composition.html?film=FN`: los cinco films los
   renderiza el mismo código, así que no pueden divergir entre sí.
 - **El copy va en el locale, no en el componente.** `film.shows` / `film.means`
-  viven en `es.ts` y `en.ts`, con paridad verificada.
+  viven en `es.ts` y `en.ts`, con paridad verificada por `pnpm check`.
 
 ---
 
@@ -334,14 +385,17 @@ de lo que ya teníamos**. Vale la pena entender por qué.
 ### Qué es la referencia, exactamente
 
 `github.com/bas3line/ascii` es `ascii.rest@0.2.1`: TypeScript, **MIT, cero
-dependencias, sin WebGL**. Cada pieza es una función pura del tiempo que devuelve
+dependencias, sin WebGL** según la inspección puntual de esa versión externa;
+este repo no conserva un check que reproduzca esa auditoría.
+Cada pieza es una función pura del tiempo que devuelve
 una grilla de `cols × rows` caracteres — la misma ley que nuestro `seek(t)`, sobre
 caracteres en lugar de SVG.
 
 Las escenas que parecen fotos no son ASCII. Se sombrean celda por celda en color y
 después se dibujan como halftone: **cada celda es un punto cuyo tamaño es su
 brillo**, diteado ordenadamente, en el color de paleta más cercano a su tono. La
-receta chica y precisa, en `src/pieces/night-coast.ts`:
+receta chica y precisa, en la pieza night-coast de ese proyecto externo (no es
+un archivo de esta landing):
 
 - rampa de puntos `" ·•●"`, cuatro pasos;
 - **Bayer 4×4** normalizado, con sesgo de centrado `-0,47`;
@@ -365,8 +419,8 @@ variante AV1 no se emite: sería una segunda pasada con otro dither.
 ### Lo que aprendimos
 
 **1. Un halftone necesita tono, y nuestros films no tienen.** El pase sobre F1
-funciona técnicamente — lo acepta el oráculo, la costura queda exacta en `0.0/255`,
-es determinista — pero el resultado no sirve: a 1:1 el ámbar desaparece, los
+funcionó técnicamente en esa prueba — lo aceptó el oráculo, la costura dio
+`0.0/255` y se observó determinismo — pero el resultado no sirve: a 1:1 el ámbar desaparece, los
 hairlines se degradan a cúmulos de puntos, y aparece una trama casi invisible en
 **todo** el frame, incluso donde no hay nada (auditoría de píxeles: dominancia de
 grises 11/12 contra ink 11 puro en el baseline). Eso último explica el **+34 % de
@@ -386,8 +440,10 @@ poco halagador: el film llegaba a ~3 % de píxeles cambiados en t=3 s, se estanc
 ahí, y quedaban **1,5 s de aire muerto** antes de la costura. Era una foto que
 respira, no motion graphics.
 
-**3. Los dos contratos se contradicen si no hay un golpe corto.** `DESIGN.md` pide
-«algo nuevo cada 2 a 4 segundos». El oráculo pide `beat máximo / beat mínimo ≥ 4`.
+**3. Los dos contratos se contradecían si no había un golpe corto.** En la prueba
+se interpretó la dirección visual como «algo nuevo cada 2 a 4 segundos»; el
+`DESIGN.md` actual no exige ese intervalo. El oráculo sí pide
+`beat máximo / beat mínimo ≥ 4` (`node scripts/motion-src/probe.mjs --film J1 --frames dist-motion/frames`).
 Con beats parejos de 2-4 s el cociente no puede pasar de 2: **la aceptación es
 imposible**. Los cinco films ya lo resolvían sin que estuviera escrito — un golpe
 corto dentro de un ritmo largo. `J1` quedó en `3 / 3 / 3 / 0,75 / 3 / 2,25 s`
@@ -411,19 +467,32 @@ consecutiva (3,03 s) a **19 frames (0,63 s)**, con 3 frames (0,10 s) en el cierr
 | Costura | — | 0.0/255 | **0.0/255, f0000 y f0449 byte-idénticos** |
 | ¿Sirve el look? | — | **no** | **sí** |
 
-Reproducibilidad verificada por un verificador independiente: dos corridas
-completas del mismo fuente dan el **mismo sha256 en los frames muestreados y en el
-MP4 entero** (202 057 bytes). El render actual es reproducible extremo a extremo.
+Reproducibilidad observada por un verificador independiente: dos corridas
+completas de aquel fuente dieron el **mismo sha256 en los frames muestreados y en el
+MP4 entero** (202 057 bytes). Fue una observación puntual, no un gate conservado
+de reproducción del encode extremo a extremo.
+
+Los histogramas, la auditoría PIL, el +34 %, las rachas de quietud y la tabla
+son mediciones puntuales: el repo no conserva los baselines ni sus scripts ad hoc
+para repetir esos números. Para medir el oráculo **actual** de J1, renderizá con
+`node scripts/motion-src/render.mjs --film J1 --out dist-motion --blur 1 --out-width 960 --crf 34 --dither --dither-cell 8`
+y corré `node scripts/motion-src/probe.mjs --film J1 --frames dist-motion/frames`.
+Para pureza de la escena (antes del dither y del encode), el comando es
+`node scripts/motion-src/check-determinism.mjs --film J1`. No equivale a comparar
+dos MP4 completos. La identidad de extremos se comprueba con
+`sha256sum dist-motion/frames/f0000.png dist-motion/frames/f0449.png`;
+no presupongas que el resultado de hoy repite el baseline histórico.
 
 ### Lo que hay que arreglar antes de la iteración de verdad
 
-- **`render.mjs` no se puede testear en proceso.** No exporta ningún helper y
-ejecuta `main()` sin condición, así que la prueba que el repo ya usa para F3 y F5
-—buscar `t` en orden inverso y comparar byte a byte— **no se puede correr** sobre
-una escena canvas. Hay que exportar el setup. La costura byte-idéntica de `J1` es
-evidencia fuerte *contra* herencia de estado entre frames (una escena con estado no
-volvería exactamente al estado inicial después de 15 s), pero no reemplaza la
-prueba de orden.
+- **`render.mjs` no se podía testear en proceso; resuelto en `9535e04`.** Antes
+no exportaba helpers y ejecutaba `main()` sin condición. Hoy exporta el setup y
+sólo corre `main()` cuando es el punto de entrada (también por symlink).
+`node scripts/motion-src/check-determinism.mjs --film J1` busca en orden directo,
+inverso y directo otra vez, y compara con una carga nueva. El PASS registrado
+incluye canvas; el control negativo cubre al comparador, no una escena rota
+servida por `composition.html`. La costura byte-idéntica sola nunca probó pureza:
+una escena con estado también puede volver al inicio después de un ciclo.
 - **Densidad de celda.** `cell = 8 px` a 960 de ancho da puntos de 8 px, que en el
 hero se ven bien. Falta medir el tamaño de celda contra el ancho de presentación
 real y contra el costo en bytes, en vez de elegirlo a ojo.
@@ -432,7 +501,9 @@ Ahora la celda es elegible para la rampa ámbar por **máximo**, así que un hai
 ámbar de 1 px sobrevive. El piso de tinta (`deadZone`) es lo que permite que el
 negro sea negro.
 - **Regla de resolución generalizada** —por existencia, no por nombre— ya aplicada
-en los tres lugares, con prueba de que no cambia el resultado byte a byte.
+en los tres lugares. La comparación byte a byte fue una observación puntual
+sin baseline ni runner conservados para reproducirla; no es una garantía para
+cualquier escena nueva.
 - **Superficies candidatas**, para decidir en el plan: el hero, los thumbs de
 bitácora (el schema ya tiene `dither` y no hay asset), el OG, y el mark animado en
 SVG que la referencia exporta para READMEs. Lo que **no** es candidato es aplicar el
@@ -449,7 +520,8 @@ corte en candidatos revisables— está en
 cuando era remuestreo. Los recortes van con `crop=` y sin `scale`.
 - **La animación se mide, no se mira.** `%` de píxeles cambiados contra el frame 0
 cada 0,5 s, más la racha más larga de frames por debajo de 0,05 % de cambio. Eso
-dijo en un minuto lo que el ojo iba a discutir veinte.
+dijo en un minuto lo que el ojo iba a discutir veinte. Fue un análisis puntual
+con PIL; el repo no conserva ese script, así que no es un check reproducible.
 - **Cuando una métrica y lo que ves discrepan, sospechá primero de la métrica —
 pero comprobalo contra los frames.** El «90/183/197 KB» parecía un renderer no
 determinista y era el historial de tres revisiones de la escena.
@@ -465,10 +537,14 @@ determinista y era el historial de tres revisiones de la escena.
 - **La revisión quedó inconclusa.** Dos motivos, ambos externos al código:
   un candidato demasiado grande, y un intento anterior que se atascó pidiendo
   autorizar un re-scope por una vía que el facade no soporta. Los CRÍTICOS que
-  encontró están corregidos y verificados; lo que falta es el veredicto.
+  encontró se registraron como corregidos y verificados en aquella revisión
+  puntual; el repo no conserva un runner para repetirla. La falta de veredicto
+  es histórica: el gate nativo quedó desactivado para este clon por decisión
+  explícita, según el plan, y la revisión ordinaria queda en manos del dueño.
 - **La prueba de dithering** (sección propia más arriba) dejó el efecto construido
 y aceptado por el oráculo en una escena con tono, y dejó escrito qué hay que
-arreglar antes de la iteración de verdad: `render.mjs` testable en proceso,
-densidad de celda medida, y las superficies candidatas decididas.
+arreglar antes de la iteración de verdad. `render.mjs` testable en proceso ya
+está resuelto (`node scripts/motion-src/check-determinism.mjs --film J1`);
+siguen pendientes la densidad de celda medida y las superficies candidatas decididas.
 - **Los diagrams técnicos densos** que se imaginaron para el detalle de bitácora
   no se hicieron. Falta decidir si esa superficie existe.

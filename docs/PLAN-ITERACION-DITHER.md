@@ -112,7 +112,7 @@ Inventario real de figuras de la página, que es la lista de candidatas:
 | Mark animado en SVG | No existe | **Opcional** | La referencia exporta un loop como SVG animado para READMEs. Costo cero en la página. Buen candidato para el README del repo. |
 | Textura L1 (shell) | SVG inline en `PageLayout.astro:25-26` | **No** | Es global y vive detrás de todo. Riesgo alto, valor bajo. |
 | Figura de MAGI | Canvas de partículas + SVG inline informativo | **No** | Ya funciona y el SVG es informativo, no decorativo. |
-| Sección Proyectos (falta) | No existe (`GUIA-MOTION.md:457`) | **Decisión aparte** | Es contenido nuevo. Si existe, es el lugar natural para una escena grande. |
+| Sección Proyectos (falta) | No existe (`GUIA-MOTION.md:533`) | **Decisión aparte** | Es contenido nuevo. Si existe, es el lugar natural para una escena grande. |
 
 **Recomendación:** entrar por las tres de bajo riesgo y alto payoff —poster del hero,
 thumbs de bitácora y OG— y dejar el film del hero y Proyectos como decisión separada.
@@ -243,21 +243,34 @@ Existía para que los ~860 KB de MP4 no engordaran un candidato de review nativo
 apagado no hay candidatos que cortar, así que los binarios landean con la rama. Se deja
 anotado por qué existía, no como trabajo pendiente.
 
-### WU4 · Reparar el drift de la documentación
+### WU4 · Reparar el drift de la documentación — **HECHO**
 
-- **Problema, ampliado:** el contrato cita archivos que no existen —`public/assets/motion/el-caret.mp4`
-  (`docs/DESIGN.md:278`, `:295`), `motion-src/film.mjs`, y tres figuras SVG inline
-  (`OperationFlowFigure`/`SignalTraceFigure`/`CooperativeRingFigure`, `:100`, `:294`)—. Y
-  WU2 destapó una segunda mentira, en el documento de método:
-  `docs/GUIA-MOTION.md:155-156` afirma que «buscar F3 y F5 en órdenes opuestos tiene que dar
-  SVG byte-idéntico», y **F5 no lo cumple** (medido: F3 sí, F5 falla en `t=3`). Era una
-  afirmación no verificable por nadie más, hecha cuando no existía script que la corriera.
-  Un contrato que miente es peor que no tener contrato, y es contra lo que se revisa.
-- **Superficies:** `docs/DESIGN.md` y `docs/GUIA-MOTION.md` únicamente.
-- **Aceptación:** toda ruta citada existe en el árbol; toda afirmación de verificación tiene
-  un comando que hoy la pueda correr; la tabla de assets coincide con `public/`; la
-  afirmación sobre F3/F5 se corrige con el resultado medido, no se borra; el changelog
-  registra el cambio.
+- **Problema, tal como se encontró:** el contrato citaba archivos que no existen
+  —`public/assets/motion/el-caret.mp4` (`docs/DESIGN.md:278`, `:295`), `motion-src/film.mjs`,
+  y tres figuras SVG inline (`OperationFlowFigure`/`SignalTraceFigure`/`CooperativeRingFigure`,
+  `:100`, `:294`)—. Y WU2 destapó una segunda mentira, en el documento de método: la
+  afirmación de que «buscar F3 y F5 en órdenes opuestos tiene que dar SVG byte-idéntico»
+  (entonces `docs/GUIA-MOTION.md:155-156`), que era **falsa para F5** y que nadie más podía
+  comprobar porque no existía script que la corriera. Un contrato que miente es peor que no
+  tener contrato, y es contra lo que se revisa.
+- **Lo que se hizo:** auditoría de **todas** las rutas citadas en los dos documentos, no sólo
+  de las conocidas. **84 citas, 10 faltantes antes; 88 citas, 0 faltantes después.** Se
+  reemplazaron las referencias locales falsas y se conservó la procedencia externa como
+  descripción explícitamente no disponible, sin inventar rutas locales. Cada afirmación de
+  verificación del documento de método ahora nombra un comando que la corre, o dice
+  claramente que fue una observación de una sola vez que el repo no puede reproducir. La
+  afirmación sobre F3/F5 se corrigió con el resultado medido, no se borró. `DESIGN.md` sumó
+  el changelog 1.5.
+- **Evidencia:** `pnpm check` en verde —astro 0 errores, ESLint ok, iteration-2 **309
+  passed / 0 failed**, iteration-3 **469 passed / 0 failed**—. `git diff --stat -- public/`
+  vacío.
+- **Propiedad que quedó probada de yapa:** `pnpm check` invoca `generate-dither.mjs`, que
+  reescribe los dos PNG commiteados. Los sha256 antes y después son idénticos
+  (`8f972ada…` y `08a7e850…`): **los assets de dither commiteados son reproducibles desde las
+  fuentes commiteadas**. No estaba probado, y era una condición para poder confiar en
+  cualquier regeneración futura de assets.
+- **Referencias del plan re-apuntadas** a las posiciones nuevas: Proyectos `:533`, densos
+  `:549`, limitación del renderer `:491`, corrección F3/F5 `:174-185` (comando en `:181`).
 
 ### WU5 · M1 · Medir la densidad de celda (antes de dibujar nada)
 
@@ -359,8 +372,8 @@ Lo encontró WU2, que no lo buscaba. Medido con el gate, en los cinco films, **a
 ## 6. Lo que este plan difiere, explícitamente
 
 - **Los cinco films de argumento**, con dither encima: rechazado con evidencia.
-- **La sección Proyectos** (`GUIA-MOTION.md:457`): contenido nuevo, fuera.
-- **Los diagramas técnicos densos** para el detalle de bitácora (`GUIA-MOTION.md:469-470`):
+- **La sección Proyectos** (`GUIA-MOTION.md:533`): contenido nuevo, fuera.
+- **Los diagramas técnicos densos** para el detalle de bitácora (`GUIA-MOTION.md:549`):
   sigue sin decidirse si esa superficie existe.
 - **Audio**, `D2` de la dirección: los films siguen mudos. Es una decisión, no un olvido.
 - **La adopción de `ascii.rest`**, como dependencia o como piezas: sólo como referencia
