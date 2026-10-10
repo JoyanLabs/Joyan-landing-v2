@@ -88,6 +88,7 @@ Defined in `src/assets/styles/tailwind.css` `@theme`; always reference the Tailw
 - **Terminal motif** — mono uppercase labels, `[magi]`-style terminal lines (`TerminalBlock`, `magi.terminalLines`), and the amber **caret** block after the hero kicker.
 - Caret blink is **opacity-only** and disabled under `prefers-reduced-motion` (see [Motion](#motion-guide)).
 - Use `@fontsource-variable/archivo` and `@fontsource-variable/jetbrains-mono`; never add another font dependency.
+- **ASCII drawings:** respect each piece's cell projection; the local font and host CSS are part of its render contract. Measure glyph advance after fonts load, not just the frame box. Donut expects approximately2:1 height/advance: canonical PRE line-height1.2 with this monospace font, `font-variant-ligatures: none`. Never alter donor geometry to compensate for stretched host cells; ligatures must not join drawing characters.
 
 ## Dither levels (L0–L3)
 
@@ -103,7 +104,7 @@ Pre-baked, deterministic, palette-limited ordered-dither art. Levels define **wh
 **Rules:**
 
 - Texture/illustration must never overlap text; keep contrast ≥4.5:1 in any region that touches content.
-- **Static/pre-baked preferred** — assets are committed PNGs and MP4s, not runtime canvas (the only canvas is the optional MAGI particle overlay, section [Motion](#motion-guide)).
+- **Static/pre-baked preferred on the landing** — assets are committed PNGs and MP4s; the optional MAGI particle overlay remains its only canvas. The isolated [WU13 comparison lab](#wu13--runtime-comparison-trial) is an explicit experimental exception, not a production placement rule.
 - Idle motion is limited to the five argument films, the dedicated baked J1 scene, the MAGI overlay/SVG pulses, and the hero caret/scroll cue.
 - Hero and shell texture are decorative (`alt=""` / `aria-hidden`); section figures are informative (localized `alt` + `caption`).
 
@@ -239,8 +240,9 @@ Visit `/#dither-scene` or `/en#dither-scene`. The decorative div has no copy,
 script, controls or sixth figure. It reuses the `.joyan-film` reduced-motion class;
 its separate `data-dither-film` marker keeps the old section-only density tool's
 `data-hero-film` inventory unchanged. F1, its scrim and all five argument films remain.
-This is original locally baked art inspired by halftone/ASCII scenes; `ascii.rest`
-is not installed and no glyph library runs in the client.
+This is original locally baked art inspired by halftone/ASCII scenes. At the WU12
+boundary, `ascii.rest` was not installed; WU13 subsequently installs it only for
+the separate lab. No glyph library runs on either landing.
 
 The local `render-dither-scene.mjs` reuses unchanged J1 time functions and the
 production `captureFrame` dot pass. It reframes the band's existing surfaces and
@@ -301,6 +303,115 @@ node scripts/motion-src/check-dither-scene.mjs
 # --encode-only reuses this fresh local frame set, never the historical spike
 ```
 
+## WU13 — runtime comparison trial
+
+**Status: isolated experiment; rollout pending human testing.** Visit
+`/lab/ascii` (English technical artifact labels, self-canonical, `noindex,nofollow`),
+not the main navigation. It keeps the unchanged `DitherScene` J1 video beside real
+`ascii.rest@0.4.0` text and canvas output. Package provenance: bas3line,
+[official source](https://github.com/bas3line/ascii), MIT, ESM, optional React peer.
+The exact dependency and lock entry are authorized for this trial; no framework
+island, hosted catalogue, new font or production branding is added. The install
+also normalized existing Vue peer metadata without upgrading locked versions;
+the installer's workspace-policy addition was removed by the parent.
+
+### Placement decision matrix
+
+| Surface / purpose | Preferred delivery | Fallback / constraint | Decision |
+|---|---|---|---|
+| Controlled brand narrative: F1, argument films, J1 | Baked video + accurate PNG | Native autoplay can run without JS; reduced CSS reveals poster | Retain current delivery |
+| Poster, OG, social or printable asset | Static baked composition | Deterministic framing/palette, no browser loop | Retain; runtime cannot replace social output |
+| Purposeful generative accent or art inspection beside content | Selected local runtime piece | SSR description with no JS; real still frame under reduced motion | Candidate only; human placement test pending |
+| Interface accent representing actual state | Bounded runtime only if useful | Accessible real state must also be ordinary text; never invented live statistics | Not implemented or approved by this trial |
+| Copy background, tiny illegible illustration, repeated idle decoration | Neither runtime nor competing baked motion | Keep content surfaces L0 and preserve contrast | Do not apply |
+
+Brand amber still means a gate/live state. The canvas's red/blue **vendor Java
+mark** is explicitly experimental, not a product endorsement, a new Joyan token
+or an accepted logo placement. Vendor landscape palettes are not brand standards.
+Meaningful art needs adjacent explanation, not texture behind the text surface.
+
+### Observed runtime and delivery contract
+
+- Actual imports: `mount` from `ascii.rest`; default + named `meta` imports from
+  `ascii.rest/pieces/donut` and `ascii.rest/pieces/java`. No by-name `load`, adapter,
+  registry or 217-piece chunk fan-out. Direct package frame tests verify repeatable
+  stills, changing text and changing palette indices; browser tests verify PRE
+  content and real red/blue canvas pixels, not just element presence.
+- Default **12 fps**; observed **12 PRE updates/s** at all three widths, within
+  the 13-updates/s test tolerance. The package handles viewport/hidden/reduced gates; the scoped
+  controller adds keyboard Pause/Play and preference-change stills. This lab uses
+  native full-document navigation with `pagehide` cleanup and load/`pageshow`
+  initialization, **not ClientRouter transitions**. Existing controller router
+  hooks remain unused here; the controller itself was not changed. Pause holds
+  the current frame; Play **restarts** the timeline (the API returns stop, not seek).
+  Reduced-motion Play is disabled; no motion override is passed to the library.
+- SSR/no-JS uses clear text descriptions with disabled controls, not a blank
+  canvas or a fake animation. Reduced/JS draws actual static package frames. The
+  native J1 video pauses/hides in reduced/JS; no-JS native autoplay was observed
+  advancing and is not described as paused.
+- Chromium **390/768/1440 × normal/reduced/no-JS: nine contexts** pass. Lab document
+  width equals each viewport; no global overflow mask. Donut has exactly40×22
+  characters, 12–16px type, canonical **line-height1.2** (14.4/19.2px) and the
+  loaded local JetBrains Mono font, with **ligatures disabled**. Actual Range
+  measurements give7px advance /2.057:1 cells at390 and10px /1.92:1 at768/1440,
+  within the5% projection tolerance. The former line-height2 gave3.43/3.2:1 and
+  failed acceptance; donor frames/geometry remain unchanged. Canvas42×28
+  fits358×477px mobile /420×560px desktop. Its independent atlas actually
+  uses the package's system `ui-monospace` stack, not the canvas's computed body
+  font. Selected ASCII glyphs were visually inspected; broader Unicode/box-glyph
+  coverage is **not** established. Library canvas sizing writes vendor inline
+  style attributes; no authored inline styles or third-party fonts were added.
+- Keyboard Enter/Space, frozen/resumed frames, real offscreen scrolling, changed
+  reduced preference and bounded RAF counts are checked. Native return/back
+  navigation proves document replacement and **zero active RAFs at pagehide**
+  after leaving with an active loop; both package pieces advance again after
+  returning. This Chromium run has `persisted:false`, not BFCache-restoration
+  proof. Unload evidence uses synchronous test-only session storage: console
+  messages can be lost when the old execution context is destroyed.
+  Hidden-document events are simulated; this is
+  listener evidence, not an OS-tab scheduling/power-use measurement. Network
+  interception records only same-origin requests; no external module/font/CDN
+  fetch, console/page error or HTTP error occurs on the lab.
+- **Full budget correction:** the former PageLayout lab shipped five executable
+  inline blocks:405+5516+3728+1443+959 B gzip, plus the109,818 B asset set.
+  Full total **121,869 B**, delta29,964 B: **7,436 B over** the cap. The former
+  113,546/887-headroom claim omitted shared bootstrap/router scripts and was
+  invalid as full acceptance; independent evidence and preimages remain intact.
+  The lab now uses minimal HTML, server-only metadata/favicon components and
+  existing local Tailwind/font CSS, without the shared browser bootstrap/router.
+  Recursive generated JS remains **109,818 B**, all five original files
+  byte-identical; **ALL executable lab inline** is now exactly one module,
+  **3,728 B**, with no excluded blocks. Correct full total **113,546 B**, delta
+  **21,641 B** against unchanged91,905 B baseline, **887 B margin** under the
+  114,433 B total cap. Every script block is reported separately, regardless of
+  marker or purpose; sourced JS is not double-counted. Synthetic controls prove
+  unrelated executable/module scripts contribute, data attributes cannot filter
+  scripts out, JSON/import maps do not execute, and one byte over the cap fails.
+  Earlier coast/namespace-import failure remains historical; default/named leaf
+  imports and the compact colored cup avoid registry/shared-helper expansion.
+- Protected source/asset hashes, public/dist/live film/poster/OG bytes and six
+  ES/EN normal F1 DOM/style/metadata snapshots are checked separately. Seven old
+  route HTTP/metadata probes pass; old mobile overflow stays488pxES/442pxEN.
+  `pnpm check` passes
+  Astro0errors/0warnings/26hints, ESLint, iteration-2 **345/0**, iteration-3 **486/0**;
+  build emits14pages, preserving the original13. No old guard or baseline is reset.
+
+Correction evidence: `dist-motion-verify/wu13/correction/`: meaningful two-blocker
+`red.json`/`bundle-red.json`, strict per-block `bundle.json`, `green.json` (frames,
+network, glyph ratios, native lifecycle), package-frame tests and
+`{390,768,1440}-{normal,reduce,no-js}.png` plus per-piece/baked captures. Original
+root RED/before/GREEN/bundles/images remain untouched and are also snapshotted in
+`correction/preimage/`; the independent report remains in `wu13/independent/`.
+Corrected desktop/mobile normal and reduced glyph images were inspected. No
+measured CPU, LCP, CLS, memory, universal CSP, Firefox/Safari or rollout claim.
+
+```bash
+pnpm build
+node scripts/check-ascii-runtime.mjs --bundle-only
+node scripts/check-ascii-runtime.mjs
+pnpm check
+```
+
 ## MAGI SVG diagram guide
 
 The static diagram (`AgentNetworkDiagram.astro`) follows one strict grid:
@@ -334,7 +445,7 @@ The optional MAGI particle overlay (`src/components/joyan/MagiParticleCanvas.ast
 
 **Performance proof:** before implementation, run `pnpm build && node scripts/check-iteration-3.mjs --capture-baseline .artifacts/iteration-2-client-js.json`. For a candidate, run `pnpm build && node scripts/check-iteration-3.mjs --baseline .artifacts/iteration-2-client-js.json`. The checker gzip-sums every emitted `dist/_astro/*.js` client chunk and requires a delta of **≤22 KiB (22528 bytes)**. `pnpm build` verifies static structure and emitted assets; intrinsic dimensions, static hero markup, and transform/opacity-only below-hero motion are CLS/LCP safeguards, not metric measurements. Measure CLS/LCP later in a browser or CI performance run.
 
-No additional idle motion beyond the argument films, dedicated J1 scene, MAGI overlay/SVG pulses and hero caret/scroll cue.
+No additional landing idle motion beyond the argument films, dedicated J1 scene, MAGI overlay/SVG pulses and hero caret/scroll cue. The separately authorized WU13 lab trial does not extend that production allowance.
 
 ## Hero film (motion film)
 
@@ -566,7 +677,16 @@ The five scoped repeated lists — Agents, MAGI, Hardware, Ecosystem items, and 
 
 ---
 
-**Version:** 1.11 — **Last updated:** 2026-10-10 — **Maintainer:** JoyanLabs
+**Version:** 1.12 — **Last updated:** 2026-10-10 — **Maintainer:** JoyanLabs
+
+> **1.12 — WU13 runtime trial.** Pinned real ascii.rest0.4.0 in an isolated noindex
+> comparison lab; retain baked J1 and untouched landing assets/chunks. Selected
+> PRE/canvas imports, explicit inline-JS budget accounting, static fallbacks,
+> accessible controls and browser motion/network/lifecycle evidence. Independent
+> blockers corrected: canonical glyph-cell projection/ligatures, minimal native
+> lab shell, recursive JS plus all executable-inline accounting. Earlier narrow
+> budget claim is explicitly invalidated; original evidence remains preserved.
+> Placement matrix keeps retained baked rules separate from runtime candidates.
 
 > **1.11 — WU12 visible normal-mode scene.** Dedicated original J1 H.264 surface
 > after the unchanged F1 hero; accurate static poster, native loop/recognition and
