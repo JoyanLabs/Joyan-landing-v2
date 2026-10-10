@@ -401,12 +401,35 @@ pasaron la prueba, no porque su autor los haya declarado buenos. Ver el commit `
 - **Decisión colgante:** si los thumbs van en la lista o sólo en el detalle. Queda pendiente, pero
   ya no depende del dither.
 
-### WU8 · OG
+### WU8 · OG — **GREEN observado** (2026-10-09; sin commit)
 
-- **Superficies:** `public/assets/brand/og-default.png`, `scripts/generate-dither.mjs`,
-  `docs/DESIGN.md`.
-- **Aceptación:** ≤100 KiB, 1200×628, wordmark compuesto preservando la paleta exacta.
-- **Checks:** `pnpm generate:dither` `PASS` y `pnpm check`.
+- **Entrega:** OG1 estático independiente de J1, compuesto para1200×628, no hero
+  reescalado. `render-og.mjs` local hornea `scripts/dither-src/og-tone.png`
+  lossless60,861 B; `pnpm generate:dither` sigue como único escritor del OG final,
+  sin browser/CI/deps nuevas. `ditherImageData` puro, celda16 y máscara JOYAN intacta.
+- **Asset:**64colores neutros (spread≤7)/ámbar (hue30–50),6,571 B≤100KiB;
+  sha256 `a49aabb8334ae756eb207996dc3e83fe343676fcac0400e9e32358886961921e`.
+  Ámbar sólo en portón x402–477/y67–156;48,187 píxeles alpha≥128 exactos bone.
+  Campo central208–415 ink fuera de la máscara; PNG codificado/decodificado idéntico.
+- **RED/GREEN:** OG viejo2colores falla antes de generar; checker323/0 después.
+  Controles negativos de paleta, dimensiones, presupuesto y máscara pasan;
+  gate `.0001` sale1 y conserva hash. Builder dos veces (seek/repeat/carga nueva)
+  y generador dos veces idénticos. Vistas nativa/600×314/400×209 inspeccionadas;
+  celda16 da pitch8/5.33px, más denso a400 pero marca/portón distintos.
+- **Checks:** build13páginas; check Astro0errores/0warnings/26hints, ESLintPASS,
+  iteration-2 323/0, iteration-3 469/0. Meta OG1200×628 en13HTML, sin img en página;
+  PNG public/dist iguales. WU9/films/hash hero `b9c1ad1b…` intactos y cinco chunks
+  JS idénticos (109,818 B gzip). Evidencia ignorada: `dist-motion-verify/wu8/`.
+- **Verificación independiente:** generador PASS y hash intacto; presupuesto
+  mínimo falla como debe sin cambiar píxeles; iteration-2 323/0; máscara, previews,
+  meta de13páginas y preservación WU9/chunks PASS. El probe sintético sin archivos
+  confirmó rojo/teal/púrpura → grises/ink, no validación de la fuente.
+- **Límite:** fontconfig/librsvg conserva la portabilidad previa del wordmark;
+  paleta no prueba posición, verificación raster sí. No hay guard pre-dither de
+  cromaticidad/opacidad para fuentes futuras: revisar el arte fuente cuando cambie.
+  Amarillo → ámbar sigue como evidencia estructural, no probe ejecutado. Sin defecto
+  demostrado del asset actual. Sin oráculo de película para este still estático;
+  no se afirma integración en main; el orquestador mantiene el espejo ODD.
 
 ### WU9 · Encuadre del hero (D4) — **GREEN observado en reduced-motion**
 

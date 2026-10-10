@@ -8,7 +8,7 @@ The single source of truth for the Joyan landing visual, copy, asset, diagram, m
 
 1. **Start from the tokens** — ink/bone/plomo/accent, radius `0`, no italics ([Tokens](#visual-tokens--contrast), [Typography](#typography)).
 2. **Place dither by level** — L0 none, L1 shell texture, L2 section illustration, L3 hero only ([Dither levels](#dither-levels-l0l3)).
-3. **Add an asset** — OG: SVG + `pnpm generate:dither`; hero tone poster: local `render-poster.mjs`. Verify dimensions and budgets, consume with intrinsic dimensions ([Asset contract](#asset-contract), [Generation workflow](#asset-generation-workflow), checklists below).
+3. **Add an asset** — OG: local `render-og.mjs` tone input + browser-free `pnpm generate:dither`; hero tone poster: local `render-poster.mjs`. Verify dimensions and budgets, consume with intrinsic dimensions ([Asset contract](#asset-contract), [Generation workflow](#asset-generation-workflow), checklists below).
 4. **Add copy** — mirror ES and EN keys exactly, warm cooperative voice, no prohibited patterns ([Copy & i18n rules](#copy--i18n-rules)).
 5. **Verify** — `pnpm check` and `pnpm build` must pass before commit.
 
@@ -109,15 +109,15 @@ Pre-baked, deterministic, palette-limited ordered-dither art. Levels define **wh
 
 ## Asset contract
 
-Formats: **SVG sources** (vector, ink/bone palette, 1px strokes, no embedded raster, no data URIs) in `scripts/dither-src/` for the OG; a **procedural tone scene** in `scripts/motion-src/scenes/J1.js` for the hero. Both outputs are palette PNGs, but their colour contracts differ:
+Formats: independent **procedural tone scenes** `scripts/motion-src/scenes/{J1,OG1}.js` for hero and OG; the unchanged `scripts/dither-src/wordmark.svg` supplies the OG mask. Both outputs are lossless palette PNGs:
 
 - **Hero:** `dither.js`'s token grey ramp (ink-950/900/800, plomo-500/400, bone-100/50), with the reserved amber ramp only at the scene's gate and its spill. Brightness compensation and fixed subpixel dot coverage derive intermediate colours from those ramps: the current WU9 poster has **38 colours**, not two (reduced-motion page guards pass in both locales). A binary threshold cannot carry the scene's tone; a halftone needs a ramp.
-- **OG:** Bayer 8×8 threshold, exactly **two colours**, ink-950/bone-50, including the composited wordmark. Its generator remains browser-free.
+- **OG:** the same pure `dither.js` tone/amber ramps, cell16, **64 colours**. Amber belongs only to one gate; JOYAN mask pixels (alpha≥128) remain exact bone-50. Its generator remains browser-free.
 
-| Source (repository-relative, except OG SVGs in `scripts/dither-src/`) | Output (`public/assets/`) | Dimensions | Budget | Unit |
+| Source (repository-relative; wordmark in `scripts/dither-src/`) | Output (`public/assets/`) | Dimensions | Budget | Unit |
 |---|---|---|---|---|
 | `scripts/motion-src/scenes/J1.js`, t=7.8 s → `captureFrame`, cell 7 | `dither/hero-dither.png` (38-colour WU9 poster) | 1600×900 | 80 KiB (11,407 B measured) | V1 (L3) |
-| `hardware-board.svg` + `wordmark.svg` overlay | `brand/og-default.png` | 1200×628 | 100 KiB | V1 (OG) |
+| `scripts/motion-src/scenes/OG1.js` → `scripts/dither-src/og-tone.png` + `wordmark.svg` | `brand/og-default.png` | 1200×628 | 100 KiB (6,571 B measured) | V1 (OG) |
 
 **Pitch contract (WU5):** target **6–8 CSS px after presentation**, not a shared source-pixel constant. `cell = targetPitch × sourceWidth / displayedWidth`; for `object-cover`, use `scale = max(boxWidth/sourceWidth, boxHeight/sourceHeight)`, `displayedWidth = sourceWidth × scale`, and `pitch = cell × scale`. Use the painted box, not blindly the viewport.
 
@@ -133,7 +133,7 @@ WU5 measured a taller **390×936** hero box at the mobile viewport: the poster's
 
 **One baked poster, one OG output, five motion films in two encodes each.** The four section dither textures were removed. Sections 01, 02, 03 and 04 now ship **section films** through `src/components/joyan/SectionFilm.astro`, with localized `shows`/`means` text and the shared hero poster. The only inline SVG diagram is `src/components/joyan/AgentNetworkDiagram.astro` (480×300), used by MAGI alongside `MagiParticleCanvas.astro` and its section film.
 
-`hero-dither.png` remains the **hero poster** — the static layer under the film, shown under reduced motion and while the video is unavailable. Video autoplay does not require JavaScript. `og-default.png` is the **separate brand output**, compositing `wordmark.svg` over a dithered texture derived from `hardware-board.svg`; it is only used for social/OpenGraph sharing. `motion/` holds the separate [five films](#hero-film--motion-film) and is deliberately the heaviest thing on the site; that asymmetry is the cost of the format, stated rather than hidden.
+`hero-dither.png` remains the **hero poster** — the static layer under the film, shown under reduced motion and while the video is unavailable. Video autoplay does not require JavaScript. `og-default.png` is the **separate brand output**, compositing unchanged `wordmark.svg` over the static OG1 tone halftone; it is only used for social/OpenGraph sharing. `motion/` holds the separate [five films](#hero-film--motion-film) and is deliberately the heaviest thing on the site; that asymmetry is the cost of the format, stated rather than hidden.
 
 **Type inside the MAGI SVG diagram is sized in viewBox units, not CSS pixels.** Its viewBox is 480×300; the current `MAGI` label uses `text-sm`. Judge legibility at the actual rendered size, not from the SVG font size alone.
 
@@ -145,14 +145,16 @@ WU5 measured a taller **390×936** hero box at the mobile viewport: the poster's
 # 1. Optimize every source SVG (also the MAGI diagram)
 pnpm dlx svgo --config scripts/svgo.config.mjs --folder scripts/dither-src
 
-# 2. Regenerate the two-colour OG only (exits 1 when over budget)
+# 2. Build OG1 tone locally when its scene changes; commit the tone PNG too
+node scripts/motion-src/render-og.mjs
+# Browser-free final OG writer (exits 1 when over budget)
 pnpm generate:dither
 
 # 3. Build the tone poster locally with the isolated browser toolchain
 MOTION_TOOLCHAIN=~/.cache/joyan-motion node scripts/motion-src/render-poster.mjs
 ```
 
-**The poster builder is deliberately absent from `package.json` and CI:** Playwright is not a repository dependency. It seeks J1 at 7.8 s (the quiet support beat, with the waiting gate visible), uses the films' real `captureFrame` resize/dither path at 1600×900, then losslessly encodes a palette PNG. It asserts pixel identity after encoding and the 80 KiB budget before writing. `pnpm check` runs the SVG generator, so the hero must never re-enter its asset list: that would silently overwrite this poster. Verify the poster's sha256 stays identical across `pnpm check`; the OG must remain byte-identical too.
+**The poster builder is deliberately absent from `package.json` and CI:** Playwright is not a repository dependency. It seeks J1 at 7.8 s (the quiet support beat, with the waiting gate visible), uses the films' real `captureFrame` resize/dither path at 1600×900, then losslessly encodes a palette PNG. It asserts pixel identity after encoding and the 80 KiB budget before writing. `pnpm check` runs the browser-free OG generator, so the hero must never re-enter its output path: that would silently overwrite this poster. Verify the poster's sha256 stays identical across `pnpm check`; the OG must remain byte-identical too.
 
 ### WU9 framing — reduced-motion GREEN (2026-10-09)
 
@@ -219,21 +221,16 @@ are untouched. **No-JS alone does not imply a static poster:** native video auto
 needs no JS. No-preference loading/codec fallback retains the original F1 scrim;
 its poster recognition is not covered by this reduced-motion aperture or GREEN.
 
-**Source SVG authoring conventions (OG):**
+**OG tone authoring and generation (`scripts/generate-dither.mjs`):**
 
-- Kebab-case filename; `viewBox` aspect-matching the target output (e.g. 16:9 for hero/agents, 1:1 for hardware, 8:5 for magi/ecosystem).
-- Ink/bone two-value art (grayscale normalization and threshold texture, not the hero's tone halftone). 1px strokes preferred; no fills that will read as flat blocks.
-- No embedded raster, no data URIs, no text layers (the wordmark is the only composited text, and only into the OG).
-- No stock photos, no logos beyond the JOYAN wordmark, no UI mockups or screenshots.
+1. Author OG1 at1200×628, independently of J1: recessed ring/block and one amber gate above JOYAN, broad neutral bevel below; no added copy, stock art or UI mockups.
+2. Local `render-og.mjs` uses `captureFrame`, dither:false, t=0; repeat/alternate seek and fresh-page PNGs must match. Commit lossless `og-tone.png` (60,861 B); no browser enters build/CI.
+3. Sharp decodes RGBA; pure DOM-free `ditherImageData`, cell16, paints tone halftone. Overlay the unchanged sharp/librsvg wordmark mask: alpha≥128→bone-50, otherwise retain dots.
+4. Encode losslessly (`palette:true`, colours256, quality100, dither0); assert decoded RGB equality. Never normalize, resample dots or quantize away amber.
 
-**OG-only Bayer 8×8 two-color palette generation (`scripts/generate-dither.mjs`):**
+Native,600×314 and400×209 Chromium previews were inspected. Cell16 gives8px/5.33px pitch; the400px screen is denser, but wordmark and gate remain distinct. Rows208–415 are ink outside48,187 exact mask pixels: no subject/texture interference. Raster amber bounds are x402–477/y67–156 (inclusive),2,636 pixels;89.20% ink ground. Palette checks cannot prove spatial reservation. The negative budget test permanently compares OG hashes before/after regeneration. Wordmark rasterization retains the existing fontconfig/librsvg portability caveat; no font or brand change is claimed. Output palette checks do not validate future tone-input chroma or opacity: dithering can hide off-brand source colors. An independent in-memory probe mapped red/teal/purple to compliant greys/ink; yellow-to-amber is structural evidence only. No current-asset defect was found; review source art whenever it changes.
 
-1. SVG → grayscale → resize to exact target dimensions → normalize → raw single-channel.
-2. Ordered-dither with the standard 8×8 Bayer matrix, ink-biased (`darkBias` 14 for OG).
-3. Map binary result to exactly two colors: ink-950 `#0B0B0C` / bone-50 `#F4F2ED`.
-4. Encode as palette PNG (`sharp png palette: true, colours: 2`); the OG additionally composites `wordmark.svg` at pixel level to preserve the 2-color palette.
-
-**Deterministic budget checks:** the script prints `PASS|FAIL <name>: <bytes> / <budget>` for every output, verifies exact pixel dimensions, and exits `1` when any asset exceeds its budget. A merged asset must print `PASS` for all rows. Generation must be rerun whenever a source SVG changes, and the PNGs are committed — never generated at build time.
+**Deterministic budget checks:** the script prints `PASS|FAIL <name>: <bytes> / <budget>` for every output, verifies exact pixel dimensions, and exits `1` when any asset exceeds its budget. A merged asset must print `PASS` for all rows. Generation must be rerun whenever the committed tone input or wordmark changes, and the PNGs are committed — never generated at build time.
 
 ## MAGI SVG diagram guide
 
@@ -380,8 +377,9 @@ For seek-order purity, run `node scripts/motion-src/check-determinism.mjs --film
 | `src/components/joyan/MotionFigure.astro` | Hero figure wrapper: static poster `<img>` with the decorative loop `<video>` stacked on top; the film contract lives here |
 | `src/components/joyan/{AgentsSection,MagiSection,HardwareSection,EcosystemSection}.astro` | Section figures (Unit E) + community/prototype blocks |
 | `src/components/joyan/{SectionHeader,TerminalBlock,SiteHeader,SiteFooter,LanguageToggle}.astro` | Index/kicker/title, terminal motif, nav + toggle (current pathname + hash-preserving, `aria-current="page"`) |
-| `scripts/generate-dither.mjs` | OG-only Bayer 8×8 generator + deterministic budget |
+| `scripts/generate-dither.mjs` | Browser-free tone OG writer + exact wordmark mask, lossless palette and deterministic budget |
 | `scripts/motion-src/render-poster.mjs` | Local J1 tone-poster builder via the real `captureFrame`; lossless palette PNG, 80 KiB gate |
+| `scripts/motion-src/render-og.mjs` | Local static OG1 tone-input builder; repeat/fresh-load assertions, no final OG writes |
 | `scripts/motion-src/{lib.js,composition.html}` | Shared glyph/move library and parameterized `seek(t)` composition |
 | `scripts/motion-src/films/{F1,F2,F3,F4,F5}.js` | Each film owns its beat sheet (`meta`), shared by composition, renderer and oracle |
 | `scripts/motion-src/check-determinism.mjs` | Local seek-order gate: SVG markup and painted pixels; isolated Playwright required |
@@ -389,7 +387,7 @@ For seek-order purity, run `node scripts/motion-src/check-determinism.mjs --film
 | `scripts/motion-src/render.mjs` | Playwright walk of the clock, real motion blur (sub-captures averaged across a 180° shutter, times wrapped around the loop), ffmpeg encode |
 | `scripts/motion-src/probe.mjs` | The oracle: cadence, carry, stillness, focus retention and loop seam, measured from rendered frames |
 | `scripts/svgo.config.mjs` | SVGO config for all source SVGs (Unit C) |
-| `scripts/dither-src/*.svg` | OG uses hardware board + wordmark; hero network is legacy, no longer generated |
+| `scripts/dither-src/{og-tone.png,wordmark.svg}` | Committed OG tone input and unchanged mask; other SVG art is legacy, no longer generated |
 | `public/assets/dither/hero-dither.png` | The hero poster — the static layer under the film |
 | `src/components/joyan/SectionFilm.astro` | Four section films via `MotionFigure`, shared poster and localized `shows`/`means` |
 | `public/assets/motion/*.mp4` | Five films, AV1 + H.264 each; dimensions and budgets in the film table |
@@ -465,11 +463,11 @@ The five scoped repeated lists — Agents, MAGI, Hardware, Ecosystem items, and 
 
 ### Adding an asset or diagram
 
-- [ ] Source SVG: kebab-case name, aspect-matching viewBox, ink/bone art, 1px strokes, no raster/data URIs/text (except wordmark → OG only)
+- [ ] Tone scene: independent format framing, token neutrals/one reserved amber gate, no text except unchanged wordmark → OG only
 - [ ] `pnpm dlx svgo --config scripts/svgo.config.mjs --folder scripts/dither-src` passes
 - [ ] OG: `pnpm generate:dither` prints `PASS`; hero: local `render-poster.mjs` prints `PASS` (dimensions + byte budget + lossless palette), sha256 unchanged across `pnpm check`
 - [ ] Output committed in `public/assets/dither/` (or `brand/` for OG); path matches the table above
-- [ ] Consumed via `DitherFigure` with absolute `/assets/...` path and intrinsic `width`/`height`
+- [ ] Page figures: absolute `/assets/...` path and intrinsic dimensions; OG: metadata only,1200×628, never an in-page image
 - [ ] Informative figure → localized `alt` + `caption`; decorative (hero/texture/diagram) → `alt=""` / `aria-hidden="true"`
 - [ ] Diagram: 480×300 viewBox, grid anchors, one amber active state, no screenshots
 - [ ] `pnpm check` and `pnpm build` both pass
@@ -496,7 +494,13 @@ The five scoped repeated lists — Agents, MAGI, Hardware, Ecosystem items, and 
 
 ---
 
-**Version:** 1.8 — **Last updated:** 2026-10-09 — **Maintainer:** JoyanLabs
+**Version:** 1.9 — **Last updated:** 2026-10-09 — **Maintainer:** JoyanLabs
+
+> **1.9 — WU8 static tone OG.** Separate OG1 input and browser-free final writer,
+> exact JOYAN mask,64 colours,6,571 B. Native/social inspection and static repeat/
+> fresh-load checks pass; build13pages, check0errors/0warnings/26hints,
+> iteration-2 323/0, iteration-3 469/0. WU9/films and five client chunks unchanged.
+> OG sha256 `a49aabb8334ae756eb207996dc3e83fe343676fcac0400e9e32358886961921e`.
 
 > **1.8 — WU9 reduced-motion GREEN.** Larger horizontal semantic pair, localized
 > poster-only scrim aperture, corrected production stencil-cell bounds and12

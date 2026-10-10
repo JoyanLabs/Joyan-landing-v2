@@ -23,8 +23,9 @@
  *      contrast >= 4.5:1, and compiled CSS (fixed/inset/z-index/pointer-
  *      events, reduced-motion static).
  *   7. Unit C dither assets — every output PNG exists with exact intrinsic
- *      dimensions, stays within its byte budget, and keeps the two-color
- *      ink-950/bone-50 palette; the generator exits 1 over budget.
+ *      dimensions, stays within its byte budget, and keeps neutral/reserved-
+ *      amber tones; OG retains the exact wordmark and is not clobbered by the
+ *      generator's negative budget gate.
  *   8. Unit D MAGI motion — executed network model (7 nodes/6 edges/30
  *      particles on the diagram grid), canvas island wiring + a11y on both
  *      locales, compiled canvas chunk guards (DPR cap, 30fps, observers,
@@ -36,6 +37,8 @@
  * clean checkout. No runtime dependencies beyond project devDependencies.
  */
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import sharp from 'sharp';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -689,7 +692,26 @@ if (!/animation:/.test(shellTextureRule)) {
 }
 
 // ---------------------------------------------------------------------------
-// 7. Unit C — dither asset contract (five illustrations + separate OG).
+// 7. Unit C — baked hero poster + independent static OG.
+const tonePaletteOk = (palette) => palette.length > 0 && palette.every((color) => {
+  const [r, g, b] = [1, 3, 5].map((offset) => parseInt(color.slice(offset, offset + 2), 16));
+  const neutral = Math.max(r, g, b) - Math.min(r, g, b) <= 7;
+  const hue = 60 * (g - b) / (r - b);
+  return neutral || (r > g && g > b && hue >= 30 && hue <= 50);
+});
+const ogPaletteOk = (palette) => palette.length > 2 && tonePaletteOk(palette) &&
+  palette.some((color) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16));
+    return r > g && g > b && r - b > 7;
+  });
+const dimensionsOk = (info, asset) => info.width === asset.width && info.height === asset.height;
+const budgetOk = (bytes, maxBytes) => bytes <= maxBytes;
+const wordmarkOk = (pixels, mask) => {
+  for (let i = 0; i < mask.length / 4; i++) {
+    if (mask[i * 4 + 3] >= 128 && ![244, 242, 237].every((v, ch) => pixels[i * 3 + ch] === v)) return false;
+  }
+  return true;
+};
 // ---------------------------------------------------------------------------
 const ASSET_CONTRACT = [
   { path: 'public/assets/dither/hero-dither.png', width: 1600, height: 900, maxBytes: 80 * 1024 },
@@ -707,13 +729,13 @@ for (const asset of ASSET_CONTRACT) {
     fail(`asset: ${asset.path} must be a valid PNG`);
     continue;
   }
-  if (info.width === asset.width && info.height === asset.height) {
+  if (dimensionsOk(info, asset)) {
     pass(`asset: ${asset.path} has intrinsic dimensions ${asset.width}x${asset.height}`);
   } else {
     fail(`asset: ${asset.path} must be ${asset.width}x${asset.height}, got ${info.width}x${info.height}`);
   }
   const size = statSync(filePath).size;
-  if (size <= asset.maxBytes) {
+  if (budgetOk(size, asset.maxBytes)) {
     pass(`asset: ${asset.path} is ${(size / 1024).toFixed(1)} KiB <= ${(asset.maxBytes / 1024).toFixed(0)} KiB budget`);
   } else {
     fail(
@@ -725,25 +747,23 @@ for (const asset of ASSET_CONTRACT) {
     // adds intermediate tones, not new hues. Amber's 30–50 degree window
     // surrounds accent #FFB000 (~41 degrees) without admitting red or yellow.
     // A palette cannot locate the gate: scene/raster review owns its placement.
-    const paletteOk = info.palette.length > 0 && info.palette.every((color) => {
-      const [r, g, b] = [1, 3, 5].map((offset) => parseInt(color.slice(offset, offset + 2), 16));
-      const neutral = Math.max(r, g, b) - Math.min(r, g, b) <= 7;
-      const hue = 60 * (g - b) / (r - b);
-      const amber = r > g && g > b && hue >= 30 && hue <= 50;
-      return neutral || amber;
-    });
+    const paletteOk = tonePaletteOk(info.palette);
     if (paletteOk) {
       pass(`asset: ${asset.path} uses only near-neutral token tones or reserved amber (hue 30–50)`);
     } else {
       fail(`asset: ${asset.path} palette must contain only near-neutral tones (channel spread <= 7) or amber (R > G > B, hue 30–50), got [${info.palette.join(', ')}]`);
     }
   } else {
-    const paletteOk = info.palette.length <= 2 && info.palette.every((color) => color === INK_HEX || color === BONE_HEX);
-    if (paletteOk) {
-      pass(`asset: ${asset.path} uses only the ink-950/bone-50 two-color palette`);
+    if (ogPaletteOk(info.palette)) {
+      pass(`asset: ${asset.path} carries multitone neutrals and reserved amber (hue 30–50)`);
     } else {
-      fail(`asset: ${asset.path} palette must be exactly ink-950/bone-50, got [${info.palette.join(', ')}]`);
+      fail(`asset: ${asset.path} must carry >2 neutral/amber tones including a reserved amber gate, got [${info.palette.join(', ')}]`);
     }
+    const pixels = await sharp(filePath).removeAlpha().raw().toBuffer();
+    const mask = await sharp(resolve(ROOT, 'scripts/dither-src/wordmark.svg'))
+      .resize(asset.width, asset.height, { fit: 'fill' }).ensureAlpha().raw().toBuffer();
+    if (wordmarkOk(pixels, mask)) pass('asset: OG wordmark alpha>=128 pixels are exact bone-50');
+    else fail('asset: OG wordmark mask must remain exact bone-50');
   }
 }
 
@@ -751,6 +771,25 @@ for (const asset of ASSET_CONTRACT) {
 // budget. DITHER_BUDGET_SCALE=0.0001 forces every budget to ~0 bytes while
 // pixels stay identical, so this is a deterministic failure-path test that
 // leaves the committed PNGs byte-for-byte unchanged.
+// Executable negative/edge controls exercise the same predicates as real assets.
+for (const color of ['#008080', '#800080', '#ff0000', '#ffff00', '#080000']) {
+  if (!tonePaletteOk([color])) pass(`control: off-brand ${color} rejected`);
+  else fail(`control: off-brand ${color} accepted`);
+}
+const goodPalette = ['#0b0b0c', '#f4f2ed', '#ffb000'];
+const controls = [
+  ['neutral boundary spread7 / spread8', tonePaletteOk(['#070000']) && !tonePaletteOk(['#080000'])],
+  ['empty and binary OG palette', !ogPaletteOk([]) && !ogPaletteOk([INK_HEX, BONE_HEX])],
+  ['valid tone/amber OG palette', ogPaletteOk(goodPalette)],
+  ['off-brand multitone OG palette', !ogPaletteOk([...goodPalette, '#008080'])],
+  ['dimensions', dimensionsOk({ width: 1200, height: 628 }, ASSET_CONTRACT[1]) && !dimensionsOk({ width: 1199, height: 628 }, ASSET_CONTRACT[1])],
+  ['budget boundary', budgetOk(102400, 102400) && !budgetOk(102401, 102400)],
+  ['wordmark alpha boundary/corruption', wordmarkOk(Buffer.from([244, 242, 237]), Buffer.from([0, 0, 0, 128])) && !wordmarkOk(Buffer.from([243, 242, 237]), Buffer.from([0, 0, 0, 128])) && wordmarkOk(Buffer.from([11, 11, 12]), Buffer.from([0, 0, 0, 127]))],
+];
+for (const [name, ok] of controls) (ok ? pass : fail)(`control: ${name}`);
+const ogPath = resolve(ROOT, 'public/assets/brand/og-default.png');
+const ogHash = () => createHash('sha256').update(readFileSync(ogPath)).digest('hex');
+const beforeGate = ogHash();
 console.log('iteration-2: running dither budget gate test (DITHER_BUDGET_SCALE=0.0001)...');
 const gate = spawnSync('node', ['scripts/generate-dither.mjs'], {
   cwd: ROOT,
@@ -762,6 +801,8 @@ if (gate.status === 1) {
 } else {
   fail(`gate: generator must exit 1 over budget, got status ${gate.status}`);
 }
+if (ogHash() === beforeGate) pass('gate: negative budget generation preserves OG hash exactly');
+else fail('gate: negative budget generation clobbered the OG');
 
 // ---------------------------------------------------------------------------
 // 8. Unit D — MAGI canvas island (4.1) and SVG edge pulses (4.2).

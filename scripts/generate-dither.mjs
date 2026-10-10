@@ -1,158 +1,55 @@
 #!/usr/bin/env node
 /**
- * generate-dither.mjs — pre-baked ordered-dither brand assets (ADR-1)
+ * Browser-free, sole final OG writer (ADR-1). A local render-og.mjs capture
+ * commits OG1's lossless continuous-tone input; this command never needs a
+ * browser and never rewrites the independent hero poster.
  *
- * Source art (P3.2): there are no real hardware photos yet, so every source is
- * procedural brand art committed under scripts/dither-src/:
- *   - hardware-board.svg    conceptual PCB: IC package, pins, traces, vias
- *   - agents-network.svg    three agent clusters + orthogonal wiring (L2)
- *   - magi-network.svg      MAGI grid: hub, six satellites, dashed orbits (L2)
- *   - ecosystem-network.svg cooperative ecosystem: hub, rings, spokes (L2)
- *   - wordmark.svg          "JOYAN" wordmark, composited onto the OG texture
- * No stock photos, no logos, no UI mockups (design.md — File Changes).
- *
- * Pipeline: SVG source -> grayscale -> resize -> normalize -> raw buffer ->
- * Bayer 8x8 ordered dither in JS -> 2-color palette PNG (ink-950 / bone-50)
- * via sharp. The OG asset additionally composites the wordmark SVG over the
- * dithered texture.
- *
- * The hero left this asset list because pnpm check runs this generator and
- * Playwright is deliberately not a repository dependency. A browser-built
- * asset can never be regenerated here: doing so would overwrite its tone
- * poster with the old two-colour threshold. render-poster.mjs owns that local
- * build; the OG keeps this ink/bone-only path.
- *
- * Budget (bytes): og-default 1200x628 <= 100 KiB. Prints its output size and
- * exits 1 when the asset exceeds its budget.
- *
- * DITHER_BUDGET_SCALE (env, default 1): multiplies every budget for testing
- * the failure gate deterministically — scripts/check-iteration-2.mjs runs the
- * generator with a tiny scale to prove exit code 1 over budget.
+ * Pipeline: og-tone.png → pure ditherImageData (cell16) → unchanged JOYAN
+ * wordmark mask (alpha>=128 → exact bone-50) → lossless palette PNG.
+ * No normalization, binary threshold, secondary dither or palette snapping.
+ * DITHER_BUDGET_SCALE changes only the exit gate, never output pixels.
  */
-import { mkdir, stat } from 'node:fs/promises';
+import assert from 'node:assert/strict';
+import { mkdir, stat, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
+import { ditherImageData } from './motion-src/dither.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-
-/** --color-ink-950 and --color-bone-50 from the visual token system. */
-const INK = [11, 11, 12];
 const BONE = [244, 242, 237];
-
-/** Standard 8x8 Bayer matrix (ordered-dither thresholds 0..63). */
-const BAYER_8 = [
-  [0, 32, 8, 40, 2, 34, 10, 42],
-  [48, 16, 56, 24, 50, 18, 58, 26],
-  [12, 44, 4, 36, 14, 46, 6, 38],
-  [60, 28, 52, 20, 62, 30, 54, 22],
-  [3, 35, 11, 43, 1, 33, 9, 41],
-  [51, 19, 59, 27, 49, 17, 57, 25],
-  [15, 47, 7, 39, 13, 45, 5, 37],
-  [63, 31, 55, 23, 61, 29, 53, 21],
-];
-
-// Only the OG can be rebuilt without a browser. Section figures are films;
-// the hero's tone poster is pre-baked locally, never by pnpm check.
-const ASSETS = [
-  {
-    name: 'og-default.png',
-    out: 'public/assets/brand/og-default.png',
-    src: 'scripts/dither-src/hardware-board.svg',
-    width: 1200,
-    height: 628,
-    maxBytes: 100 * 1024,
-    darkBias: 14,
-    fit: 'cover',
-    overlay: 'scripts/dither-src/wordmark.svg',
-  },
-];
-
-/** Ordered-dither threshold for pixel (x, y), biased toward ink. */
-function thresholdAt(x, y, darkBias) {
-  return ((BAYER_8[y & 7][x & 7] + 0.5) / 64) * 255 + darkBias;
-}
-
-/**
- * Budget multiplier for deterministic gate testing (see file header).
- * scripts/check-iteration-2.mjs runs with a tiny scale to prove that the
- * generator exits 1 when any asset exceeds its budget. Pixels are unaffected.
- */
 const BUDGET_SCALE = Number(process.env.DITHER_BUDGET_SCALE ?? '1');
+const WIDTH = 1200;
+const HEIGHT = 628;
+// 8px pitch at a 600px preview; 5.33px at400. Chosen after native/social inspection.
+const CELL = 16;
+const MAX_BYTES = 100 * 1024;
+const OUT = join(ROOT, 'public/assets/brand/og-default.png');
+const formatBytes = (bytes) => `${(bytes / 1024).toFixed(1)} KB`;
 
-function formatBytes(bytes) {
-  return `${(bytes / 1024).toFixed(1)} KB`;
+const { data, info } = await sharp(join(ROOT, 'scripts/dither-src/og-tone.png'))
+  .ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+assert.equal(info.width, WIDTH, 'tone input width');
+assert.equal(info.height, HEIGHT, 'tone input height');
+assert.equal(info.channels, 4);
+const pixels = ditherImageData(new Uint8ClampedArray(data), WIDTH, HEIGHT, { cell: CELL });
+const rgb = Buffer.alloc(WIDTH * HEIGHT * 3);
+// Preserve exactly the former sharp/librsvg rasterization and alpha boundary.
+const overlay = await sharp(join(ROOT, 'scripts/dither-src/wordmark.svg'))
+  .resize(WIDTH, HEIGHT, { fit: 'fill' }).ensureAlpha().raw().toBuffer();
+const colors = new Set();
+for (let i = 0; i < WIDTH * HEIGHT; i++) {
+  for (let ch = 0; ch < 3; ch++) rgb[i * 3 + ch] = overlay[i * 4 + 3] >= 128 ? BONE[ch] : pixels[i * 4 + ch];
+  colors.add(rgb.subarray(i * 3, i * 3 + 3).toString('hex'));
 }
-
-async function renderAsset(config) {
-  // 1-3. grayscale -> resize -> normalize, then read raw single-channel pixels
-  const { data, info } = await sharp(join(ROOT, config.src))
-    .grayscale()
-    .resize(config.width, config.height, { fit: config.fit ?? 'fill' })
-    .normalize()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-
-  if (info.width !== config.width || info.height !== config.height) {
-    throw new Error(`${config.name}: expected ${config.width}x${config.height}, got ${info.width}x${info.height}`);
-  }
-
-  // 4. Bayer 8x8 ordered dither in JS -> binary 0/255
-  const pixels = new Uint8Array(config.width * config.height);
-  for (let y = 0; y < config.height; y++) {
-    const row = y * config.width;
-    for (let x = 0; x < config.width; x++) {
-      const i = row + x;
-      pixels[i] = data[i] > thresholdAt(x, y, config.darkBias) ? 255 : 0;
-    }
-  }
-
-  // 5. Map binary -> ink/bone RGB and encode as a 2-color palette PNG
-  const rgb = Buffer.alloc(config.width * config.height * 3);
-  for (let i = 0; i < pixels.length; i++) {
-    const color = pixels[i] === 255 ? BONE : INK;
-    rgb[i * 3] = color[0];
-    rgb[i * 3 + 1] = color[1];
-    rgb[i * 3 + 2] = color[2];
-  }
-
-  const outPath = join(ROOT, config.out);
-  await mkdir(dirname(outPath), { recursive: true });
-
-  // Overlay: composite the wordmark at pixel level so the output keeps the
-  // exact 2-color palette (ink-950 / bone-50) — antialiased text pixels with
-  // alpha >= 128 become bone, everything else stays the dithered texture.
-  if (config.overlay) {
-    const overlay = await sharp(join(ROOT, config.overlay))
-      .resize(config.width, config.height, { fit: 'fill' })
-      .ensureAlpha()
-      .raw()
-      .toBuffer();
-    for (let i = 0; i < pixels.length; i++) {
-      if (overlay[i * 4 + 3] >= 128) {
-        rgb[i * 3] = BONE[0];
-        rgb[i * 3 + 1] = BONE[1];
-        rgb[i * 3 + 2] = BONE[2];
-      }
-    }
-  }
-
-  let image = sharp(rgb, { raw: { width: config.width, height: config.height, channels: 3 } });
-  await image.png({ palette: true, colours: 2, quality: 100 }).toFile(outPath);
-
-  const { size } = await stat(outPath);
-  const withinBudget = size <= config.maxBytes * BUDGET_SCALE;
-  console.log(
-    `${withinBudget ? 'PASS' : 'FAIL'} ${config.name}: ${formatBytes(size)} / ${formatBytes(config.maxBytes)} (${config.width}x${config.height})`
-  );
-  return withinBudget;
-}
-
-let allWithinBudget = true;
-for (const config of ASSETS) {
-  allWithinBudget = (await renderAsset(config)) && allWithinBudget;
-}
-console.log(
-  `\nGenerated ${ASSETS.length} asset(s) — ${allWithinBudget ? 'all within budget' : 'AT LEAST ONE OVER BUDGET'}`
-);
-process.exit(allWithinBudget ? 0 : 1);
+assert.ok(colors.size > 2 && colors.size <= 256, `expected a lossless tone palette, got ${colors.size}`);
+const png = await sharp(rgb, { raw: { width: WIDTH, height: HEIGHT, channels: 3 } })
+  .png({ palette: true, colours: 256, quality: 100, dither: 0, effort: 10, compressionLevel: 9 }).toBuffer();
+assert.deepEqual(await sharp(png).removeAlpha().raw().toBuffer(), rgb, 'palette encoding changed OG pixels');
+await mkdir(dirname(OUT), { recursive: true });
+await writeFile(OUT, png);
+const { size } = await stat(OUT);
+const withinBudget = size <= MAX_BYTES * BUDGET_SCALE;
+console.log(`${withinBudget ? 'PASS' : 'FAIL'} og-default.png: ${formatBytes(size)} / ${formatBytes(MAX_BYTES)} (${WIDTH}x${HEIGHT}), ${colors.size} colors, cell=${CELL}`);
+console.log(`\nGenerated 1 asset(s) — ${withinBudget ? 'all within budget' : 'AT LEAST ONE OVER BUDGET'}`);
+process.exit(withinBudget ? 0 : 1);
