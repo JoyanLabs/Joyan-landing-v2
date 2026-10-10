@@ -408,20 +408,61 @@ pasaron la prueba, no porque su autor los haya declarado buenos. Ver el commit `
 - **Aceptación:** ≤100 KiB, 1200×628, wordmark compuesto preservando la paleta exacta.
 - **Checks:** `pnpm generate:dither` `PASS` y `pnpm check`.
 
-### WU9 · Encuadre vertical del hero (D4) — **evidencia medida, ya no es sospecha**
+### WU9 · Encuadre del hero (D4) — **GREEN observado en reduced-motion**
 
-- **Lo que ahora está medido:** mirando el poster nuevo en su lugar, a 390 el hero pinta el video
-  a escala **1,04** sobre la fuente de 1600, así que la ventana visible cubre las columnas
-  **612–987**, y **el portón ámbar está en ~1030**. O sea: **en mobile el recorte se come la marca
-  reservada**, justo la que la leyenda dice que hay que poder leer.
-- **Entrega:** un encuadre vertical propio para el hero en mobile, o la deuda declarada con este
-  número al lado.
-- **Aceptación:** a 390 el sujeto **y el portón** quedan dentro del recorte, y el sujeto no queda
-  cruzado por el titular ni por el CTA.
-- **Checks:** vistas simuladas por Chromium real a 390, 768 y 1440, y el recorte del portón
-  verificado adentro del encuadre.
-- **Nota:** esto afecta al **poster** (lo que ven no-JS, reduced-motion y carga lenta) y afectaría
-  igual a cualquier film con el mismo encuadre. No es un problema de la trama: es de composición.
+- **Registro (2026-10-09):** se autorizó `Hero.astro` y un build fresco. El campo de
+  sujetos abre sólo el scrim del poster bajo reduced-motion; el piso de máscara opaca
+  restaura el scrim direccional original antes del texto (140px;160px entre640–1023px).
+  F1 y los cinco films/binarios de producción siguen intactos; cero JS/dependencias nuevas.
+  El orquestador conserva el cierre y el espejo canónico `odd/tasks/dither-iteration.md`.
+- **RED preservado:** `red/` mantiene seis fallas iniciales de recorte; `red-resume/`
+  reproduce cuatro fallas desktop (rim22/255, rombo15.197/255) del candidato compacto.
+  `aperture-green/` y `accepted/` conservan fallas del harness: la captura del elemento
+  desplazaba el viewport antes de comparar el header sticky. Se restaura y se verifica
+  ahora el scroll original; no se bajó ningún umbral ni se ensayó otra estética al cerrar.
+- **Composición final única:** agente `(885,80), r58`, portón `(1085,80), half32`,
+  glow32 + flare8; anillo/bloque proporcionales, rampas y beat sheet originales.
+  El slab queda como fondo. Diámetros13.81/7.62 pitches, no sujetos miniaturizados.
+- **Corrección de prueba:** media celda y el hueco anterior7.167px eran insuficientes.
+  Stencils opacos nativos pasan por el resize real de `captureFrame`; el checker redondea
+  todas las celdas tocadas y añade una celda de guarda para AA/filtro. `dither.js` escribe
+  sólo dentro de su celda. Bounds actuales (right/bottom exclusivos): anillo
+  x679–798/y7–126; glow completo x861–952/y21–112; **separación63px ≥celda7**.
+  Son medidas del Chromium/toolchain actual; dos stills7.8/9.2s **no** prueban todo
+  el film halftone ni todos los navegadores. No se recicla el oráculo nativo como esa prueba.
+- **GREEN actual:**
+  `node scripts/motion-src/check-poster-framing.mjs --out dist-motion-verify/wu9/final-green --require-page-clear`
+  pasa **12 contextos** ES/EN×390×844,768×1024,1440×900×JS/no-JS, sobre `dist` nuevo,
+  sin interceptar el asset público. Cover/viewport completos, cero intersecciones con
+  header/kicker/H1/lead/CTA/nota. Img `cover`, `50% 50%`; video `display:none`.
+  Se conserva ≥4 píxeles con lift≥24/255 por feature, más cuadrantes del anillo,
+  contraste medio con el hueco y mínimos CSS80/40/16px para anillo/rombo/bloque.
+  Desktop obtiene picos **122.144/206.064/194.086**. Se inspeccionaron seis capturas
+  reales y el closeup nativo. Los pares JS/no-JS son byte-idénticos.
+- **Protección/controles:** comparación all-bone contra el mismo scrim con máscaras
+  totalmente opacas, conservando su composición: **delta0 en los12 contextos**.
+  Quitar la máscara cambiaba redondeos fuera del campo; no se toleraron deltas para
+  aprobar. Recorte, texto intersectado, separación cerrada, ink-only, sujetos al5%
+  y máscaras transparentes se rechazan. La protección no se confundió con brillo mínimo.
+- **Normal F1:** `node dist-motion-verify/wu9/check-normal.mjs after` compara con
+  `normal-baseline.json`: seis snapshots CSS/atributos idénticos, incluidos scrim y62%;
+  cinco chunks JS idénticos, **109 818 B gzip, delta0**. `pnpm build` PASS y poster
+  `dist/public` byte-idéntico. No se afirma una medición de reproducción/LCP/CLS.
+- **Asset/check final:** 1600×900, celda7, **38 colores,11 407 B ≤80 KiB**, sha256
+  `b9c1ad1b6bb68ba8dc813fb329e0e25b67fbf393d4ad5e8c3aa2ad9d9041ec18`.
+  Poster/OG conservan hashes tras `pnpm check`: Astro142 archivos,0 errores/0 warnings,
+  26 hints; ESLint PASS; iteration-2 309/0, iteration-3 469/0. Determinismo J1 PASS.
+- **Oráculo fresco:** `animation-aperture-final/`,450 frames1920×1080, **blur1 sin
+  halftone**, generado sin borrar nada. Probe accepted: carry0.83/CV0.66/stillness69.3%,
+  cero empty/out-of-frame/haze, seam delta0; PNG inicial/final byte-idénticos.
+  No se generó otro encode; no se prueba seam codificado ni animación halftone entregada.
+- **Evidencia final:** `final-green/{es,en}-{390,768,1440}.png`, los seis
+  `-no-js.png`, `framing.json`, `hashes.json`, poster/closeup y controles bajo
+  `dist-motion-verify/wu9/`. Historial RED y trials preservado en `EVIDENCE.md`.
+- **Límite explícito:** no-JS por sí solo no fuerza un poster: autoplay nativo sigue
+  sin JS. El GREEN no cubre reconocimiento del fallback de carga/codec sin preferencia
+  de movimiento; ese caso conserva el scrim original. No se afirma cobertura universal
+  de estados estáticos ni se modifican otras unidades pendientes.
 
 ### WU10 · Cerrar el estado de prueba
 

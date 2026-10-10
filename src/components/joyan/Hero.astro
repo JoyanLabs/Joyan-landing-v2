@@ -151,6 +151,30 @@ const { content } = Astro.props;
   }
 
   @media (prefers-reduced-motion: reduce) {
+    /* Only this state guarantees the poster is the visible layer. A localized
+       opening reveals its ring/block and gate above the kicker; the additive
+       floor restores the original scrim before any copy. Normal F1 is untouched. */
+    :global(.hero-backdrop)::after {
+      --poster-field-y: 70px;
+      --poster-field-ry: 74px;
+      --poster-field-floor: 140px;
+      mask-image:
+        linear-gradient(180deg, transparent calc(var(--poster-field-floor) - 8px), #fff var(--poster-field-floor)),
+        radial-gradient(
+          ellipse 220px var(--poster-field-ry) at calc(50% + 20px) var(--poster-field-y),
+          transparent 85%, #fff 100%
+        );
+      mask-composite: add;
+    }
+
+    @media (width >= 40rem) and (width < 64rem) {
+      :global(.hero-backdrop)::after {
+        --poster-field-y: 80px;
+        --poster-field-ry: 88px;
+        --poster-field-floor: 160px;
+      }
+    }
+
     .caret,
     .scroll-cue {
       animation: none;

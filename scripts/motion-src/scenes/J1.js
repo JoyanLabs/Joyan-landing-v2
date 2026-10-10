@@ -32,6 +32,12 @@ export const meta = {
   ],
 };
 
+// A horizontal semantic pair fits the shared ES/EN space above the kicker.
+// Keep complete bodies (and maximum glow) apart; the local checker measures
+// production-resampled stencil cells, not an assumed half-cell expansion.
+export const AGENT = { x: 885, y: 80, radius: 58 };
+export const GATE = { x: 1085, y: 80, half: 32, glow: 32, flare: 8 };
+
 const mix = (a, b, p) => a + (b - a) * p;
 const ease = (t, a, b) => {
   const p = Math.max(0, Math.min(1, (t - a) / (b - a)));
@@ -152,8 +158,14 @@ export function build(canvas) {
     ctx.fillRect(0, 0, slab.width, slab.height);
     ctx = surface; ctx.globalAlpha = 1 - shadow * 0.55;
     ctx.drawImage(slab, 0, 0);
-    ctx.globalAlpha = 0.25 + agent * (0.75 - waiting * 0.55);
+    // A smaller body needs its rim light, especially through the fixed scrim.
+    // Waiting still dims it; release restores the same continuous tone model.
+    ctx.globalAlpha = 0.25 + agent * (0.75 - waiting * 0.15);
 
+    // Scale the whole ring/block together so the semantic proportions survive.
+    ctx.save();
+    ctx.translate(AGENT.x, AGENT.y); ctx.scale(AGENT.radius / 120, AGENT.radius / 120);
+    ctx.translate(-900, -520);
     // A shaded rim and recessed centre make the working ring a body, not a stroke.
     const disc = ctx.createRadialGradient(860, 478, 8, 900, 520, 120);
     disc.addColorStop(0, '#e8e6e1'); disc.addColorStop(0.68, '#8a8a90');
@@ -166,6 +178,7 @@ export function build(canvas) {
     const block = ctx.createLinearGradient(872, 490, 928, 550);
     block.addColorStop(0, '#f4f2ed'); block.addColorStop(1, '#8a8a90');
     ctx.fillStyle = block; ctx.fillRect(872 + working * 16, 490, 56, 60);
+    ctx.restore();
 
     // A rectangular supporting piece remains embedded in the lower band.
     ctx.globalAlpha = 0.25 + supported * 0.75;
@@ -176,14 +189,17 @@ export function build(canvas) {
     // The sole amber source owns its spill. A fast flare releases the dimmed
     // ring; the gate remains physically present after its light stops blocking.
     ctx.globalAlpha = 0.25 + waiting * 0.75 + flare * 0.2;
-    const radius = 104 + flare * 64;
-    const glow = ctx.createRadialGradient(1364, 520, 12, 1364, 520, radius);
+    const radius = GATE.glow + flare * GATE.flare;
+    const glow = ctx.createRadialGradient(GATE.x, GATE.y, GATE.half / 4, GATE.x, GATE.y, radius);
     glow.addColorStop(0, `rgba(255,176,0,${0.76 + waiting * 0.2})`);
     glow.addColorStop(0.5, 'rgba(255,176,0,0.35)'); glow.addColorStop(1, 'rgba(255,176,0,0)');
-    ctx.fillStyle = glow; ctx.fillRect(1364 - radius, 520 - radius, radius * 2, radius * 2);
-    const gate = ctx.createLinearGradient(1330, 480, 1400, 560);
+    ctx.fillStyle = glow; ctx.fillRect(GATE.x - radius, GATE.y - radius, radius * 2, radius * 2);
+    const gateScale = GATE.half / 48;
+    const gate = ctx.createLinearGradient(GATE.x - 34 * gateScale, GATE.y - 40 * gateScale,
+      GATE.x + 36 * gateScale, GATE.y + 40 * gateScale);
     gate.addColorStop(0, '#ffd780'); gate.addColorStop(1, '#b37c03');
-    polygon(ctx, [[1364, 472], [1412, 520], [1364, 568], [1316, 520]]);
+    polygon(ctx, [[GATE.x, GATE.y - GATE.half], [GATE.x + GATE.half, GATE.y],
+      [GATE.x, GATE.y + GATE.half], [GATE.x - GATE.half, GATE.y]]);
     ctx.fillStyle = gate; ctx.fill();
     ctx.globalAlpha = 1;
   };

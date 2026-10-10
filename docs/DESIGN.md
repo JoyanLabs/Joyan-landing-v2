@@ -111,12 +111,12 @@ Pre-baked, deterministic, palette-limited ordered-dither art. Levels define **wh
 
 Formats: **SVG sources** (vector, ink/bone palette, 1px strokes, no embedded raster, no data URIs) in `scripts/dither-src/` for the OG; a **procedural tone scene** in `scripts/motion-src/scenes/J1.js` for the hero. Both outputs are palette PNGs, but their colour contracts differ:
 
-- **Hero:** `dither.js`'s token grey ramp (ink-950/900/800, plomo-500/400, bone-100/50), with the reserved amber ramp only at the scene's gate and its spill. Brightness compensation and fixed subpixel dot coverage derive intermediate colours from those ramps: the committed poster has **38 colours**, not two. A binary threshold cannot carry the scene's tone; a halftone needs a ramp.
+- **Hero:** `dither.js`'s token grey ramp (ink-950/900/800, plomo-500/400, bone-100/50), with the reserved amber ramp only at the scene's gate and its spill. Brightness compensation and fixed subpixel dot coverage derive intermediate colours from those ramps: the current WU9 poster has **38 colours**, not two (reduced-motion page guards pass in both locales). A binary threshold cannot carry the scene's tone; a halftone needs a ramp.
 - **OG:** Bayer 8×8 threshold, exactly **two colours**, ink-950/bone-50, including the composited wordmark. Its generator remains browser-free.
 
 | Source (repository-relative, except OG SVGs in `scripts/dither-src/`) | Output (`public/assets/`) | Dimensions | Budget | Unit |
 |---|---|---|---|---|
-| `scripts/motion-src/scenes/J1.js`, t=7.8 s → `captureFrame`, cell 7 | `dither/hero-dither.png` (38-colour halftone) | 1600×900 | 80 KiB (11,916 B measured) | V1 (L3) |
+| `scripts/motion-src/scenes/J1.js`, t=7.8 s → `captureFrame`, cell 7 | `dither/hero-dither.png` (38-colour WU9 poster) | 1600×900 | 80 KiB (11,407 B measured) | V1 (L3) |
 | `hardware-board.svg` + `wordmark.svg` overlay | `brand/og-default.png` | 1200×628 | 100 KiB | V1 (OG) |
 
 **Pitch contract (WU5):** target **6–8 CSS px after presentation**, not a shared source-pixel constant. `cell = targetPitch × sourceWidth / displayedWidth`; for `object-cover`, use `scale = max(boxWidth/sourceWidth, boxHeight/sourceHeight)`, `displayedWidth = sourceWidth × scale`, and `pitch = cell × scale`. Use the painted box, not blindly the viewport.
@@ -153,6 +153,71 @@ MOTION_TOOLCHAIN=~/.cache/joyan-motion node scripts/motion-src/render-poster.mjs
 ```
 
 **The poster builder is deliberately absent from `package.json` and CI:** Playwright is not a repository dependency. It seeks J1 at 7.8 s (the quiet support beat, with the waiting gate visible), uses the films' real `captureFrame` resize/dither path at 1600×900, then losslessly encodes a palette PNG. It asserts pixel identity after encoding and the 80 KiB budget before writing. `pnpm check` runs the SVG generator, so the hero must never re-enter its asset list: that would silently overwrite this poster. Verify the poster's sha256 stays identical across `pnpm check`; the OG must remain byte-identical too.
+
+### WU9 framing — reduced-motion GREEN (2026-10-09)
+
+**Containment is not recognition.** A larger horizontal pair now occupies the
+space above the kicker: the proportional ring/block is centered at `(885,80), r58`;
+the sole amber gate at `(1085,80), half32, glow32 + flare8`. Original shading ramps,
+beat sheet and loop remain; the slab stays background. `Hero.astro` now opens a
+localized elliptical scrim field **only under reduced motion**. An additive opaque
+mask floor restores the original directional scrim before the copy (140 CSS px,
+160 at the 640–1023 px breakpoint). The normal F1 styling/position is unchanged.
+
+Fresh `pnpm build` output is served directly, including its poster, which must be
+byte-identical to `public/`. No asset interception is used. Chromium checks ES/EN
+at 390×844, 768×1024 and 1440×900, with JS both enabled and disabled: **12 passes**.
+The image remains `cover`, `50% 50%`, opacity1, natural1600×900; video is `display:none`.
+
+| Page / viewport | Painted box | Visible poster x window |
+|---|---|---|
+| ES / 390×844 | 390×936.4375 | 612.588–987.412 |
+| EN / 390×844 | 390×844 | 592.062–1007.938 |
+| ES and EN / 768×1024 | 768×1024 | 462.5–1137.5 |
+| ES and EN / 1440×900 | 1440×900 | 80–1520 |
+
+**Proof correction:** half-cell padding and the old 7.167 px gap were insufficient.
+The checker now captures opaque native subject envelopes through the production
+resize boundary, rounds every touched cell outward, and adds one guard cell for
+filter/AA tails. `dither.js` writes only within its sampled cell, not merely within
+half a cell of the original shape. Current toolchain bounds (exclusive right/bottom)
+are ring `x679–798/y7–126`, full glow `x861–952/y21–112`: **63 poster px separation**,
+well above cell7. All fit cover/viewport and avoid header, kicker, H1, lead, CTA and
+note rectangles. These measured stencil bounds are not a guarantee for arbitrary
+scenes/browsers; two stills at7.8/9.2s are not animation-wide halftone evidence.
+
+Post-scrim guards retain ≥4 pixels at ≥24/255 lift for each rim/block/diamond,
+and additionally require four visible ring quadrants, annulus/hollow and block/hollow
+mean separation, and minimum CSS dimensions (ring80, diamond40, block16 px).
+Desktop peaks are now **122.144 / 206.064 / 194.086**, rather than22 /28.928 /15.197.
+Six actual viewport screenshots and the native closeup were inspected for shapes,
+not just brightness. All twelve all-bone stress controls preserve protected content
+pixels exactly against an identically composited, fully opaque mask reference.
+Clipping, overlap, insufficient spacing, ink-only/muted subjects and transparent
+scrim controls are rejected. Locator screenshot scrolling is explicitly undone
+before controls; old false failures and RED evidence remain preserved.
+
+```bash
+node scripts/motion-src/check-poster-framing.mjs --out dist-motion-verify/wu9/final-green --require-page-clear
+```
+
+Evidence stays local outside `package.json`/CI: `dist-motion-verify/wu9/final-green/`
+contains `framing.json`, six `{es,en}-{390,768,1440}.png` viewport images and their
+`-no-js.png` counterparts (six byte-identical pairs), plus hero crops/controls.
+`check-normal.mjs after` matches six no-preference F1 CSS/attribute snapshots and
+all five emitted JS chunks to the saved baseline: **109,818 B gzip, zero JS delta**.
+The 11,407 B poster sha256 is
+`b9c1ad1b6bb68ba8dc813fb329e0e25b67fbf393d4ad5e8c3aa2ad9d9041ec18`;
+poster and OG hashes remain identical across the final `pnpm check` (0 errors,
+0 warnings,26 hints; ESLint PASS; iteration-2 309/0, iteration-3 469/0).
+
+Fresh `animation-aperture-final/` contains450 native1920×1080 **blur1, non-halftone**
+frames: determinism PASS; oracle accepted, carry0.83/CV0.66/stillness69.3%, zero
+empty/out-of-frame/haze or seam cell delta; first/last PNGs byte-identical. No fresh
+encoded or full delivery-halftone seam proof is claimed. Production film binaries
+are untouched. **No-JS alone does not imply a static poster:** native video autoplay
+needs no JS. No-preference loading/codec fallback retains the original F1 scrim;
+its poster recognition is not covered by this reduced-motion aperture or GREEN.
 
 **Source SVG authoring conventions (OG):**
 
@@ -320,6 +385,7 @@ For seek-order purity, run `node scripts/motion-src/check-determinism.mjs --film
 | `scripts/motion-src/{lib.js,composition.html}` | Shared glyph/move library and parameterized `seek(t)` composition |
 | `scripts/motion-src/films/{F1,F2,F3,F4,F5}.js` | Each film owns its beat sheet (`meta`), shared by composition, renderer and oracle |
 | `scripts/motion-src/check-determinism.mjs` | Local seek-order gate: SVG markup and painted pixels; isolated Playwright required |
+| `scripts/motion-src/check-poster-framing.mjs` | Local fresh-build ES/EN cover, production stencil-cell bounds, post-scrim recognition guards and copy protection; use `--require-page-clear` |
 | `scripts/motion-src/render.mjs` | Playwright walk of the clock, real motion blur (sub-captures averaged across a 180° shutter, times wrapped around the loop), ffmpeg encode |
 | `scripts/motion-src/probe.mjs` | The oracle: cadence, carry, stillness, focus retention and loop seam, measured from rendered frames |
 | `scripts/svgo.config.mjs` | SVGO config for all source SVGs (Unit C) |
@@ -430,7 +496,18 @@ The five scoped repeated lists — Agents, MAGI, Hardware, Ecosystem items, and 
 
 ---
 
-**Version:** 1.6 — **Last updated:** 2026-10-16 — **Maintainer:** JoyanLabs
+**Version:** 1.8 — **Last updated:** 2026-10-09 — **Maintainer:** JoyanLabs
+
+> **1.8 — WU9 reduced-motion GREEN.** Larger horizontal semantic pair, localized
+> poster-only scrim aperture, corrected production stencil-cell bounds and12
+> actual-page passes. Copy protection and normal F1/JS baselines are verified;
+> no-preference loading fallback and native-vs-halftone oracle limits stay explicit.
+
+> **1.7 — Prior WU9 checkpoint (superseded).** Recorded a compact upper-right J1 candidate,
+> complete flare/cell bounds and six actual ES/EN reduced-motion views. Crop,
+> separation and copy clearance pass; desktop post-scrim recognition does not.
+> Preserved the failing acceptance guard and distinguished fresh native blur-1
+> oracle evidence from delivered halftone and browser visibility.
 
 > **1.6 — Hero poster carries tone.** Replaced the two-colour SVG threshold
 > with J1 at 7.8 s through the films' capture path: 1600×900, cell 7,
