@@ -1,8 +1,8 @@
 # Guía de Motion Graphics
 
-> **Estado:** PRUEBA. La rama `test/motion-graphics` contiene este trabajo.
-> No está integrada a `main` y no tiene aprobación formal de review.
-> **Última actualización:** 2026-10-16 (contrato y evidencia reconciliados con el árbol)
+> **Estado:** experimento local validado y cierre local WU10 comprobado en `test/motion-graphics`.
+> **No está integrado a `main`**; branding, revisión e integración real siguen pendientes.
+> **Última actualización:** 2026-10-10 (cierre local, sin certificar producción)
 
 Este documento explica **cómo se hicieron** los films de la landing y, sobre
 todo, **qué se aprendió por el camino**. Los films se pueden regenerar desde el
@@ -458,7 +458,7 @@ detectados**. Declarar un golpe no alcanza: tiene que pasar algo en el frame.
 Lo que no tolera es un tramo final quieto. Pasamos de 91 frames de quietud
 consecutiva (3,03 s) a **19 frames (0,63 s)**, con 3 frames (0,10 s) en el cierre.
 
-### Resultado
+### Resultado histórico del spike (no medición del árbol actual)
 
 | | F1 hairline | F1 con dither | J1 (escena con tono) |
 |---|---|---|---|
@@ -483,7 +483,7 @@ dos MP4 completos. La identidad de extremos se comprueba con
 `sha256sum dist-motion/frames/f0000.png dist-motion/frames/f0449.png`;
 no presupongas que el resultado de hoy repite el baseline histórico.
 
-### Lo que hay que arreglar antes de la iteración de verdad
+### Del spike a la iteración local: estado actual
 
 - **`render.mjs` no se podía testear en proceso; resuelto en `9535e04`.** Antes
 no exportaba helpers y ejecutaba `main()` sin condición. Hoy exporta el setup y
@@ -493,9 +493,9 @@ inverso y directo otra vez, y compara con una carga nueva. El PASS registrado
 incluye canvas; el control negativo cubre al comparador, no una escena rota
 servida por `composition.html`. La costura byte-idéntica sola nunca probó pureza:
 una escena con estado también puede volver al inicio después de un ciclo.
-- **Densidad de celda.** `cell = 8 px` a 960 de ancho da puntos de 8 px, que en el
-hero se ven bien. Falta medir el tamaño de celda contra el ancho de presentación
-real y contra el costo en bytes, en vez de elegirlo a ojo.
+- **Densidad medida en WU5.** `measure-density.mjs` mide cajas reales con Chromium;
+el objetivo es pitch mostrado6–8px CSS, no una constante universal de fuente.
+La medición descartó thumbs/secciones pequeñas; hero y OG son las superficies elegidas.
 - **El ámbar por mayoría de celda era el defecto que borraba el color reservado.**
 Ahora la celda es elegible para la rampa ámbar por **máximo**, así que un hairline
 ámbar de 1 px sobrevive. El piso de tinta (`deadZone`) es lo que permite que el
@@ -509,9 +509,18 @@ cualquier escena nueva.
 WU5 descartó los thumbs por su ancho mostrado; WU7 retiró campo, consumidor y
 componente sin importadores. El resumen y el enlace de detalle localizado son la
 alternativa textual; retiro verificado con iteration-3 486/0.
-Resumen y enlace de detalle localizados ya son la alternativa textual ES/EN.
 El checker rechaza reintroducciones, no las acepta para que Astro las descarte.
 Aplicar el pase a los cinco films de argumento sigue rechazado.
+- **Poster WU6/WU9:** `render-poster.mjs` local (Playwright) produce J1 a1600×900,
+celda7,11,407B; el generador del proyecto no lo pisa. WU9 reencuadra anillo/bloque y
+portón; `check-poster-framing.mjs --require-page-clear` registró12 contextos Chromium
+reduced-motion ES/EN×390/768/1440×JS/no-JS. F1 normal y diez encodes no cambiaron.
+- **OG WU8:** OG1 independiente,1200×628,celda16,6,571B. `render-og.mjs` local hornea
+`og-tone.png`; `pnpm generate:dither` sin browser es el único escritor del PNG final.
+Conserva máscara JOYAN y metadata; no es un hero reescalado ni un film.
+- **WU10 local:** `node scripts/check-delivery-scope.mjs --self-test` pasa81/0;
+`--base a702ef0 --head HEAD` acepta sólo el slice reciente, mientras `main..HEAD` y
+el copy `654e22c..529a264` fallan. Prueba de rutas comprometidas, no branding ni entrega.
 
 El plan que convierte todo esto en la iteración que va a `main` —superficies, orden y
 corte en candidatos revisables— está en
@@ -545,10 +554,12 @@ determinista y era el historial de tres revisiones de la escena.
   puntual; el repo no conserva un runner para repetirla. La falta de veredicto
   es histórica: el gate nativo quedó desactivado para este clon por decisión
   explícita, según el plan, y la revisión ordinaria queda en manos del dueño.
-- **La prueba de dithering** (sección propia más arriba) dejó el efecto construido
-y aceptado por el oráculo en una escena con tono, y dejó escrito qué hay que
-arreglar antes de la iteración de verdad. `render.mjs` testable en proceso ya
-está resuelto (`node scripts/motion-src/check-determinism.mjs --film J1`);
-siguen pendientes la densidad de celda medida y las superficies candidatas decididas.
+- **Integración real en `main` y branding:** pendientes; no entregar toda la rama.
+WU2 ofrece determinismo, WU5 midió densidad, WU6/WU9 cerraron el poster, WU8 el OG y
+WU7 retiró thumbs; WU10 cierra la prueba local, no esa condición de integración.
+- **Límites de evidencia:** no Firefox/Safari, anchos intermedios, scroll ni reconocimiento
+de fallback de carga/codec; no-JS solo no fuerza poster. No prueba nueva de animación
+halftone codificada. Para futuras fuentes OG falta guard de cromaticidad/opacidad;
+fontconfig/librsvg conserva su caveat de portabilidad. Detalle en el plan.
 - **Los diagrams técnicos densos** que se imaginaron para el detalle de bitácora
   no se hicieron. Falta decidir si esa superficie existe.

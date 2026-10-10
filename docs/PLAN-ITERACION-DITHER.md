@@ -1,8 +1,9 @@
 # Plan · Iteración de dither y motion a `main`
 
-> **Estado inicial (histórico):** plan propuesto, sin aprobar. La ejecución posterior
-> y sus límites se registran por WU abajo; este encabezado no describe su estado actual.
-> **Rama de origen:** `test/motion-graphics` (14 commits sobre `main`, +3 817 / −238 en 49 archivos).
+> **Estado actual (2026-10-10):** ejecución local validada; cierre local WU10 comprobado.
+> **No integrado en `main`; branding e integración real siguen pendientes.**
+> **Rama de origen:** `test/motion-graphics`; los 14 commits y +3 817 / −238 en 49 archivos
+> describían el inventario inicial, no el árbol actual.
 > **Este documento decide el orden y el corte. No decide el arte.**
 > Fuentes: `docs/GUIA-MOTION.md` (método y aprendizaje), `odd/tasks/dither-look-spike.md`
 > (registro del spike), `docs/DESIGN.md` (contrato visual), y la dirección canónica en
@@ -77,8 +78,9 @@ otro repositorio lo hereda.
 
 **Lo que NO cambia, y ahora importa más:** sin gate automático, lo único que impide que
 material de PR A (el copy narrativo) llegue a `main` sin la revisión de branding que pide
-`JOYAN_DIRECTION_2026.md:1720` es nuestra propia disciplina. **D5 dejó de ser «en qué
-orden» y pasó a ser «qué nos protege ahora».**
+`JOYAN_DIRECTION_2026.md:1720` sigue siendo la política del dueño: WU10 añade un gate
+**local de rutas**, no una barrera automática de CI ni aprobación semántica. **D5 sigue
+siendo «qué nos protege ahora».**
 
 **Lo que sí cambia:** el corte en candidatos deja de ser una imposición del presupuesto
 nativo y vuelve a ser lo que es en el resto del repo — una cuestión de **carga de revisión
@@ -169,8 +171,11 @@ Tres caminos:
    su propio PR (A) y esta rama se queda con lo visual. Es la opción que más trabajo de
    corte tiene y la que deja la historia más limpia.
 
-**Recomendación:** la 2 con la deuda escrita, si lo que querés es ver el efecto en `main`
-pronto; la 3 si te importa más la trazabilidad. La 1 es la más correcta y la más lenta.
+**Recomendación histórica:** la 2 con la deuda escrita; la 3 por trazabilidad; la 1
+respeta la secuencia. **Cierre local autorizado:** WU10 excluye mecánicamente rutas de
+copy, sin descartar contenido ni reescribir historia. `529a264` queda protegido para
+branding; `16ac030` y `1bea6ce` también tocan i18n y son rechazados, sin excepción para
+labels. La elección de integración real sigue pendiente; un PASS de rutas no la decide.
 
 ---
 
@@ -243,8 +248,8 @@ registran acá mismo: este documento es la fuente de verdad de la iteración.
 ### WU3 · Los binarios de films que ya existen — **SUBSUMIDO, no se hace**
 
 Existía para que los ~860 KB de MP4 no engordaran un candidato de review nativo. Con RDD
-apagado no hay candidatos que cortar, así que los binarios landean con la rama. Se deja
-anotado por qué existía, no como trabajo pendiente.
+apagado perdió ese propósito original. No autoriza landear toda la rama mezclada:
+D5/WU10 siguen separando el copy. Se conserva como antecedente, no como tarea pendiente.
 
 ### WU4 · Reparar el drift de la documentación — **HECHO**
 
@@ -388,7 +393,7 @@ pasaron la prueba, no porque su autor los haya declarado buenos. Ver el commit `
 - **Caveat declarado:** la paleta es metadata y **no puede localizar el ámbar en el espacio**. El
   uso reservado del ámbar lo verifica la revisión del raster, no el checker.
 
-### WU7 · Thumbs de bitácora — **GREEN verificado de forma independiente**
+### WU7 · Thumbs de bitácora — **GREEN verificado de forma independiente** (`7a802eb`)
 
 - **Problema inicial (histórico):** el schema tenía `dither` (`src/content.config.ts:97`), la fila lo renderizaba
   (`JournalEntryRow.astro:57-61`), **no hay assets** y `DitherFigure.astro` **no tiene ningún
@@ -415,7 +420,7 @@ pasaron la prueba, no porque su autor los haya declarado buenos. Ver el commit `
 - **Fuera de alcance:** nuevos thumbs en lista o detalle requieren otra decisión;
   no queda una promesa opcional de dither en el contrato actual.
 
-### WU8 · OG — **GREEN observado** (2026-10-09; sin commit)
+### WU8 · OG — **GREEN observado** (2026-10-09; commit `1aab883`)
 
 - **Entrega:** OG1 estático independiente de J1, compuesto para1200×628, no hero
   reescalado. `render-og.mjs` local hornea `scripts/dither-src/og-tone.png`
@@ -445,7 +450,7 @@ pasaron la prueba, no porque su autor los haya declarado buenos. Ver el commit `
   demostrado del asset actual. Sin oráculo de película para este still estático;
   no se afirma integración en main; el orquestador mantiene el espejo ODD.
 
-### WU9 · Encuadre del hero (D4) — **GREEN observado en reduced-motion**
+### WU9 · Encuadre del hero (D4) — **GREEN observado en reduced-motion** (`bed795f`)
 
 - **Registro (2026-10-09):** se autorizó `Hero.astro` y un build fresco. El campo de
   sujetos abre sólo el scrim del poster bajo reduced-motion; el piso de máscara opaca
@@ -501,12 +506,41 @@ pasaron la prueba, no porque su autor los haya declarado buenos. Ver el commit `
   de movimiento; ese caso conserva el scrim original. No se afirma cobertura universal
   de estados estáticos ni se modifican otras unidades pendientes.
 
-### WU10 · Cerrar el estado de prueba
+### WU10 · Cierre local comprobado; integración en `main` **PENDIENTE**
 
-- **Entrega:** `docs/GUIA-MOTION.md` deja de decir «Estado: PRUEBA. No está integrada a
-  `main`» cuando efectivamente esté integrado; el registro del spike se cierra; el espejo
-  en memoria se actualiza.
-- **Aceptación:** el documento y el repositorio dicen lo mismo.
+- **Entrega local:** `node scripts/check-delivery-scope.mjs --base <rev> --head <rev>`
+  (defaults `main`/`HEAD`), `--self-test` y `--help`; Node sin dependencias, fuera de
+  package/CI. Sólo compara commits, no prueba el worktree ni aprueba branding/publicación.
+- **Contrato:** allowlist visual explícita; copy (i18n/config/pages/Markdown de contenido),
+  rutas desconocidas, tipo cambiado, argumentos/refs/registros inválidos y rango vacío
+  fallan cerrado. `git diff --name-status -z` inspecciona ambos lados de rename/copy;
+  desde copy hacia docs también bloquea. JSON escapado; refs resueltos a commits sin shell.
+  `DitherFigure.astro` sólo admite eliminación. No hay excepción automática de labels.
+- **RED/GREEN:** primer clasificador por directorios aceptaba indebidamente narrativa,
+  desconocidos y rename; 59/22 → allowlist estricta y scores NUL correctos → **81/0**.
+- **Controles reales** (exit1 = rechazo esperado; exit0 = PASS de rutas):
+  `654e22c..529a264` exit1 (config/i18n/terms); `main..HEAD` exit1 (copy y desconocidos);
+  `a702ef0..HEAD` exit0 (17 rutas WU9/WU8/WU7); `HEAD..HEAD` exit1 (vacío).
+  En la captura previa al commit del gate, `main` resuelve a `2d13d13` y `HEAD` a
+  `7a802eb`; el positivo es **sólo un slice**,
+  no prueba que toda la rama sea copy-free ni que esté lista para `main`.
+- **Evidencia:** logs RED, negativos deliberados y GREEN bajo `dist-motion-verify/wu10/`;
+  assets, diez encodes, i18n y baseline `.artifacts` preservados. Espejo ODD del padre.
+- **Verificación final independiente:** build13páginas; check Astro152archivos,
+  0errores/0warnings/26hints, ESLintPASS, iteration-2 323/0, iteration-3 486/0.
+  Gate81/0; framing12contextos Chromium ES/EN con/sin JS en reduced-motion,
+  errores0/pageErrors0/delta de contenido0. F1normal6vistas y5chunks intactos;
+  OG/meta13páginas y bitácora11filas/6detalles PASS;47archivos/10encodes intactos.
+  Capturas: `dist-motion-verify/wu9/wu10-final-framing/`.
+- **Fallo de bookkeeping conservado:** el helper histórico WU8-preserve sale1
+  sólo por hash ODD autorizado desactualizado; sus aserciones posteriores no corrieron.
+  El baseline no se cambió; pruebas independientes de assets/F1/JS/bitácora pasan.
+  La primera invocación de framing con salida en wu10 fue rechazada antes de capturar;
+  la ruta autorizada wu9 pasó, sin modificar el guard para ocultar el fallo.
+- **Aceptación restante:** integrar realmente en `main` tras revisión/decisión humana;
+  sólo entonces retirar «no integrado». El cierre local no certifica producción ni
+  cierra esa condición. Firefox/Safari, anchos intermedios, scroll/fallbacks de carga,
+  guard futuro del tono OG/fontconfig y nuevo encode no están verificados.
 
 ### WU11 · Restaurar la pureza de `seek(t)` en F1 y F5 — **HECHO** (`19b0d7c`)
 
@@ -567,7 +601,7 @@ Lo encontró WU2, que no lo buscaba. Medido con el gate, en los cinco films, **a
 | Riesgo | Cómo se maneja |
 |---|---|
 | El supuesto de que los binarios son el peso del candidato es una hipótesis | No se actúa sobre ella: queda anotado como explicación de por qué la rama no era revisable como unidad. |
-| **Sin gate automático**, el copy de PR A puede llegar a `main` sin la revisión de branding que exige `JOYAN_DIRECTION_2026.md:1720` | Es la decisión D5, y ahora es la que más pesa. Si no se decide, el corte por defecto **excluye el copy**. |
+| **Sin gate de pipeline**, el copy de PR A puede llegar a `main` sin branding | WU10 aporta proof local de rutas, no CI ni aprobación semántica. D5 sigue pendiente; el corte por defecto **excluye copy**. |
 | Cambiar el renderer rompe films que ya funcionan | WU2 tiene como criterio una identidad sha256, no una inspección visual. |
 | El look no sobrevive al ancho de mobile | M1 (WU5) y D4 existen exactamente por esto, y van antes de dibujar los assets finales. |
 | El copy de la rama se cuela a `main` sin revisión de branding | Es la decisión D5. Si no se decide, el corte de la sección 4 tendría que excluir el copy por defecto. |

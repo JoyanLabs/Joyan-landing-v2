@@ -1,6 +1,8 @@
 # dither-look-spike
 
-> **Estado:** PRUEBA en curso, sobre `test/motion-graphics`. NO va a `main` tal cual.
+> **Estado (2026-10-10):** spike histórico CERRADO; no va a `main` tal cual.
+> Iteración local validada: [ODD canónico](./dither-iteration.md) y
+> [plan local](../../docs/PLAN-ITERACION-DITHER.md). Integración real en `main` pendiente.
 > **Origen:** pedido del usuario — «verificá si podemos integrar de mejor forma ese
 > efecto de las escenas del dithering y si podemos colocar otras cosas».
 > **Objetivo real:** sacar evidencia para después escribir el plan ordenado de la
@@ -143,11 +145,13 @@ corridas completas y separadas del mismo fuente dan **el mismo sha256 en los fra
 muestreados y en el MP4 entero** (202 057 bytes). El refactor de resolución se probó
 igual: el re-render devuelve ese mismo sha256.
 
-Huecos declarados, no tapados: la pureza por **orden de búsqueda** no se pudo correr
+Huecos históricos declarados, no tapados: la pureza por **orden de búsqueda** no se pudo correr
 (`render.mjs` no exporta helpers y ejecuta `main()` sin condición), y el
 desacuerdo histórico 90/183/197 KB quedó **inconcluso**: no hay snapshots del fuente
 en cada iteración, así que no se puede probar que fueran revisiones distintas. Lo que
-sí está probado es que el fuente actual es reproducible.
+sí estaba probado entonces es que aquel fuente era reproducible. WU2 añadió después
+el gate de determinismo y WU11 corrigió F1/F5; los fallos históricos quedan aquí,
+no se reinterpretan como evidencia del árbol actual.
 
 - [x] **T4 · Registrar el aprendizaje** — CERRADA
 
@@ -158,7 +162,7 @@ Sección nueva «El efecto de dithering» en `docs/GUIA-MOTION.md`: qué es la r
 hay que arreglar antes de la iteración de verdad, y cómo se mira una trama de puntos
 (1:1 y medición, no contact sheet y ojo).
 
-## Decisión de diseño abierta (se resuelve con evidencia, no de gusto)
+## Decisión de diseño abierta durante el spike (registro histórico)
 
 ¿El dither convive con el contrato «pre-baked, sin canvas salvo MAGI»? El spike
 asume **sí** (todo horneado). Si T2 muestra que hace falta algo interactivo, la vía
@@ -195,7 +199,8 @@ propiedades de `dither.js`), `measure.py` (envolvente frame a frame),
 El spike responde la pregunta que lo originó. Sí se puede construir el efecto acá, y
 sí se puede hacer con assets propios. No se puede aplicar sobre los cinco films de
 argumento, y eso es un hallazgo, no un fracaso: el halftone necesita tono y esos films
-son trazo sobre ink plano. El siguiente paso no es más código en esta rama, es el plan
-ordenado de la iteración a `main`, con las cuatro deudas anotadas en
-`docs/GUIA-MOTION.md` como entradas.
+son trazo sobre ink plano. El plan posterior ya ejecutó la iteración local (WU2/5/6/7/8/9)
+y WU10 comprobó un gate local de rutas; no modifica esta evidencia ni descarta copy.
+El siguiente paso es la verificación final independiente y la decisión de integración:
+`main` todavía no contiene esta iteración. Estado vigente en los enlaces del encabezado.
 
