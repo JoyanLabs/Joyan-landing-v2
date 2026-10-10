@@ -716,6 +716,7 @@ const wordmarkOk = (pixels, mask) => {
 const ASSET_CONTRACT = [
   { path: 'public/assets/dither/hero-dither.png', width: 1600, height: 900, maxBytes: 80 * 1024 },
   { path: 'public/assets/brand/og-default.png', width: 1200, height: 628, maxBytes: 100 * 1024 },
+  { path: 'public/assets/dither/scene-dither.png', width: 960, height: 540, maxBytes: 80 * 1024 },
 ];
 
 for (const asset of ASSET_CONTRACT) {
@@ -742,7 +743,7 @@ for (const asset of ASSET_CONTRACT) {
       `asset: ${asset.path} is ${(size / 1024).toFixed(1)} KiB, over the ${(asset.maxBytes / 1024).toFixed(0)} KiB budget`
     );
   }
-  if (asset.path === 'public/assets/dither/hero-dither.png') {
+  if (asset.path !== 'public/assets/brand/og-default.png') {
     // Token greys span at most seven channel values (bone-50); dot coverage
     // adds intermediate tones, not new hues. Amber's 30–50 degree window
     // surrounds accent #FFB000 (~41 degrees) without admitting red or yellow.
@@ -1543,6 +1544,37 @@ if (reducedMotionBlocks.some((b) => /\.joyan-film\{display:none\}/.test(b))) {
   fail('film: compiled CSS must remove .joyan-film under prefers-reduced-motion');
 }
 
+// WU12 is a separate decorative surface, never a sixth argument figure.
+// Keep every original FILMS/FIGURE_CONTRACT assertion above unchanged.
+const sceneRegion = html => html.match(/<div id="dither-scene"[\s\S]*?<\/video>[\s\S]*?<\/div>[\s\S]*?<\/div>/)?.[0] ?? '';
+const sceneMarkupOk = region => {
+  const video = region.match(/<video\b[\s\S]*?<\/video>/)?.[0] ?? '';
+  const image = region.match(/<img\b[^>]*>/)?.[0] ?? '';
+  return region.includes('aria-hidden="true"') && !/<figure|<script|\bon[a-z]+=/i.test(region) &&
+    image.includes('src="/assets/dither/scene-dither.png"') && /\balt(?:="")?(?=\s|>)/.test(image) &&
+    ['width="960"', 'height="540"'].every(attr => image.includes(attr) && video.includes(attr)) &&
+    ['autoplay', 'muted', 'loop', 'playsinline', 'tabindex="-1"', 'aria-hidden="true"', 'data-dither-film'].every(attr => video.includes(attr)) &&
+    (video.match(/<source\b/g) ?? []).length === 1 && video.includes('src="/assets/motion/harness-tones-dither.mp4"') &&
+    !/\bcontrols\b/.test(video);
+};
+for (const [page, html] of [['ES', esHtml], ['EN', enHtml]]) {
+  const region = sceneRegion(html);
+  (sceneMarkupOk(region) ? pass : fail)(`scene: ${page} bounded decorative native H.264 surface with accurate static poster`);
+  const at = html.indexOf('<div id="dither-scene"');
+  const topEnd = html.indexOf('</section>', html.indexOf('<section id="top"'));
+  const between = html.slice(topEnd + '</section>'.length, at).replace(/<!--[\s\S]*?-->/g, '').trim();
+  (at > topEnd && between === '' ? pass : fail)(`scene: ${page} immediately follows, never replaces, F1 hero`);
+  ((html.match(/id="dither-scene"/g) ?? []).length === 1 ? pass : fail)(`scene: ${page} unique hash target`);
+  for (const [name, broken] of [
+    ['absent', ''], ['hidden semantics missing', region.replaceAll('aria-hidden="true"', '')],
+    ['poster absent', region.replace('src="/assets/dither/scene-dither.png"', '')],
+    ['wrong movie', region.replace('harness-tones-dither.mp4', 'harness-outcome.mp4')],
+    ['not looping', region.replace(/\bloop\b/, '')],
+    ['new script', `${region}<script></script>`],
+  ]) (!sceneMarkupOk(broken) ? pass : fail)(`control: ${page} scene rejects ${name}`);
+}
+const sceneMovie = resolve(ROOT, 'public/assets/motion/harness-tones-dither.mp4');
+(existsSync(sceneMovie) && statSync(sceneMovie).size <= 300 * 1024 ? pass : fail)('scene: committed H.264 within 300 KiB');
 // ---------------------------------------------------------------------------
 // Report.
 // ---------------------------------------------------------------------------

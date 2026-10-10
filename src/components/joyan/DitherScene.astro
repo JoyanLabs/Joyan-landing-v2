@@ -1,0 +1,59 @@
+<!-- A decorative, locally baked J1 surface; F1 remains the hero film. -->
+<div id="dither-scene" class="scene-surface bg-ink-950" aria-hidden="true">
+  <div class="scene-frame" data-dither-frame>
+    <img src="/assets/dither/scene-dither.png" alt="" width="960" height="540" loading="lazy" />
+    <video
+      class="joyan-film"
+      data-dither-film
+      width="960"
+      height="540"
+      poster="/assets/dither/scene-dither.png"
+      autoplay
+      muted
+      loop
+      playsinline
+      preload="metadata"
+      tabindex="-1"
+      aria-hidden="true"
+    >
+      <source src="/assets/motion/harness-tones-dither.mp4" type="video/mp4" />
+    </video>
+  </div>
+</div>
+
+<style>
+  .scene-surface {
+    padding-block: 24px;
+    scroll-margin-top: 80px;
+  }
+  .scene-frame {
+    position: relative;
+    max-width: 960px;
+    margin-inline: auto;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+  }
+  img,
+  video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+  }
+  video {
+    position: absolute;
+    inset: 0;
+  }
+  @media (width < 40rem) {
+    .scene-frame {
+      aspect-ratio: auto;
+      height: 420px;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    video {
+      display: none;
+    }
+  }
+</style>

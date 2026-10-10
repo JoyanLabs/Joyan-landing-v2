@@ -1,6 +1,7 @@
 # Plan · Iteración de dither y motion a `main`
 
-> **Estado actual (2026-10-10):** ejecución local validada; cierre local WU10 comprobado.
+> **Estado actual (2026-10-10):** cierre local WU10 histórico; WU12 añade ahora una
+> escena visible en modo normal con evidencia del writer. Cierre ODD/commit pendiente del padre.
 > **No integrado en `main`; branding e integración real siguen pendientes.**
 > **Rama de origen:** `test/motion-graphics`; los 14 commits y +3 817 / −238 en 49 archivos
 > describían el inventario inicial, no el árbol actual.
@@ -541,6 +542,49 @@ pasaron la prueba, no porque su autor los haya declarado buenos. Ver el commit `
   sólo entonces retirar «no integrado». El cierre local no certifica producción ni
   cierra esa condición. Firefox/Safari, anchos intermedios, scroll/fallbacks de carga,
   guard futuro del tono OG/fontconfig y nuevo encode no están verificados.
+
+### WU12 · Escena original visible en normal — **writer verificado; cierre del padre pendiente**
+
+El alcance anterior (poster reducido y OG estático) **no** daba un nuevo efecto
+visible mientras F1 se reproducía. El usuario aceptó explícitamente este panel
+adicional; no sustituye F1 ni ditheriza los cinco films de argumento.
+
+- `Hero.astro` conserva su markup/estilos de F1 y monta `DitherScene.astro` después
+  de `#top`. URL directa: `http://127.0.0.1:4321/#dither-scene` y `/en#dither-scene`.
+  Div decorativo, sin copy/i18n, overlay ni sexto figure; componentes189/59 líneas.
+- Builder local nuevo: `render-dither-scene.mjs`, sin cambios al J1 compartido ni
+  helpers. Reencuadra sus superficies y amplía el par semántico dentro de la banda
+  antes del dither.450 frames frescos,15s/30fps,960×540,celda8,blur1;382 PNG únicos.
+- H.264286,342 B≤300KiB,CRF41; poster7.8s de6,735 B≤80KiB,37colores, píxeles
+  lossless. No AV1. CRF34 dio505,228 B; otros intentos CRF40 fallaron seam/budget y
+  quedan registrados. Primer/último source idénticos; seam codificado MAE0.815/255,
+  max26, no identidad pixel. Flags, hashes y límites: [DESIGN WU12](./DESIGN.md#wu12--visible-normal-mode-j1-surface-2026-10-10).
+- RED real antes de escribir UI:12 fallas por escena ausente, `wu12/red.json` y
+  `red.log`. GREEN en la preview del padre con build fresco: ES/EN×390/768/1440×
+  normal/reducido; errores0, cuerpos completos, reconocimiento y copy/CTA libres.
+ 12 controles con arte oculto rechazan la escena, no sólo buscan un nodo DOM.
+- Cajas390×420,768×432,960×540; pitch6.22/6.4/8 CSSpx. Móvil recorta los laterales
+  **de la banda**, no anillo/bloque/portón/flare. Sin banda vacía900px ni máscara
+  global. Video readyState4,avanza~1.26s y hace wrap14.6→~0.60s; CSS reduce muestra
+  poster. No-JS normal **sigue reproduciendo** (~1.21s); reduce/no-JS oculto en0.
+- Los450 bitmaps pasan celdas/paleta/ámbar espacial. Public/dist/preview idénticos.
+  `wu12/preservation.json`:31 rutas protegidas,10 encodes,posterWU9,OG y deps
+  idénticos a HEAD; no JS/deps nuevas. Seis snapshotsF1 y cincochunks109,818Bgzip
+  intactos, baseline sin reset. WU9 regresión12contextos/textdelta0.
+- `pnpm build`13páginas; `pnpm check` Astro0errores/0warnings/26hints, ESLintPASS,
+  iteration-2 **345/0**, iteration-3 **486/0**. Primer check343/2 detectó que un
+  comentario no es separación DOM; luego345/0+485/1 encontró el regex de retiro
+  `.dither` coincidiendo con una clase CSS nueva. Se nombró `scene-surface`, sin
+  tocar ni relajar el checker de retiro ni su contrato. Scope self-test RED96/2→98/0;
+  se autoriza únicamente el componente exacto nuevo, sin ampliar prefijos.
+- Capturas viewport, hero y full-page en `dist-motion-verify/wu12/`; full-page visita
+  antes las secciones con reveals existentes. Inspección visual real: puntos,
+  anillo/bloque, puerta, ubicación y crop; no sólo bounding boxes.
+- Límites: Chromium/tres anchos; no Firefox/Safari, LCP/CLS ni fallback universal.
+  Overflow previo488ES/442EN a390 sigue intacto, delta0. El oracle histórico de
+  J1 nativo no valida estas coordenadas reencuadradas: la prueba nueva es del
+  render/delivery/player, no reciclada del spike. No instalado `ascii.rest`.
+  El padre conserva reconciliación ODD, decisión de cierre/commit e integración.
 
 ### WU11 · Restaurar la pureza de `seek(t)` en F1 y F5 — **HECHO** (`19b0d7c`)
 

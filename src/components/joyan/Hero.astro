@@ -1,5 +1,6 @@
 ---
 import MotionFigure from '~/components/joyan/MotionFigure.astro';
+import DitherScene from '~/components/joyan/DitherScene.astro';
 import type { HeroContent } from '~/lib/i18n/types';
 
 export interface Props {
@@ -65,6 +66,8 @@ const { content } = Astro.props;
     <span class="scroll-cue block h-9 w-px bg-hairline"></span>
   </a>
 </section>
+
+<DitherScene />
 
 <style>
   /* The film is composed right-of-centre and its bloom dies out before the

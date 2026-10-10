@@ -2,7 +2,7 @@
 
 ## Objective and scope
 
-Integrate original baked halftone assets on `test/motion-graphics`, preserving the five existing argument films and adding no client JavaScript. Detailed rationale and historical evidence: `docs/PLAN-ITERACION-DITHER.md`. The completed spike remains in `odd/tasks/dither-look-spike.md`.
+Integrate original baked halftone assets on `test/motion-graphics`, preserving the five existing argument films. WU2–WU12 add no client JavaScript or dependencies; separately authorized WU13 adds a bounded `ascii.rest` runtime trial to compare both approaches for the design system. Detailed rationale and historical evidence: `docs/PLAN-ITERACION-DITHER.md`. The completed spike remains in `odd/tasks/dither-look-spike.md`.
 
 ## Constraints
 
@@ -25,6 +25,8 @@ Integrate original baked halftone assets on `test/motion-graphics`, preserving t
 - [x] WU8 — **Verified:** independent static OG1 and committed tone input; browser-free `pnpm generate:dither` remains sole final OG writer. OG1200×628,6571bytes,cell16,64neutral/amber colors; existing JOYAN mask preserved48187BONEpixels. Builder and generator repeat hashes identical; independent generator/budget/checker/meta/preservation GREEN. Local work-unit commit `1aab883` includes OG generator/builder/input, regression checks and WU8 documentation. Future-input chroma/opacity validation gap is documented, not a current-asset defect.
 - [x] WU7 — **Verified and committed `7a802eb`:** removed unused journal field/img and importer-free component; fourteen controls reject retired API/key presence. RED483/3, partial485/1, independent GREEN486/0. Build/check323/0+486/0, 11localizedrows/sixdetails,47protectedfiles/10encodes/fivechunks unchanged. External-link runtime unexercised (no seeds), browser/movie tests N/A static removal.
 - [ ] WU10 — **Local closure verified; actual main integration pending:** scope gate and historical experiment closure are complete, with independent final build/check/browser verification. Do not check off the original integration condition until main delivery/branding review is real. Local scope-gate work-unit commit `e9c5f34` includes the CLI, self-tests and experiment-closure documentation.
+- [ ] WU12 — **Verified; local commit pending:** original J1 dither is visible and animated immediately after the hero at `/#dither-scene`, preserving F1. The worker saved implementation and meaningful RED/GREEN before its quota exit. Independent build13 pages/check345/0+486/0/scope98/0; scene17 cases/12 rejected hidden-art controls; original six F1 snapshots/five client chunks unchanged; WU9 twelve-context framing PASS. H.264 960×540, 450 frames/15 seconds/30 fps, cell8/CRF41: 286342 bytes; poster6735 bytes. All31 protected paths and270 recorded hashes unchanged.
+- [ ] WU13 — **Authorized, pending WU12 closure:** install and locally bundle the real `ascii.rest` library for an isolated comparison trial, keeping baked dither too. User explicitly requests both approaches and evidence-based placement rules for the design system. This is the scoped exception permitting a dependency and client JavaScript, not a global production redesign.
 
 ## WU9 acceptance and checks
 
@@ -35,6 +37,32 @@ Integrate original baked halftone assets on `test/motion-graphics`, preserving t
 - Run J1 determinism checks; if J1 animation source changes, rerender/probe and report fresh evidence, not the historical hash/oracle as current proof.
 - Run `pnpm check` and verify poster hash is unchanged by checks.
 - Save ignored screenshots under `dist-motion-verify/wu9/` and show visual results in the conversation.
+
+## Normal-mode extension and live inspection (2026-10-10)
+
+The preceding local closure is historical evidence, not completion of the newly accepted WU12. Normal F1 covers the static J1 poster, so the original delivered scope does not provide a new visible dither effect during ordinary playback. `ascii.rest` inspired the approach; it is not installed or running in the landing. J1 is an original renderable scene; OG1 is an independent static social composition. No new halftone movie is delivered in the page.
+
+WU12 acceptance:
+
+- Make the original dither unmistakably visible without requiring reduced motion, while keeping F1 and the other four films intact; do not globally filter their hairline art.
+- Derive a responsive, intentional large-surface placement from browser evidence. Do not introduce an empty full-screen band merely to satisfy pitch thresholds or disguise a still image as animation.
+- Preserve existing narrative, localized copy, CTA functionality, reserved amber, and the no-new-client-JavaScript/dependencies constraints.
+- Observe an applicable RED on the current page, then GREEN on the changed build in ES/EN at 390, 768 and 1440 widths; inspect normal and reduced motion, content clearance, scene recognition, cropping and horizontal overflow. Run focused regression checks and applicable project checks; do not reset protected baselines to conceal failures.
+- Document static versus animated delivery exactly. New animated assets, if delivered, require fresh render/encode, budget, playback and seam evidence; historical J1 spike identity is not current delivery proof.
+- Close only with observed checks and a local Conventional Commit. Main delivery remains WU10 and is not authorized by WU12.
+
+Current preview: `http://localhost:4321/`, English `/en`; existing production build at `37082f8`, persistent preview PID 1737186, log `/tmp/joyan-landing-preview-37082f8.log`. Live evidence in `dist-motion-verify/live-preview/inspection.json` and corresponding screenshots: eight Chromium 153 ES/EN desktop/mobile normal/reduced contexts, HTTP 200, no recorded page/request errors. Normal F1 AV1 advances about 1 to 3 seconds; reduced mode hides/pauses films and displays the J1 poster. Live OG matches the committed hash. Source/assets remained unchanged during capture. Parent inspected actual normal/reduced desktop images. The verifier saved this evidence before its terminal Codex quota failure; the initial claim that no new captures existed was retracted.
+
+Separate mobile finding, not an authorized global CSS fix: at a 390 px viewport, document width is 488 px ES and 442 px EN in both modes (`mobile-extents.json`). Causality is not established. Investigate before modifying unrelated sections; do not mask overflow globally or claim comprehensive visual acceptance. No new Firefox/Safari, full-page interaction or performance verification.
+
+## WU13 runtime trial and design-system evaluation
+
+- Published package checked at npm: `ascii.rest@0.4.0` (MIT, optional React peer); pin the tested version. Context7 has no exact library entry, so use official README/API and the published package types, not an unrelated ASCII library.
+- Build an isolated, noindex `/lab/ascii` comparison route using local npm imports: current baked J1 video plus genuine library text (`pre`) and colored (`canvas`) pieces. Do not load the hosted CDN catalogue or external glyph fonts silently; use local assets/font coverage. Generic vendor art is experimental, not adopted production branding.
+- Keep F1, five original argument films, delivered hero/OG and baked J1 unchanged. No main-landing rollout or definitive copy rewrite in this trial. Source candidates: `src/pages/lab/ascii.astro`, `src/components/joyan/AsciiRuntime.astro`, `src/lib/ascii-runtime.ts`, `package.json`, `pnpm-lock.yaml`, `scripts/check-ascii-runtime.mjs`, `docs/DESIGN.md`.
+- Test first: missing runtime demo/library is RED; real DOM/canvas frame changes, static no-JS/reduced-motion fallback, cleanup/pause, keyboard controls, responsive overflow and absence of external requests are GREEN criteria. Measure generated bundle delta against the protected baseline; the existing 22 KiB gzip delta budget stays in force. Never claim library bundle size or interaction capabilities without evidence.
+- Update `docs/DESIGN.md` with a measured usage matrix: baked assets for controlled brand narratives/posters/OG; runtime ASCII for purposeful generative or interface details; avoid fake live data, illegible small art and decorative competition with copy. Distinguish accepted rules, experimental candidates and unmeasured performance.
+- Run one writer only after WU12 verification/commit establishes its boundary. Each unit keeps tests/docs and its own local Conventional Commit; no push, PR or merge. Avoid mixing trial changes into the WU12 preservation candidate.
 
 ## Current transition
 
@@ -60,4 +88,4 @@ Coverage limits: GREEN is top-of-page Chromium reduced-motion with/without JS; n
 
 ## Next step
 
-The independently verified WU10 gate/docs are committed as `e9c5f34`. Local implementation and experimental verification are finished; preserve this document and its synchronized mirror/todo for the future delivery boundary. Main integration remains pending branding/review and explicit delivery policy; do not merge this experiment wholesale. The positive local unit slice is not a deployable main-based branch or production approval. No further source changes or remote operations are required for this local closure.
+The independently verified original WU10 gate/docs are committed as `e9c5f34`; the original local scope was closed at `37082f8`. WU12 normal-mode J1 is implemented, independently verified and served at `/#dither-scene`; commit its coherent unit before any WU13 source writes. Independent native playback advances1.26s and loops; no-JS playback advances1.212s. Reduced motion pauses/hides the film but still downloads its entire MP4 (286684 transferred bytes including overhead). Source endpoints are identical; decoded H.264 seam MAE0.814879/255, max26, not pixel-identical. Mobile whole-document overflow488pxES/442pxEN remains pre-existing with no new-surface delta. No Firefox/Safari/CPU/LCP/CLS proof. Evidence: `dist-motion-verify/wu12/independent/` and `dist-motion-verify/wu9/wu12-independent/`. Parent spot-check scope self-test98/0 and diff whitespace PASS. Unit approximately700 text diff lines is reported honestly, not code-golfed. Then implement the explicitly authorized real-library comparison trial and measured design-system guidance. Do not change provider/model profiles. Preserve partial work on quota failures; no repeated blind retries. Keep the preview available to the user. Main integration remains pending branding/review and explicit delivery policy; do not merge this experiment wholesale. The positive original local unit slice is not a deployable main-based branch or production approval. No remote operations are authorized by this extension.

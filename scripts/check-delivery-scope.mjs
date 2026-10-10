@@ -40,6 +40,19 @@ function selfTest() {
     'src/components/joyan/Hero.astro\n', 'public/assets/dither-other/a.png',
     'scripts/check-iteration-4.mjs', 'package.json', '.gitignore',
   ]) test(`block ${path}`, () => assert.equal(accepted(fixture('M', path)), false));
+  for (const path of [
+    'src/components/joyan/DitherScene.astro',
+    'scripts/motion-src/render-dither-scene.mjs',
+    'scripts/motion-src/check-dither-scene.mjs',
+    'public/assets/motion/harness-tones-dither.mp4',
+    'public/assets/dither/scene-dither.png',
+  ]) {
+    for (const status of ['A', 'M']) test(`WU12 allow ${status} ${path}`, () => assert.equal(accepted(fixture(status, path)), true));
+    test(`WU12 reject type change ${path}`, () => assert.equal(accepted(fixture('T', path)), false));
+  }
+  for (const path of ['src/components/joyan/DitherScene2.astro', 'src/components/joyan/DitherScene.astro.bak']) {
+    test(`WU12 reject unknown ${path}`, () => assert.equal(accepted(fixture('A', path)), false));
+  }
   test('DitherFigure deletion only', () => {
     const path = 'src/components/joyan/DitherFigure.astro';
     assert.equal(accepted(fixture('D', path)), true);
@@ -148,7 +161,7 @@ const exactPaths = new Set([
   'scripts/generate-dither.mjs', 'scripts/check-iteration-2.mjs',
   'scripts/check-iteration-3.mjs', 'scripts/check-delivery-scope.mjs',
   'src/content.config.ts', 'src/assets/styles/tailwind.css',
-  ...['Hero', 'SectionFilm', 'MotionFigure', 'MagiParticleCanvas',
+  ...['Hero', 'DitherScene', 'SectionFilm', 'MotionFigure', 'MagiParticleCanvas',
     'AgentNetworkDiagram', 'Wordmark', 'JournalEntryRow']
     .map((name) => `src/components/joyan/${name}.astro`),
 ]);

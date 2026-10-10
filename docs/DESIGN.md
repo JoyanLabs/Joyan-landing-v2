@@ -7,8 +7,8 @@ The single source of truth for the Joyan landing visual, copy, asset, diagram, m
 ## Quick path
 
 1. **Start from the tokens** — ink/bone/plomo/accent, radius `0`, no italics ([Tokens](#visual-tokens--contrast), [Typography](#typography)).
-2. **Place dither by level** — L0 none, L1 shell texture, L2 section illustration, L3 hero only ([Dither levels](#dither-levels-l0l3)).
-3. **Add an asset** — OG: local `render-og.mjs` tone input + browser-free `pnpm generate:dither`; hero tone poster: local `render-poster.mjs`. Verify dimensions and budgets, consume with intrinsic dimensions ([Asset contract](#asset-contract), [Generation workflow](#asset-generation-workflow), checklists below).
+2. **Place dither by level** — L0 none, L1 shell texture, L2 section illustration, L3 hero/dedicated J1 surface ([Dither levels](#dither-levels-l0l3)).
+3. **Add an asset** — OG: local `render-og.mjs` tone input + browser-free `pnpm generate:dither`; hero tone poster: local `render-poster.mjs`; visible J1 loop: local `render-dither-scene.mjs`. Verify dimensions and budgets, consume with intrinsic dimensions ([Asset contract](#asset-contract), [Generation workflow](#asset-generation-workflow), checklists below).
 4. **Add copy** — mirror ES and EN keys exactly, warm cooperative voice, no prohibited patterns ([Copy & i18n rules](#copy--i18n-rules)).
 5. **Verify** — `pnpm check` and `pnpm build` must pass before commit.
 
@@ -98,13 +98,13 @@ Pre-baked, deterministic, palette-limited ordered-dither art. Levels define **wh
 | L0 | None | Nav, labels, body text, footer | No texture anywhere text lives |
 | L1 | Subtle global texture | Static CSS/SVG shell texture in page gutters, **behind opaque surfaces** | Canvas-free; never under text; kept in `tailwind.css` + `PageLayout` |
 | L2 | Section illustration | Pre-baked section films: Agents, MAGI, Connected systems, Ecosystem | `SectionFilm.astro`; MAGI also keeps `AgentNetworkDiagram.astro` + `MagiParticleCanvas.astro` |
-| L3 | Focal illustration | **Hero only** | `hero-dither` is the static poster beneath `harness-outcome` |
+| L3 | Focal illustration | Hero + dedicated post-hero J1 surface (WU12 extension) | F1 keeps `hero-dither` beneath it; `DitherScene` adds a separate visible loop, never a filter over F1 |
 
 **Rules:**
 
 - Texture/illustration must never overlap text; keep contrast ≥4.5:1 in any region that touches content.
 - **Static/pre-baked preferred** — assets are committed PNGs and MP4s, not runtime canvas (the only canvas is the optional MAGI particle overlay, section [Motion](#motion-guide)).
-- Idle motion is limited to the five pre-baked films, the MAGI overlay/SVG pulses, and the hero caret/scroll cue.
+- Idle motion is limited to the five argument films, the dedicated baked J1 scene, the MAGI overlay/SVG pulses, and the hero caret/scroll cue.
 - Hero and shell texture are decorative (`alt=""` / `aria-hidden`); section figures are informative (localized `alt` + `caption`).
 
 ## Asset contract
@@ -131,7 +131,7 @@ For the 1600×900 poster, **cell 7** keeps all three requested viewport-cover pi
 
 WU5 measured a taller **390×936** hero box at the mobile viewport: the poster's real scale there is `936/900 = 1.04`, pitch **7.28**, still in range. Cell 6 would fall below 6 at the requested mobile viewport-cover scale; cell 8 exceeds 8 on tablet. Do not copy the 1280-wide film's cell: it is not the same displayed pitch at 1600.
 
-**One baked poster, one OG output, five motion films in two encodes each.** The four section dither textures were removed. Sections 01, 02, 03 and 04 now ship **section films** through `src/components/joyan/SectionFilm.astro`, with localized `shows`/`means` text and the shared hero poster. The only inline SVG diagram is `src/components/joyan/AgentNetworkDiagram.astro` (480×300), used by MAGI alongside `MagiParticleCanvas.astro` and its section film.
+**Two baked posters, one OG output, five argument films in two encodes each, plus one H.264 J1 loop.** The four section dither textures were removed. Sections 01, 02, 03 and 04 now ship **section films** through `src/components/joyan/SectionFilm.astro`, with localized `shows`/`means` text and the shared hero poster. The only inline SVG diagram is `src/components/joyan/AgentNetworkDiagram.astro` (480×300), used by MAGI alongside `MagiParticleCanvas.astro` and its section film.
 
 `hero-dither.png` remains the **hero poster** — the static layer under the film, shown under reduced motion and while the video is unavailable. Video autoplay does not require JavaScript. `og-default.png` is the **separate brand output**, compositing unchanged `wordmark.svg` over the static OG1 tone halftone; it is only used for social/OpenGraph sharing. `motion/` holds the separate [five films](#hero-film--motion-film) and is deliberately the heaviest thing on the site; that asymmetry is the cost of the format, stated rather than hidden.
 
@@ -232,6 +232,75 @@ Native,600×314 and400×209 Chromium previews were inspected. Cell16 gives8px/5.
 
 **Deterministic budget checks:** the script prints `PASS|FAIL <name>: <bytes> / <budget>` for every output, verifies exact pixel dimensions, and exits `1` when any asset exceeds its budget. A merged asset must print `PASS` for all rows. Generation must be rerun whenever the committed tone input or wordmark changes, and the PNGs are committed — never generated at build time.
 
+### WU12 — visible normal-mode J1 surface (2026-10-10)
+
+`Hero.astro` mounts `DitherScene.astro` immediately **after**, not inside, `#top`.
+Visit `/#dither-scene` or `/en#dither-scene`. The decorative div has no copy,
+script, controls or sixth figure. It reuses the `.joyan-film` reduced-motion class;
+its separate `data-dither-film` marker keeps the old section-only density tool's
+`data-hero-film` inventory unchanged. F1, its scrim and all five argument films remain.
+This is original locally baked art inspired by halftone/ASCII scenes; `ascii.rest`
+is not installed and no glyph library runs in the client.
+
+The local `render-dither-scene.mjs` reuses unchanged J1 time functions and the
+production `captureFrame` dot pass. It reframes the band's existing surfaces and
+magnifies/repositions the original ring/block and gate into its hollow **before**
+dithering. Shared J1, composition, renderer and dither helpers are untouched.
+450 fresh frames (382 unique PNGs) contain changes in every one-second interval.
+
+| Delivery | Measured contract |
+|---|---|
+| `motion/harness-tones-dither.mp4` | H.264,960×540,30fps,15s,450frames;286,342 B ≤300KiB; blur1,cell8,CRF41 |
+| `dither/scene-dither.png` | Accurate support beat7.8s;960×540,37 colors,6,735 B ≤80KiB; lossless capture pixels |
+| Displayed boxes / pitch | 390×420 /6.22px;768×432 /6.4px;960×540 at1440 /8px |
+
+Mobile center-cover deliberately crops the **outer band**, not the complete
+ring/block/gate. The native pair centers are344/644,y270; ring radius87, gate
+half48 and peak glow60. Conservative envelopes add two delivery cells for filter
+and touched-cell tails; mobile bounds stay inside390px with ~8px minimum margin.
+No scrim, text or CTA overlays the new surface; only24px padding per vertical side is added.
+
+CRF34 produced505,228 B and was rejected. CRF40 seam/budget attempts also failed;
+final encoding pins boundary keyframes/zone QP20 at0/449. A second fresh450-frame bake after geometry extraction reproduced both delivery
+hashes exactly. Source first/last PNGs are byte-identical; decoded boundary MAE0.815/255,max26 (not pixel-identical).
+Decoded support-vs-start MAE13.23/255 confirms changing artwork, not a fake CSS loop.
+MP4 sha256 `c3f2f55d4817edcc28c59ad7d7c8b6921bc84c3edc97380b39a993a6f7cf3f88`;
+poster sha256 `bfcdde62c70550c39eca8b5dbdda56e52eb55a646e6b8444259eca6780293668`.
+Lossy video does not retain exact PNG palette entries.
+
+`check-dither-scene.mjs --red` failed on the old live page in all12 contexts.
+The normal checker now passes ES/EN×390/768/1440×normal/reduced, with errors0,
+recognizable dots/ring/block/gate, full semantic envelopes, clear copy/CTA and
+12 rejected hidden-art controls. Native readyState4,~1.26s unforced advancement,
+and14.6s→~0.60s wrap were observed before test-only still capture at7.8s.
+Reduced motion hides video via CSS and exposes the poster. **No-JS alone does
+not force a still:** mobile Chromium autoplay advanced~1.21s; reduced/no-JS was
+hidden/paused at0. CSS visibility is the guarantee, not cross-browser pause policy.
+
+Evidence: `dist-motion-verify/wu12/{red,green,render,preservation}.json`, logs,
+`{es,en}-{390,768,1440}-{no-preference,reduce}.png`, `-full.png`, and `-hero.png`.
+Full-page captures visit existing reveal sections first. Viewport images and
+placement were inspected, not inferred from rectangles alone. All450 source
+bitmaps pass palette, cell-corner and spatial amber guards. Public/dist/live
+assets match;31 protected paths including ten encodes/hero/OG/deps remain identical.
+WU9 regression passes12 contexts with text delta0; normal F1 six snapshots and
+five JS chunks remain identical (109,818 B gzip). `pnpm check`:345/0 +486/0;
+Astro0errors/0warnings/26hints; build13pages. No new client JS/dependencies.
+
+Limits: Chromium at these three widths, not Firefox/Safari or universal perception,
+loading/codec/power-save or LCP/CLS proof. Existing390px document overflow remains
+488px ES/442px EN in both modes, delta0; no global overflow mask or unrelated fix.
+The native J1 oracle's focal coordinates do not describe this local reframe;
+its historical acceptance is not this delivery's motion/seam proof. Parent owns
+ODD reconciliation, commit and eventual main integration.
+
+```bash
+node scripts/motion-src/render-dither-scene.mjs
+pnpm build
+node scripts/motion-src/check-dither-scene.mjs
+# --encode-only reuses this fresh local frame set, never the historical spike
+```
+
 ## MAGI SVG diagram guide
 
 The static diagram (`AgentNetworkDiagram.astro`) follows one strict grid:
@@ -248,7 +317,7 @@ The static diagram (`AgentNetworkDiagram.astro`) follows one strict grid:
 
 ## Motion guide
 
-The optional MAGI particle overlay (`src/components/joyan/MagiParticleCanvas.astro` + `src/lib/magi-network.ts`) runs over the static diagram. Five pre-baked videos loop: the L3 hero film and four section films (see [Film contract](#hero-film--motion-film)). SVG edge pulses, the caret and the hero scroll cue also loop; below-hero reveals are one-shot progressive enhancements.
+The optional MAGI particle overlay (`src/components/joyan/MagiParticleCanvas.astro` + `src/lib/magi-network.ts`) runs over the static diagram. Five argument videos loop: the L3 hero film and four section films (see [Film contract](#hero-film--motion-film)); WU12 adds the separate decorative J1 loop above. SVG edge pulses, the caret and the hero scroll cue also loop; below-hero reveals are one-shot progressive enhancements.
 
 | Concern | Contract |
 |---|---|
@@ -265,7 +334,7 @@ The optional MAGI particle overlay (`src/components/joyan/MagiParticleCanvas.ast
 
 **Performance proof:** before implementation, run `pnpm build && node scripts/check-iteration-3.mjs --capture-baseline .artifacts/iteration-2-client-js.json`. For a candidate, run `pnpm build && node scripts/check-iteration-3.mjs --baseline .artifacts/iteration-2-client-js.json`. The checker gzip-sums every emitted `dist/_astro/*.js` client chunk and requires a delta of **≤22 KiB (22528 bytes)**. `pnpm build` verifies static structure and emitted assets; intrinsic dimensions, static hero markup, and transform/opacity-only below-hero motion are CLS/LCP safeguards, not metric measurements. Measure CLS/LCP later in a browser or CI performance run.
 
-No additional idle motion beyond the films, MAGI overlay/SVG pulses and hero caret/scroll cue.
+No additional idle motion beyond the argument films, dedicated J1 scene, MAGI overlay/SVG pulses and hero caret/scroll cue.
 
 ## Hero film (motion film)
 
@@ -378,6 +447,8 @@ For seek-order purity, run `node scripts/motion-src/check-determinism.mjs --film
 | `src/components/joyan/{SectionHeader,TerminalBlock,SiteHeader,SiteFooter,LanguageToggle}.astro` | Index/kicker/title, terminal motif, nav + toggle (current pathname + hash-preserving, `aria-current="page"`) |
 | `scripts/generate-dither.mjs` | Browser-free tone OG writer + exact wordmark mask, lossless palette and deterministic budget |
 | `scripts/motion-src/render-poster.mjs` | Local J1 tone-poster builder via the real `captureFrame`; lossless palette PNG, 80 KiB gate |
+| `src/components/joyan/DitherScene.astro` | Dedicated decorative `#dither-scene` after hero, native H.264 + static poster, no script |
+| `scripts/motion-src/{render-dither-scene,check-dither-scene}.mjs` | Local WU12 reframed J1 bake and live preview acceptance; external Playwright, never CI/client |
 | `scripts/motion-src/render-og.mjs` | Local static OG1 tone-input builder; repeat/fresh-load assertions, no final OG writes |
 | `scripts/motion-src/{lib.js,composition.html}` | Shared glyph/move library and parameterized `seek(t)` composition |
 | `scripts/motion-src/films/{F1,F2,F3,F4,F5}.js` | Each film owns its beat sheet (`meta`), shared by composition, renderer and oracle |
@@ -389,7 +460,7 @@ For seek-order purity, run `node scripts/motion-src/check-determinism.mjs --film
 | `scripts/dither-src/{og-tone.png,wordmark.svg}` | Committed OG tone input and unchanged mask; other SVG art is legacy, no longer generated |
 | `public/assets/dither/hero-dither.png` | The hero poster — the static layer under the film |
 | `src/components/joyan/SectionFilm.astro` | Four section films via `MotionFigure`, shared poster and localized `shows`/`means` |
-| `public/assets/motion/*.mp4` | Five films, AV1 + H.264 each; dimensions and budgets in the film table |
+| `public/assets/motion/*.mp4` | Five argument films, AV1 + H.264 each, plus WU12 H.264 J1 scene; dimensions/budgets above |
 | `public/assets/brand/og-default.png` | Separate OG brand output |
 | `src/{content.config.ts,utils/journal.ts}` | Isolated typed Journal collection and locale queries; never use blog helpers |
 | `src/components/joyan/{JournalSection,JournalEntryRow}.astro` | Section 05 and archive rows: hairline-separated mono metadata, title, summary, optional external link and localized detail link, no cards/radius |
@@ -479,7 +550,7 @@ The five scoped repeated lists — Agents, MAGI, Hardware, Ecosystem items, and 
 - [ ] Texture/dither never under text
 - [ ] No italics, no purple gradients, radius 0 maintained
 - [ ] Canvas `aria-hidden` with adjacent explanatory localized text
-- [ ] No-JS and reduced-motion states render static (PNG/SVG)
+- [ ] Reduced-motion exposes static PNG/SVG; no-JS keeps native markup but videos may autoplay
 - [ ] Motion: opacity-only, 30 fps cap, DPR ≤2, pauses offscreen/hidden/pagehide, Astro navigation cleanup
 - [ ] Focus-visible ring on interactive elements (toggle, CTAs, disclosure summaries); language toggle keeps `aria-current="page"`
 - [ ] Landmarks present (`main#main`, header, footer, labeled navs); every `id` unique per page
@@ -495,7 +566,13 @@ The five scoped repeated lists — Agents, MAGI, Hardware, Ecosystem items, and 
 
 ---
 
-**Version:** 1.10 — **Last updated:** 2026-10-16 — **Maintainer:** JoyanLabs
+**Version:** 1.11 — **Last updated:** 2026-10-10 — **Maintainer:** JoyanLabs
+
+> **1.11 — WU12 visible normal-mode scene.** Dedicated original J1 H.264 surface
+> after the unchanged F1 hero; accurate static poster, native loop/recognition and
+> hidden-art controls. Fresh450-frame bake, bytes/seam/cell/palette proof, protected
+> F1/chunks/OG/ten encodes. Mobile outer-band crop and prior overflow are explicit;
+> this is local writer evidence, not ODD closure or main integration.
 
 > **1.10 — WU7 journal thumbnail retirement.** Removed the unused schema field,
 > row image and importer-free component; preserved localized summary/detail chrome.
