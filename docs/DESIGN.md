@@ -137,7 +137,7 @@ WU5 measured a taller **390×936** hero box at the mobile viewport: the poster's
 
 **Type inside the MAGI SVG diagram is sized in viewBox units, not CSS pixels.** Its viewBox is 480×300; the current `MAGI` label uses `text-sm`. Judge legibility at the actual rendered size, not from the SVG font size alone.
 
-**Naming rules:** kebab-case source SVG names in `scripts/dither-src/`; kebab-case PNG names in `public/assets/dither/`; the OG lives separately at `brand/og-default.png`. The hero source is the named J1 scene, not `hero-network.svg`. Consuming paths are **absolute** `/assets/...` with **intrinsic dimensions** (`width`/`height` attributes on the `<img>`, as `DitherFigure` requires) to reserve layout and avoid CLS.
+**Naming rules:** kebab-case source SVG names in `scripts/dither-src/`; kebab-case PNG names in `public/assets/dither/`; the OG lives separately at `brand/og-default.png`. The hero source is the named J1 scene, not `hero-network.svg`. Consuming paths are **absolute** `/assets/...` with **intrinsic dimensions** (`width`/`height` attributes on the poster `<img>` in `MotionFigure`) to reserve layout and avoid CLS.
 
 ## Asset generation workflow
 
@@ -373,7 +373,6 @@ For seek-order purity, run `node scripts/motion-src/check-determinism.mjs --film
 | `src/components/joyan/AgentNetworkDiagram.astro` | Static 480×300 MAGI diagram, `aria-hidden`, one amber state |
 | `src/components/joyan/MagiParticleCanvas.astro` | Iteration-3 Unit A — bounded 30/24 MAGI overlay (motion contract above) |
 | `src/lib/magi-network.ts` | Shared 480×300 model; replace V1's 12 particles with the 30/24 depth-layer contract above |
-| `src/components/joyan/DitherFigure.astro` | Figure wrapper: absolute `/assets/...` src, intrinsic `width`/`height`, localized alt/caption |
 | `src/components/joyan/MotionFigure.astro` | Hero figure wrapper: static poster `<img>` with the decorative loop `<video>` stacked on top; the film contract lives here |
 | `src/components/joyan/{AgentsSection,MagiSection,HardwareSection,EcosystemSection}.astro` | Section figures (Unit E) + community/prototype blocks |
 | `src/components/joyan/{SectionHeader,TerminalBlock,SiteHeader,SiteFooter,LanguageToggle}.astro` | Index/kicker/title, terminal motif, nav + toggle (current pathname + hash-preserving, `aria-current="page"`) |
@@ -393,7 +392,7 @@ For seek-order purity, run `node scripts/motion-src/check-determinism.mjs --film
 | `public/assets/motion/*.mp4` | Five films, AV1 + H.264 each; dimensions and budgets in the film table |
 | `public/assets/brand/og-default.png` | Separate OG brand output |
 | `src/{content.config.ts,utils/journal.ts}` | Isolated typed Journal collection and locale queries; never use blog helpers |
-| `src/components/joyan/{JournalSection,JournalEntryRow}.astro` | Section 05 and archive rows: hairline-separated mono metadata, title, summary, optional dither/link, no cards/radius |
+| `src/components/joyan/{JournalSection,JournalEntryRow}.astro` | Section 05 and archive rows: hairline-separated mono metadata, title, summary, optional external link and localized detail link, no cards/radius |
 | `src/pages/{bitacora,en/log}.astro` | ES/EN list-only archives with self-canonical and equivalent alternate cluster |
 | `scripts/{check-iteration-2,check-iteration-3}.mjs` | Both deterministic checkers must be wired into `pnpm check`; iteration 3 verifies Journal, motion, and archive contracts |
 
@@ -412,7 +411,9 @@ For seek-order purity, run `node scripts/motion-src/check-determinism.mjs --film
 
 ## Journal row rules
 
-Use only list rows: a top hairline, mono uppercase date/area/status, title, summary, optional dither/link, and a localized detail link. Area and status always come from localized chrome. Empty states are localized and honest. Do not use cards, rounded corners, thumbnails, filters, or pagination.
+Use only list rows: a top hairline, mono uppercase date/area/status, title, summary, optional external link, and a localized detail link. Area and status always come from localized chrome. Empty states are localized and honest. Do not use cards, rounded corners, thumbnails, filters, or pagination.
+
+**WU7 retirement:** journal `dither` is no longer a schema field or row consumer. The summary and localized detail link are the existing textual alternative in ES/EN; no new copy is needed. The deterministic checker rejects any reintroduced frontmatter key (including null), schema field, consumer or `DitherFigure` importer. The unused component has been deleted; independent build/check passes with iteration-3 486/0, and static DOM checks retain 11 rows and six localized details.
 
 **Row heading levels:** the landing section (h2) renders rows as **h3**; the archives render their page title as the single **h1** (`SectionHeader headingLevel={1}`) and rows as **h2** (`JournalEntryRow titleLevel={2}`) so heading order never skips a level.
 
@@ -456,7 +457,7 @@ The five scoped repeated lists — Agents, MAGI, Hardware, Ecosystem items, and 
 ## Accepted deviations (documented, not defects)
 
 1. **Relative landing archive links.** The EN landing links the archive as `href="log"` (ES: `href="bitacora"`) instead of an absolute `/en/log` href because the iteration-2 route contract rejects any `/en/…` link target on the EN landing. The relative links resolve to `/bitacora` and `/en/log` at runtime; the archives themselves use absolute self-canonical URLs.
-2. **Seed journal entries carry no `link` or `dither`.** The schema and components support both fields, but there is nothing real to link yet and no journal dither asset exists in the pipeline — no fake assets or dead links are shipped.
+2. **Seed journal entries carry no external `link`.** The optional link remains supported, but there is nothing real to link yet. The former optional `dither` contract was unused and is retired by WU7 after WU5 rejected 192px thumbnails; do not repopulate it.
 3. **Empty state is verified at source + conditionally.** The `entries.length > 0` branch and localized strings are source-verified, and the strings are proven absent from built output while entries exist. The empty-state render itself is not exercised in built output because both locales have published entries; temporarily drafting all entries of one locale exercises it.
 
 ## Checklists
@@ -494,7 +495,13 @@ The five scoped repeated lists — Agents, MAGI, Hardware, Ecosystem items, and 
 
 ---
 
-**Version:** 1.9 — **Last updated:** 2026-10-09 — **Maintainer:** JoyanLabs
+**Version:** 1.10 — **Last updated:** 2026-10-16 — **Maintainer:** JoyanLabs
+
+> **1.10 — WU7 journal thumbnail retirement.** Removed the unused schema field,
+> row image and importer-free component; preserved localized summary/detail chrome.
+> Observed RED 483/3, intermediate 485/1 and independent GREEN 486/0. Fourteen
+> retirement controls pass; build13pages and full check pass with unchanged assets,
+> encodes and five client chunks. External-link runtime is unexercised (no seed links).
 
 > **1.9 — WU8 static tone OG.** Separate OG1 input and browser-free final writer,
 > exact JOYAN mask,64 colours,6,571 B. Native/social inspection and static repeat/

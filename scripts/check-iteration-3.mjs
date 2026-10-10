@@ -850,7 +850,6 @@ const REQUIRED_COLLECTION_TOKENS = [
   ['area: z.enum(JOURNAL_AREAS)', 'types area from the shared const list'],
   ['status: z.enum(JOURNAL_STATUSES)', 'types status from the shared const list'],
   ['link: z.url().optional()', 'optional external link'],
-  ['dither: z.string().optional()', 'optional dither path'],
   ['draft: z.boolean().optional()', 'optional draft flag'],
 ];
 for (const [token, what] of REQUIRED_COLLECTION_TOKENS) {
@@ -860,6 +859,55 @@ for (const [token, what] of REQUIRED_COLLECTION_TOKENS) {
     fail(`journal-collection: content.config.ts must ${what} (missing ${token})`);
   }
 }
+
+// WU7: retire the unused thumbnail API, not merely its currently empty data.
+const hasRetiredField = (frontmatter) => Object.hasOwn(frontmatter, 'dither');
+const hasRetiredSchemaField = (source) => {
+  const ast = ts.createSourceFile('content.config.ts', source, ts.ScriptTarget.Latest, true);
+  let found = false;
+  const visit = (node) => {
+    if (ts.isPropertyAssignment(node) && (
+      node.name.getText(ast).replace(/['"\s]/g, '') === 'dither' ||
+      (ts.isComputedPropertyName(node.name) && ts.isStringLiteral(node.name.expression) && node.name.expression.text === 'dither')
+    )) found = true;
+    ts.forEachChild(node, visit);
+  };
+  visit(ast);
+  return found;
+};
+const hasRetiredConsumer = (source) =>
+  /\bDitherFigure\b|\.\s*dither\b|\[\s*['"]dither['"]\s*\]|\{[^{}]*\bdither\b[^{}]*\}\s*=/.test(source);
+const listRetirementSources = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+  const path = resolve(dir, entry.name);
+  return entry.isDirectory() ? listRetirementSources(path) : /\.(?:astro|ts|js|md)$/.test(entry.name) ? [path] : [];
+});
+for (const [label, actual, expected] of [
+  ['optional schema', hasRetiredSchemaField('z.object({ dither: z.string().optional() })'), true],
+  ['quoted schema', hasRetiredSchemaField('z.object({ "dither": z.string() })'), true],
+  ['computed schema', hasRetiredSchemaField("z.object({ ['dither']: z.string() })"), true],
+  ['clean schema', hasRetiredSchemaField('z.object({ summary: z.string() })'), false],
+  ['dot consumer', hasRetiredConsumer('data.dither'), true],
+  ['indexed consumer', hasRetiredConsumer("data['dither']"), true],
+  ['destructured consumer', hasRetiredConsumer('const { dither: thumb } = data'), true],
+  ['component importer', hasRetiredConsumer("import Figure from './DitherFigure.astro'"), true],
+  ['live hero path', hasRetiredConsumer("const poster = '/assets/dither/hero-dither.png'"), false],
+  ...['/assets/thumb.png', null, false, undefined].map((dither) => ['retired frontmatter key', hasRetiredField({ dither }), true]),
+  ['text-only frontmatter', hasRetiredField({ summary: 'Text alternative' }), false],
+]) {
+  if (actual === expected) pass(`journal-retirement-control: ${label}`);
+  else fail(`journal-retirement-control: ${label} must return ${expected}`);
+}
+if (hasRetiredSchemaField(contentConfigSource)) fail('journal-retirement: schema must not declare dither');
+else pass('journal-retirement: schema no longer declares dither');
+if (existsSync(resolve(ROOT, 'src/components/joyan/DitherFigure.astro'))) fail('journal-retirement: dead DitherFigure must be removed');
+else pass('journal-retirement: dead DitherFigure is absent');
+const retirementSources = listRetirementSources(resolve(ROOT, 'src'));
+const retiredConsumers = retirementSources.filter((path) => !path.endsWith('.md') && hasRetiredConsumer(read(path)));
+if (retiredConsumers.length) retiredConsumers.forEach((path) => fail(`journal-retirement: retired consumer in ${path}`));
+else pass('journal-retirement: no source imports DitherFigure or consumes dither');
+const retiredFrontmatter = retirementSources.filter((path) => path.startsWith(resolve(ROOT, 'src/data/journal') + '/') && path.endsWith('.md') && hasRetiredField(yaml.load(read(path).match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? '') ?? {}));
+if (retiredFrontmatter.length) retiredFrontmatter.forEach((path) => fail(`journal-retirement: retired dither frontmatter in ${path}`));
+else pass('journal-retirement: all journal frontmatter is free of the retired key');
 
 const typesSource = read(resolve(ROOT, 'src/lib/i18n/types.ts'));
 const areasDecl = typesSource.match(/JOURNAL_AREAS\s*=\s*(\[[\s\S]*?\])\s*as\s+const/)?.[1] ?? '';
@@ -980,9 +1028,7 @@ for (const [localeKey, dirName] of [
     ) {
       issues.push('link must be an https:// URL');
     }
-    if (typeof frontmatter.dither !== 'undefined' && typeof frontmatter.dither !== 'string') {
-      issues.push('dither must be a string path');
-    }
+    if (hasRetiredField(frontmatter)) issues.push('dither is retired; use the summary and localized detail link');
     if (issues.length > 0) {
       for (const issue of issues) fail(`journal-seed: ${location} ${issue}`);
       continue;

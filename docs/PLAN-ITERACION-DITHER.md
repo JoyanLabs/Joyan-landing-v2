@@ -1,6 +1,7 @@
 # Plan · Iteración de dither y motion a `main`
 
-> **Estado:** plan propuesto, sin aprobar. No hay nada implementado por este documento.
+> **Estado inicial (histórico):** plan propuesto, sin aprobar. La ejecución posterior
+> y sus límites se registran por WU abajo; este encabezado no describe su estado actual.
 > **Rama de origen:** `test/motion-graphics` (14 commits sobre `main`, +3 817 / −238 en 49 archivos).
 > **Este documento decide el orden y el corte. No decide el arte.**
 > Fuentes: `docs/GUIA-MOTION.md` (método y aprendizaje), `odd/tasks/dither-look-spike.md`
@@ -107,15 +108,16 @@ Inventario real de figuras de la página, que es la lista de candidatas:
 | Poster del hero | `public/assets/dither/hero-dither.png`, Bayer 8×8 desde SVG, 2 colores, 7 256 B | **Sí, recomendado** | Es lo que ven no-JS, reduced-motion y conexión lenta. Cambiarlo a una escena con tono es el payoff más grande por el riesgo más chico, y no agrega nada al runtime. |
 | Film del hero | `harness-outcome` (F1), 1280 AV1 + 960 H.264 | **No reemplazar** | F1 es **donde se enseña la leyenda** (anillo+bloque, rect en banda, rombo ámbar). Cambiarlo por una escena rompe eso. Alternativa: que J1 sea un segundo panel, no el fondo. |
 | Films de sección (4) | `action-gates`, `harness-assembly`, `signal-freshness`, `knowledge-cycle` | **No** | Veredicto de T2, con evidencia a 1:1. |
-| Thumbs de bitácora | El schema tiene `dither` (`src/content.config.ts:97`), `JournalEntryRow.astro:57-61` lo renderiza, **no hay ningún asset** | **No — la medición lo descarta** | WU5: por debajo de ~400 px CSS mostrados el efecto deja de leerse como trama, y un thumb de 192 px con la celda que le tocaría son ~14 puntos de ancho. El schema y el componente quedan; la decisión es **no poblar `dither`**, y `DitherFigure` se elimina o se justifica. |
+| Thumbs de bitácora | WU7 retiró campo, consumidor y componente sin importadores, sin añadir assets | **No — la medición lo descarta** | WU5: por debajo de ~400 px CSS mostrados el efecto deja de leerse como trama; a 192 px son ~14 puntos de ancho. Se retira el contrato, no se deja una promesa opcional. |
 | OG | `public/assets/brand/og-default.png`, 5 177 B, desde `hardware-board.svg` + wordmark | **Sí, recomendado** | Costo cero en runtime y es lo primero que se ve al compartir. |
 | Mark animado en SVG | No existe | **Opcional** | La referencia exporta un loop como SVG animado para READMEs. Costo cero en la página. Buen candidato para el README del repo. |
 | Textura L1 (shell) | SVG inline en `PageLayout.astro:25-26` | **No** | Es global y vive detrás de todo. Riesgo alto, valor bajo. |
 | Figura de MAGI | Canvas de partículas + SVG inline informativo | **No** | Ya funciona y el SVG es informativo, no decorativo. |
 | Sección Proyectos (falta) | No existe (`GUIA-MOTION.md:533`) | **Decisión aparte** | Es contenido nuevo. Si existe, es el lugar natural para una escena grande. |
 
-**Recomendación:** entrar por las tres de bajo riesgo y alto payoff —poster del hero,
-thumbs de bitácora y OG— y dejar el film del hero y Proyectos como decisión separada.
+**Recomendación inicial (histórica):** poster, thumbs y OG. **Alcance tras WU5:**
+poster y OG; WU7 limpia el contrato de thumbs rechazado por la medición.
+El film del hero y Proyectos siguen siendo decisiones separadas.
 
 ### D2 · ¿Dónde se genera el tono: escena procedural propia o arte SVG?
 
@@ -183,8 +185,9 @@ Reglas de diseño del corte, derivadas de la restricción de 2.2:
 2. **Binarios separados del código.** Un candidato puede ser sólo assets. Los assets
    pueden landear *antes* que su consumo: assets sin consumidor no rompen nada, y así los
    candidatos de código no cargan ~860 KB de MP4.
-3. **Consumo junto con su asset por superficie.** Poster, thumbs y OG son tres candidatos
-   independientes: cada uno es una superficie, con su PNG y su entrada de contrato.
+3. **Consumo junto con su asset por superficie.** Poster y OG son candidatos
+   independientes, con su PNG y contrato. Los thumbs eran una candidata histórica;
+   WU5 los descartó y WU7 retira su API sin añadir assets.
 4. **Cada candidato actualiza los checkers en su propio commit**, nunca en un commit
    aparte: `check-iteration-2.mjs` valida existencia, tamaño (≤300 KiB por film, `:1364`), unicidad
    dentro de su sección, orden AV1-antes-de-H.264 y los atributos del `<video>`
@@ -385,21 +388,32 @@ pasaron la prueba, no porque su autor los haya declarado buenos. Ver el commit `
 - **Caveat declarado:** la paleta es metadata y **no puede localizar el ámbar en el espacio**. El
   uso reservado del ámbar lo verifica la revisión del raster, no el checker.
 
-### WU7 · Thumbs de bitácora — **la medición lo descarta; queda limpiar**
+### WU7 · Thumbs de bitácora — **GREEN verificado de forma independiente**
 
-- **Problema:** el schema tiene `dither` (`src/content.config.ts:97`), la fila lo renderiza
+- **Problema inicial (histórico):** el schema tenía `dither` (`src/content.config.ts:97`), la fila lo renderizaba
   (`JournalEntryRow.astro:57-61`), **no hay assets** y `DitherFigure.astro` **no tiene ningún
   importador**. O sea: contrato sin implementación y componente muerto.
 - **Lo resolvió WU5:** a 192 px de ancho mostrado, el dither **no se lee como trama**. Poblarlo
   sería producir un accidente con presupuesto de bytes. Así que el work unit cambia de
   «implementar» a **«limpiar la promesa muerta»**.
-- **Aceptación:** el campo `dither` del schema y el `<img>` de la fila se **eliminan** (o se
-  documenta explícitamente por qué quedan y con qué criterio se poblarían); `DitherFigure` se
-  elimina o pasa a tener importadores; `docs/DESIGN.md` deja de describir una superficie que no
-  existe; y la alternativa textual localizada para ES/EN queda definida si alguna entrada la
-  necesita.
-- **Decisión colgante:** si los thumbs van en la lista o sólo en el detalle. Queda pendiente, pero
-  ya no depende del dither.
+- **Aceptación autorizada:** eliminar campo, `<img>` y componente sin importadores;
+  sustituir la cobertura opcional por regresiones de retiro. La alternativa textual ya
+  existe: resumen y enlace de detalle localizado en ES/EN, sin nuevo copy ni i18n.
+- **Implementación:** campo/consumidor retirados y componente sin importadores
+  eliminado por el orquestador mediante patch exacto validado. Controles de schema,
+  acceso, importación y frontmatter (string/null/false/undefined) rechazan reintroducción.
+  RED inicial483/3, parcial485/1 por componente presente y GREEN final486/0;
+  catorce controles (11 rechazos,3 aceptaciones) sin rebajar la cobertura.
+- **Verificación independiente:** build13páginas; check Astro151archivos,
+  0errores/0warnings/26hints, ESLintPASS, iteration-2 323/0, iteration-3 486/0.
+  DOM parseado:11filas y6detalles ES/EN conservan resumen, metadatos y enlaces
+  localizados, sin thumbs.47archivos protegidos y10encodes intactos;5chunks
+  JS idénticos,109,818 B gzip,delta0. OG conserva `a49aabb…`; assets public/dist
+  iguales. Evidencia en `dist-motion-verify/wu7/`; sin tests interactivos nuevos.
+  El enlace externo conserva fuente/i18n, pero no tiene ejercicio runtime porque
+  ninguna entrada semilla declara un enlace externo.
+- **Fuera de alcance:** nuevos thumbs en lista o detalle requieren otra decisión;
+  no queda una promesa opcional de dither en el contrato actual.
 
 ### WU8 · OG — **GREEN observado** (2026-10-09; sin commit)
 

@@ -94,7 +94,6 @@ const journalCollection = defineCollection({
     /** Stable translation key pairing this entry with its ES/EN counterpart. */
     translationKey: z.string().min(1),
     link: z.url().optional(),
-    dither: z.string().optional(),
     draft: z.boolean().optional(),
   }),
 });

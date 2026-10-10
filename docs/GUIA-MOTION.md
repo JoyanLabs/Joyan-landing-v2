@@ -504,10 +504,14 @@ negro sea negro.
 en los tres lugares. La comparación byte a byte fue una observación puntual
 sin baseline ni runner conservados para reproducirla; no es una garantía para
 cualquier escena nueva.
-- **Superficies candidatas**, para decidir en el plan: el hero, los thumbs de
-bitácora (el schema ya tiene `dither` y no hay asset), el OG, y el mark animado en
-SVG que la referencia exporta para READMEs. Lo que **no** es candidato es aplicar el
-pase encima de los cinco films de argumento.
+- **Superficies candidatas del spike (histórico):** hero, thumbs de bitácora
+(entonces el schema tenía `dither`, sin asset), OG y mark SVG para READMEs.
+WU5 descartó los thumbs por su ancho mostrado; WU7 retiró campo, consumidor y
+componente sin importadores. El resumen y el enlace de detalle localizado son la
+alternativa textual; retiro verificado con iteration-3 486/0.
+Resumen y enlace de detalle localizados ya son la alternativa textual ES/EN.
+El checker rechaza reintroducciones, no las acepta para que Astro las descarte.
+Aplicar el pase a los cinco films de argumento sigue rechazado.
 
 El plan que convierte todo esto en la iteración que va a `main` —superficies, orden y
 corte en candidatos revisables— está en
