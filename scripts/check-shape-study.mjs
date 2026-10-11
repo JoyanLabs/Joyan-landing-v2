@@ -346,6 +346,23 @@ for (const cell of [8, 4, 2, 16, 32]) {
 // literals, they are the metrics computed above, rendered as the docs render them.
 const motorDoc = await readFile(resolve(root, 'docs/MOTOR-ESCENAS.md'), 'utf8');
 const designDoc = await readFile(resolve(root, 'docs/DESIGN.md'), 'utf8');
+// WU18 added the third laboratory route; the three must link to each other and
+// the image route must be real. On a tree without it this reports, not crashes.
+let imageLabHtml = '';
+try {
+  imageLabHtml = await readFile(resolve(root, 'dist/lab/image/index.html'), 'utf8');
+} catch (error) {
+  check(false, `the WU18 image laboratory is missing at dist/lab/image/index.html: ${error.message}`);
+}
+if (imageLabHtml) {
+  check(/href="\/lab\/ascii"/.test(imageLabHtml) && /href="\/lab\/shapes"/.test(imageLabHtml),
+    'the image laboratory must link to the ASCII and shape laboratories');
+  check(imageLabHtml.includes('data-image-lab') && imageLabHtml.includes('data-image-control="treatment"'),
+    'the image laboratory must mount the converted-input surface with its treatment control');
+}
+const shapesLabHtml = await readFile(resolve(root, 'dist/lab/shapes/index.html'), 'utf8');
+check(/href="\/lab\/image"/.test(shapesLabHtml),
+  'the shape laboratory must link to the image laboratory');
 const spanish = (value, digits = 4) => value.toFixed(digits).replace('.', ',');
 const geometryProofs = hasCatalogApi ? {
   pitch: 32,

@@ -1,0 +1,215 @@
+/**
+ * ANIMATED OVERLAYS (WU18) — the life laid over the structure.
+ * ============================================================================
+ * The image supplies the structure; the overlay supplies the life. Every
+ * overlay here is a PURE FUNCTION of (cell, time, base colour): no Math.random,
+ * no accumulated state, no time read from the clock, so a frame is reproducible
+ * exactly and the Node raster and the live canvas stay byte-identical.
+ *
+ * PERIODIC BY CONSTRUCTION — the WU15 lesson, applied twice over:
+ *
+ *   - every sinusoidal term has a period that DIVIDES the loop (twinkle: 6 s of
+ *     a 30 s loop, five whole cycles), so `field(x, y, 0)` and
+ *     `field(x, y, LOOP_SECONDS)` differ only by floating-point round-off;
+ *   - every lattice drift travels a WHOLE NUMBER of noise wraps over the loop
+ *     (aurora 9 wraps in x, grain 21 wraps in y, glimmer a whole number of
+ *     sweeps), so at the end of the loop the sample lands on the SAME lattice
+ *     point. The drift is added to the coordinate BEFORE the noise multiplies by
+ *     its frequency, and `layeredNoise` scales each octave's wrap with that same
+ *     frequency, which is what makes the wrap land exactly.
+ *
+ * What the checker asserts is the FIELD, never the frame index: `renderFrame`
+ * wraps its index with a modulo, so comparing frame 0 with frame `cycleFrames`
+ * would prove nothing at all. The checker evaluates the composed field at
+ * `t=0` and `t=LOOP_SECONDS` per cell and per channel, and requires the seam to
+ * be no worse than an ordinary adjacent frame step.
+ *
+ * The overlays are composable and order-independent in the sense that the
+ * composed function is deterministic; the composition order is fixed here so
+ * the runtime and the checker cannot apply a different order.
+ */
+import { hashNoise, layeredNoise } from './engine.mjs';
+
+/** The loop every overlay assumes. A converted scene must use the same one. */
+export const LOOP_SECONDS = 30;
+
+/** Every overlay id, in composition order. */
+export const OVERLAY_IDS = Object.freeze(['stars', 'aurora', 'grain', 'glimmer']);
+
+/** Human labels, for the laboratory's controls and the docs. */
+export const OVERLAY_LABELS = Object.freeze({
+  stars: 'twinkling stars (positions by hash, 6 s twinkle)',
+  aurora: 'aurora curtains (9 whole lattice wraps per loop)',
+  grain: 'drifting grain (21 whole lattice wraps per loop)',
+  glimmer: 'glimmer sweep (whole sweeps per loop)',
+});
+
+/**
+ * Every overlay's authored constants, frozen. They are the values the runtime
+ * and the checker both read, so "the overlay" is one thing and not two.
+ */
+export const OVERLAY_DEFAULTS = Object.freeze({
+  stars: Object.freeze({ seed: 20261010, density: 0.055, twinkle: 0.9, period: 6,
+    colour: Object.freeze([0.95, 0.97, 1]) }),
+  aurora: Object.freeze({ seed: 0x7a1, scaleX: 0.06, scaleY: 0.11, wrapsX: 9, wrapsY: 5,
+    hueScale: 0.05, hueWraps: 4, blend: 0.92 }),
+  grain: Object.freeze({ seed: 0x6a1, scale: 0.34, wrapsY: 21, amount: 0.14 }),
+  glimmer: Object.freeze({ seed: 0x9117, sweeps: 1, sigma: 0.055, intensity: 0.6,
+    colour: Object.freeze([0.92, 0.95, 1]) }),
+});
+
+const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+const mix = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
+const smoothstep = (edge0, edge1, v) => {
+  const k = clamp01((v - edge0) / (edge1 - edge0));
+  return k * k * (3 - 2 * k);
+};
+
+/** The aurora curtain's own colours; the noise band picks between neighbours. */
+const AURORA_COLOURS = Object.freeze([
+  [0.18, 0.85, 0.72],
+  [0.24, 0.55, 0.95],
+  [0.62, 0.38, 0.95],
+  [0.45, 0.95, 0.85],
+]);
+
+/** Wrap a fraction into [0, 1) so a sweep's position closes at the loop end. */
+const fract = (v) => v - Math.floor(v);
+
+/** TWINKLING STARS — star cells by hash, brightness by a whole-cycle sine. */
+function starsOverlay(overrides) {
+  const p = { ...OVERLAY_DEFAULTS.stars, ...overrides };
+  const colour = p.colour;
+  return {
+    id: 'stars',
+    label: OVERLAY_LABELS.stars,
+    apply(x, y, t, base, ctx) {
+      const pick = hashNoise(x, y, p.seed);
+      if (pick > p.density) return base;
+      const phase = hashNoise(x, y, p.seed + 1) * Math.PI * 2;
+      // 30 / period whole cycles: the sine returns to the same value at the seam.
+      const wave = 0.5 + 0.5 * Math.sin((Math.PI * 2 * t) / p.period + phase);
+      const gain = p.twinkle * wave;
+      const alpha = gain * (0.35 + 0.65 * hashNoise(x, y, p.seed + 2));
+      return mix(base, colour, clamp01(alpha));
+    },
+  };
+}
+
+/** AURORA CURTAINS — the whole lattice drifts a whole number of wraps. */
+function auroraOverlay(overrides) {
+  const p = { ...OVERLAY_DEFAULTS.aurora, ...overrides };
+  const driftX = (t) => (t / LOOP_SECONDS) * p.wrapsX;
+  const driftY = (t) => (t / LOOP_SECONDS) * p.wrapsY;
+  const driftHue = (t) => (t / LOOP_SECONDS) * p.hueWraps;
+  return {
+    id: 'aurora',
+    label: OVERLAY_LABELS.aurora,
+    apply(x, y, t, base, ctx) {
+      const curtain = layeredNoise(x * p.scaleX + driftX(t), y * p.scaleY + driftY(t), p.seed,
+        { octaves: 2, wrapX: p.wrapsX, wrapY: p.wrapsY });
+      const hue = layeredNoise(x * p.hueScale + driftHue(t), y * p.hueScale, p.seed + 0x51,
+        { octaves: 2, wrapX: p.hueWraps });
+      const at = hue * AURORA_COLOURS.length;
+      const i = Math.min(AURORA_COLOURS.length - 1, Math.floor(at));
+      const j = (i + 1) % AURORA_COLOURS.length;
+      const colour = mix(AURORA_COLOURS[i], AURORA_COLOURS[j], at - i);
+      // Vertical banding: the curtain hangs from the top and fades downward.
+      const vertical = 1 - 0.55 * (ctx.rows > 1 ? y / (ctx.rows - 1) : 0);
+      const strength = smoothstep(0.46, 0.86, curtain) * vertical * p.blend;
+      return mix(base, colour, clamp01(strength));
+    },
+  };
+}
+
+/** DRIFTING GRAIN — a lattice that wraps a whole number of times per loop. */
+function grainOverlay(overrides) {
+  const p = { ...OVERLAY_DEFAULTS.grain, ...overrides };
+  return {
+    id: 'grain',
+    label: OVERLAY_LABELS.grain,
+    apply(x, y, t, base) {
+      const drift = (t / LOOP_SECONDS) * p.wrapsY;
+      const noise = layeredNoise(x * p.scale, y * p.scale + drift, p.seed,
+        { octaves: 2, wrapY: p.wrapsY });
+      const lift = (noise - 0.5) * 2 * p.amount;
+      return [clamp01(base[0] + lift), clamp01(base[1] + lift), clamp01(base[2] + lift)];
+    },
+  };
+}
+
+/** GLIMMER SWEEP — a diagonal band that crosses a whole number of times. */
+function glimmerOverlay(overrides) {
+  const p = { ...OVERLAY_DEFAULTS.glimmer, ...overrides };
+  return {
+    id: 'glimmer',
+    label: OVERLAY_LABELS.glimmer,
+    apply(x, y, t, base, ctx) {
+      const position = fract((t / LOOP_SECONDS) * p.sweeps);
+      const u = (x + y) / Math.max(1, ctx.cols + ctx.rows - 2);
+      // The wrapped distance to the band, so the seam is not a jump.
+      let d = fract(u - position + 0.5) - 0.5;
+      const band = Math.exp(-(d * d) / (2 * p.sigma * p.sigma));
+      return mix(base, p.colour, clamp01(band * p.intensity));
+    },
+  };
+}
+
+const BUILDERS = { stars: starsOverlay, aurora: auroraOverlay, grain: grainOverlay,
+  glimmer: glimmerOverlay };
+
+/** Build one overlay by id. Throws on an unknown id rather than guessing. */
+export function makeOverlay(id, overrides = {}) {
+  const builder = BUILDERS[id];
+  if (!builder) throw new Error(`unknown overlay: ${id}`);
+  return builder(overrides[id] ?? overrides);
+}
+
+/**
+ * Compose overlays over any scene, in the fixed catalogue order. The returned
+ * object is a NEW scene: the engine caches derived metrics on the scene object,
+ * so a composed scene must not mutate the base one. The palette, ground and
+ * geometry are carried through untouched, so the composer never changes the
+ * colour the engine may use.
+ * @param {object} scene @param {string[]} ids @param {object} [overrides]
+ */
+export function withOverlays(scene, ids, overrides = {}) {
+  const active = OVERLAY_IDS.filter((id) => ids.includes(id)).map((id) => makeOverlay(id, overrides));
+  if (active.length === 0) return scene;
+  const ctx = { cols: scene.cols, rows: scene.rows, loopSeconds: scene.cycleFrames / scene.fps };
+  const baseField = scene.field;
+  const field = (x, y, t) => {
+    let colour = baseField(x, y, t);
+    for (const overlay of active) colour = overlay.apply(x, y, t, colour, ctx);
+    return colour;
+  };
+  return {
+    ...scene,
+    id: `${scene.id}[${active.map((overlay) => overlay.id).join('+')}]`,
+    field,
+    overlays: active.map((overlay) => overlay.id),
+  };
+}
+
+/** The ids, parsed from a control value like `stars,aurora`, in catalogue order. */
+export function parseOverlayIds(value) {
+  const wanted = String(value ?? '').split(/[,+\s]+/).filter(Boolean);
+  return OVERLAY_IDS.filter((id) => wanted.includes(id) || wanted.includes('all'));
+}
+
+/**
+ * Apply one named treatment (a palette id and a list of overlay ids) to a scene.
+ * The runtime and the checker both go through this ONE function, so the canvas
+ * cannot apply a different palette or a different overlay set than the Node
+ * expectation. The palette swap copies the scene because the engine caches
+ * derived metrics on the scene object.
+ * @param {object} scene @param {{palette?: string, overlays?: string[]}} treatment
+ * @param {ReadonlyArray<{id: string, palette: readonly string[], ground: number}>} palettes
+ */
+export function applyTreatment(scene, treatment, palettes) {
+  const preset = (palettes ?? []).find((entry) => entry.id === treatment.palette) ?? null;
+  const based = preset && preset.palette
+    ? { ...scene, palette: [...preset.palette], ground: preset.ground, groundHex: preset.palette[preset.ground] }
+    : scene;
+  return withOverlays(based, treatment.overlays ?? []);
+}

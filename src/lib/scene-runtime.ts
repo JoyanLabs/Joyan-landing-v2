@@ -17,6 +17,12 @@
  *               STILL (the scene's poster frame) unless the visitor presses
  *               Play, so a comparison does not move under them; Play animates
  *               the three view panes only, and the board stays the reference.
+ *   /lab/image  `[data-image-lab]` — the WU18 image pipeline: a converted local
+ *               input (embedded as data by the page's frontmatter) with the
+ *               animated overlays switched live. It is a STILL by default too.
+ *               The embedded payload is the pipeline's own serialisation, so the
+ *               canvas draws the SAME conversion the Node raster produced; the
+ *               checker hashes both and requires equality.
  *
  * Behaviour, all of it observable:
  *   - 12 fps ceiling; a frame index is kept on the host as `data-scene-frame`
@@ -38,6 +44,8 @@ import {
 } from '../../scripts/scene-src/engine.mjs';
 import { SCENES } from '../../scripts/scene-src/scenes/index.mjs';
 import { LAB_PALETTES, labPalette } from '../../scripts/scene-src/lab-palettes.mjs';
+import { IMAGE_PALETTES, sceneFromSerialized } from '../../scripts/scene-src/image-pipeline.mjs';
+import { applyTreatment } from '../../scripts/scene-src/overlays.mjs';
 
 interface Scene {
   id: string;
@@ -66,6 +74,7 @@ const REDUCED = '(prefers-reduced-motion: reduce)';
 const HOST = '[data-own-scene]';
 const STUDY = '[data-shape-lab]';
 const BOARD = '[data-shape-board]';
+const IMAGE = '[data-image-lab]';
 let release: (() => void) | undefined;
 
 /** Structural check for a scene module. Every field the runtime reads is tested. */
@@ -96,7 +105,7 @@ function sceneFor(id: string): Scene | undefined {
 
 function initialize(): void {
   release?.();
-  const cleanups = [...initializeScenes(), ...initializeStudy()];
+  const cleanups = [...initializeScenes(), ...initializeStudy(), ...initializeImage()];
   release = () => {
     for (const cleanup of cleanups) cleanup();
     release = undefined;
@@ -477,6 +486,243 @@ function initializeStudy(): Array<() => void> {
     preference.removeEventListener('change', sync);
     document.removeEventListener('visibilitychange', sync);
     delete probeWindow.__joyanShapeProbe;
+  });
+  return cleanups;
+}
+
+// ---------------------------------------------------------------------------
+// `/lab/image` — the WU18 image pipeline surface.
+// ---------------------------------------------------------------------------
+
+/** The serialised converted scene the page embeds as data. */
+interface SerializedScene {
+  id: string;
+  cols: number;
+  rows: number;
+  fps: number;
+  cycleFrames: number;
+  posterFrame: number;
+  palette: string[];
+  ground: number;
+  groundHex: string;
+  colorMode: string;
+  params?: Record<string, unknown>;
+  levels: string;
+  rgb?: string;
+}
+
+/**
+ * Structural check for an embedded payload, the same way `isScene` checks a
+ * registry scene: a payload that stops matching simply does not mount, and no
+ * `as` hides that. `sceneFromSerialized` validates the rest (the base64 and the
+ * cell count) when it rebuilds the field.
+ */
+function isSerializedScene(value: unknown): value is SerializedScene {
+  if (typeof value !== 'object' || value === null) return false;
+  if (!('id' in value && 'cols' in value && 'rows' in value && 'fps' in value
+    && 'cycleFrames' in value && 'posterFrame' in value && 'palette' in value
+    && 'ground' in value && 'groundHex' in value && 'colorMode' in value && 'levels' in value)) return false;
+  return typeof value.id === 'string' && value.id.length > 0
+    && typeof value.cols === 'number' && Number.isInteger(value.cols) && value.cols > 0
+    && typeof value.rows === 'number' && Number.isInteger(value.rows) && value.rows > 0
+    && typeof value.fps === 'number' && value.fps > 0
+    && typeof value.cycleFrames === 'number' && Number.isInteger(value.cycleFrames) && value.cycleFrames > 0
+    && typeof value.posterFrame === 'number' && Number.isInteger(value.posterFrame) && value.posterFrame >= 0
+    && Array.isArray(value.palette) && value.palette.length >= 4
+    && typeof value.ground === 'number' && value.ground >= 0 && value.ground < value.palette.length
+    && typeof value.groundHex === 'string'
+    && typeof value.colorMode === 'string' && typeof value.levels === 'string';
+}
+
+/** The treatment the treatment control currently names, read from its option. */
+function imageTreatment(host: HTMLElement | null): { id: string; palette: string; overlays: string[] } {
+  const select = host?.querySelector<HTMLSelectElement>('[data-image-control="treatment"]');
+  const option = select?.selectedOptions[0];
+  return {
+    id: select?.value ?? 'plain',
+    palette: option?.dataset.palette ?? 'ink',
+    overlays: (option?.dataset.overlays ?? '').split(/[,+\s]+/).filter(Boolean),
+  };
+}
+
+function initializeImage(): Array<() => void> {
+  const host = document.querySelector<HTMLElement>(IMAGE);
+  if (!host) return [];
+  const payloads = new Map<string, SerializedScene>();
+  for (const node of host.querySelectorAll<HTMLScriptElement>('script[type="application/json"][data-image-scene]')) {
+    const id = node.dataset.imageScene ?? '';
+    try {
+      const parsed = JSON.parse(node.textContent ?? '') as unknown;
+      if (isSerializedScene(parsed)) payloads.set(id, parsed);
+    } catch {
+      // A payload that will not parse simply does not mount; the fallback text
+      // stays as the honest description of what is missing.
+    }
+  }
+  if (payloads.size === 0) return [];
+  const views = [...host.querySelectorAll<HTMLCanvasElement>('canvas[data-image-view]')];
+  if (!views.length) return [];
+  const inputControl = host.querySelector<HTMLSelectElement>('[data-image-control="input"]');
+  const treatmentControl = host.querySelector<HTMLSelectElement>('[data-image-control="treatment"]');
+  const densityControl = host.querySelector<HTMLSelectElement>('[data-image-control="density"]');
+  const readout = host.querySelector<HTMLElement>('[data-image-readout]');
+  const status = host.querySelector<HTMLElement>('[data-image-status]');
+  const toggle = host.querySelector<HTMLButtonElement>('[data-image-toggle]');
+  const fallbacks = [...host.querySelectorAll<HTMLElement>('[data-image-fallback]')];
+  const preference = matchMedia(REDUCED);
+  const cleanups: Array<() => void> = [];
+  const cache = new Map<string, Scene>();
+  let scene = buildImageScene();
+  let frame = 0;
+  let raf = 0;
+  let last = 0;
+  let playing = false;
+  let started = false;
+  let visible = true;
+
+  function inputId(): string {
+    const wanted = inputControl?.value ?? host?.dataset.imageScene ?? '';
+    return payloads.has(wanted) ? wanted : [...payloads.keys()][0];
+  }
+
+  function density(): number {
+    const value = Number(densityControl?.value ?? '1');
+    return [1, 2, 4].includes(value) ? value : 1;
+  }
+
+  /**
+   * The scene for the current controls, built ONCE per (input, treatment): the
+   * payload is the pipeline's own serialisation, `applyTreatment` is the shared
+   * overlay+palette function, and the engine owns the ladder, dither and
+   * compensation from there. This is the same call the checker makes in Node.
+   */
+  function buildImageScene(): Scene {
+    const id = inputId();
+    const treatment = imageTreatment(host);
+    const key = `${id}|${treatment.id}`;
+    const cached = cache.get(key);
+    if (cached) return cached;
+    const payload = payloads.get(id);
+    if (!payload) throw new Error(`no embedded payload for ${id}`);
+    const built = applyTreatment(sceneFromSerialized(payload), treatment, IMAGE_PALETTES);
+    cache.set(key, built);
+    return built;
+  }
+
+  const paintView = (canvas: HTMLCanvasElement, index: number, stride: number): void => {
+    const cell = Number(canvas.dataset.imageCell ?? DELIVERY_CELL);
+    const cols = Math.max(1, Math.round(scene.cols / stride));
+    const rows = Math.max(1, Math.round(scene.rows / stride));
+    const width = cols * cell;
+    const height = rows * cell;
+    if (canvas.width !== width) canvas.width = width;
+    if (canvas.height !== height) canvas.height = height;
+    const context = canvas.getContext('2d');
+    if (!context) return;
+    const image = context.createImageData(width, height);
+    rasterize(renderFrame(scene, index, { dither: 'bayer4', density: stride }), scene, cell, image.data);
+    context.putImageData(image, 0, 0);
+  };
+  const describe = (): string => {
+    const payload = payloads.get(inputId());
+    const treatment = imageTreatment(host);
+    const stride = density();
+    const cols = Math.round(scene.cols / stride);
+    const rows = Math.round(scene.rows / stride);
+    return `${inputId()} · ${treatment.id} · ${cols} × ${rows} cells · `
+      + `${scene.palette.length}-entry palette (ground ${scene.groundHex}) · `
+      + `overlays: ${treatment.overlays.length ? treatment.overlays.join(', ') : 'none'} · `
+      + `measure ${String(payload?.params?.measure ?? 'unknown')} · colour ${payload?.colorMode ?? 'unknown'}`;
+  };
+  const repaint = (): void => {
+    const stride = density();
+    for (const view of views) paintView(view, frame, stride);
+    host.dataset.imageFrame = String(frame);
+    if (readout) readout.textContent = describe();
+    for (const node of fallbacks) node.hidden = true;
+  };
+  const updateStatus = (): void => {
+    if (!toggle || !status) return;
+    toggle.disabled = preference.matches;
+    toggle.setAttribute('aria-pressed', String(playing && !preference.matches));
+    toggle.textContent = preference.matches ? 'Still frame · reduced motion' : playing ? 'Pause' : 'Play';
+    status.textContent = preference.matches
+      ? 'Still frame 0 · reduced motion · the image study never animates on its own'
+      : !playing
+        ? started
+          ? 'Paused · the views hold the last frame'
+          : 'Still at the poster frame · press Play to animate the views'
+        : !visible || document.hidden
+          ? 'Paused · outside viewport or hidden'
+          : `Playing the views at ${scene.fps} fps · overlays periodic over the loop`;
+  };
+  const tick = (now: number): void => {
+    raf = requestAnimationFrame(tick);
+    if (now - last < 1000 / scene.fps - 1) return;
+    last = now;
+    repaint();
+    frame = (frame + 1) % scene.cycleFrames;
+  };
+  const stop = (): void => {
+    if (raf) cancelAnimationFrame(raf);
+    raf = 0;
+  };
+  const sync = (): void => {
+    if (preference.matches) {
+      stop();
+      frame = scene.posterFrame;
+      repaint();
+    } else if (playing && visible && !document.hidden) {
+      if (!raf) {
+        last = 0;
+        raf = requestAnimationFrame(tick);
+      }
+    } else {
+      stop();
+    }
+    updateStatus();
+  };
+  const onChange = (): void => {
+    try {
+      scene = buildImageScene();
+    } catch {
+      return;
+    }
+    stop();
+    frame = playing && !preference.matches ? 0 : scene.posterFrame;
+    repaint();
+    sync();
+  };
+  const onToggle = (): void => {
+    playing = !playing;
+    if (playing) started = true;
+    stop();
+    sync();
+  };
+  for (const control of [inputControl, treatmentControl, densityControl]) {
+    control?.addEventListener('change', onChange);
+  }
+  toggle?.addEventListener('click', onToggle);
+  preference.addEventListener('change', sync);
+  document.addEventListener('visibilitychange', sync);
+  const observer = new IntersectionObserver((entries) => {
+    visible = entries[entries.length - 1].isIntersecting;
+    sync();
+  });
+  observer.observe(views[0]);
+  host.setAttribute('data-ready', '');
+  frame = scene.posterFrame;
+  repaint();
+  sync();
+  cleanups.push(() => {
+    stop();
+    observer.disconnect();
+    for (const control of [inputControl, treatmentControl, densityControl]) {
+      control?.removeEventListener('change', onChange);
+    }
+    toggle?.removeEventListener('click', onToggle);
+    preference.removeEventListener('change', sync);
+    document.removeEventListener('visibilitychange', sync);
   });
   return cleanups;
 }

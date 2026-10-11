@@ -210,6 +210,10 @@ for (const path of await walk(resolve(root, 'dist'))) {
   check(!source.includes('data-ascii-compare'), `the comparison markup reached ${path.slice(root.length + 1)}`);
   check(!source.includes('data-shape-lab'), `the shape laboratory reached ${path.slice(root.length + 1)}`);
   check(!source.includes('data-shape-board'), `the shape board reached ${path.slice(root.length + 1)}`);
+  // WU18: the image pipeline's converted scenes and views are laboratory-only too.
+  check(!source.includes('data-image-lab'), `the image laboratory reached ${path.slice(root.length + 1)}`);
+  check(!source.includes('data-image-view'), `the image laboratory views reached ${path.slice(root.length + 1)}`);
+  check(!source.includes('data-image-scene'), `a converted scene payload reached ${path.slice(root.length + 1)}`);
   check(!BAKED_URL.test(source), `the baked still reached ${path.slice(root.length + 1)}`);
 }
 // Only the laboratory may reach the runtime. The page check is the real one:
@@ -232,12 +236,14 @@ for (const dir of ['src/components', 'src/layouts']) {
     if (source.includes('scene-runtime') || source.includes('scene-src')) runtimeImporters.push(path.slice(root.length + 1));
   }
 }
-// WU17 added `ShapeLab.astro` for `/lab/shapes`; both are laboratory components
-// and no other component or layout may reference the runtime.
-const allowedRuntimeImporters = ['src/components/joyan/SceneCanvas.astro', 'src/components/joyan/ShapeLab.astro'];
+// WU17 added `ShapeLab.astro` for `/lab/shapes`; WU18 added `ImageLab.astro` for
+// `/lab/image`. All are laboratory components and no other component or layout
+// may reference the runtime.
+const allowedRuntimeImporters = ['src/components/joyan/SceneCanvas.astro', 'src/components/joyan/ShapeLab.astro',
+  'src/components/joyan/ImageLab.astro'];
 check(runtimeImporters.every((path) => allowedRuntimeImporters.includes(path))
   && allowedRuntimeImporters.every((path) => runtimeImporters.includes(path)),
-`only the laboratory's own SceneCanvas.astro and ShapeLab.astro may reference the scene runtime: ${runtimeImporters.join(', ')}`);
+`only the laboratory's own SceneCanvas.astro, ShapeLab.astro and ImageLab.astro may reference the scene runtime: ${runtimeImporters.join(', ')}`);
 let bakedFile;
 try {
   bakedFile = await readFile(resolve(root, BAKED_SOURCE));
@@ -826,6 +832,31 @@ if (shapeHtml) {
 }
 if (labHtml) {
   check(/href="\/lab\/shapes"/.test(labHtml), 'the ASCII laboratory must link to the shape laboratory');
+  check(/href="\/lab\/image"/.test(labHtml), 'the ASCII laboratory must link to the image laboratory');
+}
+// The image laboratory route (WU18): a real noindex page with the converted
+// inputs as data, the overlay treatments as controls, and links to the other two.
+let imageHtml = '';
+try {
+  imageHtml = await readFile(resolve(root, 'dist/lab/image/index.html'), 'utf8');
+} catch (error) {
+  check(false, `the built image laboratory is missing at dist/lab/image/index.html: ${error.message}`);
+}
+if (imageHtml) {
+  check(/noindex/.test(imageHtml), 'the image laboratory must stay noindex');
+  check(imageHtml.includes('data-image-lab'), 'the image laboratory must mount the live control surface');
+  for (const control of ['input', 'treatment', 'density']) {
+    check(imageHtml.includes(`data-image-control="${control}"`),
+      `the image laboratory must expose a live ${control} control`);
+  }
+  check((imageHtml.match(/data-image-view/g) ?? []).length >= 3,
+    'the image laboratory must show its result at several widths');
+  check(/href="\/lab\/ascii"/.test(imageHtml) && /href="\/lab\/shapes"/.test(imageHtml),
+    'the image laboratory must link to the ASCII and shape laboratories');
+  check(/licen|third.party|rights/i.test(imageHtml),
+    'the image laboratory must state the third-party fixture licence limitation');
+  check(!/blade-runner-unicorn/i.test(imageHtml) && !/280,653/.test(imageHtml),
+    'the shipped image laboratory must not embed the third-party fixture source');
 }
 
 // ---------------------------------------------------------------------------

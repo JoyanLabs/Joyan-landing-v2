@@ -193,15 +193,21 @@ const labTotalGzip = labChunkGzip + inlineGzip;
 // `scripts/check-iteration-3.mjs` section 7 (its `LAB_CAP_GZIP`), which pins the
 // frozen landing five-chunk identity and this cap for the site-wide guard. A
 // future change must update both loudly; there is no reset or unlimited mode.
-const LAB_CAP_GZIP = 36924;
-const LAB_MEASURED_GZIP = 34876;
+// WU18 (38,211 B): the image pipeline, the overlays and the `/lab/image` route
+// join the SAME engine chunk, now shared by three laboratory routes. The chunk
+// measures 33,296 B raw / 12,787 B gzip; the lab executable is library 25,256 B +
+// engine chunk 12,787 B + three 56 B entry chunks, 0 B inline. Cap re-measured as
+// measured + 2,048 B, the same documented margin, never a silent raise.
+const LAB_CAP_GZIP = 40259;
+const LAB_MEASURED_GZIP = 38211;
 const LAB_MARGIN_LIMIT = 4096;
 // What the lab page itself claims about its own cost. The copy must carry the
 // measured numbers, so a claim cannot drift away from the bundle it describes.
 // `libraryChunkGzip` is the ascii.rest bundle; `ownModuleRaw`/`ownModuleGzip` are
-// the lab engine chunk (engine + shape catalogue + runtime), found below by the
-// scene id and the shape-laboratory marker it contains.
-const LAB_CLAIMS = { libraryChunkGzip: 25256, ownModuleRaw: 23366, ownModuleGzip: 9508, bakedStillBytes: 41906 };
+// the lab engine chunk (engine + scene + shape catalogue + image pipeline +
+// overlays + runtime), found below by the scene id and the shape-laboratory
+// marker it contains.
+const LAB_CLAIMS = { libraryChunkGzip: 25256, ownModuleRaw: 33296, ownModuleGzip: 12787, bakedStillBytes: 41906 };
 const withinLabCap = (total, cap) => total <= cap;
 assert.equal(withinLabCap(LAB_CAP_GZIP, LAB_CAP_GZIP), true);
 assert.equal(withinLabCap(LAB_CAP_GZIP + 1, LAB_CAP_GZIP), false);

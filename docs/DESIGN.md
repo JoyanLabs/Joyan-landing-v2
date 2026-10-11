@@ -906,6 +906,112 @@ node scripts/check-ascii-runtime.mjs --out dist-motion-verify/wu17/lab
 pnpm check
 ```
 
+## WU18 — image → dot-scene pipeline and animated overlays
+
+**Status: laboratory only. The landing still ships zero scene or runtime
+JavaScript, no landing page imports the engine or the pipeline, and the landing's
+five chunks are byte-identical at 109,818 B gzip (delta 17,913 against the
+untouched 91,905 B fixture, limit 22,528 B).** The user asked *how an image
+becomes this style*, finding our authored scene simpler than the library's, and
+supplied a test input — a Blade Runner unicorn line-art SVG gist — asking for it
+converted with animated details (twinkling stars on black, or aurora colours).
+Video is explicitly deferred. This unit answers with a pipeline, four composable
+overlays, a third laboratory route, and an honest comparison that does not argue
+with the user's impression.
+
+- **The pipeline is seven steps, and it reuses the engine rather than cloning
+  it.** Decode (SVG through the local `sharp`/librsvg at 1024 px longest side,
+  PNG and JPEG raw, straight alpha; a network URL is refused before decoding); fit
+  (contain + margin, `scale = min((1−2m)·cols/W, (1−2m)·rows/H)`, centred, aspect
+  exact by algebra); measure (per cell, area-weighted `α·(1−luma)` in `ink` mode
+  for line art, `1−luma` of the composited cell in `luminance` mode for
+  photographs, with a representative colour kept per cell); map (the measurement
+  becomes field luma and `engine.stepFor()` walks the **measured** coverage
+  ladder with the chosen dither — no second ladder); colour (a named
+  `IMAGE_PALETTES` entry with the ground declared at index 0, or a deterministic
+  median-cut extraction); emit (a scene object `renderFrame`/`rasterize` accept
+  live and in the bake); serialise (`serializeScene`/`sceneFromSerialized` carry
+  the quantised measurement so the canvas draws **the same conversion**). The CLI
+  documents every flag (`--in --mode --color --palette --palette-count --cols
+  --rows --margin --dither --shape --cell --density --overlays --out --png`);
+  `from-image.mjs` is Node-only, `image-pipeline.mjs` is browser-safe (no `sharp`
+  import), and nothing in either duplicates `engine.mjs`/`shapes.mjs`.
+- **The fixture numbers, measured at three grid densities** (fixture decodes to
+  **1024**×1024): fitted scale 0.08984375 with the art drawn **92×92 cells inside
+  a 4 % margin** on the 200×100 grid; 713 inked cells of 20,000 (fraction
+  **0.0357**), mean level 0.00949, max 0.68281, step histogram 19452/490/58/**0**,
+  raster sha256 `da63f9e9…`, 13,962 B PNG. At 100×50: 270 inked, 0.0540, sha
+  `3669f24e…`, 3,664 B. At 50×25: 95 inked, 0.0760, sha `775d68b9…`, 1,079 B. The
+  serialised scene rasters to **the same sha256 as the live one** (round trip),
+  the PNG decodes to the identical measurement, and JPEG opens at the same size
+  with the same measurement inside 0.01. The two modes are different instruments:
+  `ink` measures mean level 0.00949 / palette 7, `luminance` 0.4232 / palette 2.
+  Median-cut extraction on this near-monochrome line art yields only **4**
+  entries (`#060607`…`#0b0b0c`) — a real limit of the subject, which is why a
+  named palette exists.
+- **The overlays are periodic by construction, and periodicity is measured on
+  the field, not the frame index.** Sinusoidal terms divide the loop (twinkle 6 s
+  of 30 s, five whole cycles) and every lattice drift travels a whole number of
+  wraps (aurora 9 in x and 5 in y, grain 21 in y, glimmer 1 sweep), added to the
+  coordinate before `layeredNoise` multiplies by its frequency so each octave's
+  scaled wrap lands exactly. Measured seam `t=0` vs `t=30 s` (max / mean) against
+  an ordinary adjacent step: stars 3.39e−15 / 5.05e−17 vs 0.0390 / 0.00089;
+  aurora 5.61e−15 / 1.63e−16 vs 0.1088 / 0.00649; grain 1.34e−15 / 6.33e−17 vs
+  0.0265 / 0.00261; glimmer 0 / 0 vs 0.0184 / 0.00111. Rendered cells changing at
+  the seam vs at an adjacent pair: 84/88, 458/512, 66/84, 99/404 — the seam is
+  never worse. Every overlay changes the base scene and repeats identically;
+  composition order is fixed by the catalogue. Two honest notes: the aurora
+  overlay needs a **chromatic palette** — with `--palette ink` its colours
+  approximate to greys and the CLI PNG is monochrome
+  (`dist-motion-verify/wu18/cli/image-scene[stars+aurora]-8px-density1.png`),
+  while `--palette aurora` renders green/blue/violet
+  (`…/unicorn-aurora[stars+aurora]-8px-density1.png`) — and at 200×100 the aurora
+  reads as **large dither blocks** (~33 cells per blob at `scaleX = 0.06`), not a
+  fine curtain. Stated, not hidden.
+- **The laboratory (`/lab/image`, noindex) converts with our own drawings.**
+  `joyan-mark` and `test-target` are authored in
+  `scripts/scene-src/local-inputs.mjs`; the page converts them in its frontmatter
+  with the same `convert()` the CLI runs, embeds the serialised scene as JSON
+  data, and offers `input`, `treatment` (plain, stars on black, aurora colours,
+  grain, glimmer, all) and `density` (1/2/4), a still by default with Play to
+  animate. All six treatments hash **identically** between the Node raster and the
+  live canvas (measured in `scripts/check-image-pipeline.mjs`), and the three
+  laboratory routes link to each other. The image route adds markup and data, not
+  a second engine: as data the two conversions are 34,983 B of JSON, not executable
+  JS.
+- **Licence, stated plainly.** The gist art is a **film prop design** and is a
+  third-party work: it is used locally only, under the gitignored
+  `dist-motion-verify/wu18/input/`, never committed, never copied into `public/`,
+  never shipped. The checker fails if the fixture's name or source appears in any
+  generated page or in `public/`. If the user confirms they hold the rights, a
+  later unit may add it as a third laboratory input.
+- **The honest comparison, with numbers.** At the same 200×100 grid and displayed
+  size, the converted unicorn reads **sparser and flatter** than the library's
+  scenes, and this unit records it rather than defending the motor: the library's
+  `night-coast` declares a **30**-entry palette (20 used at frame 0) and uses all
+  four ramp steps (2540 / 10311 / 6739 / 410 cells), while the converted unicorn
+  has 7 entries, uses only **three** of four steps, never the full dot
+  (19452 / 490 / 58 / **0**), and leaves 96.8 % of adjacent cell pairs flat
+  (`flatRunFraction` 0.9682) where the library leaves 51.7 % flat. The cause is mainly the subject — a thin line drawing
+  covers 3.57 % of the cells where a landscape fills the frame — but the result
+  at the same grid is thinner, and that is input for the audit unit that follows.
+- **Budget, re-measured rather than assumed.** The engine chunk is now 33,296 B
+  raw / **12,787 B gzip** shared by the three laboratory routes; the laboratory's
+  executable total is **38,211 B gzip** (library 25,256 + engine 12,787 + three
+  56 B entry chunks, 0 B inline), capped at **40,259 B** (measured + 2,048 B,
+  margin rule ≤ 4,096 B), asserted identically in `check-iteration-3.mjs` and
+  `check-ascii-runtime.mjs`, with the laboratory copy updated to the same
+  numbers. The landing five chunks are untouched.
+
+```bash
+node scripts/scene-src/from-image.mjs --in input.svg --mode ink --palette ink --png --out out
+node scripts/check-image-pipeline.mjs            # WU18: pipeline, overlays, equality, browser
+node scripts/check-scene-engine.mjs              # dot geometry, catalog, ledger, equality, /lab/image guard
+node scripts/check-shape-study.mjs               # WU17 catalog + the three-lab cross-links
+node scripts/check-ascii-runtime.mjs --out dist-motion-verify/wu18/lab
+pnpm check
+```
+
 ## MAGI SVG diagram guide
 
 The static diagram (`AgentNetworkDiagram.astro`) follows one strict grid:

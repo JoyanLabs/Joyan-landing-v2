@@ -13,7 +13,7 @@ const metadata = {
 };
 // The cost line is a prop so the page cannot claim a number nobody measured; the
 // numbers below are the WU17 build measurements.
-const cost = 'Measured cost, gzip level 6, the same engine chunk both laboratory routes share: 23366 B of JavaScript raw / 9508 B gzip for the engine, the scene, the shape catalogue and the runtime; the whole laboratory allowance is 34876 B gzip, capped at 36924 B (measured + 2048 B). The scene, the bake and the landing five chunks are unchanged by this unit.';
+const cost = 'Measured cost, gzip level 6, the same engine chunk all three laboratory routes share: 33296 B of JavaScript raw / 12787 B gzip for the engine, the scene, the shape catalogue, the image pipeline, the overlays and the runtime; the whole laboratory allowance is 38211 B gzip, capped at 40259 B (measured + 2048 B). The scene, the bake and the landing five chunks are unchanged by this unit.';
 ---
 
 <!doctype html>
@@ -36,9 +36,10 @@ const cost = 'Measured cost, gzip level 6, the same engine chunk both laboratory
         grid density switchable, and a fixed board that draws every shape at once.
       </p>
       <p class="mt-3 max-w-prose text-sm text-plomo-400">
-        The other laboratory is the film and the library comparison:
-        <a href="/lab/ascii" class="underline underline-offset-4">/lab/ascii</a>. Both are noindex, neither is a
-        product surface, and neither changes the landing page.
+        The other laboratories are the film and the library comparison
+        (<a href="/lab/ascii" class="underline underline-offset-4">/lab/ascii</a>) and the image pipeline
+        (<a href="/lab/image" class="underline underline-offset-4">/lab/image</a>). All three are noindex, none is a
+        product surface, and none changes the landing page.
       </p>
     </header>
     <ShapeLab scene="joyan-night-coast" cost={cost} />

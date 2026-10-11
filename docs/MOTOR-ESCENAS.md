@@ -264,10 +264,10 @@ hero híbrido: la imagen por defecto y el canvas vivo son el mismo arte.
 | Concepto | Medido |
 | --- | --- |
 | Chunk de la librería (ocho montajes de la página: dos piezas, seis escenas y este panel) | 25.256 B gzip, **un** chunk (no es un número por panel) |
-| Nuestro motor + escena + catálogo de formas + runtime + tablero a escala 1:1 | 23.366 B sin comprimir / **9.508 B gzip**, en **un chunk** compartido por las dos rutas del laboratorio |
+| Nuestro motor + escena + catálogo de formas + pipeline de imagen + overlays + runtime + tableros | 33.296 B sin comprimir / **12.787 B gzip**, en **un chunk** compartido por las tres rutas del laboratorio |
 | PNG horneado | 41.906 B a 1600 × 800 (no envía ningún script) |
-| Total del laboratorio | 34.876 B gzip (librería 25.256 + motor 9.508 + dos chunks de entrada de 56 B; 0 B en línea) |
-| Tope del laboratorio | 36.924 B gzip (medido + 2.048 B de margen; regla: margen ≤ 4.096 B) |
+| Total del laboratorio | 38.211 B gzip (librería 25.256 + motor 12.787 + tres chunks de entrada de 56 B; 0 B en línea) |
+| Tope del laboratorio | 40.259 B gzip (medido + 2.048 B de margen; regla: margen ≤ 4.096 B) |
 | Landing | Los cinco chunks originales **byte a byte** idénticos: 109.818 B gzip (delta 17.913 frente al fixture intacto) |
 | Atlas de sprites (celda ya mezclada por paso y tinta) | 9,5 ms por fotograma de 200 × 100 a 8 px por celda frente a 12,2 ms de la mezcla píxel a píxel, en esta máquina y **con salida byte a byte idéntica** |
 
@@ -275,13 +275,14 @@ Notas de contabilidad:
 
 - Hasta WU16 el límite de 16 KiB configurado en `astro.config.ts` mantenía el
   motor como **módulo en línea** de una sola página. WU17 añade una segunda ruta
-  de laboratorio (`/lab/shapes`), así que el bundler comparte el motor entre las
-  dos y pasa a ser un **chunk**: el conjunto ejecutable del laboratorio sigue
-  siendo chunk + en línea, pero el en línea es ahora 0 B. La **atribución** de la
-  comprobación deja de ser "una página concreta" y pasa a ser "toda página que
-  alcanza el chunk es `/lab/**`", con los mismos controles negativos: un chunk de
-  laboratorio alcanzable desde una página real es fuga y falla, y si no hay
-  ninguna página de laboratorio la atribución falla cerrada.
+  de laboratorio (`/lab/shapes`) y WU18 una tercera (`/lab/image`), así que el
+  bundler comparte el motor entre las tres y pasa a ser un **chunk**: el
+  conjunto ejecutable del laboratorio sigue siendo chunk + en línea, pero el en
+  línea es ahora 0 B. La **atribución** de la comprobación deja de ser "una
+  página concreta" y pasa a ser "toda página que alcanza el chunk es
+  `/lab/**`", con los mismos controles negativos: un chunk de laboratorio
+  alcanzable desde una página real es fuga y falla, y si no hay ninguna página de
+  laboratorio la atribución falla cerrada.
 - **Qué es y qué no es.** Este motor no es un vídeo: no hay códec, ni MP4
   servido, ni activo externo. El panel vivo es un canvas que la página pinta
   fotograma a fotograma con `renderFrame()` + `rasterize()`, y el panel horneado
@@ -709,3 +710,151 @@ vista de textura (1,15 CSS px por celda) y a 1× no permite juzgar una forma.
   `none` es el control honesto de "sin dither".
 - **Geometría de celda**: 1:1 salvo que se compare con tipografía de carácter; la
   celda 1:2 cuesta 1,38× y cambia el ritmo vertical del dibujo.
+
+---
+
+## 13. El pipeline imagen→escena (WU18)
+
+La pregunta del usuario fue **cómo una imagen se convierte en este estilo**. La
+respuesta es una cadena corta y medible. El código puro vive en
+`scripts/scene-src/image-pipeline.mjs` (sin `sharp`, para que el runtime del
+navegador lo importe), el decodificado y la CLI en
+`scripts/scene-src/from-image.mjs` (solo Node), y los overlays en
+`scripts/scene-src/overlays.mjs`.
+
+### 13.1 La receta, numerada
+
+1. **Decodificar.** `decodeImage()` rasteriza el SVG con el `sharp`/librsvg local
+   (a 1024 px de lado mayor por defecto) y lee PNG y JPEG tal cual, a RGBA de
+   alfa recto. Se acepta una ruta local, bytes o el propio SVG; **una URL de red
+   se rechaza** antes de decodificar (`assertLocalInput`).
+2. **Encajar (fit).** Regla declarada: *contain* con margen sobre cada eje,
+   `scale = min((1−2·m)·cols/W, (1−2·m)·rows/H)`, arte centrado en
+   `(grid − dibujado)/2`. El mismo `scale` multiplica ambos ejes, así que la
+   relación de aspecto se conserva **exactamente** (por álgebra, no por
+   redondeo) y nada cae fuera del margen. `fitGrid().rule` devuelve la regla en
+   palabras y la comprobación la mide como geometría.
+3. **Medir.** Un número por celda, con el modo **elegido**, nunca adivinado:
+   - `ink`: media ponderada por área de `α·(1 − luma)`; un píxel transparente no
+     deposita tinta. Para line art.
+   - `luminance`: media de `1 − luma` del píxel compuesto sobre el fondo, de modo
+     que la fotografía conserva su propio color. Para fotografías.
+   Cada celda guarda además un color representativo, para que el tono de una
+   fotografía llegue a la paleta.
+4. **Mapear.** La medida **no se vuelve a umbralizar aquí**: la escena emite un
+   `field` cuya luma es esa medida y el `stepFor()` del motor recorre la
+   **escalera de cobertura medida** con el dither elegido. No hay una segunda
+   escalera ni un segundo dither.
+5. **Color.** O una paleta con nombre de `IMAGE_PALETTES` (con el fondo declarado
+   en el índice 0), o una **extracción** por median cut determinista de la propia
+   imagen. La compensación de tono por celda del motor decide después qué entrada
+   lleva cada punto.
+6. **Emitir.** Un objeto escena (`field`, `palette`, `ground`, geometría) que
+   `renderFrame` y `rasterize` aceptan en vivo y en el horneado.
+7. **Serializar.** `serializeScene()`/`sceneFromSerialized()` transportan la
+   medida ya cuantizada, de modo que el canvas dibuja **esa misma conversión** y
+   no una segunda. Es lo que hace que el raster de Node y el canvas tengan el
+   mismo hash.
+8. **Animar.** Los overlays (`stars`, `aurora`, `grain`, `glimmer`) envuelven el
+   `field` de la escena; son periódicos por construcción y se miden sobre el
+   `field`, nunca sobre un índice de fotograma.
+
+La CLI, con todas sus banderas documentadas:
+
+```bash
+node scripts/scene-src/from-image.mjs --in <fichero> \
+  [--mode ink|luminance] [--color levels|rgb] [--palette <id|extract>] \
+  [--palette-count N] [--cols N] [--rows N] [--margin f] \
+  [--dither bayer4|bayer8|blue|none] [--shape <id>] [--cell px] [--density 1|2|4] \
+  [--overlays stars,aurora,grain,glimmer] [--out <dir>] [--png]
+```
+
+### 13.2 El fixture: terceros, solo en local
+
+El usuario dio un gist (`dad72f8b8bfc51d112cfe4cc27955fb0`) con tres variantes SVG
+de unicornio, **diseño de atrezzo de una película**. Se usa **solo como fixture
+de prueba local**: se descarga a `dist-motion-verify/wu18/input/` (ignorado por
+git), **no se commitea**, **no se copia a `public/`** y **no se distribuye** en
+ningún build. La comprobación falla si el nombre o el código del fixture aparecen
+en cualquier página generada o en `public/`. La superficie del laboratorio usa
+dibujos **nuestros** (`scripts/scene-src/local-inputs.mjs`) precisamente para que
+la duda de derechos no salga del directorio de evidencias; si el usuario confirma
+que tiene los derechos, otra unidad puede añadirlo como tercera entrada.
+
+Medidas del fixture (variante `line-transparent`, 2.067 B, decodificada a
+1024 × 1024):
+
+| Rejilla | Escala | Dibujado | Celdas con tinta | Fracción | Nivel medio | Máx | Pasos 0/1/2/3 | sha256 del raster (12) | PNG |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 200 × 100 | 0,08984375 | 92 × 92 | 713 | 0,0357 | 0,00949 | 0,68281 | 19452/490/58/0 | `da63f9e930ac` | 13.962 B |
+| 100 × 50 | 0,044921875 | 46 × 46 | 270 | 0,0540 | 0,00949 | 0,48436 | 4867/128/5/0 | `3669f24e1bbe` | 3.664 B |
+| 50 × 25 | 0,0224609375 | 23 × 23 | 95 | 0,0760 | 0,00949 | 0,37326 | 1224/26/0/0 | `775d68b9bde8` | 1.079 B |
+
+Otras medidas: ida y vuelta por la serialización **mismo hash** que la escena en
+vivo (`da63f9e9…`); PNG decodificado mide idéntico (nivel medio 0,00949) y JPEG
+decodifica al mismo tamaño con la misma medida dentro de 0,01. El modo `ink` da
+nivel medio 0,00949 y el `luminance` 0,4232 (paletas de 7 y 2 entradas): son dos
+instrumentos distintos. La extracción por median cut de este dibujo da solo
+**4 entradas** (`#060607`…`#0b0b0c`): un line art casi monocromo tiene una paleta
+poco profunda por naturaleza, y por eso existe la paleta con nombre.
+
+### 13.3 Overlays periódicos, medidos en el `field`
+
+Cada overlay es una función pura de `(celda, t, color base)`. Los términos
+sinusoidales tienen un período que **divide** el bucle (parpadeo de 6 s en 30 s,
+cinco ciclos) y cada deriva de retícula recorre un **número entero de wraps**
+(aurora 9 en x y 5 en y, grano 21 en y, glimmer 1 barrido). El desplazamiento se
+suma a la coordenada **antes** de que el ruido multiplique por su frecuencia, y
+`layeredNoise` escala el wrap de cada octava con esa frecuencia, que es lo que
+hace que el cierre caiga exacto en la retícula.
+
+| Overlay | Costura máx/medio (`t=0` vs 30 s) | Paso adyacente máx/medio | Celdas que cambian: costura vs adyacente |
+| --- | --- | --- | --- |
+| stars | 3,39e−15 / 5,05e−17 | 0,0390 / 0,00089 | 84 vs 88 |
+| aurora | 5,61e−15 / 1,63e−16 | 0,1088 / 0,00649 | 458 vs 512 |
+| grain | 1,34e−15 / 6,33e−17 | 0,0265 / 0,00261 | 66 vs 84 |
+| glimmer | 0 / 0 | 0,0184 / 0,00111 | 99 vs 404 |
+
+Dos avisos honestos: el overlay de aurora **necesita una paleta cromática** — con
+`--palette ink` sus colores se aproximan a grises y el PNG sale monocromo (evidencia:
+`dist-motion-verify/wu18/cli/image-scene[stars+aurora]-8px-density1.png`) mientras
+que con `--palette aurora` sale en verde/azul/violeta
+(`…/unicorn-aurora[stars+aurora]-8px-density1.png`) —, y a 200 × 100 la aurora se
+lee en **bloques de dither grandes** (~33 celdas por mancha con `scaleX = 0,06`),
+no como una cortina fina. Se dice, no se disimula.
+
+### 13.4 Comparación honesta con las escenas de la librería
+
+El usuario cree que las escenas de la librería aún se leen mejor. No se discute:
+se mide. A la misma rejilla de 200 × 100 y al mismo tamaño mostrado:
+
+| Medida | Librería `night-coast` | Nuestro unicornio convertido |
+| --- | --- | --- |
+| Entradas de paleta | **30** (20 usadas en el fotograma 0) | **7** |
+| Niveles distintos en la rejilla | n/d (4 pasos) | 136 (de 256) |
+| Reparto de pasos (0/1/2/3) | 2540 / 10311 / 6739 / 410 | 19452 / 490 / 58 / **0** |
+| Celdas planas (pares adyacentes iguales) | 0,5168 | 0,9682 |
+| fps | 15 | 12 |
+
+Es decir: **a igual tamaño, el unicornio convertido se lee más pobre y más plano
+que las escenas de la librería**, y los números lo dicen sin adornos — solo usa
+tres de los cuatro pasos, nunca el punto lleno, el 97 % de las celdas quedan
+vacías y su paleta tiene 7 entradas frente a 30. La causa principal es el sujeto
+(un dibujo de línea fina cubre el 3,57 % de las celdas, mientras una escena de
+paisaje llena el marco) y no el motor; pero el resultado a la misma rejilla es
+más escaso, y eso es un dato para la unidad de auditoría que sigue.
+`scripts/check-image-pipeline.mjs` mide ambos lados y esta sección se contrasta
+contra `dist-motion-verify/wu18/`.
+
+### 13.5 La superficie: `/lab/image`
+
+Ruta noindex que convierte dos dibujos nuestros en el build (frontmatter, mismo
+`convert()` que la CLI), embebe la escena **serializada** y ofrece los controles
+`input`, `treatment` (plain, stars, aurora, grain, glimmer, all) y `density`
+(1/2/4), con un fotograma fijo por defecto y Play para animar. Las seis
+tratamientos dan el **mismo hash** en Node y en el canvas (medido por la
+comprobación), y la página enlaza las tres rutas de laboratorio. Límites
+declarados: no hay conversión arbitraria de un fichero del usuario en el
+navegador (la conversión es en Node y el runtime dibuja la conversión embebida);
+el fit es *contain* centrado, sin recorte tipo *cover*; y el vídeo queda
+explícitamente fuera de esta unidad.

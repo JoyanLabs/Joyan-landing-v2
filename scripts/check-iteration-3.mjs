@@ -648,12 +648,15 @@ if (/@media \(prefers-reduced-motion:reduce\)\{/.test(compiledCss)) {
 const candidate = gzipSum();
 const LANDING_FROZEN_GZIP = 109818;
 const LANDING_FROZEN_DELTA = 17913; // 109818 - 91905, baseline fixture untouched
-// WU17: the engine chunk is shared by both laboratory routes, so it is a chunk
-// rather than an inline module; the lab's executable total is 34,876 B gzip
-// (library 25,256 + engine/runtime 9,508 + the two 56 B entry chunks) with no
-// inline script left on either lab page.
-const LAB_MEASURED_GZIP = 34876;
-const LAB_CAP_GZIP = 36924; // measured total + 2048 B honest margin (<= 4096 B)
+// WU18 (38,211 B): the image→dot-scene pipeline, its browser-safe core, the
+// composable overlays and the `/lab/image` route were added to the SAME engine
+// chunk, now shared by THREE laboratory routes. The chunk measures 33,296 B raw
+// / 12,787 B gzip; the lab executable is library 25,256 B + engine chunk 12,787 B
+// + three 56 B entry chunks, with 0 B of executable inline on any lab page. Cap
+// re-measured as measured + 2,048 B, the same documented margin, never a silent
+// raise.
+const LAB_MEASURED_GZIP = 38211;
+const LAB_CAP_GZIP = 40259; // measured total + 2048 B honest margin (<= 4096 B)
 const LAB_MARGIN_LIMIT = 4096;
 const LANDING_ROUTE_PAGES = ['index.html', 'en/index.html'];
 /** Every `/lab/**` page is a laboratory page; nothing else is. */

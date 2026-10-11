@@ -28,6 +28,7 @@ const metadata = {
   <main id="main" tabindex="-1" class="mx-auto max-w-5xl px-4 py-10 sm:px-6">
     <a data-lab-return data-astro-reload href="/" class="font-mono text-sm text-bone-100 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-accent">← Return to landing</a>
     <a href="/lab/shapes" class="ml-4 font-mono text-sm text-bone-100 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-accent">Shape laboratory →</a>
+    <a href="/lab/image" class="ml-4 font-mono text-sm text-bone-100 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-accent">Image laboratory →</a>
     <header class="my-10">
       <p class="font-mono text-xs uppercase tracking-widest text-plomo-400">Lab / WU13 / experimental only</p>
       <h1 class="mt-4 text-4xl tracking-tight text-bone-50 sm:text-5xl">Baked scenes. Live dots.</h1>
@@ -79,10 +80,11 @@ const metadata = {
       <p class="mt-3 max-w-prose text-sm text-plomo-400">
         Measured cost of each pane, shipped bytes at gzip level 6. The library's own bundle carries all eight library mounts
         on this page (two pieces, the six gallery scenes and this pane): <span class="font-mono">25256 B</span> gzip in one
-        chunk, so that is not a per-pane number. Our engine, our scene, the WU17 shape catalogue and its runtime
-        come to <span class="font-mono">23366 B</span> of JavaScript, shipped as one chunk shared by both laboratory
-        routes (<span class="font-mono">/lab/ascii</span> and <span class="font-mono">/lab/shapes</span>), measured at
-        <span class="font-mono">9508 B</span> gzip; WU17 replaced the single-page inline module with that shared chunk.
+        chunk, so that is not a per-pane number. Our engine, our scene, the WU17 shape catalogue, the WU18 image
+        pipeline and overlays and its runtime come to <span class="font-mono">33296 B</span> of JavaScript, shipped as
+        one chunk shared by the three laboratory routes (<span class="font-mono">/lab/ascii</span>,
+        <span class="font-mono">/lab/shapes</span> and <span class="font-mono">/lab/image</span>), measured at
+        <span class="font-mono">12787 B</span> gzip; WU17 replaced the single-page inline module with that shared chunk.
         The baked still is <span class="font-mono">41906 B</span> of PNG at 1600 × 800 and ships no script at all.
       </p>
       <div class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -108,7 +110,7 @@ const metadata = {
             Static fallback · JavaScript unavailable
           </p>
         </article>
-        <SceneCanvas scene="joyan-night-coast" variant="live" index="02 · ours · live" cost="engine + scene + catalogue + runtime: 9508 B gzip in the /lab/** chunk shared with the shape laboratory; 1600 × 800 backing store (8 px per cell)" />
+        <SceneCanvas scene="joyan-night-coast" variant="live" index="02 · ours · live" cost="engine + scene + catalogue + image pipeline + overlays + runtime: 12787 B gzip in the /lab/** chunk shared with both other laboratories; 1600 × 800 backing store (8 px per cell)" />
         <SceneCanvas scene="joyan-night-coast" variant="baked" index="03 · ours · baked" cost="the engine's own poster frame, 41906 B PNG, 1600 × 800, no JavaScript" />
       </div>
       <p class="mt-5 max-w-prose text-sm text-plomo-400">

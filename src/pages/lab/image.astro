@@ -1,0 +1,89 @@
+---
+import '~/assets/styles/tailwind.css';
+import CommonMeta from '~/components/common/CommonMeta.astro';
+import Metadata from '~/components/common/Metadata.astro';
+import Favicons from '~/components/Favicons.astro';
+import { getCanonical } from '~/utils/permalinks';
+import ImageLab from '~/components/joyan/ImageLab.astro';
+import { convert } from '../../../scripts/scene-src/from-image.mjs';
+import { LOCAL_INPUTS } from '../../../scripts/scene-src/local-inputs.mjs';
+
+const metadata = {
+  title: 'Image to dot-scene study',
+  description: 'Isolated laboratory for the image to dot-scene pipeline: a local input is converted and animated overlays are toggled.',
+  canonical: String(getCanonical('/lab/image')),
+  robots: { index: false, follow: false },
+};
+
+// The conversion happens HERE, in Node, with the same pipeline the CLI runs; the
+// component only embeds the result. The third-party fixture is never an input.
+interface ConvertedInput {
+  id: string;
+  label: string;
+  licence: string;
+  cols: number;
+  rows: number;
+  payload: string;
+  stats: { inkedCells: number; inkedFraction: number; meanLevel: number;
+    fit: { scale: number; drawnWidth: number; drawnHeight: number; margin: number } };
+  palette: string[];
+}
+const inputs: ConvertedInput[] = [];
+for (const input of LOCAL_INPUTS) {
+  const result = await convert(input.svg, {
+    cols: input.cols, rows: input.rows, mode: input.mode, colorMode: input.colorMode,
+    palette: input.palette, id: input.id, label: input.label,
+  });
+  inputs.push({
+    id: input.id, label: input.label, licence: input.licence,
+    cols: input.cols, rows: input.rows,
+    payload: JSON.stringify(result.serialized),
+    stats: result.measure.stats,
+    palette: result.palette,
+  });
+}
+// The cost line is measured, not estimated: the payload bytes are this run's.
+const payloadBytes = inputs.reduce((sum, entry) => sum + Buffer.byteLength(entry.payload), 0);
+const cost = `Measured for this build: the two converted scenes travel as data, ${payloadBytes} B of JSON in total `
+  + `(not executable JavaScript); the engine chunk stays the one both other laboratory routes already share. `
+  + `The overlays, the ladder and the palette compensation are the engine's own code, so this route adds markup and `
+  + `data, not a second engine.`;
+---
+
+<!doctype html>
+<html lang="en" dir="ltr">
+  <head>
+    <CommonMeta />
+    <Favicons />
+    <Metadata {...metadata} lang="en" />
+    <meta name="theme-color" content="#0B0B0C" />
+  </head>
+  <body class="bg-ink-950 font-sans text-bone-100 antialiased">
+  <main id="main" tabindex="-1" class="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+    <a data-lab-return data-astro-reload href="/" class="font-mono text-sm text-bone-100 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-accent">← Return to landing</a>
+    <a href="/lab/ascii" class="ml-4 font-mono text-sm text-bone-100 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-accent">ASCII comparison →</a>
+    <a href="/lab/shapes" class="ml-4 font-mono text-sm text-bone-100 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-accent">Shape laboratory →</a>
+    <header class="my-10">
+      <p class="font-mono text-xs uppercase tracking-widest text-plomo-400">Lab / WU18 / experimental only</p>
+      <h1 class="mt-4 text-4xl tracking-tight text-bone-50 sm:text-5xl">An image becomes a scene.</h1>
+      <p class="mt-5 max-w-prose text-bone-100">
+        Decode, fit with the aspect preserved, measure each cell, pass that measurement through the engine's own
+        measured coverage ladder and dither, choose or extract the palette, and emit a scene the engine draws live
+        and bakes. The overlays then supply the life: twinkling stars, aurora curtains, drifting grain and a
+        glimmer sweep, all periodic by construction.
+      </p>
+      <p class="mt-3 max-w-prose text-sm text-plomo-400">
+        The other laboratories are the library comparison (<a href="/lab/ascii" class="underline underline-offset-4">/lab/ascii</a>)
+        and the mask catalogue (<a href="/lab/shapes" class="underline underline-offset-4">/lab/shapes</a>). All three are
+        noindex, none is a product surface, and none changes the landing page.
+      </p>
+    </header>
+    <ImageLab inputs={inputs} cost={cost} defaultInput={LOCAL_INPUTS[0].id} />
+    <footer class="border-t border-hairline pt-8 text-sm text-plomo-400">
+      <p>The algorithm, the numbered recipe, the CLI flags, the licence boundary and the honest comparison against
+        the library's scenes are written up in <span class="font-mono">docs/MOTOR-ESCENAS.md</span> (Spanish) and
+        <span class="font-mono">docs/DESIGN.md</span> (English). Video is deliberately out of scope for this unit.</p>
+    </footer>
+  </main>
+  </body>
+</html>

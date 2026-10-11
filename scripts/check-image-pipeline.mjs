@@ -1,0 +1,709 @@
+#!/usr/bin/env node
+/**
+ * WU18 local acceptance — IMAGE → DOT-SCENE PIPELINE AND ANIMATED OVERLAYS.
+ * ============================================================================
+ * The user's question was "how does an image become this style", with a test
+ * input (the Blade Runner unicorn gist) and a request for animated details
+ * (twinkling stars on black, aurora colours). This file is the evidence.
+ *
+ * It is deliberately falsifiable and layered:
+ *
+ *   1. the pipeline module and its CLI exist and refuse a network URL;
+ *   2. a local fixture is decoded, fitted, measured and converted at several
+ *      grid densities, with the fit rule and the measurement rules checked as
+ *      geometry, not trusted;
+ *   3. the converted scene round-trips through its serialisation and still
+ *      rasters to the same bytes — so a scene that travels to the canvas as
+ *      data cannot drift from the one that was measured;
+ *   4. every overlay is periodic BY CONSTRUCTION: the composed field at t=0 and
+ *      t=LOOP_SECONDS is compared per cell and per channel, against an ordinary
+ *      adjacent frame step as the reference, and the wrap constants are required
+ *      to be whole numbers;
+ *   5. the `/lab/image` page embeds the exact conversion the pipeline produced
+ *      and its canvas hashes to the same bytes the Node raster does, for at
+ *      least two treatments of the same input.
+ *
+ * The third-party fixture is used LOCALLY ONLY. It is downloaded into the
+ * gitignored `dist-motion-verify/wu18/input/`, never committed and never copied
+ * into `public/`. The laboratory surface demonstrates the pipeline with
+ * drawings we author (`scripts/scene-src/local-inputs.mjs`), and this file
+ * asserts that no shipped page contains the fixture's name.
+ *
+ * Evidence goes to `dist-motion-verify/wu18/**`; `--out` writes elsewhere.
+ * Never touch `dist-motion-verify/wu13/**` … `wu17/**` (read-only input here).
+ *
+ * Usage: node scripts/check-image-pipeline.mjs [--node-only] [--out <dir>]
+ */
+import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import sharp from 'sharp';
+import { loadPlaywright } from './motion-src/render.mjs';
+
+const root = resolve(new URL('..', import.meta.url).pathname);
+const outFlag = process.argv.indexOf('--out');
+const out = resolve(root, outFlag > -1 ? process.argv[outFlag + 1] : 'dist-motion-verify/wu18');
+const nodeOnly = process.argv.includes('--node-only');
+const base = 'http://127.0.0.1:4321';
+const LAB = `${base}/lab/image`;
+const FIXTURE = resolve(root, 'dist-motion-verify/wu18/input/blade-runner-unicorn-line-transparent.svg');
+const FIXTURE_NAME = 'blade-runner-unicorn-line-transparent.svg';
+const failures = [];
+const check = (ok, message) => { if (!ok) failures.push(message); };
+const hash = (data) => createHash('sha256').update(data).digest('hex');
+const save = async (name, data) => writeFile(resolve(out, name), JSON.stringify(data, null, 2));
+await mkdir(out, { recursive: true });
+await mkdir(resolve(out, 'captures'), { recursive: true });
+await mkdir(resolve(out, 'crops'), { recursive: true });
+await mkdir(resolve(out, 'outputs'), { recursive: true });
+
+// ---------------------------------------------------------------------------
+// 0. Load the modules gracefully: on a tree without them this run must REPORT
+//    the missing surface instead of crashing on the import.
+// ---------------------------------------------------------------------------
+let pipeline;
+let fromImage;
+let overlays;
+let engine;
+let localInputs;
+let loadError = '';
+try {
+  pipeline = await import(new URL('./scene-src/image-pipeline.mjs', import.meta.url));
+  overlays = await import(new URL('./scene-src/overlays.mjs', import.meta.url));
+  fromImage = await import(new URL('./scene-src/from-image.mjs', import.meta.url));
+  engine = await import(new URL('./scene-src/engine.mjs', import.meta.url));
+  localInputs = await import(new URL('./scene-src/local-inputs.mjs', import.meta.url));
+} catch (error) {
+  loadError = error.message;
+}
+const hasPipeline = Boolean(pipeline && overlays && fromImage && engine);
+check(hasPipeline, `the WU18 pipeline modules must exist and import: ${loadError || 'ok'}`);
+
+let library;
+try {
+  const piece = await import('ascii.rest/pieces/night-coast');
+  library = { frame: piece.default(), meta: piece.meta };
+} catch (error) {
+  check(false, `the library comparison scene must be importable for the honest comparison: ${error.message}`);
+}
+
+if (!hasPipeline) {
+  await save('red.json', { failures, stage: 'modules-missing' });
+  console.log(JSON.stringify({ mode: 'RED', failures }, null, 2));
+  process.exit(1);
+}
+
+const { renderFrame, rasterize, DELIVERY_CELL } = engine;
+const { IMAGE_PALETTES, MEASURE_MODES, COLOR_MODES, PIPELINE_RECIPE, extractPalette, fitGrid,
+  measureCells, convertRgba, serializeScene, sceneFromSerialized, imagePalette } = pipeline;
+const { OVERLAY_IDS, OVERLAY_DEFAULTS, withOverlays, applyTreatment } = overlays;
+const { LOCAL_INPUTS, LAB_TREATMENTS } = localInputs;
+
+// --- contract surface -------------------------------------------------------
+check(Array.isArray(MEASURE_MODES) && MEASURE_MODES.includes('ink') && MEASURE_MODES.includes('luminance'),
+  'the pipeline must declare its measurement modes explicitly (ink, luminance)');
+check(Array.isArray(COLOR_MODES) && COLOR_MODES.includes('levels') && COLOR_MODES.includes('rgb'),
+  'the pipeline must declare its colour modes explicitly (levels, rgb)');
+check(Array.isArray(PIPELINE_RECIPE) && PIPELINE_RECIPE.length >= 8,
+  `the pipeline must publish its numbered recipe, saw ${PIPELINE_RECIPE?.length} step(s)`);
+for (const fn of ['decodeImage', 'convert', 'decodeImage']) {
+  check(typeof fromImage[fn] === 'function', `from-image.mjs must export ${fn}`);
+}
+check(typeof fromImage.assertLocalInput === 'function',
+  'from-image.mjs must expose the local-only input guard it applies');
+check(typeof fromImage.CLI_USAGE === 'string' && /--in/.test(fromImage.CLI_USAGE) && /--palette/.test(fromImage.CLI_USAGE)
+  && /--overlays/.test(fromImage.CLI_USAGE) && /--mode/.test(fromImage.CLI_USAGE),
+  'the CLI must document its flags (in, mode, palette, overlays, ...)');
+check(IMAGE_PALETTES.length >= 3 && IMAGE_PALETTES.every((entry) => entry.palette.length >= 4
+  && entry.ground === 0 && /^#[0-9a-f]{6}$/i.test(entry.palette[0])),
+  'every named image palette must declare a ground at index 0 and at least four entries');
+check(/aurora/i.test(IMAGE_PALETTES.map((entry) => entry.id).join(',')),
+  'an aurora palette must exist: the user asked for aurora colours');
+
+// A network URL must be refused before any decode happens.
+let refused = false;
+try {
+  fromImage.assertLocalInput('https://example.com/unicorn.svg');
+} catch {
+  refused = true;
+}
+check(refused, 'the pipeline must refuse a network URL instead of decoding it');
+
+// Determinism source guard: the pure modules must not reach for a clock or RNG.
+const pipelineSource = await readFile(resolve(root, 'scripts/scene-src/image-pipeline.mjs'), 'utf8');
+const overlaySource = await readFile(resolve(root, 'scripts/scene-src/overlays.mjs'), 'utf8');
+for (const [name, source] of [['image-pipeline.mjs', pipelineSource], ['overlays.mjs', overlaySource]]) {
+  check(!/Math\.random\s*\(/.test(source), `${name} must not use Math.random`);
+  check(!/Date\.now\s*\(|performance\.now\s*\(/.test(source), `${name} must not read a clock`);
+}
+// Periodicity guard, in the constants themselves: wraps and periods are whole.
+for (const [id, params] of Object.entries(OVERLAY_DEFAULTS)) {
+  check(OVERLAY_IDS.includes(id), `OVERLAY_DEFAULTS must only describe catalogue overlays, saw ${id}`);
+  for (const key of ['wrapsX', 'wrapsY', 'sweeps', 'period']) {
+    if (key in params) {
+      check(Number.isInteger(params[key]) && params[key] > 0,
+        `${id}.${key} must be a whole positive number so the loop closes by construction, saw ${params[key]}`);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 1. The fixture: decode, fit, measure, convert. The fixture is EVIDENCE ONLY.
+// ---------------------------------------------------------------------------
+const fixture = { path: `dist-motion-verify/wu18/input/${FIXTURE_NAME}`, label: FIXTURE_NAME, exists: existsSync(FIXTURE) };
+if (!fixture.exists) {
+  check(false, `the local fixture is missing at ${fixture.path} (run the documented download step)`);
+}
+const densities = [1, 2, 4];
+const grids = [];
+let modeEvidence = null;
+let extractEvidence = null;
+let roundTrip = null;
+let rgbEvidence = null;
+let pngEvidence = null;
+let jpegEvidence = null;
+if (fixture.exists) {
+  const decoded = await fromImage.decodeImage(FIXTURE);
+  fixture.decoded = { width: decoded.width, height: decoded.height, format: decoded.source.format,
+    bytes: decoded.source.bytes, rasterised: decoded.rasterised };
+  check(decoded.source.format === 'svg', `the fixture is an SVG, saw ${decoded.source.format}`);
+  check(decoded.width > 0 && decoded.height > 0, 'the fixture must rasterise to real pixels');
+
+  for (const density of densities) {
+    const converted = convertRgba(decoded.rgba, decoded.width, decoded.height, {
+      cols: 200 / density, rows: 100 / density, mode: 'ink', colorMode: 'levels', palette: 'ink',
+      id: `unicorn-d${density}`,
+    });
+    const scene = converted.scene;
+    const frame = renderFrame(scene, scene.posterFrame, { dither: 'bayer4', density: 1 });
+    const raster = rasterize(frame, scene, DELIVERY_CELL);
+    const histogram = stepHistogram(frame);
+    const png = await sharp(Buffer.from(raster), { raw: { width: frame.cols * DELIVERY_CELL, height: frame.rows * DELIVERY_CELL, channels: 4 } })
+      .png({ compressionLevel: 9, adaptiveFiltering: false }).toBuffer();
+    const name = `unicorn-d${density}-cell${DELIVERY_CELL}.png`;
+    await writeFile(resolve(out, 'outputs', name), png);
+    const entry = {
+      density, cols: scene.cols, rows: scene.rows,
+      fit: converted.measure.stats.fit,
+      stats: converted.measure.stats,
+      histogram,
+      raster: { width: frame.cols * DELIVERY_CELL, height: frame.rows * DELIVERY_CELL,
+        sha256: hash(Buffer.from(raster)) },
+      png: { name, bytes: png.length, sha256: hash(png) },
+    };
+    grids.push(entry);
+  }
+  // Fit rule as geometry: aspect preserved and the art inside the margin.
+  const { fit, measure, scene, serialized } = convertRgba(decoded.rgba, decoded.width, decoded.height, {
+    cols: 200, rows: 100, mode: 'ink', colorMode: 'levels', palette: 'ink', id: 'unicorn-200x100' });
+  const aspectIn = decoded.width / decoded.height;
+  const aspectOut = fit.drawnWidth / fit.drawnHeight;
+  check(Math.abs(aspectIn - aspectOut) < 1e-12,
+    `the fit must preserve the aspect ratio exactly: ${aspectIn} in vs ${aspectOut} out`);
+  check(fit.offsetX >= fit.margin * fit.cols - 1e-9 && fit.offsetY >= fit.margin * fit.rows - 1e-9,
+    `the fitted art must stay inside the declared margin, saw offsets ${fit.offsetX}/${fit.offsetY} `
+    + `for margin ${fit.margin}`);
+  check(fit.drawnWidth <= (1 - 2 * fit.margin) * fit.cols + 1e-9
+    && fit.drawnHeight <= (1 - 2 * fit.margin) * fit.rows + 1e-9,
+  'the drawn art must not exceed the usable grid box');
+  // The art's own bounding box, measured from the levels, must sit inside the fit box.
+  const bbox = levelBBox(measure.levels, scene.cols, scene.rows);
+  check(bbox.minX >= Math.floor(fit.offsetX) - 1 && bbox.maxX <= Math.ceil(fit.offsetX + fit.drawnWidth)
+    && bbox.minY >= Math.floor(fit.offsetY) - 1 && bbox.maxY <= Math.ceil(fit.offsetY + fit.drawnHeight),
+  `the measured ink must land inside the fitted box, saw bbox ${JSON.stringify(bbox)}`);
+
+  // Round trip: the serialised scene must raster to the same bytes as the live one.
+  const restored = sceneFromSerialized(serializeScene(scene));
+  const liveFrame = renderFrame(scene, scene.posterFrame);
+  const restoredFrame = renderFrame(restored, restored.posterFrame);
+  const liveHash = hash(Buffer.from(rasterize(liveFrame, scene, DELIVERY_CELL)));
+  const restoredHash = hash(Buffer.from(rasterize(restoredFrame, restored, DELIVERY_CELL)));
+  check(liveHash === restoredHash,
+    `a serialised converted scene must raster identically: ${liveHash} vs ${restoredHash}`);
+  roundTrip = { liveHash, restoredHash, levelsBytes: serialized.levels.length, agrees: liveHash === restoredHash };
+
+  // PNG in and out: an encoded PNG must measure to the same cells as its pixels.
+  const cell8 = await sharp(Buffer.from(decoded.rgba), { raw: { width: decoded.width, height: decoded.height, channels: 4 } })
+    .png().toBuffer();
+  const viaPng = await fromImage.decodeImage(cell8);
+  const pngMeasured = measureCells(viaPng.rgba, viaPng.width, viaPng.height,
+    fitGrid(viaPng.width, viaPng.height, 200, 100, 0.04), 'ink', [0, 0, 0]);
+  pngEvidence = { format: viaPng.source.format, meanLevel: pngMeasured.stats.meanLevel,
+    meanLevelFromSvg: measure.stats.meanLevel,
+    agrees: Math.abs(pngMeasured.stats.meanLevel - measure.stats.meanLevel) < 1e-4 };
+  check(pngEvidence.agrees,
+    `PNG decode must measure like the source pixels: ${pngEvidence.meanLevel} vs ${pngEvidence.meanLevelFromSvg}`);
+
+  // JPEG cannot carry alpha, so the evidence uses a version flattened onto
+  // white (transparent pixels become the ground the format can hold) and requires
+  // it to open at the same size and measure close to the source. A JPEG made from
+  // the raw RGBA would fill the transparent ground with black and is therefore
+  // NOT a fair test of the decoder; that limit is documented, not hidden.
+  const jpegBytes = await sharp(Buffer.from(decoded.rgba), { raw: { width: decoded.width, height: decoded.height, channels: 4 } })
+    .flatten({ background: '#ffffff' }).jpeg({ quality: 92 }).toBuffer();
+  const viaJpeg = await fromImage.decodeImage(jpegBytes);
+  const jpegMeasured = measureCells(viaJpeg.rgba, viaJpeg.width, viaJpeg.height,
+    fitGrid(viaJpeg.width, viaJpeg.height, 200, 100, 0.04), 'ink', [0, 0, 0]);
+  jpegEvidence = { format: viaJpeg.source.format, width: viaJpeg.width, height: viaJpeg.height,
+    bytes: jpegBytes.length, meanLevel: jpegMeasured.stats.meanLevel,
+    meanLevelFromSvg: measure.stats.meanLevel, flattenedOver: '#ffffff',
+    agrees: viaJpeg.source.format === 'jpeg' && viaJpeg.width === decoded.width
+      && Math.abs(jpegMeasured.stats.meanLevel - measure.stats.meanLevel) < 0.01 };
+  check(jpegEvidence.agrees,
+    `JPEG decode must open at the decoded size and measure close to the source: ${JSON.stringify(jpegEvidence)}`);
+
+  // The two measurement modes are different instruments, not aliases.
+  const lum = convertRgba(decoded.rgba, decoded.width, decoded.height, {
+    cols: 200, rows: 100, mode: 'luminance', colorMode: 'rgb', palette: 'extract', paletteCount: 8 });
+  const inkRaster = rasterize(renderFrame(scene, 0), scene, DELIVERY_CELL);
+  const lumRaster = rasterize(renderFrame(lum.scene, 0), lum.scene, DELIVERY_CELL);
+  modeEvidence = {
+    ink: { meanLevel: measure.stats.meanLevel, inkedFraction: measure.stats.inkedFraction,
+      paletteDepth: scene.palette.length, raster: hash(Buffer.from(inkRaster)) },
+    luminance: { meanLevel: lum.measure.stats.meanLevel, inkedFraction: lum.measure.stats.inkedFraction,
+      paletteDepth: lum.scene.palette.length, raster: hash(Buffer.from(lumRaster)) },
+  };
+  check(modeEvidence.ink.meanLevel !== modeEvidence.luminance.meanLevel && modeEvidence.ink.raster !== modeEvidence.luminance.raster,
+    'the ink and luminance modes must measure (and draw) differently');
+
+  // Colour mode: `rgb` carries the image's own colour, `levels` is the ladder.
+  const rgb = convertRgba(decoded.rgba, decoded.width, decoded.height, {
+    cols: 200, rows: 100, mode: 'ink', colorMode: 'rgb', palette: 'ink' });
+  const rgbRaster = rasterize(renderFrame(rgb.scene, 0), rgb.scene, DELIVERY_CELL);
+  rgbEvidence = { levels: hash(Buffer.from(inkRaster)), rgb: hash(Buffer.from(rgbRaster)),
+    differs: hash(Buffer.from(inkRaster)) !== hash(Buffer.from(rgbRaster)) };
+  check(rgbEvidence.differs, 'the rgb colour mode must draw different bytes from the levels mode');
+
+  // Extracted palette: deterministic, sorted by tone, ground darkest.
+  const first = extractPalette(measure.rgb, 8);
+  const second = extractPalette(measure.rgb, 8);
+  const tones = first.map((hex) => toneOf(hex));
+  check(JSON.stringify(first) === JSON.stringify(second), 'palette extraction must be deterministic');
+  check(first.length >= 4 && first.every((hex) => /^#[0-9a-f]{6}$/i.test(hex)),
+    `the extracted palette must be #rrggbb entries, saw ${JSON.stringify(first)}`);
+  check(tones.every((value, i) => i === 0 || value >= tones[i - 1]),
+    `the extracted palette must be ordered by tone (ground darkest), saw ${JSON.stringify(tones)}`);
+  extractEvidence = { palette: first, depth: first.length, tones };
+
+  // Baked still == the engine's poster frame, for the converted scene.
+  const posterFrame = renderFrame(scene, scene.posterFrame);
+  const posterRaster = Buffer.from(rasterize(posterFrame, scene, DELIVERY_CELL));
+  const bake = await sharp(posterRaster, { raw: { width: posterFrame.cols * DELIVERY_CELL, height: posterFrame.rows * DELIVERY_CELL, channels: 4 } })
+    .png({ compressionLevel: 9, adaptiveFiltering: false }).toBuffer();
+  const bakeRaw = await sharp(bake).ensureAlpha().raw().toBuffer();
+  check(hash(bakeRaw) === hash(posterRaster),
+    'a baked converted scene must be exactly the engine raster of its poster frame');
+  fixture.bakeEqualsPoster = hash(bakeRaw) === hash(posterRaster);
+}
+
+function stepHistogram(frame) {
+  const counts = [0, 0, 0, 0];
+  for (const step of frame.steps) counts[step] += 1;
+  const pairs = { same: 0, total: 0 };
+  for (let y = 0; y < frame.rows; y++) {
+    for (let x = 0; x + 1 < frame.cols; x++) {
+      pairs.total += 1;
+      if (frame.steps[y * frame.cols + x] === frame.steps[y * frame.cols + x + 1]) pairs.same += 1;
+    }
+  }
+  return { counts, cells: frame.cols * frame.rows, flatRunFraction: pairs.same / pairs.total };
+}
+function levelBBox(levels, cols, rows) {
+  let minX = cols;
+  let maxX = -1;
+  let minY = rows;
+  let maxY = -1;
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      if (levels[y * cols + x] > 0.05) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  return { minX, maxX, minY, maxY };
+}
+function toneOf(hex) {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+// ---------------------------------------------------------------------------
+// 2. Overlays: periodic on the FIELD, deterministic, composable, effective.
+// ---------------------------------------------------------------------------
+const overlayEvidence = [];
+let baseScene = null;
+if (fixture.exists) {
+  baseScene = convertRgba((await fromImage.decodeImage(FIXTURE)).rgba, 1024, 1024, {
+    cols: 160, rows: 80, mode: 'ink', colorMode: 'levels', palette: 'ink', id: 'unicorn-160x80' }).scene;
+  const channelsOf = (value) => (typeof value === 'number' ? [value, value, value] : value);
+  const fieldDelta = (scene, t1, t2) => {
+    let max = 0;
+    let sum = 0;
+    let count = 0;
+    for (let y = 0; y < scene.rows; y++) {
+      for (let x = 0; x < scene.cols; x++) {
+        const a = channelsOf(scene.field(x, y, t1));
+        const b = channelsOf(scene.field(x, y, t2));
+        for (let c = 0; c < 3; c++) {
+          const delta = Math.abs(a[c] - b[c]);
+          if (delta > max) max = delta;
+          sum += delta;
+          count += 1;
+        }
+      }
+    }
+    return { max, mean: sum / count, channels: count };
+  };
+  const loop = baseScene.cycleFrames / baseScene.fps;
+  const changedCells = (a, b) => {
+    let changed = 0;
+    for (let i = 0; i < a.steps.length; i++) if (a.steps[i] !== b.steps[i] || a.indices[i] !== b.indices[i]) changed += 1;
+    return changed;
+  };
+  const baseHash = hash(Buffer.from(renderFrame(baseScene, 0).steps));
+  for (const id of OVERLAY_IDS) {
+    const scene = withOverlays(baseScene, [id]);
+    const adjacent = [0, 7, 17].map((frame) => fieldDelta(scene, frame / scene.fps, (frame + 1) / scene.fps));
+    const baseline = { max: Math.max(...adjacent.map((d) => d.max)), mean: Math.max(...adjacent.map((d) => d.mean)) };
+    const seam = fieldDelta(scene, 0, loop);
+    const twice = hash(Buffer.from(renderFrame(scene, 5).steps)) === hash(Buffer.from(renderFrame(scene, 5).steps));
+    const differsFromBase = hash(Buffer.from(renderFrame(scene, 0).steps)) !== baseHash;
+    const renderedSeam = changedCells(renderFrame(scene, scene.cycleFrames - 1), renderFrame(scene, 0));
+    const renderedAdjacent = Math.max(...[0, 7, 17, 40, 120, 200, 300].map((frame) =>
+      changedCells(renderFrame(scene, frame), renderFrame(scene, frame + 1))));
+    const entry = { id, seam, baseline, twice, differsFromBase, renderedSeam, renderedAdjacent,
+      wraps: OVERLAY_DEFAULTS[id] };
+    overlayEvidence.push(entry);
+    check(seam.max <= 1e-6 && seam.mean <= 1e-6,
+      `${id}: the composed field must be periodic over the loop (seam max ${seam.max.toExponential(2)} `
+      + `/ mean ${seam.mean.toExponential(2)})`);
+    check(seam.max <= baseline.max + 1e-9,
+      `${id}: the seam must be no worse than an ordinary frame step (${seam.max.toExponential(2)} vs ${baseline.max})`);
+    check(renderedSeam <= renderedAdjacent,
+      `${id}: the rendered loop must close like an ordinary step (${renderedSeam} vs ${renderedAdjacent} cells)`);
+    check(twice, `${id}: the same frame rendered twice must be identical`);
+    check(differsFromBase, `${id}: the overlay must actually change the base scene`);
+  }
+  // Composition: two overlays contribute and stay deterministic.
+  const composed = withOverlays(baseScene, ['stars', 'aurora']);
+  const composedAgain = withOverlays(baseScene, ['aurora', 'stars']);
+  check(composed.overlays.join('+') === 'stars+aurora' && composedAgain.overlays.join('+') === 'stars+aurora',
+    'composition order must be fixed by the catalogue, not by the caller');
+  check(hash(Buffer.from(renderFrame(composed, 3).steps)) !== hash(Buffer.from(renderFrame(withOverlays(baseScene, ['stars']), 3).steps)),
+    'a composed overlay set must differ from either overlay alone');
+  check(withOverlays(baseScene, []).overlays === undefined,
+    'an empty overlay set must leave the scene untouched');
+}
+
+// ---------------------------------------------------------------------------
+// 3. Honest comparison against the library, measured, not asserted.
+// ---------------------------------------------------------------------------
+let comparison = null;
+if (library && baseScene) {
+  const color = new Uint8Array(library.meta.cols * library.meta.rows);
+  const text = library.frame(0, { color });
+  const used = new Set([...color]);
+  const librarySteps = { ' ': 0, '·': 0, '•': 0, '●': 0 };
+  for (const ch of text) if (ch in librarySteps) librarySteps[ch] += 1;
+  const convertedFrame = renderFrame(baseScene, 0);
+  const ours = stepHistogram(convertedFrame);
+  comparison = {
+    library: { paletteDepth: library.meta.palette.length, paletteUsed: used.size,
+      ground: library.meta.ground, fps: library.meta.fps,
+      steps: librarySteps, cells: library.meta.cols * library.meta.rows },
+    converted: { paletteDepth: baseScene.palette.length, paletteDeclared: baseScene.palette.length,
+      distinctLevels: new Set([...baseScene.converted.levels8]).size,
+      steps: { 0: ours.counts[0], 1: ours.counts[1], 2: ours.counts[2], 3: ours.counts[3] },
+      flatRunFraction: ours.flatRunFraction, cells: ours.cells },
+  };
+  check(comparison.library.paletteDepth > comparison.converted.paletteDepth,
+    'the comparison must record the library palette depth honestly, including when it is larger');
+}
+
+// ---------------------------------------------------------------------------
+// 4. The shipped pages: the fixture never ships, the lab markup never leaks.
+// ---------------------------------------------------------------------------
+let leaked = [];
+for (const dir of ['dist']) {
+  const walk = async (path) => {
+    const entries = await readdir(path, { withFileTypes: true });
+    for (const entry of entries) {
+      const full = resolve(path, entry.name);
+      if (entry.isDirectory()) await walk(full);
+      else if (full.endsWith('.html')) {
+        const html = await readFile(full, 'utf8');
+        if (html.includes('blade-runner-unicorn') || html.includes('280,653')) leaked.push(full.slice(root.length + 1));
+      }
+    }
+  };
+  if (existsSync(resolve(root, dir))) await walk(resolve(root, dir));
+}
+check(leaked.length === 0, `the third-party fixture must never ship: ${leaked.join(', ')}`);
+let publicLeak = [];
+const publicDir = resolve(root, 'public');
+if (existsSync(publicDir)) {
+  const walkPublic = async (path) => {
+    for (const entry of await readdir(path, { withFileTypes: true })) {
+      const full = resolve(path, entry.name);
+      if (entry.isDirectory()) await walkPublic(full);
+      else if (/unicorn|blade/i.test(full)) publicLeak.push(full.slice(root.length + 1));
+    }
+  };
+  await walkPublic(publicDir);
+}
+check(publicLeak.length === 0, `the fixture must never be copied into public/: ${publicLeak.join(', ')}`);
+
+let imageHtml = '';
+try {
+  imageHtml = await readFile(resolve(root, 'dist/lab/image/index.html'), 'utf8');
+} catch (error) {
+  check(false, `the built image laboratory is missing at dist/lab/image/index.html: ${error.message}`);
+}
+if (imageHtml) {
+  check(/noindex/.test(imageHtml), 'the image laboratory must stay noindex');
+  check(imageHtml.includes('data-image-lab'), 'the image laboratory must mount the live control surface');
+  for (const control of ['input', 'treatment', 'density']) {
+    check(imageHtml.includes(`data-image-control="${control}"`),
+      `the image laboratory must expose a live ${control} control`);
+  }
+  check(imageHtml.includes('data-image-toggle'), 'the image laboratory must offer a Play control');
+  check(imageHtml.includes('data-image-readout'), 'the image laboratory must show a measured readout');
+  check((imageHtml.match(/data-image-view/g) ?? []).length >= 3,
+    'the image laboratory must show its result at several widths');
+  check(/href="\/lab\/ascii"/.test(imageHtml) && /href="\/lab\/shapes"/.test(imageHtml),
+    'the image laboratory must link to the ASCII and shape laboratories');
+  check(!/blade-runner-unicorn/i.test(imageHtml) && !/280,653/.test(imageHtml),
+    'the shipped laboratory must not embed the third-party fixture source (naming it in the licence note is required)');
+  // The licence note must be present in the page, in plain words.
+  check(/licen|third.party|rights/i.test(imageHtml),
+    'the image laboratory must state the third-party fixture licence limitation');
+}
+let asciiHtml = '';
+let shapeHtml = '';
+try { asciiHtml = await readFile(resolve(root, 'dist/lab/ascii/index.html'), 'utf8'); } catch { /* reported elsewhere */ }
+try { shapeHtml = await readFile(resolve(root, 'dist/lab/shapes/index.html'), 'utf8'); } catch { /* reported elsewhere */ }
+check(/href="\/lab\/image"/.test(asciiHtml), 'the ASCII laboratory must link to the image laboratory');
+check(/href="\/lab\/image"/.test(shapeHtml), 'the shape laboratory must link to the image laboratory');
+if (grids.length && imageHtml) {
+  const pageDefault = await fromImage.convert(LOCAL_INPUTS[0].svg, {
+    cols: LOCAL_INPUTS[0].cols, rows: LOCAL_INPUTS[0].rows, mode: LOCAL_INPUTS[0].mode,
+    colorMode: LOCAL_INPUTS[0].colorMode, palette: LOCAL_INPUTS[0].palette,
+    id: LOCAL_INPUTS[0].id, label: LOCAL_INPUTS[0].label,
+  });
+  check(imageHtml.includes(pageDefault.measure.stats.inkedFraction.toFixed(4)),
+    `the laboratory copy must carry its own default input's measured inked fraction `
+    + `${pageDefault.measure.stats.inkedFraction.toFixed(4)}`);
+  check(imageHtml.includes(String(pageDefault.measure.stats.inkedCells)),
+    `the laboratory copy must carry its own default input's measured inked cell count `
+    + `${pageDefault.measure.stats.inkedCells}`);
+  check(imageHtml.includes(String(pageDefault.palette.length)),
+    `the laboratory copy must carry its own default input's palette depth ${pageDefault.palette.length}`);
+}
+
+// ---------------------------------------------------------------------------
+// 5. Docs: the recipe and the licence note, with the measured numbers.
+// ---------------------------------------------------------------------------
+let motorDoc = '';
+let designDoc = '';
+try { motorDoc = await readFile(resolve(root, 'docs/MOTOR-ESCENAS.md'), 'utf8'); } catch { /* reported by the assert below */ }
+try { designDoc = await readFile(resolve(root, 'docs/DESIGN.md'), 'utf8'); } catch { /* reported by the assert below */ }
+check(/image|imagen/i.test(motorDoc) && /WU18/.test(motorDoc),
+  'MOTOR-ESCENAS must document the WU18 image pipeline');
+check((motorDoc.match(/^\d+\.\s/gm) ?? []).length >= 8,
+  'MOTOR-ESCENAS must state the pipeline as a numbered recipe');
+check(/fixture/i.test(motorDoc) && /no se distribuye|no se publica|never shipped|solo como fixture|sólo como fixture/i.test(motorDoc),
+  'MOTOR-ESCENAS must state the fixture licence boundary plainly');
+check(/WU18/.test(designDoc), 'DESIGN must record the WU18 unit');
+check(/licen|prop design|third.party|terceros/i.test(designDoc),
+  'DESIGN must record the third-party fixture licence note');
+
+const spanish = (value, digits = 4) => Number(value).toFixed(digits).replace('.', ',');
+if (grids.length) {
+  const brief = grids.find((entry) => entry.density === 1);
+  check(motorDoc.includes(spanish(brief.stats.inkedFraction, 4)),
+    `MOTOR-ESCENAS must state the measured inked fraction ${spanish(brief.stats.inkedFraction, 4)} of the fixture`);
+  check(designDoc.includes(String(fixture.decoded?.width ?? '')),
+    `DESIGN must state the fixture decoded size ${fixture.decoded?.width}`);
+}
+if (comparison) {
+  check(designDoc.includes(String(comparison.library.paletteDepth)),
+    `DESIGN must state the library palette depth ${comparison.library.paletteDepth} in the honest comparison`);
+}
+
+await save('node', { failures, fixture, grids, modeEvidence, extractEvidence, roundTrip, rgbEvidence,
+  pngEvidence, jpegEvidence, overlayEvidence, comparison, recipe: PIPELINE_RECIPE });
+
+if (nodeOnly) {
+  console.log(JSON.stringify({ mode: failures.length ? 'RED' : 'GREEN', nodeOnly, failures: failures.length,
+    grids: grids.length, overlays: overlayEvidence.length }, null, 2));
+  await save(failures.length ? 'red.json' : 'green.json', { failures, fixture, grids, modeEvidence,
+    extractEvidence, roundTrip, rgbEvidence, pngEvidence, jpegEvidence, overlayEvidence, comparison });
+  process.exit(failures.length ? 1 : 0);
+}
+
+// ---------------------------------------------------------------------------
+// 6. The live surface: the SAME conversion on a canvas, for two treatments.
+// ---------------------------------------------------------------------------
+const { chromium } = await loadPlaywright();
+const browser = await chromium.launch();
+const live = [];
+const treatments = [];
+const motion = [];
+const displayPitch = [];
+try {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1200 }, reducedMotion: 'reduce' });
+  const page = await context.newPage();
+  const errors = [];
+  const external = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
+  page.on('requestfailed', (request) => errors.push(`${request.url()}: ${request.failure()?.errorText}`));
+  await page.route('**/*', (route) => {
+    const url = route.request().url();
+    if (!url.startsWith(base) && !url.startsWith('data:') && !url.startsWith('blob:')) {
+      external.push(url);
+      return route.abort();
+    }
+    return route.continue();
+  });
+  const response = await page.goto(LAB, { waitUntil: 'networkidle' });
+  check(response.status() === 200, `image laboratory HTTP ${response.status()}`);
+  check(await page.locator('[data-image-lab]').count() === 1, 'exactly one image laboratory mount required');
+  check(await page.locator('script[type="application/json"][data-image-scene]').count() === LOCAL_INPUTS.length,
+    `the page must embed one converted scene per authored input (${LOCAL_INPUTS.length})`);
+
+  const hashCanvas = (selector) => page.locator(selector).first().evaluate(async (canvas) => {
+    const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    return { hash: [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join(''),
+      width: canvas.width, height: canvas.height };
+  });
+  const setControl = async (name, value) => {
+    await page.selectOption(`[data-image-lab] [data-image-control="${name}"]`, value);
+    await page.waitForTimeout(200);
+  };
+
+  // The embedded payload must be the exact serialisation the pipeline produces.
+  for (const input of LOCAL_INPUTS) {
+    const embedded = await page.locator(`script[data-image-scene="${input.id}"]`).textContent();
+    const converted = await fromImage.convert(input.svg, {
+      cols: input.cols, rows: input.rows, mode: input.mode, colorMode: input.colorMode,
+      palette: input.palette, id: input.id, label: input.label,
+    });
+    const same = JSON.stringify(JSON.parse(embedded)) === JSON.stringify(converted.serialized);
+    check(same, `the page's embedded ${input.id} payload must be the pipeline's own serialisation`);
+    live.push({ input: input.id, embeddedAgrees: same, levels: converted.serialized.levels.length });
+  }
+
+  // Equality: canvas bytes == Node raster, per treatment, for the first input.
+  for (const treatment of LAB_TREATMENTS) {
+    await setControl('input', LOCAL_INPUTS[0].id);
+    await setControl('density', '1');
+    await setControl('treatment', treatment.id);
+    const embedded = JSON.parse(await page.locator(`script[data-image-scene="${LOCAL_INPUTS[0].id}"]`).textContent());
+    const scene = applyTreatment(sceneFromSerialized(embedded), treatment, IMAGE_PALETTES);
+    const frame = renderFrame(scene, scene.posterFrame, { dither: 'bayer4', density: 1 });
+    const raster = rasterize(frame, scene, DELIVERY_CELL);
+    const expected = { hash: hash(Buffer.from(raster)), width: frame.cols * DELIVERY_CELL, height: frame.rows * DELIVERY_CELL };
+    const measured = await hashCanvas('[data-image-lab] canvas[data-image-view][data-image-cell="8"]');
+    const entry = { treatment: treatment.id, overlays: treatment.overlays, palette: treatment.palette,
+      expected: expected.hash, measured: measured.hash, agrees: expected.hash === measured.hash,
+      width: measured.width, height: measured.height };
+    treatments.push(entry);
+    check(entry.agrees, `${treatment.id}: Node raster and live canvas must agree (${expected.hash} != ${measured.hash})`);
+    check(measured.width === expected.width && measured.height === expected.height,
+      `${treatment.id}: canvas must be ${expected.width}x${expected.height}, saw ${measured.width}x${measured.height}`);
+  }
+  // Determinism of the live canvas.
+  await setControl('treatment', 'stars');
+  const first = await hashCanvas('[data-image-lab] canvas[data-image-view][data-image-cell="8"]');
+  const second = await hashCanvas('[data-image-lab] canvas[data-image-view][data-image-cell="8"]');
+  check(first.hash === second.hash, 'the live image canvas must repeat identically');
+
+  // The measured readout must describe the current selection (palette + overlays).
+  const readout = (await page.locator('[data-image-readout]').innerText()).trim();
+  check(/palette|overlay|measured/i.test(readout), `the readout must describe the live selection, saw "${readout}"`);
+
+  // Screenshots of the two treatments the user asked for.
+  for (const treatment of ['stars', 'aurora']) {
+    await setControl('treatment', treatment);
+    await page.locator('[data-image-lab] canvas[data-image-view][data-image-cell="8"]').first()
+      .screenshot({ path: resolve(out, 'captures', `1440-${treatment}.png`) });
+    const dataUrl = await page.locator('[data-image-lab] canvas[data-image-view][data-image-cell="8"]')
+      .first().evaluate((canvas) => canvas.toDataURL('image/png'));
+    await writeFile(resolve(out, 'crops', `canvas-${treatment}.png`), Buffer.from(dataUrl.split(',')[1], 'base64'));
+  }
+  await setControl('treatment', 'stars');
+  await page.locator('[data-image-lab]').screenshot({ path: resolve(out, 'captures/1440-panel.png') });
+  await page.screenshot({ path: resolve(out, 'captures/1440-full.png'), fullPage: true });
+  check(external.length === 0, `no external request allowed, saw ${external.join(', ')}`);
+  check(errors.length === 0, `browser errors: ${errors.join('; ')}`);
+
+  // Zoom crops of the live canvas at two densities, for pitch judgement.
+  for (const density of [1, 4]) {
+    await setControl('density', String(density));
+    const dataUrl = await page.locator('[data-image-lab] canvas[data-image-view][data-image-cell="8"]')
+      .first().evaluate((canvas) => canvas.toDataURL('image/png'));
+    const buffer = Buffer.from(dataUrl.split(',')[1], 'base64');
+    await writeFile(resolve(out, 'crops', `live-density${density}.png`), buffer);
+  }
+  await setControl('density', '1');
+
+  // Still by default, Play animates, Pause stops — in a normal-motion context.
+  const normalContext = await browser.newContext({ viewport: { width: 1440, height: 1200 } });
+  const normal = await normalContext.newPage();
+  await normal.goto(LAB, { waitUntil: 'networkidle' });
+  const readIndex = () => normal.locator('[data-image-lab]').evaluate((host) => Number(host.dataset.imageFrame));
+  const initialIndex = await readIndex();
+  await normal.waitForTimeout(700);
+  const stillIndex = await readIndex();
+  check(initialIndex === 0 && stillIndex === initialIndex,
+    `normal motion: the image laboratory must load as a still at the poster frame 0, saw ${initialIndex} then ${stillIndex}`);
+  const stillLabel = (await normal.locator('[data-image-toggle]').innerText()).trim();
+  check(/play/i.test(stillLabel) && !/pause/i.test(stillLabel),
+    `normal motion: the still control must offer Play, saw "${stillLabel}"`);
+  await normal.locator('[data-image-lab] canvas[data-image-view]').first().scrollIntoViewIfNeeded();
+  await normal.locator('[data-image-toggle]').click();
+  await normal.waitForTimeout(900);
+  const playingIndex = await readIndex();
+  check(playingIndex !== stillIndex, `normal motion: Play must animate (${stillIndex} -> ${playingIndex})`);
+  await normal.locator('[data-image-toggle]').click();
+  await normal.waitForTimeout(200);
+  const pausedIndex = await readIndex();
+  await normal.waitForTimeout(600);
+  const pausedLater = await readIndex();
+  check(pausedIndex === pausedLater, `normal motion: Pause must stop (${pausedIndex} -> ${pausedLater})`);
+  await normal.screenshot({ path: resolve(out, 'captures/1440-normal-full.png'), fullPage: true });
+  motion.push({ initialIndex, stillIndex, playingIndex, pausedIndex, pausedLater, stillLabel });
+  await normal.close();
+  await normalContext.close();
+
+  // Responsive screenshots at the accepted widths.
+  for (const width of [390, 1440, 2560]) {
+    const view = await browser.newPage({ viewport: { width, height: 1200 }, reducedMotion: 'reduce' });
+    await view.goto(LAB, { waitUntil: 'networkidle' });
+    await view.waitForTimeout(300);
+    const box = await view.evaluate(() => ({ documentWidth: document.documentElement.scrollWidth }));
+    check(box.documentWidth === width,
+      `${width}: the image laboratory must not cause horizontal overflow (${box.documentWidth})`);
+    await view.screenshot({ path: resolve(out, 'captures', `${width}-full.png`), fullPage: true });
+    await view.locator('[data-image-lab]').screenshot({ path: resolve(out, 'captures', `${width}-panel.png`) });
+    displayPitch.push({ width, ...box });
+    await view.close();
+  }
+  await page.close();
+  await context.close();
+} finally {
+  await browser.close();
+}
+
+await save(failures.length ? 'red.json' : 'green.json', { failures, fixture, grids, modeEvidence,
+  extractEvidence, roundTrip, rgbEvidence, pngEvidence, jpegEvidence, overlayEvidence, comparison, live,
+  treatments, motion, displayPitch });
+console.log(JSON.stringify({ mode: failures.length ? 'RED' : 'GREEN', failures: failures.length,
+  grids: grids.length, treatments: treatments.length, overlays: overlayEvidence.length }, null, 2));
+process.exitCode = failures.length ? 1 : 0;

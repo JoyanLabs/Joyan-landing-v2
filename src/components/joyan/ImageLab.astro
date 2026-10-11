@@ -1,0 +1,165 @@
+---
+/**
+ * WU18 — the image → dot-scene laboratory surface.
+ *
+ * The user asked how an image becomes this style and supplied a film-prop test
+ * input. This surface demonstrates the answer with drawings WE own: each input
+ * is converted by the same pipeline the CLI runs (`scripts/scene-src/from-image.mjs`)
+ * in this page's frontmatter, and the CONVERTED scene is embedded as data, so the
+ * live canvas draws the same conversion the Node raster produced — not a second
+ * one. The third-party gist is evidence only: it is never embedded here, never
+ * committed and never shipped, and the note below says so.
+ *
+ * It is a STILL by default (the poster frame) so a comparison does not move while
+ * it is read; Play animates the views. Every pane is decorative and hidden from
+ * assistive technology, and every pane carries a written description so the page
+ * is honest without JavaScript.
+ */
+import { LAB_TREATMENTS } from '../../../scripts/scene-src/local-inputs.mjs';
+import { DELIVERY_CELL } from '../../../scripts/scene-src/engine.mjs';
+
+interface ConvertedInput {
+  id: string;
+  label: string;
+  licence: string;
+  cols: number;
+  rows: number;
+  payload: string;
+  stats: { inkedCells: number; inkedFraction: number; meanLevel: number; fit: { scale: number; drawnWidth: number; drawnHeight: number; margin: number } };
+  palette: string[];
+}
+interface Props {
+  inputs: ConvertedInput[];
+  cost: string;
+  defaultInput: string;
+}
+const { inputs, cost, defaultInput } = Astro.props;
+const first = inputs.find((entry) => entry.id === defaultInput) ?? inputs[0];
+const selectClass = 'mt-1 w-full border border-hairline bg-ink-950 px-2 py-1.5 font-mono text-xs text-bone-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
+const controlLabelClass = 'flex flex-col font-mono text-xs uppercase tracking-widest text-plomo-400';
+const views = [
+  { cell: DELIVERY_CELL, width: 'w-full', note: `${DELIVERY_CELL} px per cell, drawn at the column width` },
+  { cell: DELIVERY_CELL, width: 'w-80 max-w-full', note: `${DELIVERY_CELL} px per cell, drawn at 320 px` },
+  { cell: 4, width: 'w-full', note: '4 px per cell, shown at the same column width — the small-pitch case' },
+];
+---
+<section data-image-lab data-image-scene={first.id} class="border-t border-hairline py-8" aria-labelledby="image-title">
+  <h2 id="image-title" class="text-xl text-bone-50">04 / Image study · an image becomes a scene</h2>
+  <p class="mt-2 max-w-prose text-sm text-plomo-400">
+    Each drawing below is a local input of ours, rasterised, fitted to the grid with its aspect preserved inside a
+    declared margin, measured per cell (ink coverage for line art, luminance for a photograph) and handed to the
+    engine as a field — so the measured coverage ladder, the dither and the per-cell tone compensation are the
+    engine's own, not a second implementation. The converted scene is embedded as data and the canvas draws
+    <span class="text-bone-100">that same conversion</span>, which is why the Node raster and this canvas hash
+    identically. The overlays are periodic by construction: every drift travels a whole number of lattice wraps per
+    loop, and the seam is measured on the field, never on a frame index. It is a still at the poster frame; Play
+    animates the views.
+  </p>
+  <p class="mt-3 max-w-prose text-sm text-plomo-400">{cost}</p>
+  <p class="mt-3 max-w-prose text-sm text-plomo-400">
+    <span class="text-bone-100">Licence and rights.</span> The user's probe input — the Blade Runner unicorn gist —
+    is a film prop design. It is used here ONLY as a local test fixture under a gitignored evidence path: never
+    committed, never copied into <span class="font-mono">public/</span>, never shipped in any build. The two inputs
+    this page demonstrates are drawings we authored (<span class="font-mono">scripts/scene-src/local-inputs.mjs</span>);
+    if the user confirms they hold the rights to the gist art, a future unit may add it as a third input.
+  </p>
+  <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <label class={controlLabelClass}>
+      input
+      <select data-image-control="input" class={selectClass}>
+        {inputs.map((entry) => <option value={entry.id} selected={entry.id === first.id}>{entry.label}</option>)}
+      </select>
+    </label>
+    <label class={controlLabelClass}>
+      treatment
+      <select data-image-control="treatment" class={selectClass}>
+        {LAB_TREATMENTS.map((entry) => (
+          <option value={entry.id} data-palette={entry.palette} data-overlays={entry.overlays.join(',')}>
+            {entry.label}
+          </option>
+        ))}
+      </select>
+    </label>
+    <label class={controlLabelClass}>
+      grid
+      <select data-image-control="density" class={selectClass}>
+        <option value="1">{first.cols} × {first.rows} cells — the converted grid</option>
+        <option value="2">{Math.round(first.cols / 2)} × {Math.round(first.rows / 2)} cells</option>
+        <option value="4">{Math.round(first.cols / 4)} × {Math.round(first.rows / 4)} cells</option>
+      </select>
+    </label>
+  </div>
+  <p data-image-readout class="mt-4 font-mono text-xs text-plomo-400" role="status">
+    Static fallback · the image study needs JavaScript to switch inputs and treatments.
+  </p>
+  <div class="mt-4 flex items-center gap-3">
+    <button type="button" data-image-toggle disabled aria-pressed="false" class="border border-hairline px-3 py-2 font-mono text-xs focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent disabled:opacity-60">
+      Play
+    </button>
+    <p data-image-status class="font-mono text-xs text-plomo-400" role="status">Static · JavaScript unavailable</p>
+  </div>
+  <div class="mt-6 grid gap-6 lg:grid-cols-3">
+    {
+      views.map((view) => (
+        <div class={view.width}>
+          <div class="scene-frame bg-ink-900">
+            <canvas
+              data-image-view
+              data-image-cell={view.cell}
+              width={first.cols * view.cell}
+              height={first.rows * view.cell}
+              aria-hidden="true"
+            />
+            <p data-image-fallback class="p-4 text-sm text-plomo-400">
+              {`${first.label}, converted to ${first.cols} × ${first.rows} cells and drawn at ${view.cell} px per cell. The live frame needs JavaScript.`}
+            </p>
+          </div>
+          <p class="mt-2 font-mono text-xs text-plomo-400">{view.note}</p>
+        </div>
+      ))
+    }
+  </div>
+  <p class="mt-6 max-w-prose text-sm text-plomo-400">
+    Measured for the default input (<span class="font-mono">{first.id}</span>): fitted scale
+    <span class="font-mono">{first.stats.fit.scale.toFixed(6)}</span> into
+    <span class="font-mono">{first.stats.fit.drawnWidth.toFixed(1)} × {first.stats.fit.drawnHeight.toFixed(1)}</span>
+    cells inside a <span class="font-mono">{(first.stats.fit.margin * 100).toFixed(0)}%</span> margin;
+    <span class="font-mono">{first.stats.inkedCells}</span> inked cells of
+    <span class="font-mono">{first.cols * first.rows}</span>
+    (fraction <span class="font-mono">{first.stats.inkedFraction.toFixed(4)}</span>); palette depth
+    <span class="font-mono">{first.palette.length}</span> with the ground at index 0. Those are measurements of this
+    conversion, not estimates.
+  </p>
+  {
+    inputs.map((entry) => (
+      <script is:inline type="application/json" data-image-scene={entry.id} set:html={entry.payload} />
+    ))
+  }
+</section>
+
+<script>
+  import '~/lib/scene-runtime';
+</script>
+
+<style>
+  .scene-frame {
+    display: grid;
+    place-items: center;
+    min-width: 0;
+    overflow: hidden;
+  }
+  [data-image-lab] canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  [data-image-lab]:not([data-ready]) canvas {
+    display: none;
+  }
+  [data-image-lab][data-ready] [data-image-fallback] {
+    display: none;
+  }
+  [data-image-lab][data-ready] [data-image-readout] {
+    min-height: 1rem;
+  }
+</style>
