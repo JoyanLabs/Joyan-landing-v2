@@ -654,6 +654,120 @@ node scripts/check-ascii-runtime.mjs --out dist-motion-verify/wu15/correction/la
 pnpm check
 ```
 
+## WU16 — round dots, an adoption ledger and large-size evidence
+
+**Status: same isolated laboratory; the landing still ships zero scene or runtime
+JavaScript and no landing page imports the engine.** The user's report after
+seeing the WU15 comparison: our scene is right, but *it draws squares where the
+library draws dots, and the dots look better*; they also asked what this actually
+is and how it looks much larger, and explicitly authorized **taking the library's
+code and improving it**, not only its ideas.
+
+- **Root cause, measured, not assumed** (`dist-motion-verify/wu16/investigation/`).
+  The WU15 mask *was* a supersampled disc, but at the shipped 4 px per cell the
+  raster is what a viewer sees, and it degenerated: the smallest step came out a
+  hard **2 × 2 square** (four pixels at 0.9375 and nothing else — two distinct
+  coverages, no anti-aliasing anywhere), and the largest step put **12 of its 16
+  pixels at 0.938+** with corner pixels at 0.375, i.e. a block whose measured
+  coverage 0.8125 equals a **square of side 0.9014** — the hypothesis's exact
+  "0.81 becomes a square of side 0.9". The 4 × 4 supersample also over-covered
+  the disc: 0.8125 where a disc is 0.7854, and the ladder drifted with the raster
+  (0.2422 / 0.5117 / 0.7930 at 8 px per cell against 0.2344 / 0.4844 / 0.8125 at
+  4). Display made it worse: the pane shipped an 800 × 400 canvas displayed at
+  307 × 154 CSS px (≈1.54 device px per cell) with `image-rendering: pixelated`,
+  i.e. nearest-neighbour, while the library sizes its own canvas to that box and
+  lets the browser resample its font glyphs. Measured on this host, the library's
+  `·`/`•`/`●` mark 0.125 / 0.25 / 0.8125 touched pixels at 4 px per cell, 0.0625 / 0.2188 /
+  0.5313 at 8, 0.0625 / 0.1563 / 0.4961 at 16 and 0.5 / 0.5 / 1.0 at its real
+  ≈1.5 px pitch — so its ladder is font- and size-dependent. **Refuted as
+  stated, confirmed in effect:** the mask was not an area-matched square, but at
+  the shipped cell size it read as one, and the delivered pixel pitch could not
+  carry a round rim.
+- **The fix.** `discMask` now returns the **exact analytic area** of the disc
+  inside each pixel (`quadrantArea` / `discAreaIn`; verified against the closed
+  forms: a radius-2 disc in a 4 px cell covers its corner pixel 0.31515 and its
+  edge pixel 0.91315), and each step's radius is **derived** from the measured
+  coverage ladder by bisection: `COVERAGE [0, 0.2344, 0.4844, 0.8125]` →
+  `DOT_RADIUS [0, 0.2731, 0.3927, 0.5103]` in cell units, so the largest dot is
+  the inscribed disc (0.5) plus the 2 % the measured ladder asks for, never a
+  block. The ladder is now held at **exactly** the measured values at 4, 8 and 16
+  px per cell, and every pixel agrees with an independent 32 × 32-sampled disc
+  reference to within **0.004 of a cell** (before: worst pixel 0.0156–0.2422).
+  `DELIVERY_CELL` went 4 → **8** (1600 × 800) because below that the smallest dot
+  is a hard block, the checker now fails if it drops below 8, and our canvas is
+  no longer rescaled with nearest-neighbour pixelation. The WU15 behaviour is
+  preserved as negative controls in the checker: an area-matched square of the
+  same coverage and the WU15 2 × 2 block are both rejected by the same two
+  predicates.
+- **Node/canvas equality survived the change.** The runtime and the Node bake
+  path still call the same `renderFrame` + `rasterize`; frame 0 hashes
+  **`34a76821c2d5c8098df81ca4044cc2484cb6a6ca91d4e04fa38db5ee06a3725e`** in both,
+  and the baked PNG decodes to the poster-frame raster
+  (`2808ffc730c273c700b1dc85d56e6dc76a24583e44009e3e110049dc14c5f3fe`). Reduced
+  motion, offscreen/hidden pause (live RAFs 2 → 0, resuming to the same count),
+  `pagehide` cleanup (0 RAFs) and zero external requests all still pass at all
+  seven browser contexts, and the landing keeps five byte-identical chunks
+  (**109,818 B gzip**).
+- **Licence boundary: an adoption ledger, not a prohibition.** The user
+  authorized taking library code, so the "its constants must never appear" guard
+  became `scripts/scene-src/adoption-ledger.json`: one entry — the **cell-sprite
+  atlas**, adapted from `ascii.rest/dist/mount.js` (glyphs drawn once into an
+  atlas and copied per cell), with the notice retained verbatim in
+  `scripts/scene-src/ascii.rest-LICENSE` (MIT, © 2026 bas3line). What we improved
+  beyond the original: the key is our ramp step and palette ink rather than a
+  glyph and a colour (no font, no slot eviction, bounded by the palette), and the
+  same atlas feeds the Node bake and the live canvas, so an optimised blit cannot
+  make them disagree — measured **9.5 ms** per 200 × 100 frame at 8 px per cell
+  against **12.2 ms** for a per-pixel blend, byte-identical output, and the
+  checker asserts that equality. The ledger is asserted in **both directions**
+  (a listed entry must exist in the code; library-derived material in the code
+  must be listed, with a synthetic unlisted constant proving the scan can fail).
+  Deliberately **not** adopted: the library's font glyphs as our dots, its scene
+  catalogue, its artwork and its colours as ours.
+- **Large sizes** (`dist-motion-verify/wu16/sizes/`, Chromium only, one host, one
+  process, same-origin blank page, idle control shows 0 long tasks). Paint of a
+  200 × 100 frame at 8 px per cell is **19.6 ms** with **0 long tasks** in a 2.5 s
+  loop at 12 fps at 1280/1920/2560/3840; the resample ratio (backing px per
+  displayed px) is 1.25× at 1280, 0.83× at 1920, 0.63× at 2560 and **0.42× at
+  3840**, where the crop is visibly soft. The 320 × 160 grid costs **~51 ms** per
+  frame (every frame a >50 ms long task, ~61 % of the 12 fps budget) and drops the
+  thinnest dot to 2.2 display px at 1280. **Recommendation: a hero uses 200 × 100
+  cells and picks the delivery cell so the backing store is near the display
+  width — cell 8 for 1280–1920 px, cell 12 at 2560 (0.94× ≈ 1:1, 24–25 ms), cell
+  16 at 3840 (0.83×, ~31 ms); or cap the pane near 2200–2600 CSS px instead of
+  stretching it to 3840.** Raising the grid density is the wrong lever.
+- **Budget re-measured, not raised silently.** The engine module grew from 4,274
+  to **4,623 B gzip** (9,663 B raw) as an executable inline module; the library
+  chunk is unchanged at 25,256 B gzip, so the lab total is **29,879 B gzip** with
+  the same documented **2,048 B** margin, cap **31,927 B** (rule: cap − measured
+  within 0…4,096 B). The baked still is now **41,906 B** at 1600 × 800
+  (`5c2f8f3d…`), the pipeline MP4 **219,412 B** (`655f45bb…`); both checkers and
+  the lab copy carry the same numbers and fail if they drift. `pnpm build` builds
+  14 pages and `node scripts/check-scene-engine.mjs` reports GREEN with 0
+  failures.
+- **Not measured (no claim):** frame time is Chromium-only on one host and is not
+  a general performance claim; CPU, LCP and CLS are still unmeasured, as are
+  Firefox/Safari, OS background scheduling and BFCache; the largest step's
+  measured ladder (0.8125) means adjacent dots touch in the brightest areas —
+  that is the artwork's own tone, not squareness, and the corner pixels stay
+  dark; and no landing rollout, hero change or branding adoption is authorized by
+  this unit. One more limit worth stating plainly: the laboratory pane is ~307
+  CSS px wide, i.e. ≈1.54 device px per cell on a 200-cell grid, and at that
+  pitch **no** dot renderer reads as round — the library's glyphs smear at the
+  same pitch. What changed there is the path (nearest-neighbour pixelation of an
+  800 × 400 raster became a smooth downscale of a 1600 × 800 one); the dots
+  themselves read as dots from about 3 display px per cell, i.e. from a pane
+  about 600 CSS px wide at cell 8 (200 cells × 3 px).
+
+```bash
+node scripts/scene-src/bake.mjs              # PNG from the engine, Node only
+node scripts/scene-src/bake.mjs --mp4        # + the deterministic 10 s loop
+pnpm build
+node scripts/check-scene-engine.mjs          # dot geometry, ledger, equality, browser
+node scripts/check-ascii-runtime.mjs --out dist-motion-verify/wu16/lab
+pnpm check
+```
+
 ## MAGI SVG diagram guide
 
 The static diagram (`AgentNetworkDiagram.astro`) follows one strict grid:

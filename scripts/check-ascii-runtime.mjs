@@ -169,19 +169,25 @@ const labTotalGzip = labChunkGzip + inlineGzip;
 // silent raise. WU15 then added our own dot-scene engine, its runtime and the
 // library comparison mount to the same single lab chunk; the user authorized
 // that enlargement, and the number below is the measured result, not a guess
-// (WU14 measured 25,239 B; see `dist-motion-verify/wu15/lab/bundle.json`).
+// (WU14 measured 25,239 B; WU15 measured 29,530 B gzip; see
+// `dist-motion-verify/wu16/lab/bundle.json`).
 // (A measured total above the prior must be reported, not absorbed.)
+//
+// WU16 (29,879 B): the engine gained the analytic anti-aliased disc masks and the
+// adopted cell-sprite atlas, so its inline module grew from 4,274 B to 4,623 B
+// gzip; the library chunk is unchanged at 25,256 B. Cap re-measured as
+// measured + 2,048 B, the same documented margin, never a silent raise.
 //
 // LAB_CAP_GZIP is the same single measured value asserted by
 // `scripts/check-iteration-3.mjs` section 7 (its `LAB_CAP_GZIP`), which pins the
 // frozen landing five-chunk identity and this cap for the site-wide guard. A
 // future change must update both loudly; there is no reset or unlimited mode.
-const LAB_CAP_GZIP = 31578;
-const LAB_MEASURED_GZIP = 29530;
+const LAB_CAP_GZIP = 31927;
+const LAB_MEASURED_GZIP = 29879;
 const LAB_MARGIN_LIMIT = 4096;
 // What the lab page itself claims about its own cost. The copy must carry the
 // measured numbers, so a claim cannot drift away from the bundle it describes.
-const LAB_CLAIMS = { libraryChunkGzip: 25256, ownModuleRaw: 8821, ownModuleGzip: 4274, bakedStillBytes: 9554 };
+const LAB_CLAIMS = { libraryChunkGzip: 25256, ownModuleRaw: 9663, ownModuleGzip: 4623, bakedStillBytes: 41906 };
 const withinLabCap = (total, cap) => total <= cap;
 assert.equal(withinLabCap(LAB_CAP_GZIP, LAB_CAP_GZIP), true);
 assert.equal(withinLabCap(LAB_CAP_GZIP + 1, LAB_CAP_GZIP), false);

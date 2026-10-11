@@ -50,6 +50,19 @@
  *   declared ground. The library is the reference this unit was asked to compare
  *   against, and it keeps its own MIT notice in its installed package.
  *
+ *   ADOPTED CODE, listed in `scripts/scene-src/adoption-ledger.json` with the
+ *   source file it came from: the cell-sprite atlas in `rasterize` (build one
+ *   finished cell per ramp step and ink once, then copy it per cell) is adapted
+ *   from the glyph atlas in `ascii.rest/dist/mount.js`. The ledger records the
+ *   adaptation and the upstream file, and the retained MIT notice lives in
+ *   `scripts/scene-src/ascii.rest-LICENSE`. What we improved beyond the original:
+ *   the sprite is keyed by (ramp step, palette ink) rather than (glyph, colour)
+ *   and is never evicted, because the set is bounded by the palette; and the
+ *   same sprite feeds the Node bake path and the live canvas, so the atlas
+ *   cannot make the two outputs disagree. The checker fails if a ledger entry
+ *   names code that is not there, or if library-derived material appears in the
+ *   engine without a ledger entry.
+ *
  *   OURS: `mix32` (our constants, our lane order and our shift schedule — a
  *   rotate-multiply mix in the published MurmurHash3/SplitMix family, not their
  *   constants); `latticeNoise`/`layeredNoise` (a two-axis wrapping lattice with
@@ -59,17 +72,29 @@
  *   chooses the palette entry; the dot masks; the scene, its palette and the
  *   bake path; and every check.
  *
- *   No line of this file is copied from `ascii.rest`, nothing is imported from
- *   it, and none of its mixing constants appear here (the checker asserts all
- *   three). MIT would permit reuse with notice; we did not reuse code, and we do
- *   not claim to have invented the published material above. What we
- *   deliberately did NOT adopt: the library's scene catalogue (weight), its
- *   per-scene colour literals as our art, and any vendored art. See
- *   `docs/MOTOR-ESCENAS.md` for the full adoption/rejection list.
+ *   Nothing of the library is imported at runtime, and none of its mixing
+ *   constants appear here (the checker asserts that too). We do not claim to
+ *   have invented the published material above, and we credit the adopted
+ *   material above. What we deliberately did NOT adopt: the library's scene
+ *   catalogue (weight), its per-scene colour literals as our art, any vendored
+ *   art, and its font glyphs — our dots are analytic discs, not characters, so
+ *   they do not depend on a font being installed. See `docs/MOTOR-ESCENAS.md`
+ *   for the full adoption/rejection list.
+ *
+ * WHY THE DOTS ARE ROUND. A dot is the exact area of an anti-aliased disc, not
+ * a supersampled one and not a square: a level of coverage 0.81 is a disc of
+ * radius 0.51 of a cell, so the largest step is the inscribed disc and every
+ * step keeps a round rim (the four corner pixels of a cell stay much darker than
+ * its four edge pixels). The WU15 mask was supersampled 4x4 at 4 px per cell,
+ * and at that size the arithmetic over-covered the disc (measured 0.8125 where
+ * the disc is 0.7854) and the smallest dot collapsed into a hard 2x2 square;
+ * the supersampled disc and the nearest-neighbour display scale, not the shape
+ * function, were what made the dots read as blocks.
  *
  * LIMITS (measured, stated, not hidden): the tone model is a display-space
- * luma, not colorimetric linear light; the dot mask is supersampled rather than
- * analytically anti-aliased; and the engine has no colour management.
+ * luma, not colorimetric linear light; the dot radius is derived from the
+ * measured coverage ladder by bisection, so it is exact for this mask and not a
+ * closed form; and the engine has no colour management.
  */
 
 /** The only inked ramp. Index 0 is an empty cell. Dots, never ASCII art. */
@@ -78,27 +103,38 @@ export const RAMP = ' ·•●';
 /** One cell is one square unit. The library's scenes use the same convention. */
 export const CELL = 1;
 
-/** How many square pixels one cell occupies in the canvas and the baked file. */
-export const DELIVERY_CELL = 4;
+/**
+ * How many square pixels one cell occupies in the canvas and the baked file.
+ * 8 px per cell on a 200x100 grid is 1600x800: enough pixels for the largest
+ * dot to keep a round rim at every size the laboratory displays, which 4 px per
+ * cell was not (see the header).
+ */
+export const DELIVERY_CELL = 8;
 
 /**
- * The authored coverage curve: how much of a cell each dot fills. The checker
- * requires these numbers to match the dot area the raster mask actually paints,
- * so the curve cannot drift away from the art.
+ * The dot ladder: how much of a cell each dot covers. These are the values the
+ * WU15 mask MEASURED at its delivery cell, kept as the target — the radii below
+ * are derived from them, not from an assumed fraction of the cell, and the
+ * anti-aliased mask now holds this ladder at every cell size instead of drifting
+ * with the raster (0.793 for the largest dot at 8 px per cell before).
  */
-export const COVERAGE = Object.freeze([0, 0.24, 0.5, 0.79]);
+export const COVERAGE = Object.freeze([0, 0.2344, 0.4844, 0.8125]);
 
-/** Drawn radius of each dot, as a fraction of the cell's half width. */
-export const STEP_RADIUS = Object.freeze([0, 0.55, 0.8, 1]);
+/**
+ * Drawn radius of each dot, in CELL units, solved from `COVERAGE` so that the
+ * exact area of the clipped disc equals the measured ladder. The result is
+ * [0, 0.2731, 0.3927, 0.5103]: the three steps the artwork has always laid down,
+ * now as real discs. The largest is the inscribed disc of a cell (0.5) plus the
+ * 2% the measured ladder asks for, and the raster clips what falls outside the
+ * cell — which is why a bright area reads as a full round dot and not a block.
+ */
+export const DOT_RADIUS = Object.freeze(COVERAGE.map((coverage) => radiusForCoverage(coverage)));
 
 /** Ordered 4x4 Bayer matrix in scan order. Thresholds are (v + 0.5) / 16. */
 // Published standard material: the canonical 4x4 ordered-dither matrix
 // (Bayer, 1973). It is the same matrix in every implementation; we use it as
 // the published algorithm, not as something learned from the reference library.
 const BAYER4 = Object.freeze([0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5]);
-
-/** Sub-samples per pixel axis when measuring a dot's area. */
-const MASK_SAMPLES = 4;
 
 /** Weights of the palette selection (see `compensate`). */
 const TONE_WEIGHT = 1;
@@ -270,46 +306,83 @@ export function stepFor(level, x, y) {
   const position = span > 0 ? (level - ladder[step]) / span : 1;
   return position > bayerThreshold(x, y) ? step + 1 : step;
 }
-/** Dot area per step, measured from the masks at the delivery cell size. */
-const MEASURED_COVERAGE = [0, measuredCoverage(1, DELIVERY_CELL), measuredCoverage(2, DELIVERY_CELL),
-  measuredCoverage(3, DELIVERY_CELL)];
-const LADDER = rampLadder();
+/**
+ * Dot geometry. A dot is a DISC, and each pixel's coverage is the exact area of
+ * the disc inside that pixel — not a sample count and not an area-matched
+ * square. `quadrantArea` is the area under the circle arc, and a pixel is the
+ * inclusion-exclusion of it at the four corners. The closed forms agree: a
+ * radius-2 disc in a 4 px cell covers a corner pixel by 0.31515 and an edge
+ * pixel by 0.91315, so a step of coverage 0.81 keeps a round rim.
+ */
+
+/** Area under the arc from 0 to x, for a radius r and 0 <= x <= r. */
+function arcArea(x, r) {
+  return 0.5 * (x * Math.sqrt(Math.max(0, r * r - x * x)) + r * r * Math.asin(Math.min(1, x / r)));
+}
+
+/** Area of the disc inside {0 <= u <= x, 0 <= v <= y}, for x, y >= 0. */
+function quadrantArea(x, y, r) {
+  if (x <= 0 || y <= 0) return 0;
+  if (x >= r) return y >= r ? (Math.PI * r * r) / 4 : arcArea(y, r);
+  if (y >= r) return arcArea(x, r);
+  if (x * x + y * y <= r * r) return x * y;
+  const u = Math.sqrt(r * r - y * y);
+  return u * y + arcArea(x, r) - arcArea(u, r);
+}
+
+/** Area of the disc centred at the origin inside one axis-aligned rectangle. */
+function discAreaIn(x0, x1, y0, y1, r) {
+  if (x1 <= 0) return discAreaIn(-x1, -x0, y0, y1, r);
+  if (x0 < 0) return discAreaIn(0, x1, y0, y1, r) + discAreaIn(0, -x0, y0, y1, r);
+  if (y1 <= 0) return discAreaIn(x0, x1, -y1, -y0, r);
+  if (y0 < 0) return discAreaIn(x0, x1, 0, y1, r) + discAreaIn(x0, x1, 0, -y0, r);
+  return quadrantArea(x1, y1, r) - quadrantArea(x0, y1, r) - quadrantArea(x1, y0, r)
+    + quadrantArea(x0, y0, r);
+}
+
+/** Exact coverage of one `size` cell by a dot of radius `radius` (same units). */
+function cellCoverage(size, radius) {
+  return discAreaIn(-size / 2, size / 2, -size / 2, size / 2, radius) / (size * size);
+}
+
+/** The radius, in cell units, whose clipped disc covers `coverage` of a cell. */
+function radiusForCoverage(coverage) {
+  if (!(coverage > 0)) return 0;
+  let lo = 0;
+  let hi = 1;
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2;
+    if (cellCoverage(1, mid) < coverage) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
 
 /**
- * The per-cell coverage mask of one dot, supersampled. Computed once per
- * (step, cell) and shared by both output paths, so the Node raster and the live
- * canvas cannot drift apart.
+ * The per-cell coverage mask of one dot, analytically anti-aliased. Computed
+ * once per (step, cell) and shared by both output paths, so the Node raster and
+ * the live canvas cannot drift apart.
  * @param {number} step @param {number} size
  */
-export function discMask(step, size, samples = MASK_SAMPLES) {
+export function discMask(step, size) {
   const mask = new Float64Array(size * size);
-  const radius = STEP_RADIUS[step] * (size / 2);
+  const radius = (DOT_RADIUS[step] ?? 0) * size;
   if (!(radius > 0)) return mask;
   const centre = size / 2;
-  const per = samples * samples;
   for (let py = 0; py < size; py++) {
     for (let px = 0; px < size; px++) {
-      let hits = 0;
-      for (let sy = 0; sy < samples; sy++) {
-        for (let sx = 0; sx < samples; sx++) {
-          const dx = px + (sx + 0.5) / samples - centre;
-          const dy = py + (sy + 0.5) / samples - centre;
-          if (dx * dx + dy * dy <= radius * radius) hits += 1;
-        }
-      }
-      mask[py * size + px] = hits / per;
+      const area = discAreaIn(px - centre, px + 1 - centre, py - centre, py + 1 - centre, radius);
+      mask[py * size + px] = area < 0 ? 0 : area > 1 ? 1 : area;
     }
   }
   return mask;
 }
 
-/** Mean coverage of a dot mask: the curve, measured rather than asserted. */
-function measuredCoverage(step, size) {
-  const mask = discMask(step, size);
-  let sum = 0;
-  for (let i = 0; i < mask.length; i++) sum += mask[i];
-  return sum / mask.length;
-}
+/** Dot area per step, MEASURED from the masks at the delivery cell size. */
+const MEASURED_COVERAGE = COVERAGE.map((coverage, step) => (coverage > 0 && step > 0
+  ? discMask(step, DELIVERY_CELL).reduce((sum, value) => sum + value, 0) / (DELIVERY_CELL * DELIVERY_CELL)
+  : 0));
+const LADDER = rampLadder();
 
 const METRICS = new WeakMap();
 
@@ -423,33 +496,75 @@ export function frameChars(frame) {
 }
 
 /**
+ * Cell sprites, keyed by ramp step and palette ink.
+ *
+ * ADOPTED from `ascii.rest` (MIT, bas3line): `ascii.rest/dist/mount.js` draws
+ * each (character, colour) pair once into an atlas and copies it into its cell —
+ * "on a phone a scene's 20,000 copies a frame were most of its time". We do the
+ * same for a finished CELL instead of a glyph: one cell's pixels are blended once
+ * per (ramp step, ink), then copied per cell. See
+ * `scripts/scene-src/adoption-ledger.json` (entry `cell-sprite-atlas`) and the
+ * retained notice in `scripts/scene-src/ascii.rest-LICENSE`. Improved beyond the
+ * original: the key is our ramp step and palette ink, the set is bounded by the
+ * palette so nothing is ever evicted or re-rendered, and the same sprite serves
+ * the Node bake and the live canvas, so an optimised blit can never make those
+ * two outputs disagree.
+ */
+const SPRITES = new WeakMap();
+
+/** The sprite atlas of one scene at one cell size, built on first use. */
+function spriteAtlas(scene, cell) {
+  const cached = SPRITES.get(scene);
+  if (cached && cached.cell === cell) return cached;
+  const atlas = { cell, sprites: new Map() };
+  SPRITES.set(scene, atlas);
+  return atlas;
+}
+
+/** One finished cell as RGBA: ground blended toward one palette ink. */
+function cellSprite(atlas, metrics, step, inkIndex) {
+  const ink = metrics.colors[inkIndex];
+  const ground = metrics.colors[metrics.groundIndex];
+  // A palette is at most 32 entries (the checker enforces that), so one byte of
+  // ink index per step cannot collide.
+  const key = step * 256 + inkIndex;
+  const cached = atlas.sprites.get(key);
+  if (cached) return cached;
+  const mask = step === 0 ? null : discMask(step, atlas.cell);
+  const sprite = new Uint8ClampedArray(atlas.cell * atlas.cell * 4);
+  for (let i = 0; i < atlas.cell * atlas.cell; i++) {
+    const coverage = mask ? mask[i] : 0;
+    sprite[i * 4] = Math.round((ground[0] + (ink[0] - ground[0]) * coverage) * 255);
+    sprite[i * 4 + 1] = Math.round((ground[1] + (ink[1] - ground[1]) * coverage) * 255);
+    sprite[i * 4 + 2] = Math.round((ground[2] + (ink[2] - ground[2]) * coverage) * 255);
+    sprite[i * 4 + 3] = 255;
+  }
+  atlas.sprites.set(key, sprite);
+  return sprite;
+}
+
+/**
  * Paint a frame to RGBA at `cell` pixels per cell. Every pixel is a blend
  * between the ground and one palette entry, which is why the baked file and the
- * live canvas can be compared byte for byte.
+ * live canvas can be compared byte for byte. `into` may carry a buffer to fill
+ * (the runtime reuses one per canvas instead of allocating a megabyte a frame).
  * @param {{cols: number, rows: number, steps: Uint8Array, indices: Uint8Array}} frame
- * @param {object} scene @param {number} cell
+ * @param {object} scene @param {number} cell @param {Uint8ClampedArray} [into]
  */
-export function rasterize(frame, scene, cell = DELIVERY_CELL) {
+export function rasterize(frame, scene, cell = DELIVERY_CELL, into) {
   const metrics = sceneMetrics(scene);
-  const masks = [null, discMask(1, cell), discMask(2, cell), discMask(3, cell)];
+  const atlas = spriteAtlas(scene, cell);
   const width = frame.cols * cell;
   const height = frame.rows * cell;
-  const out = new Uint8ClampedArray(width * height * 4);
-  const ground = metrics.colors[metrics.groundIndex];
+  const out = into && into.length === width * height * 4 ? into : new Uint8ClampedArray(width * height * 4);
+  const rowBytes = cell * 4;
   for (let y = 0; y < frame.rows; y++) {
     for (let x = 0; x < frame.cols; x++) {
       const cellIndex = y * frame.cols + x;
-      const mask = masks[frame.steps[cellIndex]];
-      const ink = metrics.colors[frame.indices[cellIndex]];
+      const sprite = cellSprite(atlas, metrics, frame.steps[cellIndex], frame.indices[cellIndex]);
+      const at = ((y * cell) * width + x * cell) * 4;
       for (let py = 0; py < cell; py++) {
-        for (let px = 0; px < cell; px++) {
-          const at = ((y * cell + py) * width + (x * cell + px)) * 4;
-          const coverage = mask ? mask[py * cell + px] : 0;
-          out[at] = Math.round((ground[0] + (ink[0] - ground[0]) * coverage) * 255);
-          out[at + 1] = Math.round((ground[1] + (ink[1] - ground[1]) * coverage) * 255);
-          out[at + 2] = Math.round((ground[2] + (ink[2] - ground[2]) * coverage) * 255);
-          out[at + 3] = 255;
-        }
+        out.set(sprite.subarray(py * rowBytes, py * rowBytes + rowBytes), at + py * width * 4);
       }
     }
   }

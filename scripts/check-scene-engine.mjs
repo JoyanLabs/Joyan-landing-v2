@@ -23,6 +23,7 @@
  */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import sharp from 'sharp';
@@ -104,21 +105,76 @@ if (runtimeSource) {
     'the runtime must not cast untyped JS to a type');
 }
 // ---------------------------------------------------------------------------
-// 0b. Provenance. The engine must not quietly become a copy: published standard
-//     material has to be named as such, ideas learned from ascii.rest have to be
-//     described as ideas, and none of that library's mixing constants or modules
-//     may appear in our engine.
+// 0b. Provenance and the ADOPTION LEDGER. The licence boundary is explicit:
+//     published standard material has to be named as such, ideas learned from
+//     `ascii.rest` have to be described as ideas, and code ADAPTED from the
+//     library (MIT, bas3line) has to be listed in
+//     `scripts/scene-src/adoption-ledger.json` with the upstream file it came
+//     from, with the MIT notice retained in this repository. The ledger is
+//     asserted in BOTH directions: a listed entry must exist in the code, and
+//     library-derived material found in the code must be listed. An unlisted
+//     library constant therefore still fails, exactly as the previous "must
+//     never appear" guard did.
 // ---------------------------------------------------------------------------
 const engineSource = await sourceOf(enginePath);
-if (engineSource) {
-  const LIBRARY_MIX_CONSTANTS = ['0x27d4eb2d', '0x165667b1', '0x85ebca6b', '0xc2b2ae35',
-    '374761393', '668265263', '2246822519', '3266489917', '1274126177'];
-  for (const constant of LIBRARY_MIX_CONSTANTS) {
-    check(!engineSource.includes(constant),
-      `engine must not reuse ascii.rest's mixing constant ${constant}`);
+// Identifiers that can only come from a copy of the library: its mixing
+// constants (the MurmurHash3 finals and the scene hash multipliers), its ordered
+// dither offset, its nearest-colour LUT key and its hosted font. Finding one in
+// the engine is not itself a failure — the failure is finding one that no ledger
+// entry claims.
+const LIBRARY_SIGNATURES = ['0x27d4eb2d', '0x165667b1', '0x85ebca6b', '0xc2b2ae35',
+  '374761393', '668265263', '2246822519', '3266489917', '1274126177',
+  '- 0.47', '31.99', 'ascii.rest/fonts', 'nightCoast'];
+const unlistedSignatures = (source, listed) => LIBRARY_SIGNATURES
+  .filter((signature) => source.includes(signature) && !listed.includes(signature));
+const ledgerPath = 'scripts/scene-src/adoption-ledger.json';
+let ledger;
+try {
+  ledger = JSON.parse(await readFile(resolve(root, ledgerPath), 'utf8'));
+} catch (error) {
+  check(false, `the adoption ledger must exist at ${ledgerPath}: ${error.message}`);
+}
+if (ledger && engineSource) {
+  const entries = Array.isArray(ledger.entries) ? ledger.entries : [];
+  const listed = entries.flatMap((entry) => entry.constants ?? []);
+  for (const signature of unlistedSignatures(engineSource, listed)) {
+    check(false, `library-derived material in the engine is not in ${ledgerPath}: ${JSON.stringify(signature)}`);
   }
+  // Direction 1 — a listed entry must exist in the code, and must name a real
+  // upstream file.
+  for (const entry of entries) {
+    check(typeof entry.marker === 'string' && entry.marker.length > 20 && engineSource.includes(entry.marker),
+      `ledger entry ${entry.id} claims code the engine does not contain (its marker is absent)`);
+    check(typeof entry.adaptedFrom === 'string' && existsSync(resolve(root, entry.adaptedFrom)),
+      `ledger entry ${entry.id} must name the upstream file it came from`);
+    check(typeof entry.what === 'string' && entry.what.length > 20
+      && Array.isArray(entry.improvedBeyond) && entry.improvedBeyond.length > 0,
+    `ledger entry ${entry.id} must say what was adapted and what we improved beyond the original`);
+  }
+  // Direction 2 — the scan can fail. A guard that can never fail is decoration,
+  // so the same predicate is run against a source that carries an unclaimed
+  // library constant and against one that carries only ours.
+  check(unlistedSignatures(`${engineSource}\nconst taken = 374761393;`, listed).includes('374761393'),
+    'the unlisted-library-material scan must reject a library constant no ledger entry claims');
+  check(unlistedSignatures('const ours = 0x2f1b3d5f;\nconst alsoOurs = - 0.5;', listed).length === 0,
+    'the scan must not flag our own constants');
+  // The notice has to be in THIS repository, not only in node_modules.
+  const noticeText = ledger.library?.notice ? await sourceOf(ledger.library.notice) : '';
+  check(/MIT License/.test(noticeText) && /Copyright \(c\) \d{4} bas3line/.test(noticeText),
+    'the retained notice must carry the MIT text and the bas3line copyright line');
+  check(/ascii\.rest/.test(noticeText),
+    'the retained notice must name the package it came from');
+  for (const key of ['name', 'version', 'author', 'license']) {
+    check(Boolean(ledger.library?.[key]), `the ledger must record the library ${key}`);
+  }
+  check(ledger.library?.license === 'MIT' && ledger.library?.author === 'bas3line',
+    'the ledger must record ascii.rest 0.4.0 as MIT/bas3line');
+  check(Array.isArray(ledger.rejected) && ledger.rejected.length >= 1,
+    'the ledger must record what we deliberately did not adopt');
+}
+if (engineSource) {
   check(!/from\s+['"]ascii\.rest|import\(\s*['"]ascii\.rest/.test(engineSource),
-    'the engine must not import ascii.rest');
+    'the engine must not import ascii.rest at runtime');
   check(/Bayer/.test(engineSource) && /1973/.test(engineSource),
     'the engine must state that the ordered-dither matrix is the published 1973 Bayer matrix');
   check(/Rec\.709/.test(engineSource),
@@ -128,6 +184,8 @@ if (engineSource) {
   check(/ours|our own/i.test(engineSource), 'the engine must state which parts are ours');
   check(/lattice/i.test(engineSource) && /octave/i.test(engineSource),
     'the noise construction must be documented as a wrapping lattice and its octaves');
+  check(/adoption-ledger\.json/.test(engineSource) && /ascii\.rest-LICENSE/.test(engineSource),
+    'the engine must point at the adoption ledger and the retained notice');
 }
 let labHtml = '';
 try {
@@ -200,7 +258,7 @@ if (!engine || !scenes) {
 }
 
 const scene = scenes.SCENES[SCENE_ID];
-const { RAMP, CELL, COVERAGE, DELIVERY_CELL, renderFrame, frameChars, rasterize,
+const { RAMP, CELL, COVERAGE, DELIVERY_CELL, DOT_RADIUS, renderFrame, frameChars, rasterize,
   discMask, stepFor, hashNoise, tone, hexToRgb, sceneMetrics } = engine;
 
 // ---------------------------------------------------------------------------
@@ -223,7 +281,9 @@ assert.equal(' .:-=+*#%@'.split('').every((ch) => RAMP.includes(ch)), false);
 check(stepFor(0, 0, 0) === 0 && stepFor(0, 1, 1) === 0, 'a zero level must stay on the ground');
 check(stepFor(1, 3, 3) === 3, 'a full level must use the largest dot');
 check(CELL === 1, `cell aspect unit must be 1 (square cells), saw ${CELL}`);
-check(Number.isInteger(DELIVERY_CELL) && DELIVERY_CELL >= 2, 'delivery cell size must be an integer >= 2');
+check(Number.isInteger(DELIVERY_CELL) && DELIVERY_CELL >= 8,
+  `delivery cell size must be an integer >= 8 px per cell: below that the smallest dot is a `
+  + `hard 2x2 block rather than an anti-aliased disc, saw ${DELIVERY_CELL}`);
 check(COVERAGE.length === 4 && COVERAGE[0] === 0,
   'coverage curve must have one entry per ramp step and start at 0');
 for (let s = 1; s < 4; s++) check(COVERAGE[s] > COVERAGE[s - 1], `coverage curve must increase at step ${s}`);
@@ -256,9 +316,9 @@ check(Object.keys(scene.params).length <= 8,
 const metrics = sceneMetrics(scene);
 check(metrics.coverage.length === 4, 'sceneMetrics must report the measured dot coverage per step');
 for (let s = 1; s < 4; s++) {
-  check(Math.abs(metrics.coverage[s] - COVERAGE[s]) < 0.03,
-    `authored coverage ${COVERAGE[s]} for step ${s} must match the measured dot area `
-    + `${metrics.coverage[s].toFixed(4)}`);
+  check(Math.abs(metrics.coverage[s] - COVERAGE[s]) < 0.002,
+    `the ladder the mask paints must be the ladder the engine reports: step ${s} reports `
+    + `${COVERAGE[s]} but the mask measures ${metrics.coverage[s].toFixed(4)}`);
 }
 check(metrics.ladder.length === 4 && metrics.ladder[3] === 1,
   'the tone ladder must be normalised to the largest dot');
@@ -275,6 +335,190 @@ for (let s = 1; s < 4; s++) {
   check(metrics.headroom[s] > metrics.groundTone,
     `step ${s} must render brighter than the dark ground, saw ${metrics.headroom[s]}`);
 }
+
+// ---------------------------------------------------------------------------
+// 2b. The dot is a ROUND, anti-aliased DISC — asserted against an independent
+//     reference, not against the engine's own arithmetic.
+//
+//     WU15 shipped a 4x4-supersampled mask at 4 px per cell. At that size the
+//     arithmetic over-covered the disc, and the raster degenerated: the smallest
+//     step came out a hard 2x2 square (four pixels at 0.9375 and nothing else,
+//     measured at `dist-motion-verify/wu16/investigation/node-masks.json`) and the
+//     largest step was 12 of 16 pixels at 0.938+ with its corner pixels at 0.375,
+//     i.e. a block of side 0.90 for a coverage of 0.81. The RECORDED_LADDER below
+//     is what that mask measured; the attribution of the dots is measured the
+//     same way and the ladder is now held at every cell size.
+//
+//     The reference here is a plain 32x32 supersample written in this file: a
+//     different method from the engine's exact-area arithmetic, so agreement is
+//     evidence and not a tautology. The radius is re-derived here from the
+//     recorded ladder by bisection over that reference, so `DOT_RADIUS` is
+//     checked to be DERIVED from the measured coverage rather than an assumed
+//     fraction of the cell.
+// ---------------------------------------------------------------------------
+const RECORDED_LADDER = [0, 0.2344, 0.4844, 0.8125];
+const REFERENCE_SAMPLES = 32;
+const referenceMask = (radiusInCells, size) => {
+  const mask = new Float64Array(size * size);
+  const radius = radiusInCells * size;
+  const centre = size / 2;
+  const per = REFERENCE_SAMPLES * REFERENCE_SAMPLES;
+  for (let py = 0; py < size; py++) {
+    for (let px = 0; px < size; px++) {
+      let hits = 0;
+      for (let sy = 0; sy < REFERENCE_SAMPLES; sy++) {
+        for (let sx = 0; sx < REFERENCE_SAMPLES; sx++) {
+          const dx = px + (sx + 0.5) / REFERENCE_SAMPLES - centre;
+          const dy = py + (sy + 0.5) / REFERENCE_SAMPLES - centre;
+          if (dx * dx + dy * dy <= radius * radius) hits += 1;
+        }
+      }
+      mask[py * size + px] = hits / per;
+    }
+  }
+  return mask;
+};
+const mean = (values) => values.reduce((sum, value) => sum + value, 0) / values.length;
+const referenceRadius = (coverage) => {
+  let lo = 0;
+  let hi = 1;
+  for (let i = 0; i < 24; i++) {
+    const mid = (lo + hi) / 2;
+    if (mean(referenceMask(mid, 16)) < coverage) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
+};
+const derivedRadius = RECORDED_LADDER.map((coverage) => (coverage > 0 ? referenceRadius(coverage) : 0));
+const worstPixel = (mask, reference) => {
+  let worst = 0;
+  for (let i = 0; i < mask.length; i++) worst = Math.max(worst, Math.abs(mask[i] - reference[i]));
+  return worst;
+};
+const shapeStats = (mask, size) => {
+  const centre = size / 2;
+  const corner = (mask[0] + mask[size - 1] + mask[(size - 1) * size] + mask[size * size - 1]) / 4;
+  const edge = (mask[Math.floor(centre)] + mask[(size - 1) * size + Math.floor(centre)]
+    + mask[Math.floor(centre) * size] + mask[Math.floor(centre) * size + size - 1]) / 4;
+  let outside = 0;
+  let total = 0;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const value = mask[y * size + x];
+      total += value;
+      const dx = x + 0.5 - centre;
+      const dy = y + 0.5 - centre;
+      if (dx * dx + dy * dy > centre * centre) outside += value;
+    }
+  }
+  return { coverage: total / (size * size), cornerFill: corner, edgeFill: edge,
+    cornerOverEdge: edge > 0 ? corner / edge : 0, outsideDiscMass: total > 0 ? outside / total : 0,
+    distinctValues: new Set([...mask]).size };
+};
+check(Array.isArray(DOT_RADIUS) && DOT_RADIUS.length === 4 && DOT_RADIUS[0] === 0,
+  'the engine must export DOT_RADIUS, one radius in cell units per ramp step');
+const dotEvidence = [];
+for (let step = 1; step < 4; step++) {
+  check(Array.isArray(DOT_RADIUS) && Math.abs(DOT_RADIUS[step] - derivedRadius[step]) < 0.003,
+    `DOT_RADIUS[${step}] must be DERIVED from the measured coverage ${RECORDED_LADDER[step]} `
+    + `(that coverage solved as a disc is about ${derivedRadius[step].toFixed(4)} of a cell, saw `
+    + `${Array.isArray(DOT_RADIUS) ? DOT_RADIUS[step] : 'nothing'})`);
+  check(Array.isArray(DOT_RADIUS) && DOT_RADIUS[step] > DOT_RADIUS[step - 1],
+    `dot radii must increase with the ramp, step ${step}`);
+}
+check(Array.isArray(DOT_RADIUS) && DOT_RADIUS[3] >= 0.5 && DOT_RADIUS[3] <= 0.52,
+  `the largest dot must be the inscribed disc of a cell or the measured ladder's equivalent `
+  + `(0.5..0.52 of a cell), saw ${Array.isArray(DOT_RADIUS) ? DOT_RADIUS[3] : 'nothing'}`);
+for (const cell of [4, 8, 16]) {
+  for (let step = 1; step < 4; step++) {
+    const mask = discMask(step, cell);
+    const reference = referenceMask(derivedRadius[step], cell);
+    const stats = shapeStats(mask, cell);
+    dotEvidence.push({ cell, step, ...stats, worstPixelVsReference: worstPixel(mask, reference) });
+    check(Math.abs(stats.coverage - RECORDED_LADDER[step]) < 0.002,
+      `the ladder must hold at every cell size: step ${step} at ${cell} px per cell covers `
+      + `${stats.coverage.toFixed(4)} of a cell against the recorded ${RECORDED_LADDER[step]}`);
+    check(worstPixel(mask, reference) <= 0.004,
+      `step ${step} at ${cell} px per cell must be the anti-aliased disc, not a block: its worst `
+      + `pixel differs from an independent ${REFERENCE_SAMPLES}x${REFERENCE_SAMPLES}-sampled disc of the `
+      + `same radius by ${worstPixel(mask, reference).toFixed(4)}`);
+    check(stats.cornerOverEdge <= 1 && stats.outsideDiscMass <= 0.13,
+      `step ${step} at ${cell} px per cell must keep a round rim, not a square edge: the corner `
+      + `pixels fill ${(stats.cornerOverEdge * 100).toFixed(1)}% of the axis pixels and `
+      + `${(stats.outsideDiscMass * 100).toFixed(1)}% of the ink sits in the corners outside the `
+      + `inscribed disc (an area-matched square of the same coverage reaches 25%)`);
+    check(stats.distinctValues >= 3,
+      `step ${step} at ${cell} px per cell must be anti-aliased, saw only ${stats.distinctValues} `
+      + `distinct pixel coverages — a hard-cornered block has two`);
+    if (step === 3) {
+      check(stats.cornerOverEdge < 0.6,
+        `the largest dot at ${cell} px per cell must be round: its corners fill `
+        + `${(stats.cornerOverEdge * 100).toFixed(1)}% of its axis pixels, a square would be 100%`);
+    }
+  }
+}
+// Negative controls for the two predicates above, so neither can pass by
+// accident: an area-matched square of the SAME coverage, and the block the WU15
+// raster actually produced at 4 px per cell.
+const areaMatchedSquare = (coverage, size) => {
+  const mask = new Float64Array(size * size);
+  const side = Math.sqrt(coverage) * size;
+  const lo = (size - side) / 2;
+  const hi = lo + side;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const cover = Math.max(0, Math.min(x + 1, hi) - Math.max(x, lo))
+        * Math.max(0, Math.min(y + 1, hi) - Math.max(y, lo));
+      mask[y * size + x] = cover;
+    }
+  }
+  return mask;
+};
+const controlSquare = areaMatchedSquare(RECORDED_LADDER[3], 8);
+check(Math.abs(mean(controlSquare) - RECORDED_LADDER[3]) < 0.002,
+  'the negative control must be an area-matched square of the largest step coverage');
+check(worstPixel(controlSquare, referenceMask(derivedRadius[3], 8)) > 0.004,
+  'the disc-agreement assertion must reject an area-matched square of the same coverage');
+const wu15Block = Float64Array.from([0, 0, 0, 0, 0, 0.9375, 0.9375, 0, 0, 0.9375, 0.9375, 0, 0, 0, 0, 0]);
+check(Math.abs(mean(wu15Block) - RECORDED_LADDER[1]) < 0.002,
+  'the WU15 block control must reproduce the coverage the WU15 smallest dot measured');
+check(shapeStats(wu15Block, 4).distinctValues < 3,
+  'the anti-aliasing bound must reject a hard 2x2 block (two distinct coverages)');
+check(worstPixel(wu15Block, referenceMask(derivedRadius[1], 4)) > 0.004,
+  'the disc-agreement assertion must reject the 2x2 block WU15 actually painted for its smallest step');
+
+// The adopted cell-sprite atlas is an optimisation, not a second renderer: the
+// frame it copies must be byte-identical to a straightforward per-pixel blend of
+// the same masks.
+const directRaster = (frame, size) => {
+  const width = frame.cols * size;
+  const height = frame.rows * size;
+  const out = new Uint8ClampedArray(width * height * 4);
+  const masks = [null, discMask(1, size), discMask(2, size), discMask(3, size)];
+  const ground = metrics.colors[metrics.groundIndex];
+  for (let y = 0; y < frame.rows; y++) {
+    for (let x = 0; x < frame.cols; x++) {
+      const index = y * frame.cols + x;
+      const mask = masks[frame.steps[index]];
+      const ink = metrics.colors[frame.indices[index]];
+      for (let py = 0; py < size; py++) {
+        for (let px = 0; px < size; px++) {
+          const at = ((y * size + py) * width + (x * size + px)) * 4;
+          const coverage = mask ? mask[py * size + px] : 0;
+          out[at] = Math.round((ground[0] + (ink[0] - ground[0]) * coverage) * 255);
+          out[at + 1] = Math.round((ground[1] + (ink[1] - ground[1]) * coverage) * 255);
+          out[at + 2] = Math.round((ground[2] + (ink[2] - ground[2]) * coverage) * 255);
+          out[at + 3] = 255;
+        }
+      }
+    }
+  }
+  return out;
+};
+const spriteFrame = renderFrame(scene, scene.posterFrame);
+check(hash(Buffer.from(rasterize(spriteFrame, scene, DELIVERY_CELL)))
+  === hash(Buffer.from(directRaster(spriteFrame, DELIVERY_CELL))),
+'the adopted cell-sprite atlas must reproduce a direct per-pixel blend byte for byte');
 
 // ---------------------------------------------------------------------------
 // 3. Ordered Bayer dithering and determinism.
@@ -489,7 +733,7 @@ if (bakedFile) {
     'the baked still must be exactly the engine raster of the poster frame');
   check(bakedFile.length <= 262144, `the baked still must stay small, saw ${bakedFile.length} B`);
 }
-await save('red-or-green.json', { failures, nodes, views, bakedEvidence, periodicity, metrics: {
+await save('red-or-green.json', { failures, nodes, views, bakedEvidence, periodicity, dotEvidence, metrics: {
   coverage: metrics.coverage, ladder: metrics.ladder, headroom: metrics.headroom, colours: colourSet.size } });
 
 if (nodeOnly) {
@@ -730,7 +974,7 @@ async function walk(dir) {
   return paths;
 }
 
-await save(failures.length ? 'red.json' : 'green.json', { failures, nodes, views, bakedEvidence, periodicity,
+await save(failures.length ? 'red.json' : 'green.json', { failures, nodes, views, bakedEvidence, periodicity, dotEvidence,
   metrics: { coverage: metrics.coverage, ladder: metrics.ladder, headroom: metrics.headroom } });
 console.log(JSON.stringify({ mode: failures.length ? 'RED' : 'GREEN', failures, nodes: nodes.length, views: views.length }, null, 2));
 process.exitCode = failures.length ? 1 : 0;

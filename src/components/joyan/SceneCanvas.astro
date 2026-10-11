@@ -89,8 +89,16 @@ const fallback = `Static fallback: ${meta.label} drawn by our own engine — ${m
     display: block;
     width: 100%;
     height: auto;
-    image-rendering: pixelated;
   }
+  /*
+   * No `image-rendering: pixelated`. The engine paints anti-aliased discs into a
+   * 1600x800 backing store, and this pane displays it at whatever width the
+   * layout gives it — on the laboratory page about 307 px, on a wide screen
+   * more. Nearest-neighbour rescaling threw that anti-aliasing away and is what
+   * made the dots read as blocks; the browser's smooth resampling keeps them
+   * round at every size, exactly as the library's own canvas gets from being
+   * sized to its display box.
+   */
   canvas {
     display: none;
   }

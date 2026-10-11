@@ -645,8 +645,8 @@ if (/@media \(prefers-reduced-motion:reduce\)\{/.test(compiledCss)) {
 const candidate = gzipSum();
 const LANDING_FROZEN_GZIP = 109818;
 const LANDING_FROZEN_DELTA = 17913; // 109818 - 91905, baseline fixture untouched
-const LAB_MEASURED_GZIP = 29530; // WU15 correction: lab chunk 25256 B + 4274 B executable inline
-const LAB_CAP_GZIP = 31578; // measured total + 2048 B honest margin (<= 4096 B)
+const LAB_MEASURED_GZIP = 29879; // WU16: lab chunk 25256 B + 4623 B executable inline
+const LAB_CAP_GZIP = 31927; // measured total + 2048 B honest margin (<= 4096 B)
 const LAB_MARGIN_LIMIT = 4096;
 const LAB_PAGE = 'lab/ascii/index.html';
 const LANDING_ROUTE_PAGES = ['index.html', 'en/index.html'];

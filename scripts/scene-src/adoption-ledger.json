@@ -1,0 +1,39 @@
+{
+  "library": {
+    "name": "ascii.rest",
+    "version": "0.4.0",
+    "author": "bas3line",
+    "license": "MIT",
+    "copyright": "Copyright (c) 2026 bas3line (https://github.com/bas3line)",
+    "notice": "scripts/scene-src/ascii.rest-LICENSE",
+    "packageManifest": "node_modules/ascii.rest/package.json"
+  },
+  "rule": "Every adaptation of ascii.rest code in our engine is listed here with the upstream file it came from. The checker requires both directions: a listed entry must be present in the code (its marker), and library-derived material found in the code must be listed (a constant in the code that is not in a ledger entry fails). The MIT notice is retained at `library.notice`.",
+  "entries": [
+    {
+      "id": "cell-sprite-atlas",
+      "what": "Build one finished cell per (ramp step, palette ink) once, then copy that cell into each grid cell, instead of blending every pixel of every cell on every frame.",
+      "adaptedFrom": "node_modules/ascii.rest/dist/mount.js",
+      "upstreamLines": "37-46, 76-99, 136-139",
+      "upstream": "the canvas atlas: \"each (character, colour) pair is drawn once into an atlas and copied from there into its cell, and a frame redraws only the cells that changed since the last one\"",
+      "marker": "ADOPTED from `ascii.rest` (MIT, bas3line): `ascii.rest/dist/mount.js`",
+      "constants": [],
+      "improvedBeyond": [
+        "The key is our ramp step and palette ink rather than a glyph and a colour, so no font, no text atlas and no per-glyph slot bookkeeping is needed.",
+        "The sprite set is bounded by the palette (at most 32 inks x 3 steps), so nothing is ever evicted or re-rendered; the upstream atlas has a 1024-slot ceiling with a clear-and-rebuild path.",
+        "One atlas serves BOTH outputs: the Node bake path and the live canvas call the same rasteriser, so an optimised blit cannot make baked and live disagree (the hash equality the checks assert).",
+        "Measured: 9.48 ms per 200x100 frame at 8 px per cell versus 12.23 ms for the straightforward per-pixel blend on this host, for byte-identical output."
+      ]
+    }
+  ],
+  "rejected": [
+    {
+      "what": "font glyphs as the dot shapes (the library's `fillText` atlas drawn from a monospace font)",
+      "why": "Our dots are analytic anti-aliased discs. They do not depend on a font being installed, they measure the same on every host, and the largest step can be held at the measured coverage ladder instead of whatever the font's `bulletsize` turns out to be. Measured on this host: the library's `·` at 4 device px per cell marks 0.125 of a cell's pixels (touched-pixel fraction, red channel; alpha-weighted ink coverage is 0.0539 / 0.139 / 0.4375) and its `●` marks 0.8125, but the same three glyphs mark 0.0625 / 0.1563 / 0.4961 at 16 px per cell, so the glyph ladder is font- and size-dependent."
+    },
+    {
+      "what": "the library's scene catalogue, its scene colours as our art, and any vendored file",
+      "why": "Weight and identity: the recipes closure is entry-point dependent (measured 44,252 B to 305,984 B gzip depending on the entry), and the artwork is the reference, not our brand."
+    }
+  ]
+}

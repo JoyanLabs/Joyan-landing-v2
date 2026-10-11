@@ -98,7 +98,9 @@ function initialize(): void {
 
     const paint = (index: number): void => {
       const rendered = renderFrame(scene, index);
-      image.data.set(rasterize(rendered, scene, cell));
+      // Rasterised straight into the ImageData buffer the canvas reads: the same
+      // engine raster as the Node bake, without a second megabyte-sized copy.
+      rasterize(rendered, scene, cell, image.data);
       context.putImageData(image, 0, 0);
       host.dataset.sceneFrame = String(rendered.frame);
     };

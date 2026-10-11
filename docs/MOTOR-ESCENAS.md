@@ -19,6 +19,9 @@ escribe una escena, cómo se hornea y qué se adoptó —y qué no— de la libr
 | `scripts/scene-src/scenes/joyan-night-coast.mjs` | Nuestra escena: costa nocturna con faro. Es **datos**, no código de dibujo. |
 | `scripts/scene-src/scenes/index.mjs` | Registro de escenas. Añadir una escena es un módulo y una línea. |
 | `scripts/scene-src/bake.mjs` | Horneado por Node: PNG (y MP4 opcional) con el mismo motor, sin navegador. |
+| `scripts/scene-src/baked/` | El PNG horneado (y el MP4 opcional de la tubería), generados por `bake.mjs`. |
+| `scripts/scene-src/adoption-ledger.json` | El registro de adopción: qué código de `ascii.rest` está adaptado, de qué archivo upstream viene y qué mejoramos. |
+| `scripts/scene-src/ascii.rest-LICENSE` | El aviso MIT de la librería, conservado en este repositorio. |
 | `src/lib/scene-runtime.ts` | El runtime del laboratorio: monta canvas, 12 fps, pausa, limpieza. |
 | `src/components/joyan/SceneCanvas.astro` | Una escena nuestra, en vivo o horneada, con su pie de texto real. |
 | `scripts/check-scene-engine.mjs` | La comprobación: arte, determinismo, igualdad Node/canvas y navegador. |
@@ -34,19 +37,34 @@ distinto, serían dos parecidos y no la misma pieza.
 
 - **Celdas cuadradas.** Una celda es una unidad en los dos ejes (`CELL = 1`). La
   escena se autora en una rejilla de 200 × 100 y se entrega a
-  `DELIVERY_CELL = 4` píxeles cuadrados por celda (800 × 400), tanto en el canvas
-  como en el PNG.
+  `DELIVERY_CELL = 8` píxeles cuadrados por celda (1600 × 800), tanto en el canvas
+  como en el PNG. WU15 entregaba 4 píxeles por celda (800 × 400): a esa
+  resolución el punto más pequeño caía dentro de cuatro píxeles y salía un
+  cuadrado duro de 2 × 2, sin antialiasing en ningún sitio.
 - **Rampa de puntos.** Exactamente `" ·•●"`: vacío, punto, punto medio, punto
   lleno. Nunca arte de glifos ASCII: el runtime no dibuja texto (la comprobación
   falla si aparece `fillText`, `ctx.font` o similar) y la rampa se usa como
   carácter solo para inspección y pruebas (`frameChars`).
+- **El punto es un disco redondo y antialiaseado.** Cada píxel de la celda
+  recibe **el área exacta** del disco que cae dentro de él (`quadrantArea` /
+  `discAreaIn`: el área bajo el arco y la inclusión-exclusión en los cuatro
+  vértices), no una cuenta de submuestras. Las formas cerradas cuadran: un disco
+  de radio 2 en una celda de 4 px cubre su píxel de esquina 0.31515 y su píxel de
+  eje 0.91315. El antialiasing es real en cada paso: el paso más pequeño tiene al
+  menos tres coberturas distintas y su esquina nunca es más clara que su borde.
 - **Curva de cobertura medida.** Cada paso de la rampa tiene un área de tinta
-  real. La constante `COVERAGE = [0, 0.24, 0.5, 0.79]` es la intención autoral y
-  la comprobación exige que coincida (tolerancia 0.03) con la cobertura que la
-  máscara de puntos **pinta de verdad** (medida: `[0, 0.2344, 0.4844, 0.8125]`).
-  La escalera de tono (`ladder`) se deriva de esa medición, no de un reparto
-  lineal de pasos: por eso la curva que traduce luminancia a paso es la misma
-  curva que dibuja los puntos.
+  real. `COVERAGE = [0, 0.2344, 0.4844, 0.8125]` es la escalera que la máscara
+  supersampleada de WU15 **midió** en su celda de entrega; se conserva como
+  objetivo y ahora la máscara la alcanza **exactamente en cualquier tamaño de
+  celda** (medido 0.234400 / 0.484400 / 0.812500 a 4, 8 y 16 px por celda, frente
+  a la deriva 0.2422 / 0.5117 / 0.7930 de la versión anterior a 8 px). De esa
+  escalera se **derivan** los radios (`DOT_RADIUS`, en unidades de celda):
+  `[0, 0.2731, 0.3927, 0.5103]`, por bisección sobre el área exacta del disco
+  recortado, no por una fracción asumida de la celda. El mayor es el disco
+  inscrito (0.5) más el 2 % que pide la escalera medida, y el raster recorta lo
+  que cae fuera de la celda. La escalera de tono (`ladder`) se deriva de esa
+  medición: la curva que traduce luminancia a paso es la misma curva que dibuja
+  los puntos.
 - **Dither ordenado.** Matriz de Bayer 4 × 4. Un nivel entre dos peldaños de la
   escalera se reparte **espacialmente** entre esos dos pasos vecinos: nunca salta
   más lejos. Un nivel justo en un peldaño dibuja ese paso en las 16 celdas del
@@ -193,16 +211,17 @@ Costes medidos en esta unidad (ver §7 para el presupuesto):
 
 | Artefacto | Tamaño | sha256 |
 | --- | --- | --- |
-| `joyan-night-coast.png` (800 × 400) | 9.554 B | `144d9fe24640f0c6eb7e047beddd95070e83181c021f394bf23b1bb5cce9cf8a` |
-| `joyan-night-coast.mp4` (10 s, 120 fotogramas, CRF 32) | 70.483 B | `a139813cbeaf35edac7d9425d9c833de7f85b530b3110935cfd364dfa2aa9151` |
+| `joyan-night-coast.png` (1600 × 800) | 41.906 B | `5c2f8f3dedc0858d3762f40a5f44386f556653bd19b5542efcaec9c678da7a49` |
+| `joyan-night-coast.mp4` (10 s, 120 fotogramas, CRF 32) | 219.412 B | `655f45bbd77d1f40303a413038e43470ae66d0a30be38a16b1186ffcf99456d2` |
 
 Determinismo comprobado: dos horneados seguidos del PNG dan el mismo sha256, y
 dos codificaciones seguidas del MP4 también (byte-deterministas en esta máquina y
 esta versión de `ffmpeg`; el contenedor no es un oráculo portable). El hash que
-**sí** es portable es el de los píxeles: `d634a9a9716c92e949dcc25dca35cdb3e9cfd694fd1a4bc4d0a438de7582916b`,
+**sí** es portable es el de los píxeles: `2808ffc730c273c700b1dc85d56e6dc76a24583e44009e3e110049dc14c5f3fe`,
 que es el del fotograma póster del motor y debe coincidir con el del PNG
-descomprimido. (Estos números son de la pasada de corrección; los de la primera
-pasada de WU15 están en `dist-motion-verify/wu15/green.json`.)
+descomprimido. (Los números de WU15 a 4 px por celda — PNG 9.554 B, pixel sha
+`d634a9a9…` — están en `dist-motion-verify/wu15/green.json`; los de WU16, en
+`dist-motion-verify/wu16/`.)
 
 ---
 
@@ -218,8 +237,11 @@ El requisito es falsable y por eso se comprueba así:
 3. En Node se calcula `rasterize(renderFrame(scene, frame))` para **ese mismo**
    índice y se hashea con SHA-256.
 4. La comprobación exige igualdad exacta. Observado para el fotograma 0:
-   `9554c122dad5695476adaca798f5552129c69ba178c691a1ea354e07633d8a56` en los dos
-   caminos (re-medido tras la corrección de ruido y periodicidad).
+   `34a76821c2d5c8098df81ca4044cc2484cb6a6ca91d4e04fa38db5ee06a3725e` en los dos
+   caminos (medido en WU16 sobre un canvas de 1600 × 800, 8 px por celda). El
+   hash de WU15 (`9554c122…`, 800 × 400, 4 px por celda) ya no aplica: cambió la
+   geometría del punto y la resolución de entrega, y la igualdad se vuelve a
+   comprobar, no se arrastra.
 
 Además, el PNG horneado se descomprime y su hash de píxeles debe ser el mismo que
 el del raster del fotograma póster: es decir, lo horneado **es** el fotograma que
@@ -233,20 +255,26 @@ hero híbrido: la imagen por defecto y el canvas vivo son el mismo arte.
 | Concepto | Medido |
 | --- | --- |
 | Chunk de la librería (ocho montajes de la página: dos piezas, seis escenas y este panel) | 25.256 B gzip, **un** chunk (no es un número por panel) |
-| Nuestro motor + escena + runtime | 8.821 B sin comprimir / **4.274 B gzip**, como módulo ejecutable en línea en la página del laboratorio |
-| PNG horneado | 9.554 B (no envía ningún script) |
-| Total del laboratorio | 29.530 B gzip (chunk 25.256 + en línea 4.274) |
-| Tope del laboratorio | 31.578 B gzip (medido + 2.048 B de margen; regla: margen ≤ 4.096 B) |
+| Nuestro motor + escena + runtime | 9.663 B sin comprimir / **4.623 B gzip**, como módulo ejecutable en línea en la página del laboratorio |
+| PNG horneado | 41.906 B a 1600 × 800 (no envía ningún script) |
+| Total del laboratorio | 29.879 B gzip (chunk 25.256 + en línea 4.623) |
+| Tope del laboratorio | 31.927 B gzip (medido + 2.048 B de margen; regla: margen ≤ 4.096 B) |
 | Landing | Los cinco chunks originales **byte a byte** idénticos: 109.818 B gzip |
+| Atlas de sprites (celda ya mezclada por paso y tinta) | 9,5 ms por fotograma de 200 × 100 a 8 px por celda frente a 12,2 ms de la mezcla píxel a píxel, en esta máquina y **con salida byte a byte idéntica** |
 
 Notas de contabilidad:
 
 - El límite de 16 KiB configurado en `astro.config.ts` para el canvas de MAGI hace
-  que nuestro módulo (8.821 B) **no** genere un chunk nuevo: se emite como módulo
+  que nuestro módulo (9.663 B) **no** genere un chunk nuevo: se emite como módulo
   ejecutable en línea de la página del laboratorio, y la contabilidad lo cuenta en
   `lab.inlineGzip`. Por eso `scripts/check-iteration-3.mjs` (sección 7) mide ahora
   el conjunto ejecutable del laboratorio como **chunk + módulo en línea**; el
   conjunto de la landing sigue siendo solo chunks y su invariante no se movió.
+- **Qué es y qué no es.** Este motor no es un vídeo: no hay códec, ni MP4
+  servido, ni activo externo. El panel vivo es un canvas que la página pinta
+  fotograma a fotograma con `renderFrame()` + `rasterize()`, y el panel horneado
+  es ese mismo raster escrito a PNG por Node. Solo el J1 de la sección 01 es un
+  vídeo.
 - El pie de la página del laboratorio **cita los números medidos** y las dos
   comprobaciones fallan si el texto y el bundle dejan de coincidir. Es a
   propósito: obliga a re-medir en lugar de inventar.
@@ -262,11 +290,46 @@ Notas de contabilidad:
 
 `ascii.rest@0.4.0` (MIT, bas3line) se leyó como referencia, y la comparación del
 laboratorio usa sus escenas de verdad, importadas como hojas locales. La
-procedencia se declara en **tres grupos**, y el comprobador falla si dejan de ser
-distinguibles: si reaparece cualquier constante de mezcla de la librería
-(`0x27d4eb2d`, `0x165667b1`, `0x85ebca6b`, `0xc2b2ae35`, `374761393`,
-`668265263`, `2246822519`, `3266489917`, `1274126177`) o cualquier import de
-`ascii.rest`, y si el código no nombra el material publicado que usa.
+procedencia se declara en **cuatro grupos**, y el comprobador falla si dejan de
+ser distinguibles: si aparece material de la librería que el **registro de
+adopción** no declara, si una entrada del registro nombra código que ya no está,
+si falta el aviso MIT conservado en el repositorio, o si el código no nombra el
+material publicado que usa.
+
+### 8.0 Registro de adopción (la frontera de licencia)
+
+WU16 cambia la frontera: el usuario autorizó **tomar el código de la librería y
+mejorarlo**, no solo sus ideas. Por eso ya no hay una regla de "las constantes de
+la librería no pueden aparecer", sino un **registro explícito**:
+`scripts/scene-src/adoption-ledger.json` lista cada adaptación con el archivo
+upstream del que viene, y el aviso MIT de la librería se conserva en el
+repositorio, palabra por palabra, en `scripts/scene-src/ascii.rest-LICENSE`
+(copyright © 2026 bas3line, https://github.com/bas3line). El comprobador
+`scripts/check-scene-engine.mjs` lo verifica en **las dos direcciones**:
+
+1. una entrada del registro debe existir de verdad en el código (su marcador) y
+   nombrar un archivo upstream que existe;
+2. el material derivado de la librería que aparezca en el motor (sus constantes
+   de mezcla, su desplazamiento de Bayer `- 0.47`, su clave de LUT `31.99`, su
+   fuente alojada, `nightCoast`) debe estar declarado — y el propio predicado se
+   prueba contra una fuente sintética que lleva una constante sin declarar, para
+   que la comprobación no pueda pasar por vacuidad.
+
+| Adoptado | Archivo upstream | Qué mejoramos |
+| --- | --- | --- |
+| El atlas de celdas: una celda ya mezclada por (paso, tinta), construida una vez y copiada celda a celda | `node_modules/ascii.rest/dist/mount.js` (el atlas de glifos: "cada par (carácter, color) se dibuja una vez en un atlas y se copia a su celda") | La clave es nuestro paso de rampa y nuestra tinta de paleta, no un glifo y un color (sin fuente, sin reserva de slots); el conjunto está acotado por la paleta, así que nada se desaloja ni se vuelve a dibujar; y **el mismo atlas sirve al horneado de Node y al canvas vivo**, así que un blit optimizado no puede hacer que las dos salidas discrepen (la igualdad por hash). Medido: 9,5 ms por fotograma de 200 × 100 a 8 px por celda frente a 12,2 ms, salida idéntica. |
+
+**Lo que rechazamos deliberadamente:** los **glifos de fuente** como forma del
+punto. Nuestros puntos son discos analíticos: no dependen de una fuente instalada,
+miden lo mismo en cualquier máquina y pueden sostener la escalera de cobertura
+medida. Medido en esta máquina con la pila de fuentes de la librería y su tamaño
+(`w / 0.6`), fracción de píxeles tocados sobre negro: `·`/`•`/`●` marcan 0.125 / 0.25 /
+0.8125 con 4 px por celda, 0.0625 / 0.2188 / 0.5313 con 8, 0.0625 / 0.1563 /
+0.4961 con 16, y con su paso real de panel (≈1,5 px por celda) 0,5 / 0,5 / 1,0 —
+es decir, la escalera de la librería depende de la fuente y del tamaño. También
+rechazamos su catálogo de escenas (peso: el cierre de recetas depende del punto de
+entrada y no cabe), su arte y sus paletas como si fueran nuestras, cualquier
+activo vendorizado, y la reutilización sin atribución.
 
 ### 8.1 Material publicado, usado como está publicado
 
@@ -293,9 +356,10 @@ Nada de este grupo es nuestro, y nada de este grupo vino de `ascii.rest`.
 | --- | --- |
 | `mix32` | Mezcla de rotación y multiplicación de la **familia publicada** MurmurHash3/SplitMix, pero con **nuestras** constantes (`0x2f1b3d5f`, `0x6a4f9c17`, `0x1d8e5b93`), nuestro orden de carriles y nuestro calendario de desplazamientos (17, rotación 13, 11, 16). |
 | `latticeNoise` / `layeredNoise` | Retícula con **envoltura en los dos ejes**, semilla propia por octava y blend de lerps anidados: deliberadamente **no** la forma `noise(x, y, period)` de una sola periodicidad de la librería. |
-| Escalera de cobertura | Derivada de la máscara de puntos medida, no de un reparto lineal de pasos. |
+| Máscaras de puntos analíticas y sus radios | Área exacta del disco por píxel (`quadrantArea`/`discAreaIn`) y radios resueltos por bisección desde la escalera de cobertura medida. Ni cuenta de submuestras ni glifos: es la pieza que WU16 añadió y la razón de que los puntos se lean como puntos. |
+| Escalera de cobertura | La que midió la máscara de WU15, conservada como objetivo; el motor la alcanza en cualquier tamaño de celda. |
 | Selección de paleta | Búsqueda explícita del mínimo error de tono renderizado. |
-| Máscaras de puntos, escena, paleta, horneado y comprobaciones | Todo escrito aquí. |
+| Escena, paleta, horneado y comprobaciones | Todo escrito aquí. |
 
 Una primera versión de este documento afirmaba que el ruido era simplemente
 "nuestro" mientras compartía el juego de constantes y la estructura de la
@@ -306,11 +370,12 @@ construcción y el comprobador impide que vuelva la anterior.
 recetas depende del punto de entrada y no cabe), su arte y sus paletas como si
 fueran nuestras, cualquier activo vendorizado, y la reutilización sin atribución.
 
-**Licencia.** No se copió ninguna línea de `ascii.rest`. La idea no tiene dueño, y
-el material publicado de 8.1 tampoco; si en el futuro se adaptara código literal
-de esa librería, habría que conservar su aviso MIT (copyright © 2026 bas3line) y
-la atribución. Hoy el paquete instalado conserva su propio `LICENSE` y el
-laboratorio mantiene el crédito bas3line · MIT y el enlace a la fuente.
+**Licencia.** El material adaptado está en el registro de 8.0, con su archivo
+upstream, y el aviso MIT de `ascii.rest@0.4.0` (copyright © 2026 bas3line) se
+conserva en el repositorio en `scripts/scene-src/ascii.rest-LICENSE`; el paquete
+instalado conserva además su propio `LICENSE`, y el laboratorio mantiene el
+crédito bas3line · MIT y el enlace a la fuente. Nada de la librería se importa en
+tiempo de ejecución desde el motor.
 
 ---
 
@@ -318,12 +383,15 @@ laboratorio mantiene el crédito bas3line · MIT y el enlace a la fuente.
 
 - El modelo de tono es un espacio de pantalla (luma sobre sRGB), no luz lineal, y
   el motor **no** tiene gestión de color: no hay garantía colorimétrica.
-- El antialiasing de los puntos es por supermuestreo (4 × 4 por píxel), no
-  analítico.
-- No se midieron CPU, tiempo de fotograma, LCP ni CLS del panel en vivo; los
-  números de carga de la galería de la librería son de WU14 y de un solo host.
+- El antialiasing de los puntos es **analítico** (área exacta del disco por
+  píxel); los radios se resuelven por bisección, así que son exactos para esta
+  máscara y no una forma cerrada.
+- El coste se midió en **Chromium, en una sola máquina y un solo proceso**, con la
+  fuente real servida a una página en blanco del mismo origen (§11). No es una
+  afirmación general de rendimiento, y no se midieron CPU, LCP ni CLS.
 - No hay comparación perceptiva ni de fidelidad entre nuestro motor y el de la
-  librería: la comparación es visual y de coste.
+  librería; la comparación de geometría es numérica y de coste, y la de la
+  escalera de glifos (§8.0) también.
 - Firefox, Safari, programación en segundo plano del sistema operativo y
   restauración por BFCache: sin medir.
 - El MP4 es salida de tubería y **no** se sirve en ninguna página.
@@ -338,24 +406,88 @@ laboratorio mantiene el crédito bas3line · MIT y el enlace a la fuente.
 node scripts/scene-src/bake.mjs                  # horneado (PNG), solo Node
 node scripts/scene-src/bake.mjs --mp4            # + bucle corto
 pnpm build                                       # 14 páginas
-node scripts/check-scene-engine.mjs              # arte + periodicidad + igualdad + navegador
-node scripts/check-ascii-runtime.mjs --out dist-motion-verify/wu15/correction/lab
+node scripts/check-scene-engine.mjs              # arte + geometría del punto + registro + igualdad + navegador
+node scripts/check-ascii-runtime.mjs --out dist-motion-verify/wu16/lab
 pnpm check                                       # astro check + eslint + iteration-2/3
 ```
 
 `scripts/check-scene-engine.mjs` cubre: rampa de solo puntos, celdas 1:1,
-cobertura medida contra la autoral, escalera de tono y dither ordenado,
-determinismo (repetición, avance real y **periodicidad medida en el `field`**),
-procedencia (que no vuelvan las constantes de la librería ni un import de
-`ascii.rest`, y que el material publicado esté nombrado), índices dentro de la
-paleta, todos los píxeles como mezcla fondo → paleta, PNG idéntico al raster del
-póster, igualdad Node/canvas por SHA-256, pausa fuera de pantalla y con la
-pestaña oculta, fotograma estático bajo movimiento reducido con un control
-etiquetado con la verdad, limpieza en `pagehide`, ausencia de peticiones
-externas, y capturas a 390/768/1440.
+`DELIVERY_CELL >= 8`, la escalera de cobertura medida contra la que pinta la
+máscara, **la forma del punto**: para cada paso y para 4, 8 y 16 px por celda,
+los píxeles deben coincidir (≤ 0.004) con un disco antialiaseado de referencia
+independiente (32 × 32 submuestras escritas en el propio comprobador), con al
+menos tres coberturas distintas, esquinas nunca más claras que los ejes y masa
+fuera del disco inscrito ≤ 13 %; y los **controles negativos** de esos dos
+predicados (un cuadrado de la misma área y el bloque duro 2 × 2 que WU15 pintaba
+deben ser rechazados). Además: `DOT_RADIUS` derivado de la escalera medida (radio
+resuelto de nuevo por bisección contra la referencia), que el atlas adoptado
+reproduzca byte a byte una mezcla píxel a píxel, el **registro de adopción en las
+dos direcciones** con el aviso MIT conservado, escalera de tono y dither
+ordenado, determinismo (repetición, avance real y **periodicidad medida en el
+`field`**), índices dentro de la paleta, todos los píxeles como mezcla fondo →
+paleta, PNG idéntico al raster del póster, igualdad Node/canvas por SHA-256, pausa
+fuera de pantalla y con la pestaña oculta, fotograma estático bajo movimiento
+reducido con un control etiquetado con la verdad, limpieza en `pagehide`, ausencia
+de peticiones externas, y capturas a 390/768/1440.
 
-Evidencia: `dist-motion-verify/wu15/` (RED conservado, `green.json`, registros y
-capturas), `dist-motion-verify/wu15/independent/` (lo que midió el verificador
-independiente, intacto) y `dist-motion-verify/wu15/correction/` (la pasada de
-corrección: RED de 11 fallos y su GREEN). Los árboles `wu13/` y `wu14/` se leen
-como entrada y no se reescriben.
+Evidencia de WU16: `dist-motion-verify/wu16/red/` (RED conservado: 29 fallos de
+las aserciones nuevas sobre el motor anterior), `green.json` y `captures/`,
+`investigation/` (geometría del punto antes/después contra los glifos de la
+librería, con recortes ampliados), `sizes/` (§11) y `lab/` (contabilidad del
+laboratorio). Los árboles `wu13/` y `wu14/` se leen como entrada y no se
+reescriben; la evidencia de WU15 sigue intacta en `dist-motion-verify/wu15/`.
+
+---
+
+## 11. Tamaño grande: qué rejilla para un hero
+
+Medido en Chromium, una sola máquina y un solo proceso, sirviendo el motor real a
+una página en blanco del mismo origen (`dist-motion-verify/wu16/sizes/`; el
+control sin pintar da 0 tareas largas, así que las tareas largas que aparecen son
+coste del motor). El repintado de un fotograma de 200 × 100 a 8 px por celda
+cuesta ~19,6 ms y no produce ninguna tarea larga dentro del bucle de 12 fps.
+
+| Rejilla | Ancho CSS | px por celda en pantalla | backing/pantalla | punto más pequeño | repintado (mediana) |
+| --- | --- | --- | --- | --- | --- |
+| 200 × 100, celda 8 | 1280 | 6,40 | 1,25× (reduce: nítido) | 3,50 px | 19,6 ms |
+| 200 × 100, celda 8 | 1920 | 9,60 | 0,83× | 5,24 px | 19,6 ms |
+| 200 × 100, celda 8 | 2560 | 12,80 | 0,63× (amplía 1,6×) | 6,99 px | 20,3 ms |
+| 200 × 100, celda 8 | 3840 | 19,20 | 0,42× (amplía 2,4×) | 10,49 px | 19,8 ms |
+| 200 × 100, celda 12 | 2560 | 12,80 | 0,94× (≈1:1) | 6,99 px | 24–25 ms |
+| 200 × 100, celda 16 | 3840 | 19,20 | 0,83× | 10,49 px | 31,1 ms |
+| 320 × 160, celda 8 | 1280–3840 | 4,00–12,00 | 2,00×–0,67× | 2,19–6,56 px | **50,6–51,3 ms** |
+
+Tareas largas en 2,5 s de bucle a 12 fps: **0** con 200 × 100 (cualquier ancho
+medido), **~30 de ~51–64 ms** con 320 × 160 (cada fotograma pasa el umbral de
+50 ms: ~61 % del presupuesto de 83 ms). El coste activo depende de los píxeles
+totales (celda² × celdas), no del ancho CSS: 2560 × 1280 cuesta 2,56× lo que
+1600 × 800.
+
+**Recomendación.** Un hero usa **200 × 100 celdas** y elige la celda de entrega
+para que el backing store quede cerca del ancho de presentación:
+
+- **1280–1920 px:** celda 8. El raster se reduce (1,25× a 1600 px, 0,83× a 1920),
+es nítido, el punto más pequeño mide 3,5–5,2 px de pantalla y cuesta 19,6 ms por
+fotograma con cero tareas largas.
+- **2560 px:** celda 12 (0,94×, prácticamente 1:1) por 24–25 ms; la celda 8 sigue
+siendo redonda pero el navegador la amplía 1,6× y se ve blanda.
+- **3840 px:** celda 16 (0,83×) por ~31 ms; con celda 8 la ampliación es 2,4× y el
+recorte ampliado lo muestra. Alternativa honesta para ese ancho: limitar el panel
+a ~2200–2600 px CSS en vez de estirarlo a 3840.
+- **No conviene subir la densidad a 320 × 160 para ganar resolución:** cuesta
+2,56× (la mitad del presupuesto de 12 fps), el punto más pequeño baja a 2,2 px de
+pantalla a 1280 (por debajo de los ~3 px en que un punto sigue leyéndose como
+punto) y la resolución se compra mejor con la celda de entrega, que no cambia la
+composición.
+
+**Un límite que conviene decir en voz alta:** el panel del laboratorio mide unos
+307 px CSS de ancho, es decir ≈1,54 px de dispositivo por celda para una rejilla
+de 200 celdas. A ese paso **ningún** motor dibuja puntos redondos: la librería
+rinde sus glifos a ese mismo paso y su textura se embarra igual. Lo que cambió
+con WU16 es *cómo* se llega ahí: antes el raster de 800 × 400 se reducía con
+`image-rendering: pixelated` (vecino más cercano, que tira el promedio), y ahora
+se reduce suavemente desde 1600 × 800. Un punto se lee como punto a partir de
+unos 3 px de pantalla por celda, y eso ocurre con la celda 8 desde unos 600 px CSS
+de ancho de panel (6,4 px por celda a 1280). El panel del laboratorio es una
+superficie de comparación a tamaño pequeño; los tamaños de hero son los de la
+tabla.

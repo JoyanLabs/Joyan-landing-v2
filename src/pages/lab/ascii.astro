@@ -56,7 +56,7 @@ const metadata = {
     <section class="border-t border-hairline py-8" aria-labelledby="compare-title">
       <h2 id="compare-title" class="text-xl text-bone-50">05 / Our engine beside the library · one 200 × 100 grid</h2>
       <p class="mt-2 max-w-prose text-sm text-plomo-400">
-        Three panes, the same 200 × 100 grid and the same size: the library's <span class="font-mono">night-coast</span> live,
+        Three panes, the same 200 × 100 grid and the same displayed size: the library's <span class="font-mono">night-coast</span> live,
         our own coastal night live, and our own coastal night baked. Ours is drawn by an engine we wrote
         (<span class="font-mono">scripts/scene-src/engine.mjs</span>): square cells, the dot ramp <span class="font-mono">· • ●</span>
         only, ordered 4×4 Bayer dithering, one indexed palette per scene, deterministic hash noise and per-cell palette
@@ -64,12 +64,24 @@ const metadata = {
         frame function draws the canvas and the PNG: the baked still is the engine's poster frame, not a lookalike.
       </p>
       <p class="mt-3 max-w-prose text-sm text-plomo-400">
+        <span class="text-bone-100">This is not a video.</span> Our live pane is a canvas the page paints frame by frame from the
+        engine's frame function, and the baked pane is that same function's poster frame written to a PNG by Node — no codec,
+        no movie, no external asset. Only section 01 is a video. A dot is a <span class="text-bone-100">round,
+        anti-aliased disc</span>: each pixel receives the exact area of the disc inside it, and each step's radius is derived
+        from the measured coverage ladder (0.2344 / 0.4844 / 0.8125 of a cell becomes a radius of 0.2731 / 0.3927 / 0.5103 of a
+        cell), so the largest dot is the inscribed disc and never a block. The two live panes are <em>not</em> drawn at the same
+        pixel pitch: our canvas is a fixed 1600 × 800 backing store (8 px per cell) that the browser resamples to the pane,
+        while the library sizes its own canvas to its display box — measured 307 × 154, about 1.54 device px per cell, at a
+        1440-wide viewport. Same grid, same displayed size, different internal resolution; and our image is no longer
+        resampled with nearest-neighbour pixelation, which is what turned the old dots into squares.
+      </p>
+      <p class="mt-3 max-w-prose text-sm text-plomo-400">
         Measured cost of each pane, shipped bytes at gzip level 6. The library's own bundle carries all eight library mounts
         on this page (two pieces, the six gallery scenes and this pane): <span class="font-mono">25256 B</span> gzip in one
         chunk, so that is not a per-pane number. Our engine, our scene and its runtime come to
-        <span class="font-mono">8821 B</span> of JavaScript; this project's configured 16 KiB inline limit keeps them as an
-        executable module on this page instead of a separate chunk, measured at <span class="font-mono">4274 B</span> gzip.
-        The baked still is <span class="font-mono">9554 B</span> of PNG and ships no script at all.
+        <span class="font-mono">9663 B</span> of JavaScript; this project's configured 16 KiB inline limit keeps them as an
+        executable module on this page instead of a separate chunk, measured at <span class="font-mono">4623 B</span> gzip.
+        The baked still is <span class="font-mono">41906 B</span> of PNG at 1600 × 800 and ships no script at all.
       </p>
       <div class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <article data-ascii-compare="night-coast" class="flex min-w-0 flex-col border border-hairline">
@@ -84,7 +96,7 @@ const metadata = {
             <p data-ascii-caption class="min-w-0 max-w-prose text-sm text-plomo-400">
               <span class="block font-mono text-xs uppercase tracking-widest text-bone-100">01 · library night-coast · live</span>
               <span class="mt-1 block">The library's own scene, drawn by the library's own code, its own palette, its own art. Vendor artwork shown for comparison only, never as ours.</span>
-              <span class="mt-1 block font-mono text-xs">200 × 100 cells · dots (· • ●) · live canvas</span>
+              <span class="mt-1 block font-mono text-xs">200 × 100 cells · dots (· • ●) · live canvas sized to this box (measured 307 × 154 at a 1440-wide viewport)</span>
             </p>
           </div>
           <div class="px-4 pb-3">
@@ -94,21 +106,29 @@ const metadata = {
             Static fallback · JavaScript unavailable
           </p>
         </article>
-        <SceneCanvas scene="joyan-night-coast" variant="live" index="02 · ours · live" cost="engine + scene + runtime, 4274 B gzip" />
-        <SceneCanvas scene="joyan-night-coast" variant="baked" index="03 · ours · baked" cost="the engine's own poster frame, 9554 B PNG, no JavaScript" />
+        <SceneCanvas scene="joyan-night-coast" variant="live" index="02 · ours · live" cost="engine + scene + runtime, 4623 B gzip; 1600 × 800 backing store (8 px per cell)" />
+        <SceneCanvas scene="joyan-night-coast" variant="baked" index="03 · ours · baked" cost="the engine's own poster frame, 41906 B PNG, 1600 × 800, no JavaScript" />
       </div>
       <p class="mt-5 max-w-prose text-sm text-plomo-400">
-        Provenance, in three parts. <span class="text-bone-100">Published standard material, used as published:</span> the
-        canonical 4 × 4 ordered-dither matrix (Bayer, 1973) and the Rec.709 luma coefficients (ITU-R BT.709), which govern
-        both the tone model and the chroma term.
-        <span class="text-bone-100">Ideas learned from <span class="font-mono">ascii.rest</span> 0.4.0 (MIT, bas3line) and
-        reimplemented without copying code:</span> a dot ramp as a tone ladder with an ordered dither, per-cell colour
-        compensation for how much ink a dot lays down, deterministic integer hash noise, and a per-scene indexed palette with
-        a declared ground. <span class="text-bone-100">Ours:</span> the mixing function (our own constants and shift schedule),
-        the two-axis wrapping lattice noise, the coverage ladder derived from our measured mask, the palette selection, the
-        scene, the palette and every check. No line of <span class="font-mono">ascii.rest</span> is copied and none of its
-        constants appear here. What we did not take: its scene catalogue, its artwork, or its colours as ours. Method and the
-        full list: <span class="font-mono">docs/MOTOR-ESCENAS.md</span>.
+        Provenance, in three parts, and the licence boundary is now an explicit adoption ledger
+        (<span class="font-mono">scripts/scene-src/adoption-ledger.json</span>). <span class="text-bone-100">Published standard
+        material, used as published:</span> the canonical 4 × 4 ordered-dither matrix (Bayer, 1973) and the Rec.709 luma
+        coefficients (ITU-R BT.709), which govern both the tone model and the chroma term.
+        <span class="text-bone-100">Adopted from <span class="font-mono">ascii.rest</span> 0.4.0 (MIT, bas3line), with its notice
+        retained in <span class="font-mono">scripts/scene-src/ascii.rest-LICENSE</span>:</span> the cell-sprite atlas — one
+        finished cell per ramp step and palette ink, built once and copied into each cell, adapted from the glyph atlas in
+        <span class="font-mono">ascii.rest/dist/mount.js</span>. What we improved beyond the original: the key is our ramp step
+        and palette ink instead of a glyph and a colour, the set is bounded by the palette so nothing is ever evicted or
+        re-rendered, and the same atlas feeds the Node bake and the live canvas, so an optimised blit cannot make them
+        disagree (measured 9.5 ms per 200 × 100 frame at 8 px per cell against 12.2 ms for a per-pixel blend, byte-identical
+        output). <span class="text-bone-100">Ideas learned from the library and reimplemented:</span> a dot ramp as a tone
+        ladder with an ordered dither, per-cell colour compensation for how much ink a dot lays down, deterministic integer
+        hash noise, and a per-scene indexed palette with a declared ground. <span class="text-bone-100">Ours:</span> the
+        mixing function (our own constants and shift schedule), the two-axis wrapping lattice noise, the analytic anti-aliased
+        dot masks and the radii derived from the measured ladder, the palette selection, the scene, the palette and every
+        check. What we did not take: the library's font glyphs as our dots (ours do not depend on a font being installed), its
+        scene catalogue, its artwork, or its colours as ours. Method and the full list:
+        <span class="font-mono">docs/MOTOR-ESCENAS.md</span>.
       </p>
     </section>
     <footer class="border-t border-hairline pt-8 text-sm text-plomo-400">
@@ -116,7 +136,9 @@ const metadata = {
       <p class="mt-3">Scenes draw dots, keep square(1:1) cells, and are replayed at a 12 fps ceiling: the played rate can be lower under load. Their palettes are vendor demo art, not Joyan tokens, and their still frame under reduced motion is the package's own.</p>
       <p class="mt-3">Our own engine's scene keeps the same 12 fps ceiling, pauses offscreen and in hidden tabs, and shows its
         poster frame under reduced motion. The baked still is the engine's own raster of that same poster frame, written by Node
-        with no browser involved.</p>
+        with no browser involved. Round dots with radii derived from the measured coverage ladder; no video, no codec and no
+        external asset. Adapted <span class="font-mono">ascii.rest</span> code (MIT, bas3line) is listed in
+        <span class="font-mono">scripts/scene-src/adoption-ledger.json</span> and its notice is retained in the repository.</p>
       <p class="mt-3">Placement candidates: controlled stories and social assets stay baked; runtime may suit purposeful generative accents beside—not behind—content. Rollout remains pending human testing.</p>
     </footer>
   </main>
