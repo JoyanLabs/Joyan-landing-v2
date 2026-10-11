@@ -104,7 +104,7 @@ Pre-baked, deterministic, palette-limited ordered-dither art. Levels define **wh
 **Rules:**
 
 - Texture/illustration must never overlap text; keep contrast ≥4.5:1 in any region that touches content.
-- **Static/pre-baked preferred on the landing** — assets are committed PNGs and MP4s; the optional MAGI particle overlay remains its only canvas. The isolated [WU13 comparison lab](#wu13--runtime-comparison-trial) is an explicit experimental exception, not a production placement rule.
+- **Static/pre-baked preferred on the landing** — assets are committed PNGs and MP4s; the optional MAGI particle overlay remains its only canvas. The isolated [WU13 comparison lab](#wu13--runtime-comparison-trial) and its [WU14 scene gallery](#wu14--live-coloured-scene-gallery-2026-10-10) are explicit experimental exceptions, not production placement rules. No landing route loads runtime scene JavaScript.
 - Idle motion is limited to the five argument films, the dedicated baked J1 scene, the MAGI overlay/SVG pulses, and the hero caret/scroll cue.
 - Hero and shell texture are decorative (`alt=""` / `aria-hidden`); section figures are informative (localized `alt` + `caption`).
 
@@ -412,6 +412,115 @@ node scripts/check-ascii-runtime.mjs
 pnpm check
 ```
 
+### WU14 — live coloured scene gallery (2026-10-10)
+
+**Status: isolated lab experiment; the landing still ships zero runtime scene
+JavaScript.** User decision: what the review liked are the library's coloured
+`scenes` pieces — dot art (ramp `" ·•●"`), **not** ASCII glyphs — delivered live
+in the noindex laboratory, with the lab JavaScript allowance explicitly enlarged
+by that decision. `/lab/ascii` keeps the unchanged baked J1, the donut and the
+cup, and adds a six-scene gallery.
+
+| Family | What it draws | Measured bundled cost | Decision |
+|---|---|---|---|
+| `scenes` (six selected) | 200 × 100 cells, `cell: 1` (square), dots only, fixed 30–46 colour palette, ordered Bayer dither + palette compensation, 15 fps source replayed at 12 fps | per module (gzip level 9 of each raw package file) 5,318 + 7,223 + 7,317 + 7,631 + 7,724 + 7,863 = **43,076 B**; bundled into the lab entry: one chunk **25,239 B gzip**, **0 B** executable inline (the former 3,728 B inline module is now that chunk) | Delivered live in the lab |
+| `looks` (one example, e.g. `sea()`) | character art in a different ramp; `dither: false` by default for every look but `sweep` | method-dependent, so never quoted as "the" closure: whole recipes barrel bundled minified (vite/esbuild, gzip level 6) **324,343 B raw / 98,814 B gzip**; tree-shaken to one `sea()` **143,960 B raw / 44,252 B gzip**; unminified static-import closure of the recipes barrel (17 files, gzip level 9) **727,066 B raw / 216,897 B gzip**; whole `dist/kit` source tree (21 files, gzip level 6) **997,443 B raw / 305,984 B gzip**. One real `sea()` example measured **+44,134 B gzip** over the gallery (limit: scene-only + 12,288 B) | **Omitted:** the cost did not fit. The package also exports no `ascii.rest/kit/recipes/looks` leaf, so the only legal specifier is the recipes barrel |
+| Any remote catalogue, CDN module or downloaded font | — | 0 B | Not used; every module is a local focused leaf import |
+
+- **Imports (actual):** `mount` plus default+named leaf imports from exactly six
+  `ascii.rest/pieces/<scene>` modules, beside the existing `donut` and `java`
+  leaves. No `ascii.rest/pieces` barrel, no by-name `load`/`names` registry, no
+  whole-kit fan-out, no `ascii.rest/kit` import. **Namespace imports were measured
+  and rejected:** `import * as` pulled the bundler's shared namespace helper into
+  a new shared chunk, which changed the byte-frozen landing `client` chunk
+  (60,302 → 60,308 B gzip) and added a `rolldown-runtime` chunk; default+named
+  leaves restore byte identity.
+- **Budget (measured, not estimated).** Landing allowance unchanged: the five
+  original chunks are **byte-identical** and sum to **109,818 B gzip**
+  (`client.BxDIQlYz.js` 60,302 + `client.kF-MUc6b.js` 27,057 + two 406 B
+  `index.astro` chunks + `viewport.BHcnJOoz.js` 21,647). The lab allowance is a
+  measured number with a documented margin: lab chunk **25,239 B gzip** + 0 B
+  inline = **25,239 B**, cap **27,648 B**, margin **2,409 B** (rule: cap − measured
+  total must stay within 0…4,096 B). The pre-measurement cap prior was 47,172 B
+  (the six scene modules at gzip level 9 = 43,076 B plus the 4,096 B maximum
+  margin); the measured build came in below it, so the cap was **tightened**, not
+  raised. Generated client JS is counted by a **recursive `dist/**/*.js` walk**
+  (a nested generated chunk that no page references fails the frozen landing set
+  instead of passing silently): **135,057 B gzip** = landing 109,818 B + lab
+  25,239 B, delta **43,152 B** over the 91,905 B baseline, which supersedes the
+  22 KiB lab-delta allowance for `/lab/ascii` by the explicit user decision.
+  **Executable inline scripts are a separate, pre-existing and unbudgeted
+  figure, reported with no limit:** 114,589 B gzip in 64 blocks across 13 of 14
+  generated pages site-wide, 20,972 B on the two landing routes, 0 B on the lab
+  page. Only the lab page's inline participates in the lab cap; no inline figure
+  enters the 22,528 B contract.
+- **Landing identity and lab attribution in the site-wide guard.**
+  `scripts/check-iteration-3.mjs` section 7 freezes the five landing files by
+  recorded sha256 and pins their delta to the exact 17,913 B against the
+  untouched 91,905 B fixture (limit 22,528 B unchanged). A file is lab-attributed
+  only when `/lab/ascii` is its single referencing page; a missing lab page or a
+  file shared with a real page fails closed as a leak, and a file in both sets
+  fails as a double count. The measured lab cap constant (27,648 B) is declared
+  in both checkers and each names the other. The baseline fixture is untouched;
+  no reset and no "unlimited" lab exists in either checker.
+- **Measured load (laboratory only, not a landing budget).** Independent
+  verification measured, headless Chromium on this host with no CPU throttling and
+  all six canvases visible at once: steady-state RAF cadence **47.2 fps** (p50
+  16.7 ms, p95 33.4, p99 50, none above 50 ms at 1440; p99 50 at 390), 4 long
+  tasks totalling **213 ms** (max 56 ms) at 1440 and 208 ms (max 55 ms) at 390,
+  load phase to all-ready ≈**1.29 s** with 6 long tasks totalling 2,980 ms (max
+  1,480 ms), and **≈12.2 fps per piece**. A control with the lab chunk blocked ran
+  at **60.0 fps with 0 long tasks**. A bounded writer re-run reproduced 47.2 fps,
+  12.2 fps per piece and the 60.0 fps / 0-long-task control. These are
+  measurements of one headless browser on one host: they are **not** generalisable,
+  and CPU, LCP, CLS, Firefox/Safari, mobile, OS background scheduling and BFCache
+  stay unmeasured. The design-system rule they support: six live 200 × 100 dot
+  canvases are a **laboratory-scale load, not a landing budget** — a real landing
+  surface would need far fewer live pieces or a static frame.
+- **Invariants that are documented truthfully.** Each caption states the package's
+  own `meta.name` and `meta.note` plus `cols × rows`, square cells, the dot ramp
+  and the 12 fps ceiling, all server-rendered (never drawn by script). Node-side
+  package checks prove every one of the six frames uses **only** `" ·•●"`,
+  `category: scenes`, 200 × 100, `cell: 1` and an advancing frame; the browser
+  checks read real canvas pixels: 8+ distinct colour buckets, a fully painted
+  ground, a 2:1 frame box, distinct per-scene fingerprints and a frame that
+  actually changes over time (measured **41 distinct frames in 3.34 s ≈ 12.3 fps**
+  for `ocean-sunset` at a 20 Hz poll resolution, consistent with the 12 fps
+  ceiling; under load the played rate can be lower).
+- **Behaviour and accessibility.** One controller mounts both families; the scenes
+  are decorative canvases (`aria-hidden`) with an adjacent human-readable caption
+  and a real keyboard-operable Pause/Play button each. The controller keeps the
+  accepted WU13 contract: no `motion: true` override, so the library itself draws
+  the static frame under `prefers-reduced-motion`; offscreen and hidden-document
+  playback stops; Play restarts the package timeline (the API returns stop, not
+  seek); pagehide/`astro:before-swap` cancel every loop with no duplicate rAF or
+  listeners (bounded ≤ 8 live loops for 8 hosts, zero at pagehide). No authored
+  inline style was added; the vendor canvas writes its own sizing attributes.
+- **Fallbacks.** No-JS shows the descriptive caption and fallback text per scene
+  with disabled controls — never a blank canvas or a fake animation. Reduced
+  motion with JS draws the package's real static dot frame. The native baked J1
+  behaviour is unchanged (pauses/hides under reduced motion; native autoplay may
+  continue without JS).
+- **Not measured (no claim):** CPU, LCP, CLS and memory cost of six simultaneous
+  20,000-cell canvases; Firefox and Safari; OS-level background scheduling and
+  BFCache restoration; glyph coverage beyond the package's own system
+  `ui-monospace` atlas; and any rollout, branding or performance acceptance.
+  Vendor palettes and art stay demo-only, never Joyan tokens.
+
+WU14 evidence: `dist-motion-verify/wu14/` — preserved `red.log`/`red.json`/`before.json`
+(10 recorded failures before implementation), `bundle.json`, `scene-frames.json`,
+`package-frames.json`, `smoke.json`, the isolated `looks` cost probe, and
+`captures/` with 390/768/1440 × normal/reduce/no-JS plus per-scene images. The
+WU13 tree stays untouched and is read as input only. Method notes are kept in
+Spanish in `dist-motion-verify/wu14/EVIDENCE.md`.
+
+```bash
+pnpm build
+node scripts/check-ascii-runtime.mjs --red      # preserved RED before implementing
+node scripts/check-ascii-runtime.mjs            # GREEN: 0 failures, 9 contexts
+pnpm check
+```
+
 ## MAGI SVG diagram guide
 
 The static diagram (`AgentNetworkDiagram.astro`) follows one strict grid:
@@ -677,7 +786,25 @@ The five scoped repeated lists — Agents, MAGI, Hardware, Ecosystem items, and 
 
 ---
 
-**Version:** 1.12 — **Last updated:** 2026-10-10 — **Maintainer:** JoyanLabs
+**Version:** 1.13 — **Last updated:** 2026-10-10 — **Maintainer:** JoyanLabs
+
+> **1.13 — WU14 live coloured scene gallery.** Six real `ascii.rest` `scenes`
+> pieces (dots, not glyphs) mounted live in the noindex lab beside the unchanged
+> baked J1, donut and cup, with an explicitly user-authorized enlargement of the
+> lab JavaScript allowance as a measured number (25,239 B gzip chunk + 0 B
+> inline, cap 27,648 B, margin 2,409 B). Landing five chunks stay byte-identical
+> at 109,818 B gzip and no other route loads runtime scene JS. Namespace imports
+> were measured and rejected because they mutated the frozen landing chunk. One
+> `looks` example was measured at +44,134 B gzip and omitted as over budget.
+> Preserved RED, real canvas-pixel frame checks, frozen/pause/no-JS/offscreen/
+> cleanup evidence and 54 captures; CPU/LCP/CLS, Firefox/Safari, BFCache and glyph
+> coverage remain unmeasured. Correction pass: the site-wide guard now walks
+> `dist/**/*.js` recursively (nested chunks counted, negative control added),
+> reports executable inline scripts per set as pre-existing and unbudgeted
+> (114,589 B site-wide / 20,972 B landing / 0 B lab), corrects the six-scene
+> per-module total to 43,076 B, replaces the unreproducible closure figure with
+> method-labelled measurements, and records the independently measured load
+> (47.2 fps steady, ≈12.2 fps per piece, 60.0 fps control).
 
 > **1.12 — WU13 runtime trial.** Pinned real ascii.rest0.4.0 in an isolated noindex
 > comparison lab; retain baked J1 and untouched landing assets/chunks. Selected

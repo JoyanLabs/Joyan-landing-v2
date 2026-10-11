@@ -64,8 +64,10 @@
  * clean checkout. No runtime dependencies beyond project devDependencies.
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 import yaml from 'js-yaml';
@@ -95,11 +97,21 @@ if (args[0] && args[0] !== '--baseline') {
   process.exit(1);
 }
 
+function listGeneratedJs(dir, base = dir) {
+  const found = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const path = resolve(dir, entry.name);
+    if (entry.isDirectory()) found.push(...listGeneratedJs(path, base));
+    else if (/\.js$/i.test(entry.name)) found.push(path.slice(base.length + 1).replaceAll('\\', '/'));
+  }
+  return found.sort();
+}
+
+// Recursive walk of `dist/**/*.js`, so a generated chunk nested in a
+// subdirectory is counted instead of passing silently. Paths are dist-relative.
 function listClientJs() {
-  if (!existsSync(ASTRO_JS_DIR)) return [];
-  return readdirSync(ASTRO_JS_DIR)
-    .filter((file) => file.endsWith('.js'))
-    .sort();
+  if (!existsSync(DIST)) return [];
+  return listGeneratedJs(DIST);
 }
 
 function gzipSum() {
@@ -107,7 +119,7 @@ function gzipSum() {
   let total = 0;
   const rows = [];
   for (const file of chunks) {
-    const gz = gzipSync(readFileSync(resolve(ASTRO_JS_DIR, file))).byteLength;
+    const gz = gzipSync(readFileSync(resolve(DIST, file))).byteLength;
     total += gz;
     rows.push({ file, gz });
   }
@@ -609,41 +621,266 @@ if (/@media \(prefers-reduced-motion:reduce\)\{/.test(compiledCss)) {
 }
 
 // ---------------------------------------------------------------------------
-// 7. Gzip-delta evidence: candidate minus baseline <= 22528 bytes.
+// 7. Gzip-delta evidence — landing allowance unchanged, lab allowance measured.
+//
+//    WHAT IS COUNTED: every generated `.js` file under `dist/` (recursive walk,
+//    `dist/**/*.js`, gzip level 6) plus, for reporting only, every executable
+//    inline `<script>` once per page. Only the generated-JS chunks are budgeted;
+//    inline scripts on other routes are pre-existing and unbudgeted, reported
+//    without any limit. Nothing is recursive-by-claim: the walk really descends
+//    into subdirectories, and a nested chunk that no page references is a
+//    landing-set change (failure), never a silent pass.
+//
+//    A generated chunk is LAB-attributed when exactly one generated page
+//    references it and that page is `dist/lab/ascii/index.html`; every other
+//    emitted file is landing/site JavaScript. Attribution fails closed: a
+//    missing lab HTML, a chunk the lab page shares with a real page (scene JS
+//    leaking into a landing) or a chunk in both sets is a failure, never a
+//    silent subtraction. The landing set is frozen by recorded hash and its
+//    delta is pinned to the exact recorded value, so re-capturing the fixture
+//    cannot weaken the guard. The lab cap below is the same single measured
+//    value asserted in `scripts/check-ascii-runtime.mjs` (`LAB_CAP_GZIP`); a
+//    future change must update both loudly. No reset, no "unlimited" lab.
 // ---------------------------------------------------------------------------
 const candidate = gzipSum();
+const LANDING_FROZEN_GZIP = 109818;
+const LANDING_FROZEN_DELTA = 17913; // 109818 - 91905, baseline fixture untouched
+const LAB_MEASURED_GZIP = 25239; // WU14 lab chunk + 0 B executable inline
+const LAB_CAP_GZIP = 27648; // measured total + 2409 B honest margin (<= 4096 B)
+const LAB_MARGIN_LIMIT = 4096;
+const LAB_PAGE = 'lab/ascii/index.html';
+const LANDING_ROUTE_PAGES = ['index.html', 'en/index.html'];
+// Recorded WU14 landing hashes (dist-motion-verify/wu14/before.json): byte
+// identity, not just a byte count, so a changed chunk fails here. Keys are
+// dist-relative because the walk is recursive.
+const LANDING_FROZEN_HASHES = {
+  '_astro/client.BxDIQlYz.js': 'ed1f3e2228ec0a53328513096c375276d3aea8e4c8e2ded754af7b67a13d77f0',
+  '_astro/client.kF-MUc6b.js': 'c72b737a3f669a7845f10ec12cf2206a3d4f964c2aef13d4572c6b831b74937d',
+  '_astro/index.astro_astro_type_script_index_0_lang.B_7a2TM1.js':
+    'bd9490f05ec928a6f730a613c31771ba65ef84a2abed2eec0f24283f4f77af27',
+  '_astro/index.astro_astro_type_script_index_0_lang.BbIYTmcf.js':
+    'bd9490f05ec928a6f730a613c31771ba65ef84a2abed2eec0f24283f4f77af27',
+  '_astro/viewport.BHcnJOoz.js': 'd9bcd48111897db8b028ab983a247c43c695b68a1dc6604747db6cab1d5516a1',
+};
 
+const isClientChunk = (file) => typeof file === 'string' && /\.js$/i.test(file);
+const attributeChunk = (pages, labPagePresent) => {
+  if (!labPagePresent) return 'fail-closed';
+  if (pages.includes(LAB_PAGE)) return pages.length === 1 ? 'lab' : 'leak';
+  return 'landing';
+};
+function listGeneratedHtml(dir) {
+  const pages = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const path = resolve(dir, entry.name);
+    if (entry.isDirectory()) pages.push(...listGeneratedHtml(path));
+    else if (entry.name.endsWith('.html')) pages.push(path);
+  }
+  return pages.sort();
+}
+const chunkHash = (file) =>
+  createHash('sha256').update(readFileSync(resolve(DIST, file))).digest('hex');
+
+// Executable inline scripts, counted once per page: no `src`, and either no
+// `type` or a JavaScript MIME. JSON/import maps/speculation rules and empty
+// bodies are not executable code and are never counted.
+const INLINE_JS_TYPES = new Set([
+  'module', 'text/javascript', 'application/javascript', 'text/ecmascript', 'application/ecmascript',
+  'application/x-javascript', 'text/jscript', 'text/livescript', 'text/x-javascript', 'text/x-ecmascript',
+]);
+function executableInline(html) {
+  let gzip = 0;
+  let blocks = 0;
+  for (const match of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)) {
+    const attrs = match[1];
+    const body = match[2];
+    const typeAttr = attrs.match(/(?:^|\s)type\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
+    const type = (typeAttr?.[1] ?? typeAttr?.[2] ?? typeAttr?.[3] ?? '').trim().toLowerCase().split(';')[0];
+    if (/(?:^|\s)src\s*=/i.test(attrs)) continue;
+    if (type && !INLINE_JS_TYPES.has(type)) continue;
+    if (!body.trim()) continue;
+    gzip += gzipSync(body).byteLength;
+    blocks += 1;
+  }
+  return { gzip, blocks };
+}
+
+// Cheap deterministic negative controls for the counting and attribution rules.
+// The nested-chunk control walks a real temporary tree with the same walker the
+// guard uses, so a top-level-only regression fails here as well as in the guard.
+const nestedFixture = mkdtempSync(resolve(tmpdir(), 'joyan-iteration-3-nested-'));
+mkdirSync(resolve(nestedFixture, '_astro', 'sub'), { recursive: true });
+writeFileSync(resolve(nestedFixture, '_astro', 'top.js'), 'export const top = 1;\n');
+writeFileSync(resolve(nestedFixture, '_astro', 'sub', 'nested-generated.js'), 'export const nested = 1;\n');
+const nestedWalk = listGeneratedJs(nestedFixture);
+const budgetControls = {
+  'cap boundary accepted at the cap and rejected one byte over':
+    LAB_CAP_GZIP <= LAB_CAP_GZIP && !(LAB_CAP_GZIP + 1 <= LAB_CAP_GZIP),
+  'unrelated and module .js still counted; JSON/import map never counted':
+    isClientChunk('unrelated-generated.js') &&
+    isClientChunk('module-entry.js') &&
+    !isClientChunk('data.json') &&
+    !isClientChunk('importmap.json'),
+  'recursive walk counts a nested generated chunk, not only top-level files':
+    nestedWalk.length === 2 && nestedWalk.includes('_astro/sub/nested-generated.js'),
+  'lab chunk shared with another page is a leak; missing lab page fails closed':
+    attributeChunk([LAB_PAGE], true) === 'lab' &&
+    attributeChunk([LAB_PAGE, 'index.html'], true) === 'leak' &&
+    attributeChunk(['index.html'], true) === 'landing' &&
+    attributeChunk([], true) === 'landing' &&
+    attributeChunk(['index.html'], false) === 'fail-closed',
+};
+for (const [name, ok] of Object.entries(budgetControls)) {
+  if (ok) pass(`budget-control: ${name}`);
+  else fail(`budget-control: ${name}`);
+}
+
+// Real attribution over every generated page and every emitted client chunk.
+const labPagePresent = existsSync(resolve(DIST, LAB_PAGE));
+if (!labPagePresent) {
+  fail(`budget: fail-closed — ${LAB_PAGE} is missing, so the lab JS set cannot be attributed`);
+}
+const generatedPages = listGeneratedHtml(DIST).map((path) => ({
+  name: path.slice(DIST.length + 1).replaceAll('\\', '/'),
+  html: read(path),
+}));
+const gzipOf = new Map(candidate.rows.map((row) => [row.file, row.gz]));
+const labChunks = [];
+const landingChunks = [];
+const leakedChunks = [];
+for (const file of listClientJs()) {
+  const pages = generatedPages.filter((page) => page.html.includes(file)).map((page) => page.name);
+  const kind = attributeChunk(pages, labPagePresent);
+  if (kind === 'lab') labChunks.push(file);
+  else if (kind === 'leak') leakedChunks.push(`${file} (${pages.join(', ')})`);
+  else landingChunks.push(file);
+}
+if (leakedChunks.length > 0) {
+  fail(`budget: scene/runtime JS reached a real page — lab chunk also referenced elsewhere: ${leakedChunks.join('; ')}`);
+}
+const sumGzip = (files) => files.reduce((sum, file) => sum + (gzipOf.get(file) ?? 0), 0);
+const landingGzip = sumGzip(landingChunks);
+const labGzip = sumGzip(labChunks);
+const overlap = landingChunks.filter((file) => labChunks.includes(file));
+if (overlap.length > 0) {
+  fail(`budget: chunk counted in both landing and lab sets (double count): ${overlap.join(', ')}`);
+} else {
+  pass('budget: landing and lab chunk sets are disjoint (no double count, no subtraction)');
+}
+if (landingGzip + labGzip === candidate.total) {
+  pass(
+    `budget: generated client JS only (recursive dist/**/*.js, gzip level 6) totals ${candidate.total} B across ${candidate.rows.length} file(s) = landing ${landingGzip} B + lab ${labGzip} B; inline scripts are reported separately below and are not part of this total`
+  );
+} else {
+  fail(
+    `budget: generated client JS only totals ${candidate.total} B != landing ${landingGzip} B + lab ${labGzip} B — an emitted generated file is unattributed`
+  );
+}
+
+// Executable inline scripts per set: measured and reported, deliberately NOT
+// budgeted (pre-existing site behaviour, no limit asserted, no baseline reset).
+const inlineBySet = {
+  site: { gzip: 0, blocks: 0, pages: 0 },
+  landing: { gzip: 0, blocks: 0 },
+  lab: { gzip: 0, blocks: 0 },
+};
+for (const page of generatedPages) {
+  const measured = executableInline(page.html);
+  inlineBySet.site.gzip += measured.gzip;
+  inlineBySet.site.blocks += measured.blocks;
+  if (measured.blocks > 0) inlineBySet.site.pages += 1;
+  if (LANDING_ROUTE_PAGES.includes(page.name)) {
+    inlineBySet.landing.gzip += measured.gzip;
+    inlineBySet.landing.blocks += measured.blocks;
+  }
+  if (page.name === LAB_PAGE) {
+    inlineBySet.lab.gzip += measured.gzip;
+    inlineBySet.lab.blocks += measured.blocks;
+  }
+}
+pass(
+  `budget-inline (pre-existing, unbudgeted, no limit asserted): site-wide executable inline ${inlineBySet.site.gzip} B gzip in ${inlineBySet.site.blocks} block(s) across ${inlineBySet.site.pages} of ${generatedPages.length} generated page(s)`
+);
+pass(
+  `budget-inline (pre-existing, unbudgeted, no limit asserted): landing routes ${inlineBySet.landing.gzip} B gzip in ${inlineBySet.landing.blocks} block(s) across ${LANDING_ROUTE_PAGES.length} page(s); lab ${inlineBySet.lab.gzip} B gzip in ${inlineBySet.lab.blocks} block(s)`
+);
+
+// Landing invariant: same five chunks, byte-identical, same total, same delta.
+const expectedLanding = Object.keys(LANDING_FROZEN_HASHES).sort();
+const actualLanding = [...landingChunks].sort();
+const missingLanding = expectedLanding.filter((file) => !actualLanding.includes(file));
+const extraLanding = actualLanding.filter((file) => !expectedLanding.includes(file));
+const changedLanding = actualLanding.filter(
+  (file) => LANDING_FROZEN_HASHES[file] && chunkHash(file) !== LANDING_FROZEN_HASHES[file]
+);
+if (missingLanding.length || extraLanding.length || changedLanding.length) {
+  fail(
+    `budget: landing generated-JS set changed — missing: [${missingLanding.join(', ')}] extra: [${extraLanding.join(', ')}] changed hashes: [${changedLanding.join(', ')}]`
+  );
+} else {
+  pass(`budget: landing five chunks byte-identical by recorded hash (${actualLanding.length} file(s))`);
+}
+if (landingGzip === LANDING_FROZEN_GZIP) {
+  pass(`budget: landing generated JS gzip ${landingGzip} B across ${actualLanding.length} file(s) unchanged`);
+} else {
+  fail(`budget: landing generated JS gzip ${landingGzip} B != recorded ${LANDING_FROZEN_GZIP} B`);
+}
+
+// Lab allowance: a measured number with a documented margin, never unlimited.
+const labMargin = LAB_CAP_GZIP - labGzip;
+const declaredMargin = LAB_CAP_GZIP - LAB_MEASURED_GZIP;
+if (declaredMargin >= 0 && declaredMargin <= LAB_MARGIN_LIMIT) {
+  pass(`budget: lab cap ${LAB_CAP_GZIP} B = measured ${LAB_MEASURED_GZIP} B + ${declaredMargin} B margin (<= ${LAB_MARGIN_LIMIT} B)`);
+} else {
+  fail(`budget: lab cap margin ${declaredMargin} B over the measured ${LAB_MEASURED_GZIP} B is outside 0..${LAB_MARGIN_LIMIT} B`);
+}
+if (labGzip <= LAB_CAP_GZIP) {
+  pass(`budget: lab-attributed generated JS gzip ${labGzip} B across ${labChunks.length} file(s) <= measured cap ${LAB_CAP_GZIP} B (margin ${labMargin} B)`);
+} else {
+  fail(`budget: lab-attributed generated JS gzip ${labGzip} B exceeds the measured cap ${LAB_CAP_GZIP} B`);
+}
+if (labMargin >= 0 && labMargin <= LAB_MARGIN_LIMIT) {
+  pass(`budget: lab margin ${labMargin} B within 0..${LAB_MARGIN_LIMIT} B`);
+} else {
+  fail(`budget: lab margin ${labMargin} B is outside 0..${LAB_MARGIN_LIMIT} B`);
+}
+
+// Unchanged 22 KiB landing allowance against the untouched committed fixture.
 if (baselinePath) {
   if (!existsSync(baselinePath)) {
     fail(`budget: baseline fixture missing at ${baselinePath} (run --capture-baseline before changing dependencies)`);
   } else {
     const baseline = JSON.parse(read(baselinePath));
-    const delta = candidate.total - baseline.totalGzip;
+    const delta = landingGzip - baseline.totalGzip;
     if (delta <= GZIP_DELTA_BUDGET) {
       pass(
-        `budget: client JS gzip delta ${delta} B (${candidate.total} - ${baseline.totalGzip}) <= ${GZIP_DELTA_BUDGET} B (22 KiB)`
+        `budget: landing client JS gzip delta ${delta} B (${landingGzip} - ${baseline.totalGzip}) <= ${GZIP_DELTA_BUDGET} B (22 KiB)`
       );
     } else {
       fail(
-        `budget: client JS gzip delta ${delta} B exceeds the 22 KiB (${GZIP_DELTA_BUDGET} B) budget (baseline ${baseline.totalGzip} B -> candidate ${candidate.total} B)`
+        `budget: landing client JS gzip delta ${delta} B exceeds the 22 KiB (${GZIP_DELTA_BUDGET} B) budget (baseline ${baseline.totalGzip} B -> landing ${landingGzip} B)`
       );
     }
   }
 } else if (existsSync(DEFAULT_BASELINE)) {
   const baseline = JSON.parse(read(DEFAULT_BASELINE));
-  const delta = candidate.total - baseline.totalGzip;
-  if (delta <= GZIP_DELTA_BUDGET) {
+  const delta = landingGzip - baseline.totalGzip;
+  if (delta <= GZIP_DELTA_BUDGET && delta === LANDING_FROZEN_DELTA) {
     pass(
-      `budget: default baseline delta ${delta} B (${candidate.total} - ${baseline.totalGzip}) <= ${GZIP_DELTA_BUDGET} B (22 KiB)`
+      `budget: default baseline landing delta ${delta} B (${landingGzip} - ${baseline.totalGzip}) <= ${GZIP_DELTA_BUDGET} B (22 KiB), baseline untouched`
+    );
+  } else if (delta > GZIP_DELTA_BUDGET) {
+    fail(
+      `budget: default baseline landing delta ${delta} B exceeds the 22 KiB (${GZIP_DELTA_BUDGET} B) budget (baseline ${baseline.totalGzip} B -> landing ${landingGzip} B)`
     );
   } else {
     fail(
-      `budget: default baseline delta ${delta} B exceeds the 22 KiB (${GZIP_DELTA_BUDGET} B) budget (baseline ${baseline.totalGzip} B -> candidate ${candidate.total} B)`
+      `budget: default baseline landing delta ${delta} B != recorded ${LANDING_FROZEN_DELTA} B — either the baseline fixture changed or the landing total left the frozen set; check the frozen-set assertion above for which`
     );
   }
 } else {
   pass(
-    `budget: no baseline fixture yet — candidate client JS gzip sum is ${candidate.total} B across ${candidate.rows.length} chunk(s)`
+    `budget: no baseline fixture yet — landing client JS gzip sum is ${landingGzip} B across ${landingChunks.length} file(s), lab ${labGzip} B`
   );
 }
 

@@ -1,5 +1,11 @@
 #!/usr/bin/env node
-/** WU13 local acceptance. External Playwright, no new project test dependency. */
+/**
+ * WU13/WU14 local acceptance. External Playwright, no new project test dependency.
+ *
+ * The WU13 tree under `dist-motion-verify/wu13/` is read-only input here: its
+ * reports, preimages and captures are never rewritten. Every WU14 artifact is
+ * written to its own root, `dist-motion-verify/wu14/`.
+ */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { constants } from 'node:fs';
@@ -11,16 +17,24 @@ import { loadPlaywright } from './motion-src/render.mjs';
 
 const root = resolve(new URL('..', import.meta.url).pathname);
 const originalOut = resolve(root, 'dist-motion-verify/wu13');
-const out = resolve(originalOut, 'correction');
+const correctionOut = resolve(originalOut, 'correction');
+const out = resolve(root, 'dist-motion-verify/wu14');
+const captures = resolve(out, 'captures');
 const red = process.argv.includes('--red');
 const correctionRed = process.argv.includes('--correction-red');
 const base = 'http://127.0.0.1:4321';
-const failures = [], views = [], network = [], preservation = [], samples = [], mainViews = [];
+const failures = [], views = [], network = [], preservation = [], samples = [], mainViews = [], sceneViews = [];
 const check = (ok, message) => { if (!ok) failures.push(message); };
 const hash = data => createHash('sha256').update(data).digest('hex');
 const json = async path => JSON.parse(await readFile(resolve(root, path), 'utf8'));
+// The six coloured `scenes` pieces this unit delivers, in gallery order.
+const SCENE_NAMES = ['night-coast', 'misty-forest', 'desert-night', 'aurora-fjord', 'alpine-dawn', 'ocean-sunset'];
+const SCENE_DOTS = '·•●';
+const dotOnly = (chars) => chars.every((ch) => ch === '\n' || ch === ' ' || SCENE_DOTS.includes(ch));
 const save = async (name, data) => writeFile(resolve(out, name), JSON.stringify(data, null, 2));
+const shot = (name) => resolve(captures, name);
 await mkdir(out, { recursive: true });
+await mkdir(captures, { recursive: true });
 try {
   const previous = await readFile(resolve(out, 'green.json'));
   if (JSON.parse(previous).failures.length) {
@@ -34,9 +48,13 @@ check(pkg.dependencies['ascii.rest'] === '0.4.0', 'exact official ascii.rest@0.4
 for (const path of ['src/components/joyan/AsciiRuntime.astro', 'src/lib/ascii-runtime.ts']) {
   try { await readFile(resolve(root, path)); } catch { check(false, `${path} missing`); }
 }
-const fixedFiles = ['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'src/lib/ascii-runtime.ts'];
+// `src/lib/ascii-runtime.ts` is deliberately NOT in this frozen list: WU14
+// extends the lab controller on purpose, and that one file is the only
+// install-adjacent source allowed to change. The install and lock files stay
+// byte-identical to the recorded WU13 correction preimage.
+const fixedFiles = ['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml'];
 if (correctionRed) {
-  const preimage = resolve(out, 'preimage');
+  const preimage = resolve(correctionOut, 'preimage');
   await mkdir(preimage, { recursive: true });
   for (const entry of await readdir(originalOut, { withFileTypes: true })) {
     if (!entry.isFile()) continue;
@@ -52,10 +70,10 @@ if (correctionRed) {
   await save('fixed-file-preimage.json', state);
 } else if (!red) {
   const state = await json('dist-motion-verify/wu13/correction/fixed-file-preimage.json');
-  for (const path of fixedFiles) check(hash(await readFile(resolve(root, path))) === state[path], `unauthorized correction change: ${path}`);
-  for (const entry of await readdir(resolve(out, 'preimage'), { withFileTypes: true })) {
+  for (const path of fixedFiles) check(hash(await readFile(resolve(root, path))) === state[path], `unauthorized dependency/workspace change: ${path}`);
+  for (const entry of await readdir(resolve(correctionOut, 'preimage'), { withFileTypes: true })) {
     if (!entry.isFile()) continue;
-    check(hash(await readFile(resolve(originalOut, entry.name))) === hash(await readFile(resolve(out, 'preimage', entry.name))),
+    check(hash(await readFile(resolve(originalOut, entry.name))) === hash(await readFile(resolve(correctionOut, 'preimage', entry.name))),
       `original WU13 evidence overwritten: ${entry.name}`);
   }
 }
@@ -66,6 +84,15 @@ async function generatedJs(dir) {
     const path = resolve(dir, entry.name);
     if (entry.isDirectory()) paths.push(...await generatedJs(path));
     else if (/\.(?:js|mjs|cjs)$/i.test(entry.name)) paths.push(path);
+  }
+  return paths.sort();
+}
+async function generatedHtml(dir) {
+  const paths = [];
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const path = resolve(dir, entry.name);
+    if (entry.isDirectory()) paths.push(...await generatedHtml(path));
+    else if (/\.html$/i.test(entry.name)) paths.push(path);
   }
   return paths.sort();
 }
@@ -111,17 +138,122 @@ const html = await readFile(resolve(root, 'dist/lab/ascii/index.html'), 'utf8');
 const { inline, excluded } = inlineScripts(html);
 const beforeBudget = await json('dist-motion-verify/wu13/before.json');
 const baselineBudget = await json('.artifacts/iteration-2-client-js.json');
-for (const [name, evidence] of Object.entries(beforeBudget.chunks)) {
-  check(JSON.stringify(chunks[name]) === JSON.stringify(evidence), `original chunk changed: ${name}`);
+const landingChunkNames = Object.keys(beforeBudget.chunks);
+for (const name of landingChunkNames) {
+  check(JSON.stringify(chunks[name]) === JSON.stringify(beforeBudget.chunks[name]), `original chunk changed: ${name}`);
 }
 const assetGzip = assets.reduce((sum, asset) => sum + asset.gzip, 0);
 const inlineGzip = inline.reduce((sum, script) => sum + script.gzip, 0);
 const totalGzip = assetGzip + inlineGzip;
-const budget = { method: 'Recursive generated JS plus ALL executable lab inline scripts once',
+
+// ---- WU14 accounting ----------------------------------------------------
+// The landing allowance is unchanged and enforced the hard way: the five
+// original chunks must be byte-identical and sum to the recorded 109818 B
+// gzip. Only /lab/ascii may grow, under a cap measured from the real bundle.
+const LANDING_FIVE_GZIP = 109818;
+const landingGzip = landingChunkNames.reduce((sum, name) => sum + beforeBudget.chunks[name].gzip, 0);
+check(landingChunkNames.length === 5 && landingGzip === LANDING_FIVE_GZIP,
+  `landing five-chunk set changed: ${landingChunkNames.length} chunks / ${landingGzip} B gzip`);
+const labChunkNames = Object.keys(chunks).filter((name) => !landingChunkNames.includes(name));
+const labChunkGzip = labChunkNames.reduce((sum, name) => sum + chunks[name].gzip, 0);
+const labTotalGzip = labChunkGzip + inlineGzip;
+// Cap prior (RED): the six scene modules at their own gzip level 9
+// (5318 + 7223 + 7317 + 7631 + 7724 + 7863 = 43076 B) plus the largest honest
+// margin this unit allows (4096 B) = 47172 B. The measured build came in far
+// below that prior (25,239 B gzip of lab chunk + 0 B inline), so the cap is
+// TIGHTENED to measured + 2409 B: the enlargement the user authorized is a real
+// measured number with a documented margin, never an "unlimited" lab and never a
+// silent raise. (A measured total above the prior must be reported, not
+// absorbed.)
+//
+// LAB_CAP_GZIP is the same single measured value asserted by
+// `scripts/check-iteration-3.mjs` section 7 (its `LAB_CAP_GZIP`), which pins the
+// frozen landing five-chunk identity and this cap for the site-wide guard. A
+// future change must update both loudly; there is no reset or unlimited mode.
+const LAB_CAP_GZIP = 27648;
+const LAB_MARGIN_LIMIT = 4096;
+const withinLabCap = (total, cap) => total <= cap;
+assert.equal(withinLabCap(LAB_CAP_GZIP, LAB_CAP_GZIP), true);
+assert.equal(withinLabCap(LAB_CAP_GZIP + 1, LAB_CAP_GZIP), false);
+check(labTotalGzip >= 20000, `scene gallery missing from the account: lab gzip ${labTotalGzip} B`);
+check(labTotalGzip <= LAB_CAP_GZIP,
+  `lab runtime/scene gzip ${labTotalGzip} B exceeds the measured WU14 cap ${LAB_CAP_GZIP} B`);
+const capMargin = LAB_CAP_GZIP - labTotalGzip;
+check(capMargin >= 0 && capMargin <= LAB_MARGIN_LIMIT,
+  `lab cap margin ${capMargin} B is outside the honest 0..${LAB_MARGIN_LIMIT} B window`);
+const withinBudgetControls = { inclusiveBoundaryAccepted: withinLabCap(LAB_CAP_GZIP, LAB_CAP_GZIP),
+  overBoundaryRejected: !withinLabCap(LAB_CAP_GZIP + 1, LAB_CAP_GZIP) };
+assert.equal(dotOnly([...'·•● ']), true);
+assert.equal(dotOnly([...'·•●A']), false);
+
+// The install and lock files must stay exactly as the WU13 preimage recorded.
+const installPreimage = await json('dist-motion-verify/wu13/correction/fixed-file-preimage.json');
+for (const path of fixedFiles) {
+  check(hash(await readFile(resolve(root, path))) === installPreimage[path], `dependency/workspace file changed: ${path}`);
+}
+
+// No route other than /lab/ascii may carry runtime markup or fetch its chunk.
+let sceneMounts = 0;
+for (const name of SCENE_NAMES) {
+  check(html.includes(`data-ascii-scene="${name}"`), `SSR scene mount missing: ${name}`);
+  sceneMounts += html.split(`data-ascii-scene="${name}"`).length - 1;
+}
+check(sceneMounts === 6, `six SSR scene mounts required, saw ${sceneMounts}`);
+check(/bas3line/.test(html) && /MIT/.test(html) && /github\.com\/bas3line\/ascii/.test(html),
+  'lab must keep the MIT/bas3line attribution and source link');
+check(/noindex/.test(html) && /nofollow/.test(html), 'lab must stay noindex,nofollow');
+check((html.match(/data-ascii-piece="/g) ?? []).length === 2, 'the two SSR runtime pieces must stay exactly two');
+const markerHtml = [];
+for (const path of await generatedHtml(resolve(root, 'dist'))) {
+  const source = await readFile(path, 'utf8');
+  const name = relative(resolve(root, 'dist'), path);
+  const scene = source.includes('data-ascii-scene');
+  const piece = source.includes('data-ascii-piece');
+  const chunk = labChunkNames.some((id) => source.includes(id));
+  if (scene || piece || chunk) markerHtml.push({ path: name, scene, piece, chunk });
+}
+check(markerHtml.length === 1 && markerHtml[0].path === 'lab/ascii/index.html',
+  `runtime markup/chunk must exist only on /lab/ascii: ${JSON.stringify(markerHtml)}`);
+// Executable inline scripts per set: the lab page's inline is part of the lab
+// budget above; site-wide and landing-route inline is pre-existing behaviour,
+// measured here for honest reporting with NO limit asserted for it.
+const inlineBySet = { site: { gzip: 0, blocks: 0, pages: 0 }, landing: { gzip: 0, blocks: 0 }, lab: { gzip: 0, blocks: 0 } };
+const LANDING_ROUTE_HTML = ['index.html', 'en/index.html'];
+const LAB_ROUTE_HTML = 'lab/ascii/index.html';
+let generatedHtmlCount = 0;
+for (const path of await generatedHtml(resolve(root, 'dist'))) {
+  const name = relative(resolve(root, 'dist'), path).replaceAll('\\', '/');
+  const { inline: pageInline } = inlineScripts(await readFile(path, 'utf8'));
+  const pageGzip = pageInline.reduce((sum, script) => sum + script.gzip, 0);
+  generatedHtmlCount += 1;
+  inlineBySet.site.gzip += pageGzip;
+  inlineBySet.site.blocks += pageInline.length;
+  if (pageInline.length) inlineBySet.site.pages += 1;
+  if (LANDING_ROUTE_HTML.includes(name)) {
+    inlineBySet.landing.gzip += pageGzip;
+    inlineBySet.landing.blocks += pageInline.length;
+  }
+  if (name === LAB_ROUTE_HTML) {
+    inlineBySet.lab.gzip += pageGzip;
+    inlineBySet.lab.blocks += pageInline.length;
+  }
+}
+check(inlineBySet.lab.gzip === inlineGzip, 'lab inline accounting must match the lab page measurement');
+const budget = { method: 'Recursive dist/**/*.js generated client JS plus every executable inline script on the lab page, each counted once; site-wide and landing-route inline scripts are measured and reported but deliberately unbudgeted',
   assetGzip, inlineGzip, totalGzip, baseline: baselineBudget.totalGzip,
   delta: totalGzip - baselineBudget.totalGzip, margin: baselineBudget.totalGzip + 22528 - totalGzip,
-  assets, inline, excluded, chunks, controls: budgetControls };
-check(withinBudget(totalGzip, baselineBudget.totalGzip), `full client JS delta ${budget.delta} exceeds unchanged 22528 B budget by ${-budget.margin} B`);
+  assets, inline, excluded, chunks,
+  landing: { chunkNames: landingChunkNames, gzip: landingGzip, frozenByteIdentical: true },
+  lab: { chunkNames: labChunkNames, chunkGzip: labChunkGzip, inlineGzip, totalGzip: labTotalGzip,
+    cap: LAB_CAP_GZIP, margin: capMargin, supersededLabDeltaBudget: 22528,
+    marginRule: `cap - measured lab total, required 0..${LAB_MARGIN_LIMIT} B`,
+    // Six scene modules at gzip level 9 of their raw files: 5318 + 7223 + 7317
+    // + 7631 + 7724 + 7863 = 43076 B; the pre-measurement prior was that plus
+    // the 4096 B maximum margin. The measured build came in below it.
+    capPrior: 43076 + 4096 },
+  inlineBySet: { ...inlineBySet, generatedHtmlCount,
+    note: 'pre-existing, unbudgeted, no limit asserted; only the lab page inline participates in the lab cap' },
+  sceneMounts, markerHtml, controls: { ...budgetControls, ...withinBudgetControls } };
 await save(correctionRed ? 'bundle-red.json' : 'bundle.json', budget);
 if (process.argv.includes('--bundle-only')) {
   console.log(JSON.stringify({ ...budget, failures }, null, 2));
@@ -161,7 +293,7 @@ if (correctionRed) {
       const measured = await typography(page);
       checkTypography(measured, `${width}/RED`);
       views.push({ width, typography: measured });
-      await page.locator('[data-ascii-piece="donut"]').screenshot({ path: resolve(out, `red-${width}-pre.png`) });
+      await page.locator('[data-ascii-piece="donut"]').screenshot({ path: shot(`red-${width}-pre.png`) });
       await page.close();
     }
   } finally { await browser.close(); }
@@ -220,6 +352,128 @@ const sample = async (page, kind, moving) => {
   samples.push(evidence);
   return evidence;
 };
+// ---- WU14 scene gallery --------------------------------------------------
+// A scene must be judged on real canvas pixels, not on the presence of a DOM
+// node: every check below reads the drawn frame and requires it to be coloured,
+// non-uniform, distinct per scene and actually changing over time.
+const SCENE_LABELS = {
+  'night-coast': 'night coast', 'misty-forest': 'misty forest', 'desert-night': 'desert night',
+  'aurora-fjord': 'aurora fjord', 'alpine-dawn': 'alpine dawn', 'ocean-sunset': 'ocean sunset',
+};
+const sceneFingerprint = (host) => host.locator('[data-ascii-output]').evaluate((el) => {
+  const canvas = el;
+  const context = canvas.getContext('2d');
+  const { width, height } = canvas;
+  const { data } = context.getImageData(0, 0, width, height);
+  let painted = 0, rgb = 5381, luma = 52711;
+  const colors = new Set(), bins = new Array(24).fill(0);
+  for (let y = 0; y < height; y += 2) {
+    for (let x = 0; x < width; x += 2) {
+      const i = (y * width + x) * 4, alpha = data[i + 3];
+      if (alpha) painted += 1;
+      const value = ((data[i] * 0.2126 + data[i + 1] * 0.7152 + data[i + 2] * 0.0722) * alpha) / 255;
+      rgb = (Math.imul(rgb, 33) ^ (data[i] | (data[i + 1] << 8) | (data[i + 2] << 16))) >>> 0;
+      luma = (Math.imul(luma, 33) ^ (value | 0)) >>> 0;
+      colors.add((data[i] >> 5) * 64 + (data[i + 1] >> 5) * 8 + (data[i + 2] >> 5));
+      bins[Math.min(23, value >> 5)] += 1;
+    }
+  }
+  const sampled = Math.ceil(width / 2) * Math.ceil(height / 2);
+  return { width, height, sampled, painted, colorBuckets: colors.size,
+    lumaBins: bins.filter((count) => count > sampled * 0.005).length,
+    rgb: rgb.toString(16), luma: luma.toString(16) };
+});
+const sceneSample = async (page, name, moving, count = 3) => {
+  const host = page.locator(`[data-ascii-scene="${name}"]`);
+  const frames = [];
+  for (let i = 0; i < count; i += 1) {
+    frames.push(await sceneFingerprint(host));
+    if (i < count - 1) await page.waitForTimeout(500);
+  }
+  const changes = new Set(frames.map((frame) => `${frame.rgb}:${frame.luma}`)).size - 1;
+  check(moving ? changes >= 1 : changes === 0,
+    `${name}: expected ${moving ? 'changing' : 'frozen'} dot frames, saw ${changes} change(s) in ${count} samples`);
+  return { name, moving, changes, fingerprints: frames.map((frame) => ({ rgb: frame.rgb, luma: frame.luma,
+    colorBuckets: frame.colorBuckets, lumaBins: frame.lumaBins, painted: frame.painted, sampled: frame.sampled,
+    box: `${frame.width}x${frame.height}` })) };
+};
+async function scenePass(page, width, mode) {
+  const view = { width, mode, mountCount: 0, captions: [], scenes: [] };
+  const mountCount = await page.locator('[data-ascii-scene]').count();
+  view.mountCount = mountCount;
+  check(mountCount === 6, `${width}/${mode}: six scene mounts required, saw ${mountCount}`);
+  if (mountCount !== 6) return view;
+  for (const name of SCENE_NAMES) {
+    const host = page.locator(`[data-ascii-scene="${name}"]`);
+    const scene = { name };
+    if (await host.count() !== 1) { check(false, `${width}/${mode}/${name}: exactly one mount required`); continue; }
+    const caption = (await host.locator('[data-ascii-caption]').innerText()).replace(/\s+/g, ' ').trim();
+    scene.caption = caption;
+    view.captions.push(caption);
+    check(caption.length > 40 && caption.toLowerCase().includes(SCENE_LABELS[name]),
+      `${width}/${mode}/${name}: caption must name the scene readably (${caption.slice(0, 90)})`);
+    check(await host.locator('button').count() === 1, `${width}/${mode}/${name}: one pause/play control required`);
+    check(await host.locator('canvas[data-ascii-output]').count() === 1, `${width}/${mode}/${name}: canvas output required`);
+    check(await host.locator('[data-ascii-fallback]').count() === 1, `${width}/${mode}/${name}: SSR fallback required`);
+    await host.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(200);
+    if (mode === 'no-js') {
+      const fallback = (await host.locator('[data-ascii-fallback]').innerText()).trim();
+      scene.noJs = { fallback, canvasVisible: await host.locator('canvas').isVisible(), disabled: await host.locator('button').isDisabled() };
+      check(fallback.length > 20, `${name}: descriptive no-JS fallback required`);
+      check(!scene.noJs.canvasVisible && scene.noJs.disabled, `${name}: no-JS must show text, not a blank canvas`);
+      view.scenes.push(scene);
+      continue;
+    }
+    const geometry = await host.evaluate((el) => {
+      const canvas = el.querySelector('[data-ascii-output]');
+      const rect = canvas.getBoundingClientRect();
+      return { documentWidth: document.documentElement.scrollWidth, ready: el.hasAttribute('data-ready'),
+        width: rect.width, height: rect.height, status: el.querySelector('[data-ascii-status]').textContent };
+    });
+    scene.geometry = geometry;
+    check(geometry.documentWidth === width, `${width}/${mode}: scene gallery horizontal overflow ${geometry.documentWidth}`);
+    check(geometry.ready && geometry.width > 0 && geometry.height > 0, `${name}: mounted canvas has no box`);
+    check(Math.abs(geometry.width / geometry.height - 2) < 0.08,
+      `${name}: 200x100 square cells must keep a 2:1 frame (${geometry.width}x${geometry.height})`);
+    if (mode === 'normal') {
+      const motion = await sceneSample(page, name, true);
+      scene.motion = motion;
+      scene.fingerprint = motion.fingerprints[0];
+      // Dark night scenes legitimately peak in one or two luma bins, so the
+      // non-uniformity test is: many distinct colours, a real painted ground and
+      // more than one brightness band. A blank or flat canvas fails all three.
+      check(scene.fingerprint.colorBuckets >= 8 && scene.fingerprint.lumaBins >= 2
+        && scene.fingerprint.painted >= scene.fingerprint.sampled * 0.9,
+        `${name}: dot frame must be coloured and non-uniform (${JSON.stringify(scene.fingerprint)})`);
+      scene.rafCount = await page.evaluate(() => window.wu13Rafs.size);
+      check(scene.rafCount >= 1 && scene.rafCount <= 8, `${name}: bounded live loops expected, saw ${scene.rafCount}`);
+      await host.locator('button').focus();
+      await page.keyboard.press('Enter');
+      scene.paused = await sceneSample(page, name, false, 2);
+      await page.keyboard.press('Space');
+      scene.resumed = await sceneSample(page, name, true, 2);
+    } else {
+      scene.reduced = await sceneSample(page, name, false, 2);
+      check(await host.locator('button').isDisabled(), `${name}: reduced-motion control must be disabled`);
+    }
+    view.scenes.push(scene);
+  }
+  check(new Set(view.captions).size === view.captions.length, `${width}/${mode}: scene captions must be distinct`);
+  const fingerprints = view.scenes.map((scene) => scene.fingerprint).filter(Boolean);
+  if (fingerprints.length === 6) {
+    const distinct = new Set(fingerprints.map((frame) => `${frame.colorBuckets}:${frame.rgb}`));
+    check(distinct.size === 6, `six distinct scene fingerprints required, saw ${distinct.size}`);
+  }
+  if (mode === 'normal') {
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(400);
+    view.offscreen = await sceneSample(page, 'ocean-sunset', false, 2);
+    view.offscreenRafs = await page.evaluate(() => window.wu13Rafs.size);
+    check(view.offscreenRafs <= 1, `offscreen scene loops must stop, saw ${view.offscreenRafs} active`);
+  }
+  return view;
+}
 try {
   for (const route of ['/', '/en', '/bitacora', '/en/log', '/privacy', '/terms', '/404']) {
     const page = await browser.newPage();
@@ -243,6 +497,8 @@ try {
     const response = await page.goto(base + '/lab/ascii', { waitUntil: 'networkidle' });
     check(response.status() === 200, `live /lab/ascii HTTP ${response.status()} (expected 200)`);
     check(await page.locator('[data-ascii-piece]').count() === 2, 'live genuine text/canvas runtime comparison missing');
+    // WU14 RED must be the same predicate GREEN later runs, not a weaker one.
+    sceneViews.push(await scenePass(page, 390, 'normal'));
     await page.close();
   } else {
     const mainBaseline = await json('dist-motion-verify/wu13/before.json');
@@ -274,9 +530,35 @@ try {
       donutStatic: hash(textFrame(0)), cupStatic: hash(stillCup), palette: cup.meta.palette });
     const runtime = await readFile(resolve(root, 'src/lib/ascii-runtime.ts'), 'utf8');
     check(runtime.includes("from 'ascii.rest'") && runtime.includes('ascii.rest/pieces/donut') && runtime.includes('ascii.rest/pieces/java'), 'actual package/leaf imports missing');
+    for (const name of SCENE_NAMES) {
+      check(runtime.includes(`'ascii.rest/pieces/${name}'`), `focused scene leaf import missing: ${name}`);
+    }
+    check(!/from 'ascii\.rest\/pieces'/.test(runtime), 'piece barrel/catalogue import must stay out of the lab');
+    check(!/ascii\.rest\/pieces\/index/.test(runtime), 'piece catalogue fan-out must stay out of the lab');
+    check(!/https?:\/\//.test(runtime), 'no CDN or remote module may be imported by the lab runtime');
+    const sceneMeta = {};
+    for (const name of SCENE_NAMES) {
+      const piece = await import(`ascii.rest/pieces/${name}`);
+      const frame = piece.default();
+      const chars = new Set();
+      for (const t of [0, 0.5, 2.5, 7]) for (const ch of frame(t)) chars.add(ch);
+      const ink = [...chars].filter((ch) => ch !== '\n' && ch !== ' ');
+      check(dotOnly([...chars]), `${name}: scenes must draw dots only, saw ${ink.join('')}`);
+      check(ink.length >= 1 && chars.has(' '), `${name}: dot ramp needs inked and empty cells`);
+      assert.notEqual(frame(0), frame(2.5), `${name}: package scene must advance`);
+      const { meta } = piece;
+      check(meta.category === 'scenes' && meta.cols === 200 && meta.rows === 100 && meta.cell === 1,
+        `${name}: 200x100 square-cell scene invariant changed`);
+      check((meta.palette?.length ?? 0) >= 8, `${name}: coloured scene palette missing`);
+      check(html.includes(meta.note) && html.includes(meta.name), `${name}: lab caption must state the package's own name and line`);
+      sceneMeta[name] = { name: meta.name, note: meta.note, cols: meta.cols, rows: meta.rows, cell: meta.cell,
+        fps: meta.fps, colors: meta.palette?.length ?? 0, ink: ink.join('') };
+    }
+    await save('scene-frames.json', { dots: SCENE_DOTS, scenes: sceneMeta });
     const before = await json('dist-motion-verify/wu13/before.json');
     for (const [name, evidence] of Object.entries(before.chunks)) assert.deepEqual(chunks[name], evidence, `original chunk changed: ${name}`);
-    check(withinBudget(budget.totalGzip, budget.baseline), 'full generated and executable-inline budget exceeded');
+    check(landingGzip === LANDING_FIVE_GZIP && labTotalGzip <= LAB_CAP_GZIP,
+      'WU14 budget accounting regressed after the browser pass');
     for (const width of [390, 768, 1440]) for (const mode of ['normal', 'reduce', 'no-js']) {
       const context = await browser.newContext({ viewport: { width, height: 1000 },
         reducedMotion: mode === 'reduce' ? 'reduce' : 'no-preference', javaScriptEnabled: mode !== 'no-js' });
@@ -313,6 +595,7 @@ try {
       const response = await page.goto(base + '/lab/ascii', { waitUntil: 'networkidle' });
       check(response.status() === 200, `${width}/${mode}: HTTP failure`);
       check((await page.locator('meta[name="robots"]').getAttribute('content')).includes('noindex'), 'lab must be noindex');
+      check((await page.locator('meta[name="robots"]').getAttribute('content')).includes('nofollow'), 'lab must be nofollow');
       check((await page.locator('link[rel="canonical"]').getAttribute('href')).endsWith('/lab/ascii'), 'lab self-canonical required');
       await page.evaluate(() => document.fonts.ready);
       check(await page.locator('[data-ascii-piece]').count() === 2, 'two runtime pieces required');
@@ -391,10 +674,20 @@ try {
           check(await host.locator('[data-ascii-fallback]').isVisible(), `${kind}: no-JS fallback invisible`);
           view.pieces.push({ kind, geometry });
         }
-        await host.screenshot({ path: resolve(out, `${width}-${mode}-${kind}.png`) });
+      await host.screenshot({ path: shot(`${width}-${mode}-${kind}.png`) });
       }
       const baked = page.locator('#dither-scene'); await baked.scrollIntoViewIfNeeded();
       await page.waitForTimeout(250);
+      // Scenes are inspected after the accepted WU13 pieces, on the same page.
+      const sceneView = await scenePass(page, width, mode);
+      sceneViews.push(sceneView);
+      // The scene pass scrolls the document, so the baked film is brought back
+      // into view before the accepted WU13 native-playback measurement runs.
+      await baked.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(300);
+      if (mode === 'normal') for (const scene of sceneView.scenes) {
+        await page.locator(`[data-ascii-scene="${scene.name}"]`).screenshot({ path: shot(`${width}-${mode}-scene-${scene.name}.png`) });
+      }
       const nativeBefore = await baked.locator('video').evaluate(v => v.currentTime);
       await page.waitForTimeout(500);
       const native = await baked.locator('video').evaluate(v => ({ paused: v.paused, time: v.currentTime, display: getComputedStyle(v).display }));
@@ -402,9 +695,9 @@ try {
       if (mode === 'no-js') check(native.advance > .2, `${width}: native no-JS video should actually advance`);
       if (mode === 'reduce') check(native.paused && native.display === 'none', 'reduced baked video must actually pause and hide');
       view.native = native;
-      await baked.screenshot({ path: resolve(out, `${width}-${mode}-baked.png`) });
+      await baked.screenshot({ path: shot(`${width}-${mode}-baked.png`) });
       await page.locator('h1').scrollIntoViewIfNeeded();
-      await page.screenshot({ path: resolve(out, `${width}-${mode}.png`), fullPage: true });
+      await page.screenshot({ path: shot(`${width}-${mode}.png`), fullPage: true });
       if (mode === 'normal') {
         // Native document navigation, not a ClientRouter swap. Register after
         // the controller so pagehide evidence is captured after its cleanup.
@@ -415,9 +708,11 @@ try {
           return window.wu13DocumentId;
         });
         check(await page.locator('meta[name="astro-view-transitions-enabled"]').count() === 0, 'isolated lab must not import ClientRouter');
-        // Leave with a live loop: a zero count after leaving must prove cleanup,
+        // Leave with live loops: a zero count after leaving must prove cleanup,
         // not merely the offscreen state used for the preceding full-page image.
         await page.locator('[data-ascii-piece="java"]').scrollIntoViewIfNeeded();
+        await page.waitForTimeout(250);
+        await page.locator('[data-ascii-scene="ocean-sunset"]').scrollIntoViewIfNeeded();
         await page.waitForTimeout(250);
         check(await page.evaluate(() => window.wu13Rafs.size) > 0, 'navigation cleanup test needs an active runtime loop');
         await page.locator('a[data-lab-return]').evaluate(el => el.click());
@@ -434,6 +729,8 @@ try {
         await page.locator('[data-ascii-piece="donut"]').scrollIntoViewIfNeeded(); await page.waitForTimeout(250);
         await sample(page, 'donut', true);
         await page.locator('[data-ascii-piece="java"]').scrollIntoViewIfNeeded(); await sample(page, 'java', true);
+        await page.locator('[data-ascii-scene="ocean-sunset"]').scrollIntoViewIfNeeded(); await page.waitForTimeout(250);
+        view.sceneReturn = await sceneSample(page, 'ocean-sunset', true, 2);
       }
       check(errors.length === 0, `${width}/${mode}: ${errors.join('; ')}`);
       view.errors = errors; views.push(view); network.push({ width, mode, requests });
@@ -441,6 +738,6 @@ try {
     }
   }
 } finally { await browser.close(); }
-await save(red ? 'red.json' : 'green.json', { failures, views, mainViews, samples, preservation, network });
-console.log(JSON.stringify({ mode: red ? 'RED' : 'GREEN', failures, views: views.length, protectedPaths: preservation.length }, null, 2));
+await save(red ? 'red.json' : 'green.json', { failures, views, sceneViews, mainViews, samples, preservation, network });
+console.log(JSON.stringify({ mode: red ? 'RED' : 'GREEN', failures, views: views.length, sceneViews: sceneViews.length, protectedPaths: preservation.length }, null, 2));
 process.exitCode = failures.length ? 1 : 0;

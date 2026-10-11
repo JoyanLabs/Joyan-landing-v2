@@ -1,0 +1,81 @@
+---
+/**
+ * One live `ascii.rest` scene: a coloured dot canvas, its own human-readable
+ * caption and a keyboard pause/play control.
+ *
+ * The caption is real server-rendered text (never drawn by script), so the
+ * scene stays legible with JavaScript disabled; `meta` comes from the same
+ * package module the runtime mounts, so the stated size cannot drift.
+ */
+import { meta as nightCoastMeta } from 'ascii.rest/pieces/night-coast';
+import { meta as mistyForestMeta } from 'ascii.rest/pieces/misty-forest';
+import { meta as desertNightMeta } from 'ascii.rest/pieces/desert-night';
+import { meta as auroraFjordMeta } from 'ascii.rest/pieces/aurora-fjord';
+import { meta as alpineDawnMeta } from 'ascii.rest/pieces/alpine-dawn';
+import { meta as oceanSunsetMeta } from 'ascii.rest/pieces/ocean-sunset';
+
+// Named leaf imports only: a namespace import pulls in the bundler's shared
+// namespace helper, which splits a shared chunk and mutates the byte-frozen
+// landing chunks (measured WU14 RED). The runtime imports the same leaves for
+// the frames; this file needs only the stated size and the library's own line.
+const SCENES = {
+  'night-coast': nightCoastMeta,
+  'misty-forest': mistyForestMeta,
+  'desert-night': desertNightMeta,
+  'aurora-fjord': auroraFjordMeta,
+  'alpine-dawn': alpineDawnMeta,
+  'ocean-sunset': oceanSunsetMeta,
+} as const;
+
+const DOTS = '·•●';
+const FPS = 12;
+const BUTTON = 'border border-hairline px-3 py-2 font-mono text-xs focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent disabled:opacity-60';
+
+interface Props {
+  scene: keyof typeof SCENES;
+  index: string;
+}
+const { scene, index } = Astro.props;
+const meta = SCENES[scene];
+const fallback = `Static fallback: ${meta.note}. The ${meta.cols} × ${meta.rows} coloured dots need JavaScript.`;
+---
+
+<article data-ascii-scene={scene} class="flex min-w-0 flex-col border border-hairline">
+  <div class="scene-frame bg-ink-900">
+    <canvas id={`ascii-scene-${scene}`} data-ascii-output aria-hidden="true" width="400" height="200"></canvas>
+    <p data-ascii-fallback class="p-6 text-sm text-plomo-400">{fallback}</p>
+  </div>
+  <div class="flex flex-wrap items-start justify-between gap-3 p-4">
+    <p data-ascii-caption class="min-w-0 max-w-prose text-sm text-plomo-400">
+      <span class="block font-mono text-xs uppercase tracking-widest text-bone-100">{index} · {meta.name}</span>
+      <span class="mt-1 block">{meta.note}</span>
+      <span class="mt-1 block font-mono text-xs">{meta.cols} × {meta.rows} cells · square cells · dots ({DOTS}), no glyphs · {FPS} fps</span>
+    </p>
+    <button type="button" disabled aria-controls={`ascii-scene-${scene}`} aria-pressed="false" class={BUTTON}>
+      Play {scene}
+    </button>
+  </div>
+  <p data-ascii-status class="border-t border-hairline px-4 py-3 font-mono text-xs text-plomo-400" role="status">
+    Static fallback · JavaScript unavailable
+  </p>
+</article>
+
+<style>
+  .scene-frame {
+    display: grid;
+    place-items: center;
+    min-width: 0;
+    overflow: hidden;
+  }
+  canvas {
+    display: none;
+    width: 100%;
+    height: auto;
+  }
+  [data-ready] canvas {
+    display: block;
+  }
+  [data-ready] [data-ascii-fallback] {
+    display: none;
+  }
+</style>
