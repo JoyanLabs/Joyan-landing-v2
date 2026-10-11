@@ -1,0 +1,103 @@
+---
+/**
+ * One scene from OUR engine, in either of its two outputs.
+ *
+ * `live`   a canvas the runtime paints at 12 fps from the engine's frame
+ *          function; it pauses offscreen and in hidden tabs and shows the
+ *          scene's poster frame under reduced motion.
+ * `baked`  the still the same engine wrote in Node. Same art, no JavaScript:
+ *          the file is the engine's own raster of the poster frame, which the
+ *          checks compare pixel for pixel against the live path.
+ *
+ * Both are decorative, so both are hidden from assistive technology and carry a
+ * real caption in text beside them. The measured cost is a prop, not copy
+ * invented in the markup, so the page cannot claim a number nobody measured.
+ */
+import { DELIVERY_CELL } from '../../../scripts/scene-src/engine.mjs';
+import { SCENES } from '../../../scripts/scene-src/scenes/index.mjs';
+import bakedStill from '../../../scripts/scene-src/baked/joyan-night-coast.png?url&no-inline';
+
+interface Props {
+  scene: keyof typeof SCENES;
+  index: string;
+  variant: 'live' | 'baked';
+  cost: string;
+}
+const { scene, index, variant, cost } = Astro.props;
+const meta = SCENES[scene];
+const width = meta.cols * DELIVERY_CELL;
+const height = meta.rows * DELIVERY_CELL;
+const live = variant === 'live';
+const button = 'border border-hairline px-3 py-2 font-mono text-xs focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent disabled:opacity-60';
+const fallback = `Static fallback: ${meta.label} drawn by our own engine — ${meta.cols} × ${meta.rows} dot cells. The live frame needs JavaScript; the baked still beside it is the same art.`;
+---
+
+<article
+  data-own-scene={live ? meta.id : undefined}
+  class="flex min-w-0 flex-col border border-hairline"
+>
+  <div data-compare-frame class="scene-frame bg-ink-900">
+    {
+      live ? (
+        <canvas id={`own-scene-${meta.id}`} aria-hidden="true" width={width} height={height} />
+      ) : (
+        <img src={bakedStill} width={width} height={height} alt="" aria-hidden="true" data-compare-baked={meta.id} loading="lazy" decoding="async" />
+      )
+    }
+    {live && <p data-scene-fallback class="p-6 text-sm text-plomo-400">{fallback}</p>}
+  </div>
+  <div class="flex flex-wrap items-start justify-between gap-3 p-4">
+    <p data-scene-caption class="min-w-0 max-w-prose text-sm text-plomo-400">
+      <span class="block font-mono text-xs uppercase tracking-widest text-bone-100">{index}</span>
+      <span class="mt-1 block">
+        {live
+          ? `${meta.label} · our own engine, live on a canvas: dot ramp (· • ●) only, square cells, ordered Bayer dither, one indexed palette.`
+          : `${meta.label} · our own engine, baked by Node: the engine's poster frame written to a PNG, no JavaScript involved.`}
+      </span>
+      <span class="mt-1 block font-mono text-xs">{cost}</span>
+    </p>
+    {
+      live && (
+        <button type="button" disabled aria-controls={`own-scene-${meta.id}`} aria-pressed="false" class={button}>
+          Play {meta.id}
+        </button>
+      )
+    }
+  </div>
+  {
+    live && (
+      <p data-scene-status class="border-t border-hairline px-4 py-3 font-mono text-xs text-plomo-400" role="status">
+        Static fallback · JavaScript unavailable
+      </p>
+    )
+  }
+</article>
+
+<script>
+  import '~/lib/scene-runtime';
+</script>
+
+<style>
+  .scene-frame {
+    display: grid;
+    place-items: center;
+    min-width: 0;
+    overflow: hidden;
+  }
+  canvas,
+  img {
+    display: block;
+    width: 100%;
+    height: auto;
+    image-rendering: pixelated;
+  }
+  canvas {
+    display: none;
+  }
+  [data-own-scene][data-ready] canvas {
+    display: block;
+  }
+  [data-own-scene][data-ready] [data-scene-fallback] {
+    display: none;
+  }
+</style>

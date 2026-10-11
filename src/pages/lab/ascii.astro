@@ -6,6 +6,7 @@ import Favicons from '~/components/Favicons.astro';
 import { getCanonical } from '~/utils/permalinks';
 import AsciiRuntime from '~/components/joyan/AsciiRuntime.astro';
 import AsciiScene from '~/components/joyan/AsciiScene.astro';
+import SceneCanvas from '~/components/joyan/SceneCanvas.astro';
 import DitherScene from '~/components/joyan/DitherScene.astro';
 const metadata = {
   title: 'ASCII comparison lab',
@@ -52,11 +53,93 @@ const metadata = {
         <AsciiScene scene="ocean-sunset" index="scene 06" />
       </div>
     </section>
+    <section class="border-t border-hairline py-8" aria-labelledby="compare-title">
+      <h2 id="compare-title" class="text-xl text-bone-50">05 / Our engine beside the library · one 200 × 100 grid</h2>
+      <p class="mt-2 max-w-prose text-sm text-plomo-400">
+        Three panes, the same 200 × 100 grid and the same size: the library's <span class="font-mono">night-coast</span> live,
+        our own coastal night live, and our own coastal night baked. Ours is drawn by an engine we wrote
+        (<span class="font-mono">scripts/scene-src/engine.mjs</span>): square cells, the dot ramp <span class="font-mono">· • ●</span>
+        only, ordered 4×4 Bayer dithering, one indexed palette per scene, deterministic hash noise and per-cell palette
+        compensation, so a small dot is carried by a brighter ink instead of disappearing into the dark ground. The same
+        frame function draws the canvas and the PNG: the baked still is the engine's poster frame, not a lookalike.
+      </p>
+      <p class="mt-3 max-w-prose text-sm text-plomo-400">
+        Measured cost of each pane, shipped bytes at gzip level 6. The library's own bundle carries all eight library mounts
+        on this page (two pieces, the six gallery scenes and this pane): <span class="font-mono">25256 B</span> gzip in one
+        chunk, so that is not a per-pane number. Our engine, our scene and its runtime come to
+        <span class="font-mono">8821 B</span> of JavaScript; this project's configured 16 KiB inline limit keeps them as an
+        executable module on this page instead of a separate chunk, measured at <span class="font-mono">4274 B</span> gzip.
+        The baked still is <span class="font-mono">9554 B</span> of PNG and ships no script at all.
+      </p>
+      <div class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <article data-ascii-compare="night-coast" class="flex min-w-0 flex-col border border-hairline">
+          <div data-compare-frame class="compare-frame bg-ink-900">
+            <canvas id="compare-night-coast" data-ascii-output aria-hidden="true" width="400" height="200"></canvas>
+            <p data-ascii-fallback class="p-6 text-sm text-plomo-400">
+              Static fallback: the library's night coast — a lighthouse turning its beam under moonlit clouds over a dark sea,
+              200 × 100 dot cells. The live frame needs JavaScript.
+            </p>
+          </div>
+          <div class="p-4">
+            <p data-ascii-caption class="min-w-0 max-w-prose text-sm text-plomo-400">
+              <span class="block font-mono text-xs uppercase tracking-widest text-bone-100">01 · library night-coast · live</span>
+              <span class="mt-1 block">The library's own scene, drawn by the library's own code, its own palette, its own art. Vendor artwork shown for comparison only, never as ours.</span>
+              <span class="mt-1 block font-mono text-xs">200 × 100 cells · dots (· • ●) · live canvas</span>
+            </p>
+          </div>
+          <div class="px-4 pb-3">
+            <button type="button" disabled aria-controls="compare-night-coast" aria-pressed="false" class="border border-hairline px-3 py-2 font-mono text-xs focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent disabled:opacity-60">Play night-coast</button>
+          </div>
+          <p data-ascii-status class="border-t border-hairline px-4 py-3 font-mono text-xs text-plomo-400" role="status">
+            Static fallback · JavaScript unavailable
+          </p>
+        </article>
+        <SceneCanvas scene="joyan-night-coast" variant="live" index="02 · ours · live" cost="engine + scene + runtime, 4274 B gzip" />
+        <SceneCanvas scene="joyan-night-coast" variant="baked" index="03 · ours · baked" cost="the engine's own poster frame, 9554 B PNG, no JavaScript" />
+      </div>
+      <p class="mt-5 max-w-prose text-sm text-plomo-400">
+        Provenance, in three parts. <span class="text-bone-100">Published standard material, used as published:</span> the
+        canonical 4 × 4 ordered-dither matrix (Bayer, 1973) and the Rec.709 luma coefficients (ITU-R BT.709), which govern
+        both the tone model and the chroma term.
+        <span class="text-bone-100">Ideas learned from <span class="font-mono">ascii.rest</span> 0.4.0 (MIT, bas3line) and
+        reimplemented without copying code:</span> a dot ramp as a tone ladder with an ordered dither, per-cell colour
+        compensation for how much ink a dot lays down, deterministic integer hash noise, and a per-scene indexed palette with
+        a declared ground. <span class="text-bone-100">Ours:</span> the mixing function (our own constants and shift schedule),
+        the two-axis wrapping lattice noise, the coverage ladder derived from our measured mask, the palette selection, the
+        scene, the palette and every check. No line of <span class="font-mono">ascii.rest</span> is copied and none of its
+        constants appear here. What we did not take: its scene catalogue, its artwork, or its colours as ours. Method and the
+        full list: <span class="font-mono">docs/MOTOR-ESCENAS.md</span>.
+      </p>
+    </section>
     <footer class="border-t border-hairline pt-8 text-sm text-plomo-400">
       <p>12 fps maximum · pauses offscreen and in hidden tabs · static under reduced motion. Play restarts the library timeline. Without JavaScript, descriptions replace runtime art; the native baked video may still animate.</p>
       <p class="mt-3">Scenes draw dots, keep square(1:1) cells, and are replayed at a 12 fps ceiling: the played rate can be lower under load. Their palettes are vendor demo art, not Joyan tokens, and their still frame under reduced motion is the package's own.</p>
+      <p class="mt-3">Our own engine's scene keeps the same 12 fps ceiling, pauses offscreen and in hidden tabs, and shows its
+        poster frame under reduced motion. The baked still is the engine's own raster of that same poster frame, written by Node
+        with no browser involved.</p>
       <p class="mt-3">Placement candidates: controlled stories and social assets stay baked; runtime may suit purposeful generative accents beside—not behind—content. Rollout remains pending human testing.</p>
     </footer>
   </main>
   </body>
 </html>
+
+<style>
+  .compare-frame {
+    display: grid;
+    place-items: center;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .compare-frame canvas {
+    display: none;
+    width: 100%;
+    height: auto;
+    image-rendering: pixelated;
+  }
+  [data-ascii-compare][data-ready] canvas {
+    display: block;
+  }
+  [data-ascii-compare][data-ready] [data-ascii-fallback] {
+    display: none;
+  }
+</style>

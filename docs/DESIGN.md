@@ -521,6 +521,139 @@ node scripts/check-ascii-runtime.mjs            # GREEN: 0 failures, 9 contexts
 pnpm check
 ```
 
+## WU15 — our own dot-scene engine and the side-by-side comparison
+
+**Status: isolated laboratory comparison; the landing still ships zero scene or
+runtime JavaScript, and no landing page imports the engine.** The user decision
+behind this unit: the landing's visual language should be this dot-scene
+language, built by us, with the library's predefined scenes as the reference.
+`/lab/ascii` therefore shows three panes on the same 200 × 100 grid and at the
+same size — the library's `night-coast` live, our own coastal night live, and our
+own coastal night baked — without touching the verified baked J1, the donut, the
+cup or the six-scene gallery.
+
+| Piece | What it is | Measured cost |
+|---|---|---|
+| Engine + scene + runtime | Our own code (`scripts/scene-src/engine.mjs`, `scenes/joyan-night-coast.mjs`, `src/lib/scene-runtime.ts`): square cells, dot ramp `· •●` only, ordered 4×4 Bayer dither over a **measured** coverage curve, one indexed palette per scene, our own 32-bit mix and two-axis wrapping lattice noise, per-cell palette compensation | **8,821 B raw / 4,274 B gzip** as one executable inline module on the lab page. The project's configured 16 KiB inline limit keeps it inline rather than in a separate chunk; the lab accounting counts it in `lab.inlineGzip` |
+| Baked still | The engine's poster frame (frame 30, t = 2.5 s) written by Node — no browser, no canvas — and shipped byte-identical through the component's asset import | **9,554 B**, sha256 `144d9fe24640f0c6eb7e047beddd95070e83181c021f394bf23b1bb5cce9cf8a`, 800 × 400 |
+| Baked loop (pipeline output, not shipped on any page) | 120 frames at 12 fps (10 s), 800 × 400, H.264 CRF 32 through the local ffmpeg | **70,483 B**, sha256 `a139813cbeaf35edac7d9425d9c833de7f85b530b3110935cfd364dfa2aa9151`; two consecutive encodes produced the identical hash (byte-deterministic on this host/toolchain), 2.6 s per encode |
+| Library bundle | All eight library mounts on the page (two pieces, six gallery scenes, this pane) | **25,256 B gzip** in one chunk — the panes share it, so it is not a per-pane number |
+
+- **One engine, two outputs, proven equal.** The Node raster path and the live
+  canvas call the same `renderFrame()` + `rasterize()` and, for the same frame
+  index, must hash identically. `scripts/check-scene-engine.mjs` reads the frame
+  the runtime reports on the host (`data-scene-frame`), SHA-256s the canvas
+  pixels and requires them to equal the SHA-256 of the Node raster of that exact
+  frame: observed **`9554c122dad5695476adaca798f5552129c69ba178c691a1ea354e07633d8a56`**
+  for frame 0 from both paths (re-measured after the correction pass changed the
+  noise and closed the loop). The baked PNG decodes to the same bytes as the
+  engine's poster-frame raster (pixel sha256
+  `d634a9a9716c92e949dcc25dca35cdb3e9cfd694fd1a4bc4d0a438de7582916b`), so the
+  baked and live surfaces are one piece of art, not two lookalikes. This is the
+  honesty condition for the planned hybrid hero (baked by default, live on
+  interaction).
+- **What the checks require of the art, not just of the DOM.** Ramp exactly
+  `" ·•●"` with no ASCII glyph art (the runtime draws no text at all — the source
+  is checked for `fillText`/`ctx.font`); `cell: 1` square cells; the authored
+  coverage curve `[0, 0.24, 0.5, 0.79]` must match the dot area the raster mask
+  actually paints (measured `[0, 0.2344, 0.4844, 0.8125]` at the delivery cell);
+  the tone ladder is derived from that measured coverage, so a level on a rung
+  renders exactly that step and a midpoint splits the 4×4 Bayer block 8/8; every
+  palette index is in bounds and every drawn pixel is a ground→palette blend
+  (no colour outside the scene's indexed palette can appear); and repeat runs of
+  the same frame are identical.
+- **The loop closes by construction, and it is measured on the field.** The
+  earlier version looked closed only because `renderFrame(cycleFrames)` *is*
+  `renderFrame(0)` through the modulo — an assertion that could not fail. The
+  scene's two animated lattice offsets (cloud drift and water chop) now travel a
+  **whole number of noise wraps** over the loop, and every sine uses a period that
+  divides it, so `field(x, y, 0)` and `field(x, y, 30)` sample the same lattice.
+  Measured on the field, per channel, over all 60,000 channels: seam **max
+  2.83e-15 / mean 8.58e-17** against an adjacent-frame baseline of **max 0.0988 /
+  mean 0.00599**, with the animation seam (frame 359 → frame 0) at max 0.0938 /
+  mean 0.00567 — i.e. smoother than an ordinary step. At the rendered level the
+  seam changes **1,345 cells** against **1,453** for an adjacent pair. Before the
+  fix the same measurement read max 0.378 / mean 0.0181 (a visible pop every
+  30 s).
+- **Runtime contract (measured, not asserted).** 12 fps ceiling with the frame
+  index published as `data-scene-frame` (observed **18 frame updates in 1.5 s**);
+  pauses offscreen and in hidden tabs (live RAFs **2 → 0** on both, resuming to
+  the same count, so no duplicate loop); `prefers-reduced-motion: reduce` paints
+  the scene's poster frame once and starts no loop; `pagehide` cancels every loop
+  (recorded **0** active RAFs in the pagehide handler); no external request at any
+  of the nine browser contexts; decorative canvases are `aria-hidden` with a real
+  server-rendered caption beside them; the component stays under 200 lines with
+  no `any` and no authored inline style. Under reduced motion both the engine's
+  control and the library pane's control read **"Motion off …"**, not a Play that
+  cannot work, and the checker fails if either says Play while disabled.
+- **Licence and provenance boundary, stated in three groups.** (1) *Published
+  standard material, used as published:* the canonical 4×4 ordered-dither matrix
+  (Bayer, 1973), the Rec.709 luma coefficients (ITU-R BT.709) for both the tone
+  model and the chroma term of the palette selection, and the quintic fade plus
+  bilinear blending in the lattice noise (Perlin, 2002). None of it is ours and
+  none of it came from the reference library. (2) *Ideas learned from
+  `ascii.rest@0.4.0` (MIT, bas3line) and reimplemented without copying code:* a
+  dot ramp as a tone ladder with an ordered dither, per-cell colour compensation
+  for how much ink a dot lays down, deterministic integer hash noise, and a
+  per-scene indexed palette with a declared ground. (3) *Ours:* `mix32` (our
+  constants, lane order and shift schedule — a rotate-multiply mix in the
+  published MurmurHash3/SplitMix family, **not** that family's or the library's
+  constants); `latticeNoise`/`layeredNoise` (a two-axis wrapping lattice with a
+  per-octave seed stride and nested-lerp blending, deliberately not the library's
+  one-period `noise(x, y, period)` shape); the coverage ladder derived from our
+  measured mask; the rendered-tone error minimisation that chooses the palette
+  entry; the dot masks, the scene, the palette, the bake path and every check.
+  An earlier draft of this entry claimed the noise was simply "ours" while
+  sharing the library's constant set and structure — that claim was wrong and is
+  corrected here. `scripts/check-scene-engine.mjs` now fails if any of the
+  library's mixing constants or an `ascii.rest` import reappears in the engine.
+  What we did **not** take: its scene catalogue (weight), its scene colours as our
+  art, its artwork, or any vendored file. The installed package keeps its own MIT
+  `LICENSE`; the lab keeps the bas3line/MIT attribution and the source link.
+- **Budget (measured, not estimated).** Landing invariant intact: the five
+  original chunks are byte-identical and sum to **109,818 B gzip**, and no route
+  other than `/lab/ascii` carries the markup or reaches the module. The lab
+  allowance is a measured number with a documented margin: lab chunk 25,256 B +
+  executable inline 4,274 B = **29,530 B gzip**, cap **31,578 B**, margin
+  **2,048 B** (rule: cap − measured must stay within 0…4,096 B; WU14 measured
+  25,239 B, the first WU15 pass 29,154 B, the
+  correction's first cut 29,513 B). `scripts/check-iteration-3.mjs` section 7 now measures the lab's
+  executable set as chunk **plus** its inline module — required because the
+  project's 16 KiB inline limit puts this unit's code inline rather than in a new
+  chunk — and the landing set stays chunk-only. The lab copy itself states the
+  measured numbers, and both checkers fail if the copy and the bundle disagree.
+- **Not measured (no claim):** the tone model is a display-space luma, not
+  colorimetric linear light, and the engine has no colour management; the dot mask
+  is supersampled, not analytically anti-aliased; CPU cost, frame time, LCP and CLS
+  of the live pane were not measured, and no cross-engine fidelity or perceptual
+  comparison with the library was performed; Firefox/Safari, OS background
+  scheduling and BFCache restoration are unmeasured; the MP4 is a pipeline output
+  and is not shipped on any page; and no landing rollout, hero change or branding
+  adoption is authorised by this unit.
+
+WU15 evidence: `dist-motion-verify/wu15/` — `red.json`/`red.log` and
+`lab-red/` (preserved RED before implementation: engine, runtime, component,
+comparison surface and baked still all missing), `green.json`,
+`scene-engine-green.json`, `lab/green.log`, `lab/bundle.json`, and `captures/`
+with 390/768/1440 × normal/reduce comparison sections plus full-page images. The
+independent verifier's own scripts and numbers are preserved untouched in
+`dist-motion-verify/wu15/independent/`, and the correction pass writes only to
+`dist-motion-verify/wu15/correction/` (its RED: 11 failures — the loop did not
+close, the engine reused the library's mixing constants and claimed otherwise,
+and the reduced-motion control still said Play). The WU13 and WU14 trees are
+read-only inputs and were not rewritten: the lab checker was re-run with
+`--out dist-motion-verify/wu15/lab` and, for the correction, with
+`--out dist-motion-verify/wu15/correction/lab`.
+
+```bash
+node scripts/scene-src/bake.mjs              # PNG from the engine, Node only
+node scripts/scene-src/bake.mjs --mp4        # + the deterministic 10 s loop
+pnpm build
+node scripts/check-scene-engine.mjs          # engine/art/periodicity/equality + browser
+node scripts/check-ascii-runtime.mjs --out dist-motion-verify/wu15/correction/lab
+pnpm check
+```
+
 ## MAGI SVG diagram guide
 
 The static diagram (`AgentNetworkDiagram.astro`) follows one strict grid:

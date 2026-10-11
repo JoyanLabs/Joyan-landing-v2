@@ -645,8 +645,8 @@ if (/@media \(prefers-reduced-motion:reduce\)\{/.test(compiledCss)) {
 const candidate = gzipSum();
 const LANDING_FROZEN_GZIP = 109818;
 const LANDING_FROZEN_DELTA = 17913; // 109818 - 91905, baseline fixture untouched
-const LAB_MEASURED_GZIP = 25239; // WU14 lab chunk + 0 B executable inline
-const LAB_CAP_GZIP = 27648; // measured total + 2409 B honest margin (<= 4096 B)
+const LAB_MEASURED_GZIP = 29530; // WU15 correction: lab chunk 25256 B + 4274 B executable inline
+const LAB_CAP_GZIP = 31578; // measured total + 2048 B honest margin (<= 4096 B)
 const LAB_MARGIN_LIMIT = 4096;
 const LAB_PAGE = 'lab/ascii/index.html';
 const LANDING_ROUTE_PAGES = ['index.html', 'en/index.html'];
@@ -827,17 +827,22 @@ if (landingGzip === LANDING_FROZEN_GZIP) {
 }
 
 // Lab allowance: a measured number with a documented margin, never unlimited.
-const labMargin = LAB_CAP_GZIP - labGzip;
+// The lab's executable set is its generated chunk(s) PLUS the executable inline
+// module the project's configured 16 KiB inline limit keeps on the lab page
+// (WU15 correction: 4,274 B gzip). The landing set stays chunk-only and the landing
+// allowance is untouched, so this does not move the landing invariant.
+const labExecutableGzip = labGzip + inlineBySet.lab.gzip;
+const labMargin = LAB_CAP_GZIP - labExecutableGzip;
 const declaredMargin = LAB_CAP_GZIP - LAB_MEASURED_GZIP;
 if (declaredMargin >= 0 && declaredMargin <= LAB_MARGIN_LIMIT) {
   pass(`budget: lab cap ${LAB_CAP_GZIP} B = measured ${LAB_MEASURED_GZIP} B + ${declaredMargin} B margin (<= ${LAB_MARGIN_LIMIT} B)`);
 } else {
   fail(`budget: lab cap margin ${declaredMargin} B over the measured ${LAB_MEASURED_GZIP} B is outside 0..${LAB_MARGIN_LIMIT} B`);
 }
-if (labGzip <= LAB_CAP_GZIP) {
-  pass(`budget: lab-attributed generated JS gzip ${labGzip} B across ${labChunks.length} file(s) <= measured cap ${LAB_CAP_GZIP} B (margin ${labMargin} B)`);
+if (labExecutableGzip <= LAB_CAP_GZIP) {
+  pass(`budget: lab-attributed executable gzip ${labExecutableGzip} B (chunk ${labGzip} B across ${labChunks.length} file(s) + inline ${inlineBySet.lab.gzip} B in ${inlineBySet.lab.blocks} block(s)) <= measured cap ${LAB_CAP_GZIP} B (margin ${labMargin} B)`);
 } else {
-  fail(`budget: lab-attributed generated JS gzip ${labGzip} B exceeds the measured cap ${LAB_CAP_GZIP} B`);
+  fail(`budget: lab-attributed executable gzip ${labExecutableGzip} B exceeds the measured cap ${LAB_CAP_GZIP} B`);
 }
 if (labMargin >= 0 && labMargin <= LAB_MARGIN_LIMIT) {
   pass(`budget: lab margin ${labMargin} B within 0..${LAB_MARGIN_LIMIT} B`);

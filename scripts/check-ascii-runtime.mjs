@@ -3,8 +3,10 @@
  * WU13/WU14 local acceptance. External Playwright, no new project test dependency.
  *
  * The WU13 tree under `dist-motion-verify/wu13/` is read-only input here: its
- * reports, preimages and captures are never rewritten. Every WU14 artifact is
- * written to its own root, `dist-motion-verify/wu14/`.
+ * reports, preimages and captures are never rewritten. WU14 artifacts go to
+ * `dist-motion-verify/wu14/` by default; `--out <dir>` writes the run's own
+ * report and captures somewhere else, which is how WU15 re-runs this guard
+ * without overwriting a single byte of the WU14 record.
  */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -18,7 +20,8 @@ import { loadPlaywright } from './motion-src/render.mjs';
 const root = resolve(new URL('..', import.meta.url).pathname);
 const originalOut = resolve(root, 'dist-motion-verify/wu13');
 const correctionOut = resolve(originalOut, 'correction');
-const out = resolve(root, 'dist-motion-verify/wu14');
+const outArg = process.argv.indexOf('--out');
+const out = resolve(root, outArg > -1 ? process.argv[outArg + 1] : 'dist-motion-verify/wu14');
 const captures = resolve(out, 'captures');
 const red = process.argv.includes('--red');
 const correctionRed = process.argv.includes('--correction-red');
@@ -163,24 +166,38 @@ const labTotalGzip = labChunkGzip + inlineGzip;
 // below that prior (25,239 B gzip of lab chunk + 0 B inline), so the cap is
 // TIGHTENED to measured + 2409 B: the enlargement the user authorized is a real
 // measured number with a documented margin, never an "unlimited" lab and never a
-// silent raise. (A measured total above the prior must be reported, not
-// absorbed.)
+// silent raise. WU15 then added our own dot-scene engine, its runtime and the
+// library comparison mount to the same single lab chunk; the user authorized
+// that enlargement, and the number below is the measured result, not a guess
+// (WU14 measured 25,239 B; see `dist-motion-verify/wu15/lab/bundle.json`).
+// (A measured total above the prior must be reported, not absorbed.)
 //
 // LAB_CAP_GZIP is the same single measured value asserted by
 // `scripts/check-iteration-3.mjs` section 7 (its `LAB_CAP_GZIP`), which pins the
 // frozen landing five-chunk identity and this cap for the site-wide guard. A
 // future change must update both loudly; there is no reset or unlimited mode.
-const LAB_CAP_GZIP = 27648;
+const LAB_CAP_GZIP = 31578;
+const LAB_MEASURED_GZIP = 29530;
 const LAB_MARGIN_LIMIT = 4096;
+// What the lab page itself claims about its own cost. The copy must carry the
+// measured numbers, so a claim cannot drift away from the bundle it describes.
+const LAB_CLAIMS = { libraryChunkGzip: 25256, ownModuleRaw: 8821, ownModuleGzip: 4274, bakedStillBytes: 9554 };
 const withinLabCap = (total, cap) => total <= cap;
 assert.equal(withinLabCap(LAB_CAP_GZIP, LAB_CAP_GZIP), true);
 assert.equal(withinLabCap(LAB_CAP_GZIP + 1, LAB_CAP_GZIP), false);
 check(labTotalGzip >= 20000, `scene gallery missing from the account: lab gzip ${labTotalGzip} B`);
 check(labTotalGzip <= LAB_CAP_GZIP,
-  `lab runtime/scene gzip ${labTotalGzip} B exceeds the measured WU14 cap ${LAB_CAP_GZIP} B`);
+  `lab runtime/scene gzip ${labTotalGzip} B exceeds the measured WU15 cap ${LAB_CAP_GZIP} B`);
 const capMargin = LAB_CAP_GZIP - labTotalGzip;
 check(capMargin >= 0 && capMargin <= LAB_MARGIN_LIMIT,
   `lab cap margin ${capMargin} B is outside the honest 0..${LAB_MARGIN_LIMIT} B window`);
+// The declared margin is a measurement, not a second allowance: the cap must be
+// the measured lab total plus at most 4096 B, and the measured total must move
+// whenever the cap moves.
+const declaredLabMargin = LAB_CAP_GZIP - LAB_MEASURED_GZIP;
+check(declaredLabMargin >= 0 && declaredLabMargin <= LAB_MARGIN_LIMIT,
+  `declared lab margin ${declaredLabMargin} B is outside 0..${LAB_MARGIN_LIMIT} B`);
+assert.equal(LAB_CAP_GZIP - LAB_MEASURED_GZIP > LAB_MARGIN_LIMIT, false);
 const withinBudgetControls = { inclusiveBoundaryAccepted: withinLabCap(LAB_CAP_GZIP, LAB_CAP_GZIP),
   overBoundaryRejected: !withinLabCap(LAB_CAP_GZIP + 1, LAB_CAP_GZIP) };
 assert.equal(dotOnly([...'·•● ']), true);
@@ -191,6 +208,44 @@ const installPreimage = await json('dist-motion-verify/wu13/correction/fixed-fil
 for (const path of fixedFiles) {
   check(hash(await readFile(resolve(root, path))) === installPreimage[path], `dependency/workspace file changed: ${path}`);
 }
+
+// ---- WU15 comparison surface -------------------------------------------
+// Our own engine's scene and the library's `night-coast` must be shown on the
+// same grid and the same size, with the baked still of OUR scene beside them.
+// The library gallery above stays untouched: the comparison uses its own
+// attribute, so the six-scene count and every WU14 assertion keep their meaning.
+const OWN_SCENE = 'joyan-night-coast';
+const OWN_BAKED = /_astro\/joyan-night-coast\.[A-Za-z0-9_-]+\.png/;
+check((html.match(/data-ascii-compare="/g) ?? []).length === 1,
+  'the comparison must mount the library night-coast exactly once');
+check(html.includes('data-ascii-compare="night-coast"'),
+  'the comparison must show the library night-coast on the shared grid');
+check((html.match(/data-own-scene="/g) ?? []).length === 1,
+  'our own scene must be mounted live exactly once');
+check(html.includes(`data-own-scene="${OWN_SCENE}"`),
+  `the comparison must mount our scene ${OWN_SCENE} live`);
+check(OWN_BAKED.test(html), 'the comparison must show the baked still of our scene');
+check(html.includes('200 × 100') || html.includes('200x100'),
+  'the comparison must state the shared 200 x 100 grid');
+check(/measured/i.test(html), 'the comparison must state the measured cost of what it draws');
+// The page must quote the numbers that were actually measured, and this guard
+// must fail if either side moves without the other.
+const labPageInline = inlineScripts(html).inline;
+const ownModule = labPageInline.find((script) => script.bytes === LAB_CLAIMS.ownModuleRaw);
+check(Boolean(ownModule) && ownModule.gzip === LAB_CLAIMS.ownModuleGzip,
+  `the lab page's own engine module must measure ${LAB_CLAIMS.ownModuleRaw}/${LAB_CLAIMS.ownModuleGzip} B raw/gzip, saw ${JSON.stringify(ownModule ?? null)}`);
+for (const [label, value] of Object.entries(LAB_CLAIMS)) {
+  check(html.includes(`${value} B`),
+    `the comparison must state the measured ${label} (${value} B), not an invented number`);
+}
+let bakedBytes = null;
+try {
+  bakedBytes = (await readFile(resolve(root, 'scripts/scene-src/baked/joyan-night-coast.png'))).length;
+} catch (error) {
+  check(false, `the engine's baked still is missing: ${error.message}`);
+}
+check(bakedBytes === LAB_CLAIMS.bakedStillBytes,
+  `the baked still must be ${LAB_CLAIMS.bakedStillBytes} B, saw ${bakedBytes}`);
 
 // No route other than /lab/ascii may carry runtime markup or fetch its chunk.
 let sceneMounts = 0;
@@ -245,11 +300,12 @@ const budget = { method: 'Recursive dist/**/*.js generated client JS plus every 
   assets, inline, excluded, chunks,
   landing: { chunkNames: landingChunkNames, gzip: landingGzip, frozenByteIdentical: true },
   lab: { chunkNames: labChunkNames, chunkGzip: labChunkGzip, inlineGzip, totalGzip: labTotalGzip,
-    cap: LAB_CAP_GZIP, margin: capMargin, supersededLabDeltaBudget: 22528,
+    cap: LAB_CAP_GZIP, margin: capMargin, measured: LAB_MEASURED_GZIP,
+    supersededLabDeltaBudget: 22528, supersededWU14Measured: 25239,
     marginRule: `cap - measured lab total, required 0..${LAB_MARGIN_LIMIT} B`,
     // Six scene modules at gzip level 9 of their raw files: 5318 + 7223 + 7317
     // + 7631 + 7724 + 7863 = 43076 B; the pre-measurement prior was that plus
-    // the 4096 B maximum margin. The measured build came in below it.
+    // the 4096 B maximum margin. The WU14 measured build came in below it.
     capPrior: 43076 + 4096 },
   inlineBySet: { ...inlineBySet, generatedHtmlCount,
     note: 'pre-existing, unbudgeted, no limit asserted; only the lab page inline participates in the lab cap' },
@@ -456,6 +512,10 @@ async function scenePass(page, width, mode) {
     } else {
       scene.reduced = await sceneSample(page, name, false, 2);
       check(await host.locator('button').isDisabled(), `${name}: reduced-motion control must be disabled`);
+      const reducedLabel = (await host.locator('button').innerText()).trim();
+      scene.reducedLabel = reducedLabel;
+      check(!/play/i.test(reducedLabel),
+        `${name}: a disabled reduced-motion control must not offer playback, saw "${reducedLabel}"`);
     }
     view.scenes.push(scene);
   }

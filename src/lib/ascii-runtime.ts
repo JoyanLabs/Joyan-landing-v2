@@ -5,6 +5,9 @@
  *  - `data-ascii-piece` hosts run the two comparison pieces (donut text, cup canvas).
  *  - `data-ascii-scene` hosts run the six coloured scene pieces, which draw dots
  *    (ramp `" ·•●"`) on a canvas with a palette, never ASCII glyph art.
+ *  - `data-ascii-compare` hosts run one library scene again, beside our own
+ *    engine's scene in the WU15 comparison. Its own attribute keeps the six-scene
+ *    gallery and its assertions exactly as they were.
  *
  * Every scene is a focused leaf import; the piece barrel, the catalogue `load`
  * helper and any remote asset are deliberately absent.
@@ -35,14 +38,14 @@ const SCENES: Record<string, Piece> = {
   'ocean-sunset': { default: oceanSunset, meta: oceanSunsetMeta },
 };
 const REDUCED = '(prefers-reduced-motion: reduce)';
-const HOSTS = '[data-ascii-piece], [data-ascii-scene]';
+const HOSTS = '[data-ascii-piece], [data-ascii-scene], [data-ascii-compare]';
 const LAB_FPS = 12;
 let release: (() => void) | undefined;
 
 function pieceFor(host: HTMLElement): { piece: Piece; name: string } | undefined {
   const piece = host.dataset.asciiPiece;
   if (piece && piece in PIECES) return { piece: PIECES[piece], name: piece };
-  const scene = host.dataset.asciiScene;
+  const scene = host.dataset.asciiScene ?? host.dataset.asciiCompare;
   if (scene && scene in SCENES) return { piece: SCENES[scene], name: scene };
   return undefined;
 }
@@ -67,7 +70,10 @@ function initialize(): void {
     const updateStatus = () => {
       button.disabled = preference.matches;
       button.setAttribute('aria-pressed', String(!paused && !preference.matches));
-      button.textContent = `${paused || preference.matches ? 'Play' : 'Pause'} ${name}`;
+      // Under reduced motion the control is disabled and the library draws a
+      // still, so it must not offer a Play that cannot work.
+      button.textContent = preference.matches ? `Motion off ${name}`
+        : paused ? `Play ${name}` : `Pause ${name}`;
       status.textContent = preference.matches ? 'Static frame · reduced motion'
         : paused ? 'Paused by you' : !visible || document.hidden ? 'Paused · outside viewport or hidden'
           : `Live library frame · ${LAB_FPS} fps`;
