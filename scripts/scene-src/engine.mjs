@@ -91,11 +91,33 @@
  * the supersampled disc and the nearest-neighbour display scale, not the shape
  * function, were what made the dots read as blocks.
  *
+ * THE MASK IS NOW A CHOICE (WU17). The user's decision was that squares also
+ * look good and there may be other shapes, so the engine no longer hard-codes
+ * the disc. `maskFor(shape, step, w, h, ramp, geometry)` draws any mask from
+ * `scripts/scene-src/shapes.mjs`, and `renderFrame`/`rasterize` take an options
+ * object that selects the mask (shape), the ramp family, the dither mode and the
+ * cell geometry. Every option keeps the one invariant this engine is built on:
+ * the Node raster and the live canvas produce the same bytes for the same
+ * frame. The DEFAULT options resolve to the WU16 disc on 1:1 cells with ordered
+ * 4x4 Bayer dithering, so the scene, the bake and every recorded hash are
+ * unchanged; the study options are laboratory-only and never reach a real page.
+ *
  * LIMITS (measured, stated, not hidden): the tone model is a display-space
  * luma, not colorimetric linear light; the dot radius is derived from the
  * measured coverage ladder by bisection, so it is exact for this mask and not a
  * closed form; and the engine has no colour management.
  */
+
+import {
+  BAYER4, CELL_GEOMETRIES, DITHER_MODES, LADDER as COVERAGE_LADDER, RAMP_MODES, SHAPES, buildMask,
+  cellSizeFor, discAreaIn, ditherThreshold, effectiveShape, maskDerivation, solveSize,
+} from './shapes.mjs';
+
+// The WU17 catalogue is re-exported here as the engine's public surface: the
+// laboratory, the checks and the docs read it from the engine, never from a
+// second registry that could drift.
+export { SHAPES, DITHER_MODES, RAMP_MODES, CELL_GEOMETRIES, cellSizeFor, ditherThreshold,
+  effectiveShape, maskDerivation };
 
 /** The only inked ramp. Index 0 is an empty cell. Dots, never ASCII art. */
 export const RAMP = ' ·•●';
@@ -116,9 +138,10 @@ export const DELIVERY_CELL = 8;
  * WU15 mask MEASURED at its delivery cell, kept as the target — the radii below
  * are derived from them, not from an assumed fraction of the cell, and the
  * anti-aliased mask now holds this ladder at every cell size instead of drifting
- * with the raster (0.793 for the largest dot at 8 px per cell before).
+ * with the raster (0.793 for the largest dot at 8 px per cell before). WU17 moved
+ * the literal to `shapes.mjs` so every mask is solved against the same ladder.
  */
-export const COVERAGE = Object.freeze([0, 0.2344, 0.4844, 0.8125]);
+export const COVERAGE = COVERAGE_LADDER;
 
 /**
  * Drawn radius of each dot, in CELL units, solved from `COVERAGE` so that the
@@ -132,9 +155,9 @@ export const DOT_RADIUS = Object.freeze(COVERAGE.map((coverage) => radiusForCove
 
 /** Ordered 4x4 Bayer matrix in scan order. Thresholds are (v + 0.5) / 16. */
 // Published standard material: the canonical 4x4 ordered-dither matrix
-// (Bayer, 1973). It is the same matrix in every implementation; we use it as
-// the published algorithm, not as something learned from the reference library.
-const BAYER4 = Object.freeze([0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5]);
+// (Bayer, 1973), built by the published recursive construction in shapes.mjs.
+// WU17 also builds the 8x8 matrix and a blue-noise tile there, so every dither
+// mode lives in one place.
 
 /** Weights of the palette selection (see `compensate`). */
 const TONE_WEIGHT = 1;
@@ -283,62 +306,62 @@ export function rampLadder() {
   return MEASURED_COVERAGE.map((coverage) => coverage / full);
 }
 
+/** The size, in cell units, that makes a cell of `geometry` lay down `coverage`. */
+export function maskSize(shape, ramp, geometry, step) {
+  const resolved = effectiveShape(shape, ramp);
+  // The disc on square cells is the exact-area mask from WU16, whose radius is
+  // already derived from the ladder; every other mask solves its size by
+  // bisection in `shapes.mjs`.
+  if (resolved === 'disc' && geometry === 'square') return DOT_RADIUS[step] ?? 0;
+  return solveSize(resolved, geometry, step);
+}
+
+/**
+ * One finished cell mask of the selected shape, as a Float64Array of coverage
+ * values in [0, 1]. The disc on square cells is the analytic WU16 mask (the same
+ * bytes the bake and the live canvas have always produced); every other option
+ * comes from the catalogue in `shapes.mjs`.
+ * @param {string} shape @param {number} step @param {number} w @param {number} h
+ * @param {string} [ramp] @param {string} [geometry]
+ */
+export function maskFor(shape, step, w, h, ramp = 'shape', geometry = 'square') {
+  const resolved = effectiveShape(shape, ramp);
+  if (resolved === 'disc' && geometry === 'square' && w === h) return discMask(step, w);
+  return buildMask(shape, step, w, h, ramp, geometry);
+}
+
 /**
  * Ordered Bayer threshold for a cell, in [0, 1). Used as the dither position:
  * a level between two ladder rungs is spent spatially between them.
  * @param {number} x @param {number} y
  */
 export function bayerThreshold(x, y) {
-  return (BAYER4[(y & 3) * 4 + (x & 3)] + 0.5) / 16;
+  return ditherThreshold('bayer4', x, y);
 }
 
 /**
  * The coverage curve mapping a field level to a ramp step. `level` is the
  * field's tone already normalised against the scene's palette range, 0..1.
- * @param {number} level @param {number} x @param {number} y
+ * `mode` selects the dither (WU17); the default is the ordered 4x4 Bayer matrix.
+ * @param {number} level @param {number} x @param {number} y @param {string} [mode]
  */
-export function stepFor(level, x, y) {
+export function stepFor(level, x, y, mode = 'bayer4') {
   const ladder = LADDER;
   let step = 0;
   while (step < ladder.length - 1 && level >= ladder[step + 1]) step += 1;
   if (step === ladder.length - 1) return step;
   const span = ladder[step + 1] - ladder[step];
   const position = span > 0 ? (level - ladder[step]) / span : 1;
-  return position > bayerThreshold(x, y) ? step + 1 : step;
+  return position > ditherThreshold(mode, x, y) ? step + 1 : step;
 }
 /**
  * Dot geometry. A dot is a DISC, and each pixel's coverage is the exact area of
  * the disc inside that pixel — not a sample count and not an area-matched
- * square. `quadrantArea` is the area under the circle arc, and a pixel is the
- * inclusion-exclusion of it at the four corners. The closed forms agree: a
- * radius-2 disc in a 4 px cell covers a corner pixel by 0.31515 and an edge
- * pixel by 0.91315, so a step of coverage 0.81 keeps a round rim.
+ * square. The closed forms live in `shapes.mjs` (the same ones the catalogue's
+ * disc and ring masks use), and the closed forms agree: a radius-2 disc in a
+ * 4 px cell covers a corner pixel by 0.31515 and an edge pixel by 0.91315, so a
+ * step of coverage 0.81 keeps a round rim.
  */
-
-/** Area under the arc from 0 to x, for a radius r and 0 <= x <= r. */
-function arcArea(x, r) {
-  return 0.5 * (x * Math.sqrt(Math.max(0, r * r - x * x)) + r * r * Math.asin(Math.min(1, x / r)));
-}
-
-/** Area of the disc inside {0 <= u <= x, 0 <= v <= y}, for x, y >= 0. */
-function quadrantArea(x, y, r) {
-  if (x <= 0 || y <= 0) return 0;
-  if (x >= r) return y >= r ? (Math.PI * r * r) / 4 : arcArea(y, r);
-  if (y >= r) return arcArea(x, r);
-  if (x * x + y * y <= r * r) return x * y;
-  const u = Math.sqrt(r * r - y * y);
-  return u * y + arcArea(x, r) - arcArea(u, r);
-}
-
-/** Area of the disc centred at the origin inside one axis-aligned rectangle. */
-function discAreaIn(x0, x1, y0, y1, r) {
-  if (x1 <= 0) return discAreaIn(-x1, -x0, y0, y1, r);
-  if (x0 < 0) return discAreaIn(0, x1, y0, y1, r) + discAreaIn(0, -x0, y0, y1, r);
-  if (y1 <= 0) return discAreaIn(x0, x1, -y1, -y0, r);
-  if (y0 < 0) return discAreaIn(x0, x1, 0, y1, r) + discAreaIn(x0, x1, 0, -y0, r);
-  return quadrantArea(x1, y1, r) - quadrantArea(x0, y1, r) - quadrantArea(x1, y0, r)
-    + quadrantArea(x0, y0, r);
-}
 
 /** Exact coverage of one `size` cell by a dot of radius `radius` (same units). */
 function cellCoverage(size, radius) {
@@ -451,14 +474,28 @@ export function compensate(scene, r, g, b, step, metrics = sceneMetrics(scene)) 
 
 /**
  * Render one frame of a scene into palette indices and ramp steps. Pure: the
- * same (scene, frame) pair always produces the same arrays, in Node and in the
- * browser alike.
+ * same (scene, frame, options) always produces the same arrays, in Node and in
+ * the browser alike.
+ *
+ * OPTIONS (all optional; the defaults are the WU16 behaviour byte for byte):
+ *   dither    'bayer4' | 'bayer8' | 'blue' | 'none'
+ *   density   1 | 2 | 4 — sample the scene every k-th cell, so the same picture
+ *             can be studied at 200x100, 100x50 and 50x25. Integer strides keep
+ *             the field's own integer lattice, so a star stays a star.
+ *   shape/ramp/geometry are carried for the caller's bookkeeping; they do not
+ *             change the FIELD, only the mark `rasterize` paints. Keeping the
+ *             steps independent of the mask is what makes the tone comparable
+ *             between shapes.
  * @param {object} scene @param {number} frame
+ * @param {{dither?: string, density?: number, shape?: string, ramp?: string, geometry?: string}} [options]
  */
-export function renderFrame(scene, frame) {
-  const { cols, rows, cycleFrames } = scene;
+export function renderFrame(scene, frame, options = {}) {
+  const dither = options.dither ?? 'bayer4';
+  const density = Math.max(1, Math.round(options.density ?? 1));
+  const cols = Math.max(1, Math.round(scene.cols / density));
+  const rows = Math.max(1, Math.round(scene.rows / density));
   const metrics = sceneMetrics(scene);
-  const index = ((Math.floor(frame) % cycleFrames) + cycleFrames) % cycleFrames;
+  const index = ((Math.floor(frame) % scene.cycleFrames) + scene.cycleFrames) % scene.cycleFrames;
   const time = index / scene.fps;
   const span = Math.max(1e-6, metrics.maxTone - metrics.groundTone);
   const total = cols * rows;
@@ -466,12 +503,12 @@ export function renderFrame(scene, frame) {
   const indices = new Uint8Array(total);
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
-      const got = scene.field(x, y, time);
+      const got = scene.field(x * density, y * density, time);
       const r = typeof got === 'number' ? got : got[0];
       const g = typeof got === 'number' ? got : got[1];
       const b = typeof got === 'number' ? got : got[2];
       const level = clamp01((luma(r, g, b) - metrics.groundTone) / span);
-      const step = stepFor(level, x, y);
+      const step = stepFor(level, x, y, dither);
       const cell = y * cols + x;
       steps[cell] = step;
       indices[cell] = step === 0 ? scene.ground : compensate(scene, r, g, b, step, metrics);
@@ -512,34 +549,42 @@ export function frameChars(frame) {
  */
 const SPRITES = new WeakMap();
 
-/** The sprite atlas of one scene at one cell size, built on first use. */
-function spriteAtlas(scene, cell) {
+/**
+ * The sprite atlas of one scene at one cell size and one mask. The mask is part
+ * of the key (WU17) because the same scene can now be drawn as a disc, a square,
+ * a ring and so on: each mask keeps its own set of sprites, so switching options
+ * never reuses another shape's cell.
+ */
+function spriteAtlas(scene, cell, maskKey) {
   const cached = SPRITES.get(scene);
-  if (cached && cached.cell === cell) return cached;
-  const atlas = { cell, sprites: new Map() };
+  const atlas = cached && cached.cell === cell ? cached : { cell, masks: new Map() };
   SPRITES.set(scene, atlas);
-  return atlas;
+  let entry = atlas.masks.get(maskKey);
+  if (!entry) {
+    entry = { sprites: new Map(), masks: null };
+    atlas.masks.set(maskKey, entry);
+  }
+  return entry;
 }
 
 /** One finished cell as RGBA: ground blended toward one palette ink. */
-function cellSprite(atlas, metrics, step, inkIndex) {
+function cellSprite(sprites, metrics, cell, mask, step, inkIndex) {
   const ink = metrics.colors[inkIndex];
   const ground = metrics.colors[metrics.groundIndex];
   // A palette is at most 32 entries (the checker enforces that), so one byte of
   // ink index per step cannot collide.
   const key = step * 256 + inkIndex;
-  const cached = atlas.sprites.get(key);
+  const cached = sprites.get(key);
   if (cached) return cached;
-  const mask = step === 0 ? null : discMask(step, atlas.cell);
-  const sprite = new Uint8ClampedArray(atlas.cell * atlas.cell * 4);
-  for (let i = 0; i < atlas.cell * atlas.cell; i++) {
+  const sprite = new Uint8ClampedArray(cell.w * cell.h * 4);
+  for (let i = 0; i < cell.w * cell.h; i++) {
     const coverage = mask ? mask[i] : 0;
     sprite[i * 4] = Math.round((ground[0] + (ink[0] - ground[0]) * coverage) * 255);
     sprite[i * 4 + 1] = Math.round((ground[1] + (ink[1] - ground[1]) * coverage) * 255);
     sprite[i * 4 + 2] = Math.round((ground[2] + (ink[2] - ground[2]) * coverage) * 255);
     sprite[i * 4 + 3] = 255;
   }
-  atlas.sprites.set(key, sprite);
+  sprites.set(key, sprite);
   return sprite;
 }
 
@@ -548,22 +593,41 @@ function cellSprite(atlas, metrics, step, inkIndex) {
  * between the ground and one palette entry, which is why the baked file and the
  * live canvas can be compared byte for byte. `into` may carry a buffer to fill
  * (the runtime reuses one per canvas instead of allocating a megabyte a frame).
+ *
+ * OPTIONS (all optional; the defaults are the WU16 behaviour byte for byte):
+ *   shape, ramp, geometry — which mask to paint and in which cell geometry.
  * @param {{cols: number, rows: number, steps: Uint8Array, indices: Uint8Array}} frame
  * @param {object} scene @param {number} cell @param {Uint8ClampedArray} [into]
+ * @param {{shape?: string, ramp?: string, geometry?: string}} [options]
  */
-export function rasterize(frame, scene, cell = DELIVERY_CELL, into) {
+export function rasterize(frame, scene, cell = DELIVERY_CELL, into, options = {}) {
   const metrics = sceneMetrics(scene);
-  const atlas = spriteAtlas(scene, cell);
-  const width = frame.cols * cell;
-  const height = frame.rows * cell;
+  const shape = options.shape ?? 'disc';
+  const ramp = options.ramp ?? 'shape';
+  const geometry = options.geometry ?? 'square';
+  const box = cellSizeFor(geometry, cell);
+  const maskKey = `${effectiveShape(shape, ramp)}|${ramp}|${geometry}`;
+  const sprites = spriteAtlas(scene, cell, maskKey);
+  if (!sprites.masks) {
+    // The masks are solved once per (scene, cell, mask) and then reused: the
+    // solved size is the expensive part, the sprites are the cheap part.
+    sprites.masks = [null];
+    for (let step = 1; step < COVERAGE.length; step++) {
+      sprites.masks.push(maskFor(shape, step, box.w, box.h, ramp, geometry));
+    }
+  }
+  const masks = sprites.masks;
+  const width = frame.cols * box.w;
+  const height = frame.rows * box.h;
   const out = into && into.length === width * height * 4 ? into : new Uint8ClampedArray(width * height * 4);
-  const rowBytes = cell * 4;
+  const rowBytes = box.w * 4;
   for (let y = 0; y < frame.rows; y++) {
     for (let x = 0; x < frame.cols; x++) {
       const cellIndex = y * frame.cols + x;
-      const sprite = cellSprite(atlas, metrics, frame.steps[cellIndex], frame.indices[cellIndex]);
-      const at = ((y * cell) * width + x * cell) * 4;
-      for (let py = 0; py < cell; py++) {
+      const step = frame.steps[cellIndex];
+      const sprite = cellSprite(sprites.sprites, metrics, box, masks[step], step, frame.indices[cellIndex]);
+      const at = ((y * box.h) * width + x * box.w) * 4;
+      for (let py = 0; py < box.h; py++) {
         out.set(sprite.subarray(py * rowBytes, py * rowBytes + rowBytes), at + py * width * 4);
       }
     }

@@ -202,10 +202,14 @@ if (labHtml) {
   check(/MIT/.test(labHtml) && /bas3line/.test(labHtml), 'the lab must keep the library attribution');
 }
 for (const path of await walk(resolve(root, 'dist'))) {
-  if (!path.endsWith('.html') || path.endsWith('lab/ascii/index.html')) continue;
+  // WU17: every `/lab/**` page is a laboratory page; no real page may carry any
+  // of the laboratory markup or assets.
+  if (!path.endsWith('.html') || path.replaceAll('\\', '/').includes('/lab/')) continue;
   const source = await readFile(path, 'utf8');
   check(!source.includes('data-own-scene'), `our runtime markup reached ${path.slice(root.length + 1)}`);
   check(!source.includes('data-ascii-compare'), `the comparison markup reached ${path.slice(root.length + 1)}`);
+  check(!source.includes('data-shape-lab'), `the shape laboratory reached ${path.slice(root.length + 1)}`);
+  check(!source.includes('data-shape-board'), `the shape board reached ${path.slice(root.length + 1)}`);
   check(!BAKED_URL.test(source), `the baked still reached ${path.slice(root.length + 1)}`);
 }
 // Only the laboratory may reach the runtime. The page check is the real one:
@@ -228,8 +232,12 @@ for (const dir of ['src/components', 'src/layouts']) {
     if (source.includes('scene-runtime') || source.includes('scene-src')) runtimeImporters.push(path.slice(root.length + 1));
   }
 }
-check(runtimeImporters.length === 1 && runtimeImporters[0] === 'src/components/joyan/SceneCanvas.astro',
-  `only the lab's own SceneCanvas.astro may reference the scene runtime: ${runtimeImporters.join(', ')}`);
+// WU17 added `ShapeLab.astro` for `/lab/shapes`; both are laboratory components
+// and no other component or layout may reference the runtime.
+const allowedRuntimeImporters = ['src/components/joyan/SceneCanvas.astro', 'src/components/joyan/ShapeLab.astro'];
+check(runtimeImporters.every((path) => allowedRuntimeImporters.includes(path))
+  && allowedRuntimeImporters.every((path) => runtimeImporters.includes(path)),
+`only the laboratory's own SceneCanvas.astro and ShapeLab.astro may reference the scene runtime: ${runtimeImporters.join(', ')}`);
 let bakedFile;
 try {
   bakedFile = await readFile(resolve(root, BAKED_SOURCE));
@@ -519,6 +527,306 @@ const spriteFrame = renderFrame(scene, scene.posterFrame);
 check(hash(Buffer.from(rasterize(spriteFrame, scene, DELIVERY_CELL)))
   === hash(Buffer.from(directRaster(spriteFrame, DELIVERY_CELL))),
 'the adopted cell-sprite atlas must reproduce a direct per-pixel blend byte for byte');
+
+// ---------------------------------------------------------------------------
+// 2c. WU17 MASK CATALOG, RAMPS, DITHERS AND CELL GEOMETRY. This block is
+//     GUARDED on purpose: on a tree without the catalog it has to REPORT the
+//     missing surface instead of crashing on it, so every engine call sits
+//     behind a typeof test and every metric is computed here, from the masks
+//     the engine returns, rather than trusted from the engine.
+// ---------------------------------------------------------------------------
+const SHAPE_IDS = ['disc', 'square', 'rounded', 'diamond', 'triangle', 'hexagon', 'ring', 'cross',
+  'hatch', 'grain', 'glyph'];
+const DITHER_IDS = ['bayer4', 'bayer8', 'blue', 'none'];
+const RAMP_IDS = ['shape', 'block', 'glyph'];
+const GEOMETRY_IDS = ['square', 'char'];
+// Tolerance for "the mask holds the measured coverage ladder". Every geometric
+// mask is computed as an EXACT area per pixel (polygon clipping, closed-form
+// circle/rectangle areas), so the sum of the per-pixel areas is the shape's own
+// area and does not depend on how the cell is divided into pixels: the ladder
+// holds at 8, 4 and 2 px per cell alike, and 0.001 is left for the floating-point
+// sum. A sampled mask cannot do that (at 4 px a symmetric square can only reach
+// 0.4727 or 0.5166 of a cell, never 0.4844), which is why the engine does not
+// sample.
+const MASK_LADDER_TOLERANCE = 0.001;
+const catalog = { shapeIds: SHAPE_IDS, ditherIds: DITHER_IDS, rampIds: RAMP_IDS, geometryIds: GEOMETRY_IDS,
+  tolerance: MASK_LADDER_TOLERANCE, masks: [], sizes: [], derivation: null, dithers: [], route: null };
+check(Array.isArray(engine.SHAPES) && SHAPE_IDS.every((id) => engine.SHAPES.includes(id))
+  && engine.SHAPES.length === SHAPE_IDS.length,
+`the engine must export the WU17 mask catalog SHAPES with exactly these masks: ${SHAPE_IDS.join(', ')}`);
+check(Array.isArray(engine.DITHER_MODES) && DITHER_IDS.every((id) => engine.DITHER_MODES.includes(id)),
+`the engine must export DITHER_MODES with exactly ${DITHER_IDS.join(', ')}`);
+check(Array.isArray(engine.RAMP_MODES) && RAMP_IDS.every((id) => engine.RAMP_MODES.includes(id)),
+`the engine must export RAMP_MODES with exactly ${RAMP_IDS.join(', ')}`);
+check(Array.isArray(engine.CELL_GEOMETRIES) && GEOMETRY_IDS.every((id) => engine.CELL_GEOMETRIES.includes(id)),
+`the engine must export CELL_GEOMETRIES with exactly ${GEOMETRY_IDS.join(', ')}`);
+const hasCatalogApi = typeof engine.maskFor === 'function' && typeof engine.cellSizeFor === 'function'
+  && typeof engine.effectiveShape === 'function' && typeof engine.ditherThreshold === 'function'
+  && typeof engine.maskSize === 'function' && typeof engine.maskDerivation === 'function';
+check(hasCatalogApi,
+  'the engine must export maskFor, cellSizeFor, effectiveShape, ditherThreshold, maskSize and maskDerivation');
+
+/** Geometry metrics of one square-cell mask, measured in this file. */
+function catalogMetrics(mask, w, h) {
+  const at = (x, y) => mask[y * w + x];
+  const cx = w / 2;
+  const cy = h / 2;
+  let total = 0;
+  let outsideDisc = 0;
+  let binary = 0;
+  let above = 0;
+  let below = 0;
+  let transpose = 0;
+  let rotate = 0;
+  let diagonal = 0;
+  let diagonalPairs = 0;
+  let minX = w;
+  let maxX = -1;
+  let minY = h;
+  let maxY = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const value = at(x, y);
+      total += value;
+      if (value < 0.05 || value > 0.95) binary += 1;
+      if (y + 0.5 < cy) above += value;
+      else below += value;
+      const dx = x + 0.5 - cx;
+      const dy = y + 0.5 - cy;
+      if (dx * dx + dy * dy > cx * cx) outsideDisc += value;
+      if (value > 0.5) {
+        minX = Math.min(minX, x);
+        maxX = Math.max(maxX, x);
+        minY = Math.min(minY, y);
+        maxY = Math.max(maxY, y);
+      }
+      if (at(x, y) === at(y % w, x % h)) transpose += 1;
+      if (at(x, y) === at(w - 1 - x, h - 1 - y)) rotate += 1;
+      if (x + 1 < w && y + 1 < h) {
+        diagonalPairs += 1;
+        if (at(x, y) === at(x + 1, y + 1)) diagonal += 1;
+      }
+    }
+  }
+  const rowMax = [];
+  const colMax = [];
+  for (let y = 0; y < h; y++) {
+    let best = 0;
+    for (let x = 0; x < w; x++) best = Math.max(best, at(x, y));
+    rowMax.push(best);
+  }
+  for (let x = 0; x < w; x++) {
+    let best = 0;
+    for (let y = 0; y < h; y++) best = Math.max(best, at(x, y));
+    colMax.push(best);
+  }
+  let separability = 0;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) separability = Math.max(separability, Math.abs(at(x, y) - rowMax[y] * colMax[x]));
+  }
+  const bbox = maxX >= minX && maxY >= minY ? (maxX - minX + 1) * (maxY - minY + 1) : 1;
+  const corner = Math.max(at(0, 0), at(w - 1, 0), at(0, h - 1), at(w - 1, h - 1));
+  const edgeMid = mean([at((w / 2) | 0, 0), at((w / 2) | 0, h - 1), at(0, (h / 2) | 0), at(w - 1, (h / 2) | 0)]);
+  let firstRow = -1;
+  for (let y = 0; y < h && firstRow < 0; y++) {
+    for (let x = 0; x < w; x++) if (at(x, y) > 0.5) { firstRow = y; break; }
+  }
+  let firstRowRun = 0;
+  if (firstRow >= 0) for (let x = 0; x < w; x++) if (at(x, firstRow) > 0.5) firstRowRun += 1;
+  const centreRow = [...Array(w).keys()].filter((x) => at(x, (h / 2) | 0) > 0.5).length;
+  const centreCol = [...Array(h).keys()].filter((y) => at((w / 2) | 0, y) > 0.5).length;
+  return {
+    coverage: total / (w * h),
+    cornerFill: corner,
+    edgeMidFill: edgeMid,
+    centreFill: at((w / 2) | 0, (h / 2) | 0),
+    cornerRatio: edgeMid > 0 ? corner / edgeMid : 0,
+    outsideDiscMass: total > 0 ? outsideDisc / total : 0,
+    transposeSymmetry: transpose / (w * h),
+    rotationSymmetry: rotate / (w * h),
+    diagonalInvariance: diagonalPairs > 0 ? diagonal / diagonalPairs : 0,
+    binaryFraction: binary / (w * h),
+    massAbove: total > 0 ? above / total : 0,
+    massBelow: total > 0 ? below / total : 0,
+    massBelowOverAbove: above > 0 ? below / above : Infinity,
+    topRowWidth: w > 0 ? firstRowRun / w : 0,
+    centreRowFill: centreRow / w,
+    centreColFill: centreCol / h,
+    bboxFill: total / bbox,
+    separability,
+  };
+}
+
+/** The mask value at the pixel containing a probe point, in cell units. */
+function probe(mask, w, h, u, v) {
+  const px = Math.min(w - 1, Math.max(0, Math.floor((u + 0.5) * w)));
+  const py = Math.min(h - 1, Math.max(0, Math.floor((v + 0.5) * h)));
+  return mask[py * w + px];
+}
+
+if (hasCatalogApi) {
+  // Every mask holds the measured ladder at the delivery cell and at a small
+  // cell, and every mask's size is SOLVED from the ladder (strictly increasing
+  // per step), never a fixed radius reused across steps.
+  for (const shape of SHAPE_IDS) {
+    const sizes = [];
+    for (let step = 1; step < 4; step++) sizes.push(engine.maskSize(shape, 'shape', 'square', step));
+    catalog.sizes.push({ shape, sizes });
+    check(sizes.every((size) => typeof size === 'number' && size > 0),
+      `${shape}: maskSize must report the solved size per ramp step`);
+    check(sizes[0] <= sizes[1] + 0.002 && sizes[1] <= sizes[2] + 0.002,
+      `${shape}: the solved size must not decrease as the ladder grows, saw ${JSON.stringify(sizes)}`);
+    // The one mask whose footprint already carries the ladder (the glyph bitmap)
+    // solves to size 1 and is allowed to land on either side of it.
+    check(shape === 'glyph' || (sizes[0] < sizes[1] && sizes[1] < sizes[2]),
+      `${shape}: the solved size must strictly increase with the ladder, saw ${JSON.stringify(sizes)}`);
+    const derivation = engine.maskDerivation(shape);
+    check(typeof derivation === 'string' && derivation.length > 30 && /ladder|coverage/i.test(derivation),
+      `${shape}: the engine must state how its size is derived from the coverage ladder, saw ${JSON.stringify(derivation)}`);
+    for (const { geometry, cell } of [{ geometry: 'square', cell: 8 }, { geometry: 'square', cell: 4 }, { geometry: 'char', cell: 8 }]) {
+      const box = engine.cellSizeFor(geometry, cell);
+      for (let step = 1; step < 4; step++) {
+        const mask = engine.maskFor(shape, step, box.w, box.h, 'shape', geometry);
+        const stats = catalogMetrics(mask, box.w, box.h);
+        if (geometry === 'square' && cell === 8) catalog.masks.push({ shape, step, ...stats });
+        check(mask.length === box.w * box.h, `${shape}: maskFor must return one value per pixel`);
+        check(Math.abs(stats.coverage - COVERAGE[step]) < MASK_LADDER_TOLERANCE,
+          `${shape} at ${geometry}/${cell} px must hold the coverage ladder: step ${step} covers `
+          + `${stats.coverage.toFixed(4)} against the measured ${COVERAGE[step]}`);
+      }
+    }
+  }
+  // Geometry proofs, one per name. The headline shapes are measured at the
+  // delivery-adjacent reference (step 3 or step 1, 32 px per cell) because that
+  // is where the shape is legible; the ladder itself is checked at 8/4/2 px.
+  const proof = (shape, step, cell) => catalogMetrics(engine.maskFor(shape, step, cell, cell, 'shape', 'square'), cell, cell);
+  const probeOf = (shape, step, cell, u, v) => probe(engine.maskFor(shape, step, cell, cell, 'shape', 'square'), cell, cell, u, v);
+  const disc = proof('disc', 3, 32);
+  const square = proof('square', 3, 32);
+  check(square.separability <= 0.02 && square.outsideDiscMass >= 0.05,
+    `square: a square is its own row x column product (separability error ${square.separability.toFixed(3)}) `
+    + `and keeps mass outside the inscribed disc (${(square.outsideDiscMass * 100).toFixed(1)}%)`);
+  check(disc.outsideDiscMass <= 0.05 && disc.separability >= 0.2 && disc.cornerRatio <= 0.05,
+    `disc: no corner mass — outside the inscribed disc ${(disc.outsideDiscMass * 100).toFixed(1)}%, `
+    + `corner/edge ${disc.cornerRatio.toFixed(2)}, separability ${disc.separability.toFixed(2)}`);
+  check(proof('ring', 3, 32).centreFill <= 0.05 && proof('ring', 3, 32).edgeMidFill >= 0.5,
+    `ring: a hole at the centre — centre ${proof('ring', 3, 32).centreFill.toFixed(3)}, `
+    + `edge mid ${proof('ring', 3, 32).edgeMidFill.toFixed(3)}`);
+  check(proof('triangle', 3, 32).massBelowOverAbove >= 1.4,
+    `triangle: asymmetric — mass below/above ${proof('triangle', 3, 32).massBelowOverAbove.toFixed(2)}`);
+  check(proof('diamond', 1, 32).topRowWidth <= 0.12 && proof('diamond', 1, 32).bboxFill <= 0.65,
+    `diamond: axes inked, diagonals empty — top row width ${proof('diamond', 1, 32).topRowWidth.toFixed(3)}, `
+    + `bounding-box fill ${proof('diamond', 1, 32).bboxFill.toFixed(3)}`);
+  check(proof('hexagon', 1, 32).bboxFill >= 0.7 && proof('hexagon', 1, 32).bboxFill <= 0.9
+    && proof('hexagon', 1, 32).separability >= 0.2,
+  `hexagon: a pointy top (vertex up), no corners — bounding-box fill ${proof('hexagon', 1, 32).bboxFill.toFixed(3)}, `
+  + `separability ${proof('hexagon', 1, 32).separability.toFixed(2)}`);
+  check(probeOf('cross', 1, 32, 0, 0) > 0.5 && probeOf('cross', 1, 32, 0.25, 0.25) <= 0.05
+    && probeOf('cross', 1, 32, 0, 0.28) > 0.5 && probeOf('cross', 1, 32, -0.28, 0) > 0.5,
+  'cross: a plus — centre and arm tips inked, quadrant points empty');
+  check(proof('hatch', 3, 32).diagonalInvariance >= 0.9,
+    `hatch: ink constant along one diagonal — diagonal invariance ${proof('hatch', 3, 32).diagonalInvariance.toFixed(3)}`);
+  check(proof('grain', 1, 32).transposeSymmetry <= 0.8 && proof('grain', 1, 32).rotationSymmetry <= 0.8
+    && proof('grain', 1, 32).binaryFraction >= 0.9,
+  `grain: coverage only, no shape — transpose ${proof('grain', 1, 32).transposeSymmetry.toFixed(3)}, `
+  + `rotation ${proof('grain', 1, 32).rotationSymmetry.toFixed(3)}, binary ${proof('grain', 1, 32).binaryFraction.toFixed(3)}`);
+  check(proof('rounded', 3, 32).separability >= 0.2 && proof('rounded', 1, 32).bboxFill >= 0.85,
+    `rounded: a square with the corners cut — separability ${proof('rounded', 3, 32).separability.toFixed(2)}, `
+    + `bounding-box fill ${proof('rounded', 1, 32).bboxFill.toFixed(3)}`);
+  check(proof('glyph', 1, 32).binaryFraction >= 0.9 && proof('glyph', 1, 32).separability >= 0.2,
+    `glyph: a hard bitmap glyph, not an anti-aliased disc — binary fraction `
+    + `${proof('glyph', 1, 32).binaryFraction.toFixed(3)}`);
+  // The negative control: one size for every step cannot hold the ladder.
+  const fixedSize = engine.maskSize('square', 'shape', 'square', 3);
+  check(engine.maskSize('square', 'shape', 'square', 1) !== fixedSize,
+    'the solved size must differ per ladder step (a single fixed size is not a derivation from the ladder)');
+  check(engine.maskSize('disc', 'shape', 'square', 3) !== engine.maskSize('square', 'shape', 'square', 3)
+    || engine.maskSize('diamond', 'shape', 'square', 1) !== engine.maskSize('hexagon', 'shape', 'square', 1),
+  'different masks must solve to different sizes (one size is not reused across the catalogue)');
+  for (const ramp of RAMP_IDS) {
+    const shape = engine.effectiveShape('diamond', ramp);
+    check(SHAPE_IDS.includes(shape), `ramp ${ramp} must resolve to a catalog mask, saw ${shape}`);
+    if (ramp === 'block') check(shape === 'square', 'the block ramp must draw hard squares');
+    if (ramp === 'glyph') check(shape === 'glyph', 'the glyph ramp must draw the adopted glyph atlas');
+  }
+  check(engine.effectiveShape('ring', 'shape') === 'ring', 'the shape ramp must keep the chosen mask');
+  // Dither modes: switchable, bounded, and genuinely different patterns.
+  const tile = (mode, size) => [...Array(size * size).keys()].map((i) => engine.ditherThreshold(mode, i % size, (i / size) | 0));
+  for (const mode of DITHER_IDS) {
+    const values = tile(mode, 16);
+    check(values.every((value) => value >= 0 && value < 1),
+      `dither ${mode}: every threshold must stay inside [0,1), saw ${Math.max(...values)}`);
+  }
+  const b4 = tile('bayer4', 4);
+  const b8 = tile('bayer8', 8);
+  const blue = tile('blue', 16);
+  const none = tile('none', 16);
+  check(new Set(b4).size === 16 && new Set(b8).size === 64,
+    `ordered Bayer dithers must fill their tile with distinct thresholds: 4x4 ${new Set(b4).size}, 8x8 ${new Set(b8).size}`);
+  check(new Set(blue).size >= 128, `blue noise must be an aperiodic tile, saw only ${new Set(blue).size} levels`);
+  check(new Set(none).size === 1 && none[0] === 0.5,
+    `dither none must round at 0.5, saw ${JSON.stringify([...new Set(none)])}`);
+  check(JSON.stringify(b4) !== JSON.stringify(b8.slice(0, 4).concat(b8.slice(8, 12))),
+    'the 8x8 Bayer matrix must not repeat the 4x4 matrix');
+  check(JSON.stringify(blue.slice(0, 16)) !== JSON.stringify(tile('bayer4', 16)),
+    'blue noise must not be an ordered Bayer tile in disguise');
+  const position = 0.3;
+  const level = metrics.ladder[1] + position * (metrics.ladder[2] - metrics.ladder[1]);
+  const dithered = (mode) => [...Array(64).keys()].map((i) => engine.stepFor(level, i % 8, (i / 8) | 0, mode));
+  check(JSON.stringify(dithered('bayer4')) !== JSON.stringify(dithered('bayer8')),
+    'the dither mode must actually change the step pattern for a level between two rungs');
+  check(new Set(dithered('none')).size === 1, 'dither none must not mix two steps at a mid level');
+  catalog.dithers = [{ mode: 'bayer4', levels: 16 }, { mode: 'bayer8', levels: 64 },
+    { mode: 'blue', levels: new Set(blue).size }, { mode: 'none', levels: 1 }];
+  // Cell geometry: 1:1 against 1:2, switchable and visible in the raster size.
+  const squareCell = engine.cellSizeFor('square', 8);
+  const charCell = engine.cellSizeFor('char', 8);
+  check(squareCell.w === 8 && squareCell.h === 8, `the square cell must stay 1:1, saw ${JSON.stringify(squareCell)}`);
+  check(charCell.w === 8 && charCell.h === 16, `the character cell must be 1:2, saw ${JSON.stringify(charCell)}`);
+  const geometryFrame = renderFrame(scene, scene.posterFrame, { geometry: 'square' });
+  const squareRaster = engine.rasterize(geometryFrame, scene, 8, undefined, { geometry: 'square' });
+  const charFrame = renderFrame(scene, scene.posterFrame, { geometry: 'char' });
+  const charRaster = engine.rasterize(charFrame, scene, 8, undefined, { geometry: 'char' });
+  check(squareRaster.length === scene.cols * 8 * scene.rows * 8 * 4,
+    'the 1:1 geometry must deliver a 1600x800 raster');
+  check(charRaster.length === scene.cols * 8 * scene.rows * 16 * 4,
+    'the 1:2 geometry must deliver a 1600x1600 raster');
+  check(hash(Buffer.from(squareRaster)) !== hash(Buffer.from(charRaster)),
+    'the cell geometry must actually change the raster');
+  catalog.derivation = { method: 'area solved by bisection over the shape predicate so the mean cell coverage equals COVERAGE[step]',
+    tolerance: MASK_LADDER_TOLERANCE };
+}
+// The shape laboratory route: a real noindex page with live controls, a board of
+// every shape and a link between the two laboratory routes.
+let shapeHtml = '';
+try {
+  shapeHtml = await readFile(resolve(root, 'dist/lab/shapes/index.html'), 'utf8');
+} catch (error) {
+  check(false, `the built shape laboratory is missing at dist/lab/shapes/index.html: ${error.message}`);
+}
+if (shapeHtml) {
+  catalog.route = 'lab/shapes/index.html';
+  check(/name="robots"[^>]*noindex|noindex/.test(shapeHtml), 'the shape laboratory must stay noindex');
+  check(shapeHtml.includes('data-shape-lab'), 'the shape laboratory must mount the live control surface');
+  for (const control of ['shape', 'ramp', 'dither', 'grid', 'palette', 'geometry']) {
+    check(shapeHtml.includes(`data-shape-control="${control}"`),
+      `the shape laboratory must expose a live ${control} control`);
+  }
+  check(shapeHtml.includes('data-shape-board'), 'the shape laboratory must render the fixed all-shapes board');
+  for (const shape of SHAPE_IDS) {
+    check(shapeHtml.includes(`data-shape-for="${shape}"`),
+      `the fixed board must show the ${shape} mask without clicking`);
+  }
+  check(/pointy/i.test(shapeHtml) && !/flat-top/i.test(shapeHtml),
+    'the shape laboratory must label the hexagon pointy-top, not flat-top');
+  check((shapeHtml.match(/data-shape-view/g) ?? []).length >= 3,
+    'the shape laboratory must show its result at several widths');
+  check(/href="\/lab\/ascii"/.test(shapeHtml),
+    'the shape laboratory must link to the ASCII laboratory');
+}
+if (labHtml) {
+  check(/href="\/lab\/shapes"/.test(labHtml), 'the ASCII laboratory must link to the shape laboratory');
+}
 
 // ---------------------------------------------------------------------------
 // 3. Ordered Bayer dithering and determinism.

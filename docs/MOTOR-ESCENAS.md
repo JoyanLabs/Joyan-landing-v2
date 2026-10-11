@@ -45,6 +45,15 @@ distinto, serían dos parecidos y no la misma pieza.
   lleno. Nunca arte de glifos ASCII: el runtime no dibuja texto (la comprobación
   falla si aparece `fillText`, `ctx.font` o similar) y la rampa se usa como
   carácter solo para inspección y pruebas (`frameChars`).
+- **La máscara es una elección (WU17).** El disco es **una** máscara entre once:
+  hay también cuadrado, cuadrado redondeado, rombo, triángulo, hexágono, anillo,
+  cruz, rayado, grano sin forma y un modo de glifo, y todas se resuelven desde la
+  misma escalera de cobertura medida. El motor las expone por
+  `maskFor(forma, paso, w, h, rampa, geometría)` y `renderFrame`/`rasterize`
+  aceptan un objeto de opciones (forma, rampa, dither, geometría de celda,
+  densidad); las opciones por defecto son el disco de WU16 sobre celdas 1:1 con
+  Bayer 4 × 4, así que la escena y el horneado no cambian. El catálogo, su
+  derivación, su coste y a qué paso se leen están en §12.
 - **El punto es un disco redondo y antialiaseado.** Cada píxel de la celda
   recibe **el área exacta** del disco que cae dentro de él (`quadrantArea` /
   `discAreaIn`: el área bajo el arco y la inclusión-exclusión en los cuatro
@@ -255,21 +264,24 @@ hero híbrido: la imagen por defecto y el canvas vivo son el mismo arte.
 | Concepto | Medido |
 | --- | --- |
 | Chunk de la librería (ocho montajes de la página: dos piezas, seis escenas y este panel) | 25.256 B gzip, **un** chunk (no es un número por panel) |
-| Nuestro motor + escena + runtime | 9.663 B sin comprimir / **4.623 B gzip**, como módulo ejecutable en línea en la página del laboratorio |
+| Nuestro motor + escena + catálogo de formas + runtime + tablero a escala 1:1 | 23.366 B sin comprimir / **9.508 B gzip**, en **un chunk** compartido por las dos rutas del laboratorio |
 | PNG horneado | 41.906 B a 1600 × 800 (no envía ningún script) |
-| Total del laboratorio | 29.879 B gzip (chunk 25.256 + en línea 4.623) |
-| Tope del laboratorio | 31.927 B gzip (medido + 2.048 B de margen; regla: margen ≤ 4.096 B) |
-| Landing | Los cinco chunks originales **byte a byte** idénticos: 109.818 B gzip |
+| Total del laboratorio | 34.876 B gzip (librería 25.256 + motor 9.508 + dos chunks de entrada de 56 B; 0 B en línea) |
+| Tope del laboratorio | 36.924 B gzip (medido + 2.048 B de margen; regla: margen ≤ 4.096 B) |
+| Landing | Los cinco chunks originales **byte a byte** idénticos: 109.818 B gzip (delta 17.913 frente al fixture intacto) |
 | Atlas de sprites (celda ya mezclada por paso y tinta) | 9,5 ms por fotograma de 200 × 100 a 8 px por celda frente a 12,2 ms de la mezcla píxel a píxel, en esta máquina y **con salida byte a byte idéntica** |
 
 Notas de contabilidad:
 
-- El límite de 16 KiB configurado en `astro.config.ts` para el canvas de MAGI hace
-  que nuestro módulo (9.663 B) **no** genere un chunk nuevo: se emite como módulo
-  ejecutable en línea de la página del laboratorio, y la contabilidad lo cuenta en
-  `lab.inlineGzip`. Por eso `scripts/check-iteration-3.mjs` (sección 7) mide ahora
-  el conjunto ejecutable del laboratorio como **chunk + módulo en línea**; el
-  conjunto de la landing sigue siendo solo chunks y su invariante no se movió.
+- Hasta WU16 el límite de 16 KiB configurado en `astro.config.ts` mantenía el
+  motor como **módulo en línea** de una sola página. WU17 añade una segunda ruta
+  de laboratorio (`/lab/shapes`), así que el bundler comparte el motor entre las
+  dos y pasa a ser un **chunk**: el conjunto ejecutable del laboratorio sigue
+  siendo chunk + en línea, pero el en línea es ahora 0 B. La **atribución** de la
+  comprobación deja de ser "una página concreta" y pasa a ser "toda página que
+  alcanza el chunk es `/lab/**`", con los mismos controles negativos: un chunk de
+  laboratorio alcanzable desde una página real es fuga y falla, y si no hay
+  ninguna página de laboratorio la atribución falla cerrada.
 - **Qué es y qué no es.** Este motor no es un vídeo: no hay códec, ni MP4
   servido, ni activo externo. El panel vivo es un canvas que la página pinta
   fotograma a fotograma con `renderFrame()` + `rasterize()`, y el panel horneado
@@ -356,8 +368,9 @@ Nada de este grupo es nuestro, y nada de este grupo vino de `ascii.rest`.
 | --- | --- |
 | `mix32` | Mezcla de rotación y multiplicación de la **familia publicada** MurmurHash3/SplitMix, pero con **nuestras** constantes (`0x2f1b3d5f`, `0x6a4f9c17`, `0x1d8e5b93`), nuestro orden de carriles y nuestro calendario de desplazamientos (17, rotación 13, 11, 16). |
 | `latticeNoise` / `layeredNoise` | Retícula con **envoltura en los dos ejes**, semilla propia por octava y blend de lerps anidados: deliberadamente **no** la forma `noise(x, y, period)` de una sola periodicidad de la librería. |
-| Máscaras de puntos analíticas y sus radios | Área exacta del disco por píxel (`quadrantArea`/`discAreaIn`) y radios resueltos por bisección desde la escalera de cobertura medida. Ni cuenta de submuestras ni glifos: es la pieza que WU16 añadió y la razón de que los puntos se lean como puntos. |
-| Escalera de cobertura | La que midió la máscara de WU15, conservada como objetivo; el motor la alcanza en cualquier tamaño de celda. |
+| Máscaras analíticas y sus tamaños | Área exacta por píxel (disco, anillo, cuartos de disco, recorte de polígonos) y **tamaños resueltos por barrido + bisección** desde la escalera de cobertura medida; ni cuenta de submuestras ni glifos. Es la pieza de WU16 y la de WU17 (las once formas de §12). |
+| Escalera de cobertura | La que midió la máscara de WU15, conservada como objetivo; el motor la alcanza en cualquier tamaño de celda y para cualquier máscara. |
+| Dithers | La matriz ordenada es material publicado (Bayer, 1973) y se construye con la construcción recursiva publicada; el azulejo de **ruido azul** 16 × 16 (void-and-cluster con kernel entero, sin `exp`, para que Node y el navegador no puedan discrepar) es nuestro. |
 | Selección de paleta | Búsqueda explícita del mínimo error de tono renderizado. |
 | Escena, paleta, horneado y comprobaciones | Todo escrito aquí. |
 
@@ -394,6 +407,16 @@ tiempo de ejecución desde el motor.
   escalera de glifos (§8.0) también.
 - Firefox, Safari, programación en segundo plano del sistema operativo y
   restauración por BFCache: sin medir.
+- **El coste por forma y por dither (§12.3)** se midió con el sondeo del propio
+  laboratorio (`window.__joyanShapeProbe`), solo Chromium, una máquina, 20
+  iteraciones y con las máscaras ya resueltas: no incluye el coste de resolverlas
+  ni de construir el atlas, y no dice nada de otra máquina ni de otro navegador.
+- **La lectura de una forma a paso pequeño (§12.4)** se midió como coberturas
+  distintas por píxel, no con usuarios: que el anillo pierda el agujero a 4 px por
+  celda es una medida, no un juicio de legibilidad.
+- **La estética no está medida en absoluto.** No hay comparación perceptiva entre
+  las once formas; el laboratorio existe para que la decida el usuario. Nada de
+  §12 autoriza a cambiar el hero ni la escena real.
 - El MP4 es salida de tubería y **no** se sirve en ninguna página.
 - Nada de esto autoriza despliegue en la landing, cambio de hero ni adopción de
   marca.
@@ -405,9 +428,10 @@ tiempo de ejecución desde el motor.
 ```bash
 node scripts/scene-src/bake.mjs                  # horneado (PNG), solo Node
 node scripts/scene-src/bake.mjs --mp4            # + bucle corto
-pnpm build                                       # 14 páginas
+pnpm build                                       # 15 páginas
 node scripts/check-scene-engine.mjs              # arte + geometría del punto + registro + igualdad + navegador
-node scripts/check-ascii-runtime.mjs --out dist-motion-verify/wu16/lab
+node scripts/check-shape-study.mjs               # WU17: catálogo, escalera, geometría, igualdad y coste por forma
+node scripts/check-ascii-runtime.mjs --out dist-motion-verify/wu17/lab
 pnpm check                                       # astro check + eslint + iteration-2/3
 ```
 
@@ -436,6 +460,18 @@ las aserciones nuevas sobre el motor anterior), `green.json` y `captures/`,
 librería, con recortes ampliados), `sizes/` (§11) y `lab/` (contabilidad del
 laboratorio). Los árboles `wu13/` y `wu14/` se leen como entrada y no se
 reescriben; la evidencia de WU15 sigue intacta en `dist-motion-verify/wu15/`.
+
+`scripts/check-shape-study.mjs` (WU17) añade: las once máscaras existen y
+sostienen la escalera a 8, 4 y 2 px por celda (tolerancia 0,001), la prueba de
+geometría de cada nombre (un cuadrado es separable, un disco no tiene masa en las
+esquinas, un anillo tiene agujero, un triángulo es asimétrico, el rayado es
+invariante en diagonal, el grano no tiene simetría), los cuatro dithers y las dos
+geometrías de celda cambian los bytes, igualdad Node/canvas **por forma, por
+dither y por geometría** (38 comparaciones), el PNG horneado sigue siendo el
+fotograma póster del motor, y un muestreo acotado de tiempo por fotograma por
+forma y por dither. Evidencia: `dist-motion-verify/wu17/study/` (RED conservado en
+`dist-motion-verify/wu17/red-study-node.log`), con recortes ampliados por forma a
+8 y 4 px por celda y capturas a 390/1440/2560.
 
 ---
 
@@ -491,3 +527,185 @@ unos 3 px de pantalla por celda, y eso ocurre con la celda 8 desde unos 600 px C
 de ancho de panel (6,4 px por celda a 1280). El panel del laboratorio es una
 superficie de comparación a tamaño pequeño; los tamaños de hero son los de la
 tabla.
+
+---
+
+## 12. Catálogo de formas (WU17)
+
+Decisión del usuario tras WU16: los puntos redondos quedan un poco mejor, **pero
+los cuadrados también se ven bien y puede haber otras formas**; piden
+investigarlo en serio, tener una forma de **probar todas las opciones** y no
+cerrarse a los puntos. Este catálogo es la respuesta, y la superficie para
+probarlo es `/lab/shapes` (noindex, solo laboratorio, con un tablero fijo que
+pinta las once formas a la vez). **La elección estética es del usuario**: lo que
+sigue mide qué es comparable y dónde se rompe, no cuál es más bonito.
+
+Nada de esto llega a una página real: la landing sigue con cinco chunks byte a
+byte idénticos y ningún JavaScript de motor fuera de `/lab/**`.
+
+### 12.1 Cómo se deriva el tamaño de cada forma
+
+Ninguna forma recibe un radio adivinado. La escalera es la medida en WU16
+(`LADDER = [0, 0.2344, 0.4844, 0.8125]`, la fracción de celda que cubre cada
+peldaño) y cada forma tiene **un solo escalar** que se resuelve desde ella: un
+barrido de 160 pasos hasta 3,0 unidades de celda busca el **primer** cruce
+(el anillo no es monótono: su agujero crece), y 30 bisecciones refinan dentro de
+ese intervalo. Se devuelve el menor tamaño cuya área exacta alcanza el peldaño;
+`maskSize(forma, rampa, geometría, paso)` publica el número y
+`maskDerivation(forma)` la frase que dice qué se resuelve.
+
+Lo importante es **cómo se calcula la cobertura de un píxel: como un área
+exacta**, nunca como una cuenta de submuestras. Recorte de polígonos
+(Sutherland–Hodgman) para cuadrado, rombo, triángulo y hexágono; áreas cerradas
+de círculo y rectángulo para disco y anillo; cuartos de disco cerrados para el
+cuadrado redondeado; intersecciones de rectángulos para cruz y glifo; bandas
+diagonales recortadas para el rayado. De ahí salen dos consecuencias que las
+comprobaciones miden en vez de afirmar:
+
+1. **La escalera se sostiene en cualquier paso**, porque la suma de las áreas por
+   píxel es el área de la propia forma y no depende de cómo se parta la celda.
+   Medido a 8, 4 y 2 px por celda: desviación 0,0000 en las once formas (tolerancia
+   0,001). Una máscara muestreada no puede: a 4 px un cuadrado simétrico solo
+   alcanza 0,4727 o 0,5166 de celda, nunca el 0,4844 que pide la escalera.
+2. **Node y el canvas coinciden por aritmética, no por tolerancia**: no hay
+   muestreo que pueda derivar entre los dos.
+
+### 12.2 Las once máscaras
+
+| Máscara | Qué es | Tamaño resuelto (pasos 1 / 2 / 3, unidades de celda) | Prueba geométrica medida a 32 px por celda |
+| --- | --- | --- | --- |
+| `disc` | disco (la máscara de WU16) | 0,2732 / 0,3927 / 0,5103 | paso 3: esquinas 0 % de los ejes; 2,6 % de masa fuera del disco inscrito; no separable (error 1,000) |
+| `square` | cuadrado de eje | 0,2421 / 0,3480 / 0,4507 | paso 3: **separable exactamente** (error 0,000), es su propio producto fila × columna; 10,1 % de masa fuera del disco inscrito |
+| `rounded` | cuadrado con esquinas a 0,34 del semilado | 0,2451 / 0,3524 / 0,4564 | paso 3: separable 0,9555 (las esquinas cortadas rompen el producto), relleno de caja 0,9244; en el paso 1 el relleno de caja es 0,9376 |
+| `diamond` | rombo | 0,3423 / 0,4921 / 0,6938 | paso 1: fila superior 6,3 % del ancho, relleno de caja 0,6001 (½ de la caja) |
+| `triangle` | triángulo isósceles, vértice arriba | 0,3423 / 0,4921 / 0,8876 | paso 3: masa abajo/arriba 1,55 (asimétrico), transpuesta 0,5586 (0,63 a 64 px) |
+| `hexagon` | hexágono puntiagudo (un vértice arriba y otro abajo) | 0,3004 / 0,4318 / 0,5641 | paso 1: relleno de caja 0,8334, fila superior 12,5 %, esquinas 0 %, separable 1,000 |
+| `ring` | anillo con agujero a 0,30 del radio exterior | 0,2863 / 0,4116 / 0,5578 | paso 3: centro 0,000 con borde 1,000 (hay agujero) |
+| `cross` | cruz / más, brazos a 0,42 del semilargo | 0,2972 / 0,4272 / 0,6750 | paso 1: centro y puntas de brazo con tinta (1,00), cuadrantes vacíos (0,00) |
+| `hatch` | rayado a 45°, ciclo de trabajo resuelto | 0,2344 / 0,4844 / 0,8125 | paso 3: invariancia diagonal 0,9459 (0,9156 a 16 px, 0,9698 a 64 px). La métrica cuenta pares de píxeles vecinos en diagonal con la misma cobertura, que no es lo mismo que \"la tinta es constante en la diagonal\": 1,000 solo sale de una prueba más estricta (solo píxeles entintados) |
+| `grain` | **sin forma**: solo cobertura | = la escalera (no hay tamaño) | paso 1: simetría de transpuesta 0,67 y de giro 0,63; fracción binaria 1,00 |
+| `glyph` | glifo de mapa de bits (la ruta del atlas adoptado) | ≈1,0000 (el propio mapa de bits ya lleva la escalera) | paso 1: fracción binaria 1,00; separable 1,00 |
+
+Todas las cifras de la columna de prueba geométrica están medidas a **32 px por
+celda** en el paso que se indica, con las métricas de
+`scripts/check-shape-study.mjs` (que las vuelve a medir y exige que aparezcan
+aquí; ninguna es un literal). Los tamaños resueltos son independientes del paso
+de píxeles: se resuelven sobre la celda de referencia de 8 × 8.
+
+`grain` reparte la cobertura del peldaño como un **orden determinista** sobre los
+píxeles de la celda (mismo orden en Node y en el navegador), así que no hay forma
+que medir: la comprobación lo demuestra por lo que **no** tiene (ninguna simetría)
+y por su cobertura exacta. `glyph` es el único caso en el que el tamaño no crece
+con la escalera, porque sus tres mapas de bits ya miden 15, 31 y 52 de 64
+celdas: el motor lo resuelve igual y lo dice.
+
+### 12.3 Qué cuesta cada opción
+
+Medido con el sondeo del laboratorio (`window.__joyanShapeProbe`), **solo
+Chromium, una máquina, 20 iteraciones**, máscaras ya resueltas y en caché: mide
+`renderFrame` + `rasterize` + `putImageData` de un fotograma de 200 × 100 a 8 px
+por celda (1600 × 800), no la construcción de las máscaras. **No es una
+afirmación general de rendimiento.**
+
+| Opción | Mediana (pasada 1) | Mediana (pasada 2) | Mínimo (pasada 1 / 2) |
+| --- | --- | --- | --- |
+| las once formas | 19,2–19,5 ms | 19,5–19,9 ms | 19,0–19,1 / 19,3–19,6 ms |
+| dither `none` | 18,8 ms | 19,1 ms | 18,4 / 18,9 ms |
+| dither `bayer4` (por defecto) | 19,4 ms | 19,6 ms | 19,1 / 19,4 ms |
+| dither `bayer8` | 19,9 ms | 19,5 ms | 19,6 / 19,2 ms |
+| dither `blue` | 19,4 ms | 19,8 ms | 19,2 / 19,4 ms |
+| geometría 1:2 (celda 8 → 1600 × 1600) | 27,1 ms | 27,1 ms | 26,6 / 26,6 ms |
+| geometría 1:1 (referencia) | 19,5 ms | 19,6 ms | 19,2 / 19,3 ms |
+
+Las dos pasadas son el mismo método en la misma máquina, y están separadas para
+enseñar la varianza en vez de esconderla: dentro de una pasada las once formas se
+reparten 0,3 ms, y entre pasadas el mismo conjunto se mueve 0,3–0,4 ms **en
+bloque**. Por eso **no se afirma ningún orden entre las formas** (ninguna es
+medible como más barata): lo único estable en las dos pasadas es que `none` es la
+más barata (18,8 / 19,1 ms, sin dither que evaluar) y que el orden entre `bayer4`,
+`bayer8` y `blue` **se da la vuelta** (en la pasada 1 `bayer8` 19,9 > `bayer4`
+19,4; en la pasada 2 `bayer8` 19,5 < `bayer4` 19,6), así que la diferencia entre
+dithers está dentro del ruido.
+
+La forma **no** cuesta: el atlas de sprites construye una celda terminada por
+(máscara, paso, tinta) y la copia, así que cambiar de máscara cambia qué se
+construye una vez, no cuánto se pinta por celda. Lo que cuesta es el **píxel**: la
+celda 1:2 tiene el doble de píxeles y paga 1,39× (27,1 ms frente a 19,5–19,6 ms),
+y esa razón sí se repite en las dos pasadas.
+
+### 12.4 A qué paso se lee cada forma
+
+La escalera de cobertura se sostiene a cualquier paso (12.1); lo que se pierde a
+paso pequeño es la **forma**. Medido en la celda de entrega de cada opción
+(coberturas distintas por píxel en el paso 1):
+
+| px por celda | Coberturas distintas (paso 1, mínimo–máximo) | Formas que colapsan a dos niveles |
+| --- | --- | --- |
+| 8 | 3 – 13 | ninguna |
+| 4 | 2 – 8 | cuadrado y redondeado |
+| 2 | 1 – 2 | las once |
+
+Con 4 px por celda la celda tiene 16 píxeles: el disco, el anillo y el triángulo
+siguen leyéndose (tienen más coberturas distintas), el cuadrado y el redondeado
+se vuelven dos niveles y el glifo se vuelve un bloque de píxeles. Con **2 px**
+(4 píxeles por celda) ninguna forma se lee como forma; se lee la cobertura.
+
+Lo que decide si una forma se puede **juzgar**, sin embargo, no es la celda de
+entrega sino el paso en pantalla, y eso también está medido (a 1440 px de ancho):
+el tablero de resumen muestra 200 celdas en 230 CSS px, es decir **1,15 CSS px por
+celda**, y los paneles de prueba **1,55**; a ese paso solo se leen las texturas
+(rayado, grano, glifo) y las formas no se distinguen. Por eso `/lab/shapes` tiene
+una fila **a escala 1:1** que dibuja el mismo fotograma en una rejilla de 50 × 25
+celdas a 8 px por celda y lo muestra a 160 px, es decir **3,2 CSS px por celda**,
+que es donde las once formas se comparan de verdad a 1× (o en una pantalla
+retina/zoom). Por eso también el tablero de resumen dibuja a 4 px por celda, los
+paneles de prueba a 8 px, y WU16 fijó `DELIVERY_CELL = 8` para la escena real.
+
+### 12.5 Las otras perillas
+
+| Perilla | Qué hace | Medido |
+| --- | --- | --- |
+| Rampa `shape` | cada paso es la forma elegida, con su tamaño resuelto | — |
+| Rampa `block` | pasos de **bloques duros** de píxel: cada píxel cae a 0 o 1, sin antialiasing | **no sostiene la escalera**: medias 0,2500 / 0,5625 / 0,9375 a 8 px por celda y 0,2500 / 0,2500 / 1,0000 a 4 px (objetivo 0,2344 / 0,4844 / 0,8125); a 16 px, 0,2500 / 0,5469 / 0,7656. Un bloque duro solo alcanza múltiplos de 1/(px²) |
+| Rampa `glyph` | la tabla de glifos (los mapas de bits son 15, 31 y 52 de 64 celdas, y el tamaño se resuelve igual) | **sí sostiene la escalera**: 0,2344 / 0,4844 / 0,8125 a 8, 4 y 2 px por celda (tolerancia 0,001). El 15/64 pertenece a esta rampa, no a `block` |
+| Dither `bayer4` | matriz ordenada 4 × 4 | 16 umbrales |
+| Dither `bayer8` | matriz ordenada 8 × 8 | 64 umbrales |
+| Dither `blue` | azulejo de ruido azul 16 × 16 por void-and-cluster (kernel entero, sin transcendentales) | 189 umbrales |
+| Dither `none` | redondea en 0,5 | 1 umbral |
+| Celda 1:1 / 1:2 | celda cuadrada o de carácter | +38 % de coste en 1:2 (12.3) |
+| Densidad | muestrea la escena cada k celdas (200 × 100, 100 × 50, 50 × 25) | pasos enteros, así que una estrella sigue siendo una estrella |
+
+La **resolución de tono** la fija la escalera de cobertura más el dither: cuatro
+peldaños por la escalera, y el dither decide cuántos niveles intermedios se
+pueden gastar espacialmente. `bayer8` y el ruido azul pueden resolver medios
+tonos más finos porque tienen más umbrales; `none` no resuelve nada entre
+peldaños. La rampa `block` reduce la resolución de tono a lo que quepa en píxeles
+enteros: a 8 px por celda (64 píxeles) el peldaño 1 (15/64) se alcanza exacto, a 4
+px (16 píxeles) solo se alcanzan múltiplos de 1/16.
+
+### 12.6 Recomendación práctica
+
+Las medidas dicen qué es comparable y qué se rompe; **cuál queda mejor es del
+usuario**, y el laboratorio existe para que pueda decidirlo sin tocar código.
+
+Compara siempre en la fila **a escala 1:1** (§12.4): el tablero de resumen es una
+vista de textura (1,15 CSS px por celda) y a 1× no permite juzgar una forma.
+
+- **Cuadrado** si se busca lectura de píxel / retro: es el único estrictamente
+  separable, sus bordes caen en los píxeles y a 8 px por celda conserva el 10 %
+  de masa en las esquinas (el bloque se lee como bloque, a propósito).
+- **Disco** si se busca lectura de semitono / fotográfica: 2,6 % de masa fuera del
+  disco inscrito, esquinas vacías, y es el que mejor aguanta el paso pequeño
+  (junto con rombo, triángulo y hexágono, que conservan más coberturas distintas).
+- **Anillo, cruz, rayado y glifo** son recursos de textura, no de tono: el anillo
+  deja ver el fondo, la cruz y el rayado son direccionales y el glifo da un borde
+  duro de mapa de bits. Úsalos cuando el patrón tenga que notarse; a 4 px por
+  celda el anillo pierde el agujero y el glifo se vuelve un bloque.
+- **`grain`** es la opción "solo cobertura": sin forma que medir, sin simetría,
+  útil para comparar contra cualquier forma y para fondos donde no se quiere
+  ninguna figura.
+- **Dither**: `bayer4` es el de la escena real; `bayer8` y `blue` suavizan medios
+  tonos a costa de estructura visible (Bayer) o de un azulejo de 16 × 16 (blue);
+  `none` es el control honesto de "sin dither".
+- **Geometría de celda**: 1:1 salvo que se compare con tipografía de carácter; la
+  celda 1:2 cuesta 1,38× y cambia el ritmo vertical del dibujo.

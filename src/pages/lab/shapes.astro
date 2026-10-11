@@ -1,0 +1,53 @@
+---
+import '~/assets/styles/tailwind.css';
+import CommonMeta from '~/components/common/CommonMeta.astro';
+import Metadata from '~/components/common/Metadata.astro';
+import Favicons from '~/components/Favicons.astro';
+import { getCanonical } from '~/utils/permalinks';
+import ShapeLab from '~/components/joyan/ShapeLab.astro';
+const metadata = {
+  title: 'Shape and dither study',
+  description: 'Isolated laboratory for the dot-scene engine: every cell mask, ramp, dither mode and cell geometry side by side.',
+  canonical: String(getCanonical('/lab/shapes')),
+  robots: { index: false, follow: false },
+};
+// The cost line is a prop so the page cannot claim a number nobody measured; the
+// numbers below are the WU17 build measurements.
+const cost = 'Measured cost, gzip level 6, the same engine chunk both laboratory routes share: 23366 B of JavaScript raw / 9508 B gzip for the engine, the scene, the shape catalogue and the runtime; the whole laboratory allowance is 34876 B gzip, capped at 36924 B (measured + 2048 B). The scene, the bake and the landing five chunks are unchanged by this unit.';
+---
+
+<!doctype html>
+<html lang="en" dir="ltr">
+  <head>
+    <CommonMeta />
+    <Favicons />
+    <Metadata {...metadata} lang="en" />
+    <meta name="theme-color" content="#0B0B0C" />
+  </head>
+  <body class="bg-ink-950 font-sans text-bone-100 antialiased">
+  <main id="main" tabindex="-1" class="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+    <a data-lab-return data-astro-reload href="/" class="font-mono text-sm text-bone-100 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-accent">← Return to landing</a>
+    <header class="my-10">
+      <p class="font-mono text-xs uppercase tracking-widest text-plomo-400">Lab / WU17 / experimental only</p>
+      <h1 class="mt-4 text-4xl tracking-tight text-bone-50 sm:text-5xl">Shapes, not only dots.</h1>
+      <p class="mt-5 max-w-prose text-bone-100">
+        The dot is one mask among eleven. This laboratory puts the whole catalogue on the same scene, the same
+        measured coverage ladder and the same palette, with the ramp, the dither mode, the cell geometry and the
+        grid density switchable, and a fixed board that draws every shape at once.
+      </p>
+      <p class="mt-3 max-w-prose text-sm text-plomo-400">
+        The other laboratory is the film and the library comparison:
+        <a href="/lab/ascii" class="underline underline-offset-4">/lab/ascii</a>. Both are noindex, neither is a
+        product surface, and neither changes the landing page.
+      </p>
+    </header>
+    <ShapeLab scene="joyan-night-coast" cost={cost} />
+    <footer class="border-t border-hairline pt-8 text-sm text-plomo-400">
+      <p>The masks, the derivation of each size from the coverage ladder, the measured cost of each option and the
+        pitch at which it stops reading are written up in <span class="font-mono">docs/MOTOR-ESCENAS.md</span>
+        (Spanish) and <span class="font-mono">docs/DESIGN.md</span> (English). The measurements say what is
+        comparable and what breaks down; which shape looks better is the reader's call.</p>
+    </footer>
+  </main>
+  </body>
+</html>

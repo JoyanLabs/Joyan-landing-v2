@@ -1,0 +1,217 @@
+---
+/**
+ * WU17 — the shape, ramp and dither study surface.
+ *
+ * The user's decision after WU16: round dots look a little nicer, but squares
+ * also look good and there may be other shapes; they want to test every option
+ * rather than be limited to dots. This component is the surface: every mask in
+ * the catalogue, the three ramps, the four dither modes, both cell geometries,
+ * three grid densities and five palettes, all live, plus a fixed board that
+ * draws every shape at once so the comparison needs no clicking.
+ *
+ * It is a STILL by default (the scene's poster frame) so a comparison does not
+ * move while it is being read; Play animates the three view panes only and the
+ * board stays the reference. Nothing here claims to be better looking than
+ * anything else: the numbers beside each pane are measured, the choice is the
+ * visitor's.
+ *
+ * Every pane is decorative and hidden from assistive technology, and every pane
+ * carries a written description so the page is honest without JavaScript.
+ */
+import { CELL_GEOMETRIES, DELIVERY_CELL, DITHER_MODES, RAMP_MODES, SHAPES } from '../../../scripts/scene-src/engine.mjs';
+import { SCENES } from '../../../scripts/scene-src/scenes/index.mjs';
+import { LAB_PALETTES } from '../../../scripts/scene-src/lab-palettes.mjs';
+
+interface Props {
+  scene: keyof typeof SCENES;
+  cost: string;
+}
+const { scene, cost } = Astro.props;
+const meta = SCENES[scene];
+const SHAPE_LABELS: Record<string, string> = {
+  disc: 'disc — the WU16 default',
+  square: 'square',
+  rounded: 'rounded square (corners at 0.34 of the half-extent)',
+  diamond: 'diamond',
+  triangle: 'triangle, apex up',
+  hexagon: 'pointy-top hexagon (a vertex up and one down)',
+  ring: 'ring — hole at 0.30 of the outer radius',
+  cross: 'cross / plus — arms at 0.42 of the half-length',
+  hatch: 'hatching at 45 degrees',
+  grain: 'grain — coverage only, no shape',
+  glyph: 'bitmap glyph — the adopted atlas path',
+};
+const DITHER_LABELS: Record<string, string> = {
+  bayer4: 'ordered Bayer 4 × 4',
+  bayer8: 'ordered Bayer 8 × 8',
+  blue: 'blue noise — 16 × 16 void-and-cluster tile',
+  none: 'none — round at 0.5',
+};
+const RAMP_LABELS: Record<string, string> = {
+  shape: 'shape-size ladder (solved from the coverage)',
+  block: 'hard pixel blocks',
+  glyph: 'glyph table',
+};
+const GEOMETRY_LABELS: Record<string, string> = {
+  square: '1:1 square cells',
+  char: '1:2 character cells',
+};
+const GRID_LABELS: Record<string, string> = {
+  1: "200 × 100 cells — the scene's own grid",
+  2: '100 × 50 cells',
+  4: '50 × 25 cells',
+};
+const selectClass = 'mt-1 w-full border border-hairline bg-ink-950 px-2 py-1.5 font-mono text-xs text-bone-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
+const controlLabelClass = 'flex flex-col font-mono text-xs uppercase tracking-widest text-plomo-400';
+const views = [
+  { cell: DELIVERY_CELL, width: 'w-full', note: `${DELIVERY_CELL} px per cell, drawn at the column width` },
+  { cell: DELIVERY_CELL, width: 'w-80 max-w-full', note: `${DELIVERY_CELL} px per cell, drawn at 320 px` },
+  { cell: 4, width: 'w-full', note: '4 px per cell, shown at the same column width — the small-pitch case' },
+];
+const boardCell = 4;
+// Two rows, because a shape cannot be judged at the pitch the overview needs: at
+// 1440 the overview pane is 230 CSS px across 200 cells (measured 1.15 CSS px per
+// cell) and only the textures read. The pixel-scale row draws the same frame on a
+// 50 x 25 grid at 8 px per cell and shows it at 160 px, so one cell is measured
+// 3.2 CSS px at 1x and every shape can actually be compared.
+const boardRows = [
+  { id: 'overview', cell: boardCell, density: 1, pane: 'w-full',
+    title: 'overview · the whole frame, every shape',
+    note: 'the whole 200 × 100 frame on every shape at 4 px per cell, following the grid control above; measured 1.15 CSS px per cell at 1440, so this row is a texture overview and the shapes cannot be judged in it' },
+  { id: 'pixel', cell: 8, density: 4, pane: 'w-40 max-w-full',
+    title: '1:1 pixel scale · the same frame on 50 × 25 cells',
+    note: 'the same frame on a 50 × 25 grid at 8 px per cell, shown at 160 px: measured 3.2 CSS px per cell, the pitch at which a shape can be judged at 1×' },
+];
+const controls: Array<[string, string, readonly string[], Record<string, string>]> = [
+  ['shape', 'shape', SHAPES, SHAPE_LABELS],
+  ['ramp', 'ramp', RAMP_MODES, RAMP_LABELS],
+  ['dither', 'dither', DITHER_MODES, DITHER_LABELS],
+  ['geometry', 'geometry', CELL_GEOMETRIES, GEOMETRY_LABELS],
+  ['grid', 'grid', ['1', '2', '4'], GRID_LABELS],
+  ['palette', 'palette', LAB_PALETTES.map((entry) => entry.id),
+    Object.fromEntries(LAB_PALETTES.map((entry) => [entry.id, entry.label]))],
+];
+---
+
+<section data-shape-lab data-shape-scene={meta.id} class="border-t border-hairline py-8" aria-labelledby="study-title">
+  <h2 id="study-title" class="text-xl text-bone-50">02 / Shape study · every option, live</h2>
+  <p class="mt-2 max-w-prose text-sm text-plomo-400">
+    Every mask below is drawn by the same engine as the dots, from the same measured coverage ladder
+    (0.2344 / 0.4844 / 0.8125 of a cell): each shape's size is <span class="text-bone-100">solved</span> by
+    bisection so its exact area inside a cell equals each rung, and each pixel's coverage is an exact area, not a
+    sample count. That is what keeps the Node bake and this canvas the same bytes, and what keeps the ladder honest
+    at 8, 4 and 2 px per cell. The study is a still at the scene's poster frame; Play animates the three view panes
+    only, and the board below stays fixed. Nothing here says which shape is better — only what is comparable and
+    where it breaks down.
+  </p>
+  <p class="mt-3 max-w-prose text-sm text-plomo-400">{cost}</p>
+  <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    {
+      controls.map(([name, title, values, labels]) => (
+        <label class={controlLabelClass}>
+          {title}
+          <select data-shape-control={name} class={selectClass}>
+            {values.map((value) => <option value={value}>{labels[value] ?? value}</option>)}
+          </select>
+        </label>
+      ))
+    }
+  </div>
+  <p data-shape-readout class="mt-4 font-mono text-xs text-plomo-400" role="status">
+    Static fallback · the study needs JavaScript to switch options.
+  </p>
+  <div class="mt-4 flex items-center gap-3">
+    <button type="button" data-shape-toggle disabled aria-pressed="false" class="border border-hairline px-3 py-2 font-mono text-xs focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent disabled:opacity-60">
+      Play
+    </button>
+    <p data-shape-status class="font-mono text-xs text-plomo-400" role="status">Static · JavaScript unavailable</p>
+  </div>
+  <div class="mt-6 grid gap-6 lg:grid-cols-3">
+    {
+      views.map((view) => (
+        <div class={view.width}>
+          <div class="scene-frame bg-ink-900">
+            <canvas
+              data-shape-view
+              data-shape-cell={view.cell}
+              width={meta.cols * view.cell}
+              height={meta.rows * view.cell}
+              aria-hidden="true"
+            />
+            <p data-shape-fallback class="p-4 text-sm text-plomo-400">
+              {`${meta.label}, drawn as the selected shape at ${view.cell} px per cell. The live frame needs JavaScript.`}
+            </p>
+          </div>
+          <p class="mt-2 font-mono text-xs text-plomo-400">{view.note}</p>
+        </div>
+      ))
+    }
+  </div>
+</section>
+
+<section data-shape-board class="border-t border-hairline py-8" aria-labelledby="board-title">
+  <h2 id="board-title" class="text-xl text-bone-50">03 / The board · every shape at once</h2>
+  <p class="mt-2 max-w-prose text-sm text-plomo-400">
+    All eleven masks of the catalogue on the same frame, the same palette and the same dither, side by side, so
+    options can be compared without clicking. At a 1440-wide viewport the overview panes are 230 CSS px across
+    200 cells — measured 1.15 CSS px per cell — so at 1× the overview is a texture overview and the shapes cannot
+    be judged in it; the pixel-scale row below draws the same frame on 50 × 25 cells at 8 px per cell and shows it
+    at 160 px, measured 3.2 CSS px per cell, which is where the comparison is honest at 1×. The board always
+    draws the shape ramp (the ramp control affects the view panes above) and stays at the scene's poster frame
+    while the panes play.
+  </p>
+  {
+    boardRows.map((row) => (
+      <div data-shape-board-row={row.id} class="mt-8">
+        <p class="font-mono text-xs uppercase tracking-widest text-bone-100">{row.title}</p>
+        <p class="mt-1 max-w-prose text-sm text-plomo-400">{row.note}</p>
+        <div class="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {SHAPES.map((shape) => (
+            <figure data-shape-board-item data-shape-for={shape} class="flex min-w-0 flex-col border border-hairline">
+              <div class={`board-frame bg-ink-900 ${row.pane}`}>
+                <canvas
+                  data-shape-board-canvas
+                  data-shape-cell={row.cell}
+                  data-shape-density={row.density}
+                  width={Math.round(meta.cols / row.density) * row.cell}
+                  height={Math.round(meta.rows / row.density) * row.cell}
+                  aria-hidden="true"
+                />
+              </div>
+              <figcaption class="p-3 font-mono text-xs text-plomo-400">{SHAPE_LABELS[shape]}</figcaption>
+            </figure>
+          ))}
+        </div>
+      </div>
+    ))
+  }
+</section>
+
+<script>
+  import '~/lib/scene-runtime';
+</script>
+
+<style>
+  .scene-frame,
+  .board-frame {
+    display: grid;
+    place-items: center;
+    min-width: 0;
+    overflow: hidden;
+  }
+  [data-shape-lab] canvas,
+  [data-shape-board] canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  [data-shape-lab]:not([data-ready]) canvas {
+    display: none;
+  }
+  [data-shape-lab][data-ready] [data-shape-fallback] {
+    display: none;
+  }
+  [data-shape-lab][data-ready] [data-shape-readout] {
+    min-height: 1rem;
+  }
+</style>

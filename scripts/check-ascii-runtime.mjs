@@ -182,12 +182,26 @@ const labTotalGzip = labChunkGzip + inlineGzip;
 // `scripts/check-iteration-3.mjs` section 7 (its `LAB_CAP_GZIP`), which pins the
 // frozen landing five-chunk identity and this cap for the site-wide guard. A
 // future change must update both loudly; there is no reset or unlimited mode.
-const LAB_CAP_GZIP = 31927;
-const LAB_MEASURED_GZIP = 29879;
+// WU17 (34,876 B): the engine, the shape catalogue, the study runtime and the
+// pixel-scale board are one chunk shared by both laboratory routes instead of an
+// inline module, so the lab executable is library chunk 25,256 B + engine chunk
+// 9,508 B + two 56 B entry chunks, with 0 B of executable inline left on either
+// lab page. Cap re-measured as measured + 2,048 B, the same documented margin,
+// never a silent raise.
+//
+// LAB_CAP_GZIP is the same single measured value asserted by
+// `scripts/check-iteration-3.mjs` section 7 (its `LAB_CAP_GZIP`), which pins the
+// frozen landing five-chunk identity and this cap for the site-wide guard. A
+// future change must update both loudly; there is no reset or unlimited mode.
+const LAB_CAP_GZIP = 36924;
+const LAB_MEASURED_GZIP = 34876;
 const LAB_MARGIN_LIMIT = 4096;
 // What the lab page itself claims about its own cost. The copy must carry the
 // measured numbers, so a claim cannot drift away from the bundle it describes.
-const LAB_CLAIMS = { libraryChunkGzip: 25256, ownModuleRaw: 9663, ownModuleGzip: 4623, bakedStillBytes: 41906 };
+// `libraryChunkGzip` is the ascii.rest bundle; `ownModuleRaw`/`ownModuleGzip` are
+// the lab engine chunk (engine + shape catalogue + runtime), found below by the
+// scene id and the shape-laboratory marker it contains.
+const LAB_CLAIMS = { libraryChunkGzip: 25256, ownModuleRaw: 23366, ownModuleGzip: 9508, bakedStillBytes: 41906 };
 const withinLabCap = (total, cap) => total <= cap;
 assert.equal(withinLabCap(LAB_CAP_GZIP, LAB_CAP_GZIP), true);
 assert.equal(withinLabCap(LAB_CAP_GZIP + 1, LAB_CAP_GZIP), false);
@@ -235,11 +249,29 @@ check(html.includes('200 × 100') || html.includes('200x100'),
   'the comparison must state the shared 200 x 100 grid');
 check(/measured/i.test(html), 'the comparison must state the measured cost of what it draws');
 // The page must quote the numbers that were actually measured, and this guard
-// must fail if either side moves without the other.
-const labPageInline = inlineScripts(html).inline;
-const ownModule = labPageInline.find((script) => script.bytes === LAB_CLAIMS.ownModuleRaw);
-check(Boolean(ownModule) && ownModule.gzip === LAB_CLAIMS.ownModuleGzip,
-  `the lab page's own engine module must measure ${LAB_CLAIMS.ownModuleRaw}/${LAB_CLAIMS.ownModuleGzip} B raw/gzip, saw ${JSON.stringify(ownModule ?? null)}`);
+// must fail if either side moves without the other. WU17 moved the engine into a
+// chunk shared by both laboratory routes, so the claim is checked against the
+// shipped chunk itself rather than an inline module.
+const distChunk = async (name) => {
+  for (const base of [resolve(root, 'dist/_astro'), resolve(root, 'dist')]) {
+    try {
+      return await readFile(resolve(base, name), 'utf8');
+    } catch {
+      // keep looking in the next base
+    }
+  }
+  return '';
+};
+let ownModule = null;
+for (const name of Object.keys(chunks)) {
+  const source = await distChunk(name);
+  if (source.includes(OWN_SCENE) && source.includes('data-shape-lab')) {
+    ownModule = { name, bytes: Buffer.byteLength(source), gzip: gzipSync(source).length };
+  }
+}
+check(Boolean(ownModule) && ownModule.bytes === LAB_CLAIMS.ownModuleRaw
+  && ownModule.gzip === LAB_CLAIMS.ownModuleGzip,
+`the lab's own engine chunk must measure ${LAB_CLAIMS.ownModuleRaw}/${LAB_CLAIMS.ownModuleGzip} B raw/gzip, saw ${JSON.stringify(ownModule ?? null)}`);
 for (const [label, value] of Object.entries(LAB_CLAIMS)) {
   check(html.includes(`${value} B`),
     `the comparison must state the measured ${label} (${value} B), not an invented number`);
@@ -253,7 +285,9 @@ try {
 check(bakedBytes === LAB_CLAIMS.bakedStillBytes,
   `the baked still must be ${LAB_CLAIMS.bakedStillBytes} B, saw ${bakedBytes}`);
 
-// No route other than /lab/ascii may carry runtime markup or fetch its chunk.
+// No page outside `/lab/**` may carry runtime markup or fetch its chunk. WU17
+// extended this from the single `/lab/ascii` route to every laboratory page; the
+// negative direction is unchanged: a real page carrying any of this still fails.
 let sceneMounts = 0;
 for (const name of SCENE_NAMES) {
   check(html.includes(`data-ascii-scene="${name}"`), `SSR scene mount missing: ${name}`);
@@ -273,15 +307,19 @@ for (const path of await generatedHtml(resolve(root, 'dist'))) {
   const chunk = labChunkNames.some((id) => source.includes(id));
   if (scene || piece || chunk) markerHtml.push({ path: name, scene, piece, chunk });
 }
-check(markerHtml.length === 1 && markerHtml[0].path === 'lab/ascii/index.html',
-  `runtime markup/chunk must exist only on /lab/ascii: ${JSON.stringify(markerHtml)}`);
+check(markerHtml.length >= 2 && markerHtml.every((entry) => entry.path.startsWith('lab/')),
+  `runtime markup/chunk must exist only on /lab/** pages: ${JSON.stringify(markerHtml)}`);
+check(markerHtml.some((entry) => entry.path === 'lab/ascii/index.html')
+  && markerHtml.some((entry) => entry.path === 'lab/shapes/index.html'),
+`both laboratory routes must carry the runtime: ${JSON.stringify(markerHtml.map((entry) => entry.path))}`);
 // Executable inline scripts per set: the lab page's inline is part of the lab
 // budget above; site-wide and landing-route inline is pre-existing behaviour,
 // measured here for honest reporting with NO limit asserted for it.
 const inlineBySet = { site: { gzip: 0, blocks: 0, pages: 0 }, landing: { gzip: 0, blocks: 0 }, lab: { gzip: 0, blocks: 0 } };
 const LANDING_ROUTE_HTML = ['index.html', 'en/index.html'];
-const LAB_ROUTE_HTML = 'lab/ascii/index.html';
+const isLabRoute = (name) => name.startsWith('lab/') && name.endsWith('.html');
 let generatedHtmlCount = 0;
+let labRouteCount = 0;
 for (const path of await generatedHtml(resolve(root, 'dist'))) {
   const name = relative(resolve(root, 'dist'), path).replaceAll('\\', '/');
   const { inline: pageInline } = inlineScripts(await readFile(path, 'utf8'));
@@ -294,12 +332,14 @@ for (const path of await generatedHtml(resolve(root, 'dist'))) {
     inlineBySet.landing.gzip += pageGzip;
     inlineBySet.landing.blocks += pageInline.length;
   }
-  if (name === LAB_ROUTE_HTML) {
+  if (isLabRoute(name)) {
     inlineBySet.lab.gzip += pageGzip;
     inlineBySet.lab.blocks += pageInline.length;
+    labRouteCount += 1;
   }
 }
-check(inlineBySet.lab.gzip === inlineGzip, 'lab inline accounting must match the lab page measurement');
+check(inlineBySet.lab.gzip === inlineGzip, 'lab inline accounting must match the lab pages measurement');
+check(labRouteCount >= 2, `every /lab/** page must be counted: saw ${labRouteCount} lab route(s)`);
 const budget = { method: 'Recursive dist/**/*.js generated client JS plus every executable inline script on the lab page, each counted once; site-wide and landing-route inline scripts are measured and reported but deliberately unbudgeted',
   assetGzip, inlineGzip, totalGzip, baseline: baselineBudget.totalGzip,
   delta: totalGzip - baselineBudget.totalGzip, margin: baselineBudget.totalGzip + 22528 - totalGzip,

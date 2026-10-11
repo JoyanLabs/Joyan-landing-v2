@@ -631,25 +631,33 @@ if (/@media \(prefers-reduced-motion:reduce\)\{/.test(compiledCss)) {
 //    into subdirectories, and a nested chunk that no page references is a
 //    landing-set change (failure), never a silent pass.
 //
-//    A generated chunk is LAB-attributed when exactly one generated page
-//    references it and that page is `dist/lab/ascii/index.html`; every other
-//    emitted file is landing/site JavaScript. Attribution fails closed: a
-//    missing lab HTML, a chunk the lab page shares with a real page (scene JS
-//    leaking into a landing) or a chunk in both sets is a failure, never a
-//    silent subtraction. The landing set is frozen by recorded hash and its
-//    delta is pinned to the exact recorded value, so re-capturing the fixture
-//    cannot weaken the guard. The lab cap below is the same single measured
-//    value asserted in `scripts/check-ascii-runtime.mjs` (`LAB_CAP_GZIP`); a
-//    future change must update both loudly. No reset, no "unlimited" lab.
+//    A generated chunk is LAB-attributed when every generated page that can
+//    reach it is a laboratory page (`/lab/**`); every other emitted file is
+//    landing/site JavaScript. Reachability is transitive: a chunk imported by a
+//    chunk a lab page names is lab too, because that is how the bundler shares
+//    the engine between the two laboratory routes. Attribution fails closed: no
+//    lab page at all, a chunk reachable from both a lab page and a real page
+//    (scene JS leaking into a landing) or a chunk in both sets is a failure,
+//    never a silent subtraction. The landing set is frozen by recorded hash and
+//    its delta is pinned to the exact recorded value, so re-capturing the
+//    fixture cannot weaken the guard. The lab cap below is the same single
+//    measured value asserted in `scripts/check-ascii-runtime.mjs`
+//    (`LAB_CAP_GZIP`); a future change must update both loudly. No reset, no
+//    "unlimited" lab.
 // ---------------------------------------------------------------------------
 const candidate = gzipSum();
 const LANDING_FROZEN_GZIP = 109818;
 const LANDING_FROZEN_DELTA = 17913; // 109818 - 91905, baseline fixture untouched
-const LAB_MEASURED_GZIP = 29879; // WU16: lab chunk 25256 B + 4623 B executable inline
-const LAB_CAP_GZIP = 31927; // measured total + 2048 B honest margin (<= 4096 B)
+// WU17: the engine chunk is shared by both laboratory routes, so it is a chunk
+// rather than an inline module; the lab's executable total is 34,876 B gzip
+// (library 25,256 + engine/runtime 9,508 + the two 56 B entry chunks) with no
+// inline script left on either lab page.
+const LAB_MEASURED_GZIP = 34876;
+const LAB_CAP_GZIP = 36924; // measured total + 2048 B honest margin (<= 4096 B)
 const LAB_MARGIN_LIMIT = 4096;
-const LAB_PAGE = 'lab/ascii/index.html';
 const LANDING_ROUTE_PAGES = ['index.html', 'en/index.html'];
+/** Every `/lab/**` page is a laboratory page; nothing else is. */
+const isLabPage = (name) => name.startsWith('lab/') && name.endsWith('.html');
 // Recorded WU14 landing hashes (dist-motion-verify/wu14/before.json): byte
 // identity, not just a byte count, so a changed chunk fails here. Keys are
 // dist-relative because the walk is recursive.
@@ -664,10 +672,21 @@ const LANDING_FROZEN_HASHES = {
 };
 
 const isClientChunk = (file) => typeof file === 'string' && /\.js$/i.test(file);
-const attributeChunk = (pages, labPagePresent) => {
-  if (!labPagePresent) return 'fail-closed';
-  if (pages.includes(LAB_PAGE)) return pages.length === 1 ? 'lab' : 'leak';
-  return 'landing';
+/**
+ * Attribute one chunk from the set of pages that can reach it (transitively).
+ *  - no page at all: an unreferenced emitted file, counted as landing (this is
+ *    what keeps the frozen five-chunk landing set exactly as it was);
+ *  - every reaching page is a laboratory page: lab;
+ *  - every reaching page is a real page: landing;
+ *  - both: leak, because scene/runtime JS is on a real page.
+ * `labPagesPresent` is 0 when no laboratory page was built, which fails closed.
+ */
+const attributeChunk = (pages, labPagesPresent) => {
+  if (!labPagesPresent) return 'fail-closed';
+  if (pages.length === 0) return 'landing';
+  const lab = pages.filter(isLabPage).length;
+  if (lab === 0) return 'landing';
+  return lab === pages.length ? 'lab' : 'leak';
 };
 function listGeneratedHtml(dir) {
   const pages = [];
@@ -723,12 +742,19 @@ const budgetControls = {
     !isClientChunk('importmap.json'),
   'recursive walk counts a nested generated chunk, not only top-level files':
     nestedWalk.length === 2 && nestedWalk.includes('_astro/sub/nested-generated.js'),
-  'lab chunk shared with another page is a leak; missing lab page fails closed':
-    attributeChunk([LAB_PAGE], true) === 'lab' &&
-    attributeChunk([LAB_PAGE, 'index.html'], true) === 'leak' &&
-    attributeChunk(['index.html'], true) === 'landing' &&
-    attributeChunk([], true) === 'landing' &&
-    attributeChunk(['index.html'], false) === 'fail-closed',
+  'every /lab/** page is a lab page, including a nested one':
+    isLabPage('lab/ascii/index.html') && isLabPage('lab/shapes/index.html') && isLabPage('lab/deep/nested/index.html')
+    && !isLabPage('index.html') && !isLabPage('en/index.html') && !isLabPage('lab/ascii/notes.txt'),
+  'lab chunk on one lab page is lab; shared by two lab pages is still lab':
+    attributeChunk(['lab/ascii/index.html'], 1) === 'lab' &&
+    attributeChunk(['lab/ascii/index.html', 'lab/shapes/index.html'], 1) === 'lab',
+  'a lab chunk on a real page is a leak; a chunk on a lab and a real page is a leak':
+    attributeChunk(['index.html'], 1) === 'landing' &&
+    attributeChunk(['lab/ascii/index.html', 'index.html'], 1) === 'leak' &&
+    attributeChunk(['lab/shapes/index.html', 'en/index.html'], 1) === 'leak',
+  'a chunk no page reaches is landing, and no lab page fails closed':
+    attributeChunk([], 1) === 'landing' && attributeChunk(['index.html'], 0) === 'fail-closed'
+    && attributeChunk(['lab/ascii/index.html'], 0) === 'fail-closed',
 };
 for (const [name, ok] of Object.entries(budgetControls)) {
   if (ok) pass(`budget-control: ${name}`);
@@ -736,21 +762,61 @@ for (const [name, ok] of Object.entries(budgetControls)) {
 }
 
 // Real attribution over every generated page and every emitted client chunk.
-const labPagePresent = existsSync(resolve(DIST, LAB_PAGE));
-if (!labPagePresent) {
-  fail(`budget: fail-closed — ${LAB_PAGE} is missing, so the lab JS set cannot be attributed`);
+const labPages = listGeneratedHtml(DIST).map((path) => path.slice(DIST.length + 1).replaceAll('\\', '/'))
+  .filter(isLabPage);
+if (labPages.length === 0) {
+  fail('budget: fail-closed — no /lab/** page was generated, so the lab JS set cannot be attributed');
 }
 const generatedPages = listGeneratedHtml(DIST).map((path) => ({
   name: path.slice(DIST.length + 1).replaceAll('\\', '/'),
   html: read(path),
 }));
 const gzipOf = new Map(candidate.rows.map((row) => [row.file, row.gz]));
+// Reachability: page -> chunk it names -> the chunks that chunk imports. A chunk
+// the bundler shares between the two laboratory routes is reached by both lab
+// pages, and a chunk only an unreferenced module imports is not reached at all.
+const chunkSources = new Map(listClientJs().map((file) => [file, read(resolve(DIST, file))]));
+const posixDir = (file) => file.slice(0, file.lastIndexOf('/') + 1);
+const posixJoin = (dir, spec) => {
+  const parts = `${dir}${spec}`.split('/');
+  const out = [];
+  for (const part of parts) {
+    if (part === '' || part === '.') continue;
+    if (part === '..') out.pop();
+    else out.push(part);
+  }
+  return out.join('/');
+};
+const importsOf = (file) => {
+  const source = chunkSources.get(file) ?? '';
+  const deps = [];
+  for (const match of source.matchAll(/(?:import|from)\s*\(?\s*["'](\.\/[^"']+)["']/g)) {
+    const resolved = posixJoin(posixDir(file), match[1]);
+    if (chunkSources.has(resolved)) deps.push(resolved);
+  }
+  return deps;
+};
+const reaches = new Map();
+for (const page of generatedPages) {
+  const seen = new Set();
+  const stack = listClientJs().filter((file) => page.html.includes(file));
+  while (stack.length > 0) {
+    const file = stack.pop();
+    if (seen.has(file)) continue;
+    seen.add(file);
+    for (const dep of importsOf(file)) stack.push(dep);
+  }
+  for (const file of seen) {
+    if (!reaches.has(file)) reaches.set(file, []);
+    reaches.get(file).push(page.name);
+  }
+}
 const labChunks = [];
 const landingChunks = [];
 const leakedChunks = [];
 for (const file of listClientJs()) {
-  const pages = generatedPages.filter((page) => page.html.includes(file)).map((page) => page.name);
-  const kind = attributeChunk(pages, labPagePresent);
+  const pages = reaches.get(file) ?? [];
+  const kind = attributeChunk(pages, labPages.length > 0);
   if (kind === 'lab') labChunks.push(file);
   else if (kind === 'leak') leakedChunks.push(`${file} (${pages.join(', ')})`);
   else landingChunks.push(file);
@@ -793,7 +859,7 @@ for (const page of generatedPages) {
     inlineBySet.landing.gzip += measured.gzip;
     inlineBySet.landing.blocks += measured.blocks;
   }
-  if (page.name === LAB_PAGE) {
+  if (isLabPage(page.name)) {
     inlineBySet.lab.gzip += measured.gzip;
     inlineBySet.lab.blocks += measured.blocks;
   }
@@ -802,7 +868,7 @@ pass(
   `budget-inline (pre-existing, unbudgeted, no limit asserted): site-wide executable inline ${inlineBySet.site.gzip} B gzip in ${inlineBySet.site.blocks} block(s) across ${inlineBySet.site.pages} of ${generatedPages.length} generated page(s)`
 );
 pass(
-  `budget-inline (pre-existing, unbudgeted, no limit asserted): landing routes ${inlineBySet.landing.gzip} B gzip in ${inlineBySet.landing.blocks} block(s) across ${LANDING_ROUTE_PAGES.length} page(s); lab ${inlineBySet.lab.gzip} B gzip in ${inlineBySet.lab.blocks} block(s)`
+  `budget-inline (pre-existing, unbudgeted, no limit asserted): landing routes ${inlineBySet.landing.gzip} B gzip in ${inlineBySet.landing.blocks} block(s) across ${LANDING_ROUTE_PAGES.length} page(s); lab ${inlineBySet.lab.gzip} B gzip in ${inlineBySet.lab.blocks} block(s) across ${labPages.length} /lab/** page(s)`
 );
 
 // Landing invariant: same five chunks, byte-identical, same total, same delta.
@@ -827,10 +893,12 @@ if (landingGzip === LANDING_FROZEN_GZIP) {
 }
 
 // Lab allowance: a measured number with a documented margin, never unlimited.
-// The lab's executable set is its generated chunk(s) PLUS the executable inline
-// module the project's configured 16 KiB inline limit keeps on the lab page
-// (WU15 correction: 4,274 B gzip). The landing set stays chunk-only and the landing
-// allowance is untouched, so this does not move the landing invariant.
+// The lab's executable set is every chunk reachable from a `/lab/**` page PLUS
+// any executable inline module on those pages. WU17 moved the engine from an
+// inline module (one page) to a shared chunk (two lab pages), so the inline is
+// 0 B and the chunk carries the whole engine and catalogue. The landing set stays
+// chunk-only and the landing allowance is untouched, so this does not move the
+// landing invariant.
 const labExecutableGzip = labGzip + inlineBySet.lab.gzip;
 const labMargin = LAB_CAP_GZIP - labExecutableGzip;
 const declaredMargin = LAB_CAP_GZIP - LAB_MEASURED_GZIP;

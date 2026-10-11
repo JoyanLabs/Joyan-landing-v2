@@ -759,12 +759,150 @@ code and improving it**, not only its ideas.
   themselves read as dots from about 3 display px per cell, i.e. from a pane
   about 600 CSS px wide at cell 8 (200 cells × 3 px).
 
+## WU17 — shape, ramp and dither study, and a test surface
+
+**Status: laboratory only. The landing still ships zero scene or runtime
+JavaScript, no landing page imports the engine, and the landing's five chunks are
+byte-identical at 109,818 B gzip (delta 17,913 against the untouched 91,905 B
+fixture, limit 22,528 B).** The user's decision after WU16: round dots look a
+little nicer, *but squares also look good and there may be other shapes*. They
+asked for that to be investigated properly, for a way to **test every option**,
+and explicitly not to be limited to dots. The aesthetic call is theirs; this unit
+makes the options comparable and states where each one breaks down.
+
+- **A real catalog, not one favourite.** Eleven masks: `disc`, `square`,
+  `rounded`, `diamond`, `triangle`, `hexagon`, `ring`, `cross`, `hatch`, `grain`
+  (coverage only, no shape) and `glyph` (a bitmap footprint, drawn through the
+  adopted atlas path). Each one's size is **solved**, not guessed: a 160-step scan
+  (the ring's coverage is not monotone — its hole grows) followed by 30
+  bisections finds the smallest size whose area inside a cell reaches that
+  ladder rung, and `maskDerivation()` states in words what is solved for each
+  mask. Solved sizes per step, in cell units:
+  disc 0.2732/0.3927/0.5103, square 0.2421/0.3480/0.4507, rounded
+  0.2451/0.3524/0.4564, diamond 0.3423/0.4921/0.6938, triangle
+  0.3423/0.4921/0.8876, hexagon 0.3004/0.4318/0.5641, ring 0.2863/0.4116/0.5578,
+  cross 0.2972/0.4272/0.6750, hatch (line duty) 0.2344/0.4844/0.8125,
+  glyph ≈1.0000 (its own bitmap already carries the ladder), grain = the coverage
+  itself (there is no shape to size).
+- **Coverage is an exact area, never a sample count** — polygon clipping for the
+  polygonal masks, closed-form circle/rectangle areas for the disc and the ring,
+  closed quarter-disc areas for the rounded square, rectangle intersections for
+  the cross and the glyph, clipped diagonal bands for the hatch. Two consequences,
+  both measured rather than asserted: the ladder holds **at every pitch** (0.0000
+  deviation from 0.2344/0.4844/0.8125 at 8, 4 and 2 px per cell, tolerance 0.001)
+  because the per-pixel areas sum to the shape's own area, and the mask is
+  bit-identical in Node and in the browser without any sampling. A sampled mask
+  cannot do that: at 4 px a symmetric square can only reach 0.4727 or 0.5166 of a
+  cell, never the 0.4844 the ladder asks for.
+- **The geometry each name claims is proven by an independent metric**
+  (`scripts/check-shape-study.mjs`, 32 px per cell, computed in the checker): a
+  square is **exactly separable** as row × column (error 0.000) while the disc
+  scores 1.000; the disc keeps only **2.6 %** of its mass outside the inscribed
+  disc against the square's 10.1 %; the ring's centre pixel is 0.00 with its edge
+  at 1.00 (a hole); the triangle's mass below/above the centre is **1.55** (it is
+  asymmetric); hatch ink is measurably constant along one diagonal but NOT exactly
+  (diagonal invariance **0.9459** at 32 px per cell, 0.9156 at 16 and 0.9698 at 64:
+  the metric counts neighbouring pixel pairs with the same coverage, so a stripe
+  edge inside a cell breaks it — only a stricter inked-run test reaches 1.000);
+  grain shows no symmetry at all (transpose 0.67, rotation 0.63) and a binary
+  fraction of 1.00. The rounded square's bounding-box fill is **0.9244** at 32 px
+  per cell (0.9376 at step 1), and the hexagon is **pointy-top** — a vertex up and
+  one down, which is the orientation its six vertices encode. Headline versions of
+  the square/disc/ring/triangle
+  proofs also live in `scripts/check-scene-engine.mjs`, and
+  `check-shape-study.mjs` re-measures every number above and fails if the docs stop
+  matching it, so the older guard cannot pass a mask that is not the shape it
+  claims to be and the docs cannot go stale.
+- **Ramp, dither and cell geometry, measured.** The ramps are the solved shape
+  ladder, hard pixel blocks (`block`) and the glyph table; the dithers are ordered
+  Bayer 4 × 4 (16 thresholds) and 8 × 8 (64), a **blue-noise** 16 × 16 tile built
+  by void-and-cluster with an **integer tent kernel** (no `exp`, so Node and the
+  browser cannot drift; 189 distinct thresholds) and `none` (rounds at 0.5); the
+  cell geometries are 1:1 and 1:2. Tone resolution is the four-rung ladder plus
+  whatever the dither can spend between rungs, so `bayer8` and the blue tile
+  resolve finer means where `none` resolves none. The hard `block` ramp does
+  **not** hold the ladder — every pixel snaps to 0 or 1, so its cell means are
+  0.2500 / **0.5625** / 0.9375 at 8 px per cell and 0.25 / 0.25 / 1.00 at 4 px
+  against the 0.2344 / 0.4844 / 0.8125 it aims at. The 15/64 footprint belongs to
+  the **glyph** ramp, whose three bitmaps are 15, 31 and 52 of 64 cells and which
+  therefore does hold the ladder at 8, 4 and 2 px per cell.
+- **Where the shapes stop reading** (measured as distinct pixel coverages in rung
+  1): at **8 px per cell** every mask offers 3–13 distinct coverages and no shape
+  collapses; at **4 px** the square and the rounded square fall to two levels and
+  the glyph becomes a pixel block; at **2 px** every mask falls to 1–2 levels and
+  no shape reads at all. What matters for judging is the pitch on SCREEN, not in
+  the backing store: the overview board shows 200 cells across a pane of roughly
+  230 CSS px at a 1440 viewport, i.e. **1.15 CSS px per cell**, where only the
+  textures read, and the view panes about 1.5. That is why the study page also has
+  a **1:1 pixel-scale row**: the same frame on 50 × 25 cells at 8 px per cell,
+  shown at 160 px, i.e. **about 3.2 CSS px per cell**, which is where the eleven
+  shapes can actually be compared at 1×. WU16 fixed `DELIVERY_CELL = 8` for the
+  real scene for the same reason.
+- **Node/canvas equality survived every option** — the differentiator of this
+  engine. 38 hash comparisons pass: all eleven shapes × `bayer4`/`none` at 4 px
+  per cell on the fixed board, all eleven at the 1:2 cell geometry, `bayer8` and
+  blue noise, and the 8 px view panes. The baked still is still the engine's own
+  poster frame: `5c2f8f3d…`, **41,906 B** at 1600 × 800, decoding to the poster
+  raster `2808ffc7…`, unchanged by WU17 because the default options resolve to the
+  WU16 disc on 1:1 cells with Bayer 4 × 4.
+- **Cost per option** (`dist-motion-verify/wu17/study/` and
+  `dist-motion-verify/wu17/independent/shape-study/`, **Chromium only, one host,
+  20 iterations**, masks already solved and cached, so this is the per-frame path
+  and not the one-time solve): the eleven shapes land at **19.2–19.5 ms** median
+  in one run and **19.5–19.9 ms** in a second, a spread of 0.3 ms inside a run and
+  a 0.3–0.4 ms shift between runs, so **no shape is claimed to be cheaper than
+  another**. The mask choice is effectively free because the sprite atlas builds
+  one finished cell per (mask, step, ink) and copies it. Among the dithers, `none`
+  is the only one that is cheapest in **both** runs (18.8 / 19.1 ms, no dither to
+  evaluate); the order of `bayer4` (19.4 / 19.6), `bayer8` (19.9 / 19.5) and
+  `blue` (19.4 / 19.8) **flips between runs**, so it is not claimed. The **1:2
+  cell geometry costs 1.39×** (27.1 ms in both runs) because it doubles the
+  delivered pixels. These are comparable samples, not a general performance claim.
+- **A test surface the user can drive:** `/lab/shapes` (noindex), with shape,
+  ramp, dither, cell geometry, grid density and palette switchable live, the
+  measured ladder and solved sizes printed beside the panes, the same frame shown
+  at three delivered pitches, and a **fixed board** that draws all eleven shapes
+  at once so options can be compared without clicking — plus the **1:1 pixel-scale
+  row** (50 × 25 cells at 8 px per cell, shown at 160 px, ≈3.2 CSS px per cell)
+  without which the overview at ≈1.1 CSS px per cell is only a texture overview.
+  The study loads as a **still** at the poster frame (the page, this document and
+  the runtime all say so, and the checker asserts it in normal motion): Play
+  animates the three view panes only, the board stays the reference, and Pause
+  stops them again. `/lab/ascii` keeps every existing section and links to it.
+- **Budget and the guard extension, re-measured rather than assumed.** The engine,
+  the catalog and the runtime are now **one chunk shared by both laboratory
+  routes** (23,366 B raw / **9,508 B gzip**) instead of an inline module on one
+  page; the lab's executable total is **34,876 B gzip** (library 25,256 + engine
+  9,508 + two 56 B entry chunks, 0 B inline) with the same documented **2,048 B**
+  margin, cap **36,924 B**. Section 7 of `scripts/check-iteration-3.mjs` no longer
+  attributes a chunk to a single `lab/ascii` page: a chunk is lab when **every**
+  page that can reach it (transitively, following module imports) is a `/lab/**`
+  page, landing when no lab page reaches it, and a **leak** when both do. Every
+  previous negative control still fails as intended — a lab chunk reachable from a
+  real page, a chunk reached from a lab page and a real page, a chunk reached by
+  no page (landing, so the frozen five-chunk set is unchanged) and no lab page at
+  all (fail closed) — plus new controls for the shared-between-two-lab-pages and
+  nested `/lab/**` cases. `scripts/check-ascii-runtime.mjs` follows: the lab
+  runtime markup/chunk may exist only on `/lab/**` pages, the engine's own chunk
+  is identified by content (the scene id plus the study marker) and must still
+  measure 23,366/9,508 B, and the lab inline accounting now sums over every lab
+  page.
+- **Not measured (no claim).** The aesthetic ranking is not measured at all — the
+  laboratory exists so the user can decide, and nothing here authorizes a hero or
+  scene change. The per-shape cost is Chromium-only, one host, 20 iterations, with
+  masks already cached. "Where a shape stops reading" is a count of distinct pixel
+  coverages, not a user study. The masks' shade-and-paper recommendations
+  (squares read as pixel/retro, discs as halftone/photographic) are stated as what
+  the geometry does, not as a verdict. CPU, LCP, CLS, Firefox, Safari, OS
+  background scheduling and BFCache remain unmeasured.
+
 ```bash
 node scripts/scene-src/bake.mjs              # PNG from the engine, Node only
 node scripts/scene-src/bake.mjs --mp4        # + the deterministic 10 s loop
 pnpm build
-node scripts/check-scene-engine.mjs          # dot geometry, ledger, equality, browser
-node scripts/check-ascii-runtime.mjs --out dist-motion-verify/wu16/lab
+node scripts/check-scene-engine.mjs          # dot geometry, catalog, ledger, equality, browser
+node scripts/check-shape-study.mjs           # WU17: catalog, ladder, geometry, equality, cost
+node scripts/check-ascii-runtime.mjs --out dist-motion-verify/wu17/lab
 pnpm check
 ```
 
