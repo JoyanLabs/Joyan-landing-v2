@@ -655,8 +655,16 @@ const LANDING_FROZEN_DELTA = 17913; // 109818 - 91905, baseline fixture untouche
 // + three 56 B entry chunks, with 0 B of executable inline on any lab page. Cap
 // re-measured as measured + 2,048 B, the same documented margin, never a silent
 // raise.
-const LAB_MEASURED_GZIP = 38211;
-const LAB_CAP_GZIP = 40259; // measured total + 2048 B honest margin (<= 4096 B)
+//
+// WU19 (38,421 B): the anti-moiré prefilter, the auto-gain, the deeper default
+// palette, the full-coverage fifth ladder rung and the tuned aurora join the SAME
+// engine chunk, still shared by THREE laboratory routes. The chunk measures
+// 33,856 B raw / 12,997 B gzip; the lab executable is library 25,256 B + engine
+// chunk 12,997 B + three 56 B entry chunks, with 0 B of executable inline on any
+// lab page. Cap re-measured as measured + 2,048 B, the same documented margin,
+// never a silent raise.
+const LAB_MEASURED_GZIP = 38421;
+const LAB_CAP_GZIP = 40469; // measured total + 2048 B honest margin (<= 4096 B)
 const LAB_MARGIN_LIMIT = 4096;
 const LANDING_ROUTE_PAGES = ['index.html', 'en/index.html'];
 /** Every `/lab/**` page is a laboratory page; nothing else is. */

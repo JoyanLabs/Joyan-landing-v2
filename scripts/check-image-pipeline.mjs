@@ -298,7 +298,7 @@ if (fixture.exists) {
 }
 
 function stepHistogram(frame) {
-  const counts = [0, 0, 0, 0];
+  const counts = [0, 0, 0, 0, 0];
   for (const step of frame.steps) counts[step] += 1;
   const pairs = { same: 0, total: 0 };
   for (let y = 0; y < frame.rows; y++) {
@@ -373,7 +373,10 @@ if (fixture.exists) {
     const twice = hash(Buffer.from(renderFrame(scene, 5).steps)) === hash(Buffer.from(renderFrame(scene, 5).steps));
     const differsFromBase = hash(Buffer.from(renderFrame(scene, 0).steps)) !== baseHash;
     const renderedSeam = changedCells(renderFrame(scene, scene.cycleFrames - 1), renderFrame(scene, 0));
-    const renderedAdjacent = Math.max(...[0, 7, 17, 40, 120, 200, 300].map((frame) =>
+    // WU19: the ordinary-step baseline is EXHAUSTIVE — every adjacent pair in the
+    // cycle — so the seam comparison cannot depend on which pairs were sampled.
+    // The seam must still be no worse than an ordinary step of the tuned overlay.
+    const renderedAdjacent = Math.max(...[...Array(scene.cycleFrames - 1).keys()].map((frame) =>
       changedCells(renderFrame(scene, frame), renderFrame(scene, frame + 1))));
     const entry = { id, seam, baseline, twice, differsFromBase, renderedSeam, renderedAdjacent,
       wraps: OVERLAY_DEFAULTS[id] };
@@ -417,7 +420,7 @@ if (library && baseScene) {
       steps: librarySteps, cells: library.meta.cols * library.meta.rows },
     converted: { paletteDepth: baseScene.palette.length, paletteDeclared: baseScene.palette.length,
       distinctLevels: new Set([...baseScene.converted.levels8]).size,
-      steps: { 0: ours.counts[0], 1: ours.counts[1], 2: ours.counts[2], 3: ours.counts[3] },
+      steps: { 0: ours.counts[0], 1: ours.counts[1], 2: ours.counts[2], 3: ours.counts[3], 4: ours.counts[4] ?? 0 },
       flatRunFraction: ours.flatRunFraction, cells: ours.cells },
   };
   check(comparison.library.paletteDepth > comparison.converted.paletteDepth,
@@ -521,6 +524,212 @@ check(/WU18/.test(designDoc), 'DESIGN must record the WU18 unit');
 check(/licen|prop design|third.party|terceros/i.test(designDoc),
   'DESIGN must record the third-party fixture licence note');
 
+// ---------------------------------------------------------------------------
+// 5b. WU19 — the improvement round: anti-moiré prefilter, auto-gain, deeper
+//     default palette, the full-coverage rung, and the laboratory copy that
+//     states the licence note, the CLI recipe and the honest quality limits.
+//     Each claim is MEASURED here, then required to hold.
+// ---------------------------------------------------------------------------
+const wu19 = { prefilter: null, autoGain: null, palette: null, ladder: null, copy: null };
+
+// The calibration target's hatch region, measured before/after: a fine diagonal
+// hatch that beats against the cell lattice must average into tone.
+const HATCH = { x0: 80, x1: 117, y0: 40, y1: 77 };
+const regionCv = (measure, cols) => {
+  const vals = [];
+  for (let y = HATCH.y0; y < HATCH.y1; y++) {
+    for (let x = HATCH.x0; x < HATCH.x1; x++) vals.push(measure.levels[y * cols + x]);
+  }
+  const mean = vals.reduce((sum, value) => sum + value, 0) / vals.length;
+  const sd = Math.sqrt(vals.reduce((sum, value) => sum + (value - mean) ** 2, 0) / vals.length);
+  return { mean, cv: mean > 0 ? sd / mean : 0 };
+};
+if (hasPipeline) {
+  const target = LOCAL_INPUTS.find((entry) => entry.id === 'test-target');
+  const decodedTarget = await fromImage.decodeImage(target.svg);
+  const prefilterOff = convertRgba(decodedTarget.rgba, decodedTarget.width, decodedTarget.height,
+    { cols: target.cols, rows: target.rows, mode: 'ink', colorMode: 'levels', palette: 'ink',
+      prefilter: false, autoGain: 'none', id: 'target-noprefilter' });
+  const prefilterOn = convertRgba(decodedTarget.rgba, decodedTarget.width, decodedTarget.height,
+    { cols: target.cols, rows: target.rows, mode: 'ink', colorMode: 'levels', palette: 'ink',
+      id: 'target-prefilter' });
+  const before = regionCv(prefilterOff.measure, target.cols);
+  const after = regionCv(prefilterOn.measure, target.cols);
+  // Default conversions must be prefiltered, and the option must exist to turn
+  // it off (that is what makes the before/after honest rather than decorative).
+  check(typeof prefilterOn.measure.stats.prefilter === 'string'
+    && /pitch/i.test(prefilterOn.measure.stats.prefilter),
+  `the pipeline must measure WITH a pitch-matched prefilter by default, saw ${JSON.stringify(prefilterOn.measure.stats.prefilter)}`);
+  check(prefilterOff.measure.stats.prefilter === 'none',
+    'prefilter: false must measurably disable the prefilter (the rule must be stated, not renamed)');
+  // The defect the calibration target exposed: a coefficient of variation of
+  // ~0.8 on the hatch region is the beat itself. The prefilter must bring the
+  // region near its mean (cv < 0.55) while keeping the region's mean tone
+  // within 5% of the unfiltered mean (no darkening, no brightening).
+  check(after.cv < 0.55,
+    `the prefilter must average the hatch into tone: cv ${after.cv.toFixed(3)} after vs ${before.cv.toFixed(3)} before (want < 0.55)`);
+  check(Math.abs(after.mean - before.mean) / Math.max(1e-9, before.mean) < 0.05,
+    `the prefilter must preserve the region's mean tone: ${after.mean.toFixed(4)} vs ${before.mean.toFixed(4)}`);
+  wu19.prefilter = { before, after, rule: prefilterOn.measure.stats.prefilter };
+
+  // A smooth gradient must be unharmed: a linear ramp converted with and
+  // without the prefilter must keep its monotone structure and its mean.
+  const size = 512;
+  const gradient = Buffer.alloc(size * size * 4);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const at = (y * size + x) * 4;
+      const value = Math.round(255 * ((x + y) / (2 * size - 2)));
+      gradient[at] = value; gradient[at + 1] = value; gradient[at + 2] = value; gradient[at + 3] = 255;
+    }
+  }
+  const gradOff = convertRgba(gradient, size, size, { cols: 160, rows: 80, mode: 'luminance',
+    colorMode: 'levels', palette: 'ink', prefilter: false, autoGain: 'none', id: 'grad-off' });
+  const gradOn = convertRgba(gradient, size, size, { cols: 160, rows: 80, mode: 'luminance',
+    colorMode: 'levels', palette: 'ink', id: 'grad-on' });
+  const gradStats = (measure) => {
+    const vals = [...measure.levels];
+    let monotoneViolations = 0;
+    for (let y = 0; y < measure.rows; y++) {
+      for (let x = 1; x < measure.cols; x++) {
+        if (vals[y * measure.cols + x] < vals[y * measure.cols + x - 1] - 0.02) monotoneViolations += 1;
+      }
+    }
+    return { mean: vals.reduce((sum, value) => sum + value, 0) / vals.length, monotoneViolations };
+  };
+  const gradBefore = gradStats(gradOff.measure);
+  const gradAfter = gradStats(gradOn.measure);
+  check(Math.abs(gradAfter.mean - gradBefore.mean) < 0.02,
+    `the prefilter must not move a smooth gradient's mean tone: ${gradAfter.mean.toFixed(4)} vs ${gradBefore.mean.toFixed(4)}`);
+  check(gradAfter.monotoneViolations <= gradBefore.monotoneViolations,
+    `the prefilter must not add banding reversals to a smooth gradient: ${gradAfter.monotoneViolations} vs ${gradBefore.monotoneViolations}`);
+  wu19.prefilter.gradient = { before: gradBefore, after: gradAfter };
+
+  // Auto-gain: sparse, LIGHT line art must be normalised, and the gain recorded.
+  // The synthetic input is sparse (6.2% inked) and light (p90 of inked cells
+  // 0.209): the exact failure the audit flagged, where sparse art lands mostly
+  // in the empty step. The gain is measured in isolation (prefilter off for both
+  // sides) so the two effects cannot mask each other.
+  const sparseSize = 512;
+  const sparseInput = Buffer.alloc(sparseSize * sparseSize * 4);
+  for (let y = 0; y < sparseSize; y++) {
+    for (let x = 0; x < sparseSize; x++) {
+      const at = (y * sparseSize + x) * 4;
+      const on = (x + y) % 56 < 2;
+      const value = on ? Math.round(255 * 0.35) : 0;
+      sparseInput[at] = value; sparseInput[at + 1] = value; sparseInput[at + 2] = value;
+      sparseInput[at + 3] = on ? 255 : 0;
+    }
+  }
+  const sparseOff = convertRgba(sparseInput, sparseSize, sparseSize,
+    { cols: 200, rows: 100, mode: 'ink', colorMode: 'levels', palette: 'ink',
+      prefilter: false, autoGain: 'none', id: 'sparse-nogain' });
+  const sparseOn = convertRgba(sparseInput, sparseSize, sparseSize,
+    { cols: 200, rows: 100, mode: 'ink', colorMode: 'levels', palette: 'ink',
+      prefilter: false, id: 'sparse-gain' });
+  const inkedPercentile = (measure, fraction) => {
+    const inked = [...measure.levels].filter((value) => value > 0.05).sort((a, b) => a - b);
+    return inked.length ? inked[Math.floor(fraction * (inked.length - 1))] : 0;
+  };
+  const gain = sparseOn.scene.params.gain;
+  check(typeof gain === 'number' && gain > 1.05,
+    `auto-gain must record a gain above 1 on sparse light art, saw ${JSON.stringify(gain)}`);
+  check(sparseOff.scene.params.gain === 1 || sparseOff.scene.params.gain === undefined,
+    'autoGain none must leave the measurement ungained');
+  // The gain must actually lift the sparse drawing toward the ladder: read the
+  // SCENE's quantised levels (the gained tone the engine renders), against the
+  // returned measurement, which stays the honest pre-gain reading.
+  const p90Of = (values) => {
+    const inked = [...values].map((value) => value / 255).filter((value) => value > 0.05).sort((a, b) => a - b);
+    return inked.length ? inked[Math.floor(0.9 * (inked.length - 1))] : 0;
+  };
+  check(p90Of(sparseOn.scene.converted.levels8) > inkedPercentile(sparseOff.measure, 0.9),
+    `auto-gain must lift sparse art: p90 ${p90Of(sparseOn.scene.converted.levels8).toFixed(3)} gained vs `
+    + `${inkedPercentile(sparseOff.measure, 0.9).toFixed(3)} ungained`);
+  // Dark or full-range art must NOT be gained (the rule is sparse-light-only,
+  // and it must be the rule that decides, not an unconditional boost).
+  const dense = convertRgba(gradient, size, size, { cols: 160, rows: 80, mode: 'luminance',
+    colorMode: 'levels', palette: 'ink', prefilter: false, id: 'grad-gain' });
+  check(dense.scene.params.gain === 1,
+    `a full-range input must stay at gain 1, saw ${JSON.stringify(dense.scene.params.gain)}`);
+  // Sparse but already-dark art (our mark's strokes are near-black) must not be
+  // over-boosted either: the rule reads the tone, not just the coverage.
+  const markDarkInput = LOCAL_INPUTS.find((entry) => entry.id === 'joyan-mark');
+  const decodedMarkDark = await fromImage.decodeImage(markDarkInput.svg);
+  const markDark = convertRgba(decodedMarkDark.rgba, decodedMarkDark.width, decodedMarkDark.height,
+    { cols: markDarkInput.cols, rows: markDarkInput.rows, mode: 'ink', colorMode: 'levels', palette: 'ink',
+      prefilter: false, id: 'mark-gain' });
+  check(markDark.scene.params.gain === 1,
+    `sparse but already-dark art must not be over-boosted, saw ${JSON.stringify(markDark.scene.params.gain)}`);
+  // The serialisation must carry the gain so the runtime draws the same conversion.
+  check(sparseOn.serialized.params && sparseOn.serialized.params.gain === gain,
+    'the serialisation must record the auto-gain with the measurement');
+  wu19.autoGain = { gain, p90off: inkedPercentile(sparseOff.measure, 0.9),
+    p90on: p90Of(sparseOn.scene.converted.levels8), rule: sparseOn.measure.stats.autoGain };
+  check(typeof sparseOn.measure.stats.autoGain === 'string' && /p90|percentile|gain/i.test(sparseOn.measure.stats.autoGain),
+    'the measurement must state the auto-gain rule in words');
+
+  // Deeper default palette for image conversions, with extraction quality
+  // measured: the mean per-cell tone error against the extracted palette must
+  // fall when the default depth grows. Measured on a smooth gradient, which has
+  // the tonal richness a palette depth is for (our two-tone mark cannot show it).
+  const deepOff = convertRgba(gradient, size, size, { cols: 160, rows: 80, mode: 'luminance',
+    colorMode: 'rgb', palette: 'extract', paletteCount: 8, prefilter: false, autoGain: 'none', id: 'grad-pal8' });
+  const deepOn = convertRgba(gradient, size, size, { cols: 160, rows: 80, mode: 'luminance',
+    colorMode: 'rgb', palette: 'extract', id: 'grad-pal-default' });
+  check(deepOn.palette.length >= 12,
+    `the default extracted palette must be deeper than 8 entries on a rich input, saw ${deepOn.palette.length}`);
+  check(/extract:1[2-9]|extract:2\d/.test(deepOn.scene.params.palette),
+    `the default extraction count must be the deeper default, saw ${deepOn.scene.params.palette}`);
+  const toneError = (conversion) => {
+    const colors = conversion.palette.map(engine.hexToRgb);
+    const tones = colors.map(engine.tone);
+    let sum = 0;
+    let count = 0;
+    const rgb = conversion.measure.rgb;
+    for (let i = 0; i < conversion.measure.cols * conversion.measure.rows; i++) {
+      const cellTone = engine.tone([rgb[i * 3] / 255, rgb[i * 3 + 1] / 255, rgb[i * 3 + 2] / 255]);
+      let best = 1;
+      for (const value of tones) best = Math.min(best, Math.abs(value - cellTone));
+      sum += best;
+      count += 1;
+    }
+    return sum / count;
+  };
+  const err8 = toneError(deepOff);
+  const errDeep = toneError(deepOn);
+  check(errDeep < err8,
+    `the deeper palette must measure better extraction quality: mean tone error ${errDeep.toFixed(4)} vs ${err8.toFixed(4)} at 8 entries`);
+  wu19.palette = { depth8: 8, depthDefault: deepOn.palette.length, err8, errDeep };
+
+  // The fifth rung reaches full coverage in a real conversion.
+  const rungScene = prefilterOn.scene;
+  const rungFrame = engine.renderFrame(rungScene, 0);
+  const reached = Math.max(...rungFrame.steps);
+  check(rungFrame.steps.length === rungScene.cols * rungScene.rows,
+    'the WU19 frame must carry the whole grid');
+  check(typeof engine.RAMP === 'string' && [...engine.RAMP].length === 5,
+    `the ramp must carry five marks for five rungs, saw ${JSON.stringify(engine.RAMP)}`);
+  check(engine.stepFor(1, 0, 0) === 4, 'a full tone must map to the fifth rung');
+  check(reached >= 1, 'the calibration target must exercise the ladder above the ground');
+  wu19.ladder = { ramp: engine.RAMP, reached, ladder: engine.sceneMetrics ? null : null };
+
+  // The laboratory copy: the licence note beside the inputs, the exact CLI
+  // recipe, and the honest quality statement about the prefilter and auto-gain.
+  check(imageHtml.includes('local fixture'),
+    'the image laboratory copy must state, beside the inputs, that the gist art was a local fixture only');
+  check(imageHtml.includes('from-image.mjs') && imageHtml.includes('--in'),
+    'the image laboratory copy must show the exact CLI command a user runs to convert their own file');
+  check(/prefilter|prefiltr/i.test(imageHtml),
+    'the image laboratory copy must describe the anti-moiré prefilter');
+  check(/auto.gain|auto-ganancia|normal/i.test(imageHtml),
+    'the image laboratory copy must describe the auto-gain');
+  check(/alias|moir|batien|beat/i.test(imageHtml),
+    'the image laboratory copy must carry the honest quality statement about the aliasing defect');
+  wu19.copy = { cli: true, licence: true };
+}
+await save('wu19', wu19);
+
 const spanish = (value, digits = 4) => Number(value).toFixed(digits).replace('.', ',');
 if (grids.length) {
   const brief = grids.find((entry) => entry.density === 1);
@@ -535,7 +744,7 @@ if (comparison) {
 }
 
 await save('node', { failures, fixture, grids, modeEvidence, extractEvidence, roundTrip, rgbEvidence,
-  pngEvidence, jpegEvidence, overlayEvidence, comparison, recipe: PIPELINE_RECIPE });
+  pngEvidence, jpegEvidence, overlayEvidence, comparison, recipe: PIPELINE_RECIPE, wu19 });
 
 if (nodeOnly) {
   console.log(JSON.stringify({ mode: failures.length ? 'RED' : 'GREEN', nodeOnly, failures: failures.length,

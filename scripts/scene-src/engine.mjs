@@ -110,17 +110,21 @@
 
 import {
   BAYER4, CELL_GEOMETRIES, DITHER_MODES, LADDER as COVERAGE_LADDER, RAMP_MODES, SHAPES, buildMask,
-  cellSizeFor, discAreaIn, ditherThreshold, effectiveShape, maskDerivation, solveSize,
+  cellSizeFor, discAreaIn, ditherThreshold, effectiveShape, maskDerivation, shapeCoverageCap, solveSize,
 } from './shapes.mjs';
 
 // The WU17 catalogue is re-exported here as the engine's public surface: the
 // laboratory, the checks and the docs read it from the engine, never from a
-// second registry that could drift.
+// second registry that could drift. WU19 adds `shapeCoverageCap` (the physical
+// coverage maximum per shape, which the full-coverage rung needs).
 export { SHAPES, DITHER_MODES, RAMP_MODES, CELL_GEOMETRIES, cellSizeFor, ditherThreshold,
-  effectiveShape, maskDerivation };
+  effectiveShape, maskDerivation, shapeCoverageCap };
 
-/** The only inked ramp. Index 0 is an empty cell. Dots, never ASCII art. */
-export const RAMP = ' ·•●';
+/**
+ * The only inked ramp. Index 0 is an empty cell. Dots, never ASCII art. WU19
+ * adds the fifth mark: the full-coverage dot a highlight can now reach.
+ */
+export const RAMP = ' ·•●⬤';
 
 /** One cell is one square unit. The library's scenes use the same convention. */
 export const CELL = 1;
@@ -134,22 +138,22 @@ export const CELL = 1;
 export const DELIVERY_CELL = 8;
 
 /**
- * The dot ladder: how much of a cell each dot covers. These are the values the
- * WU15 mask MEASURED at its delivery cell, kept as the target — the radii below
- * are derived from them, not from an assumed fraction of the cell, and the
- * anti-aliased mask now holds this ladder at every cell size instead of drifting
- * with the raster (0.793 for the largest dot at 8 px per cell before). WU17 moved
- * the literal to `shapes.mjs` so every mask is solved against the same ladder.
+ * The dot ladder: how much of a cell each dot covers. The first three rungs are
+ * the values the WU15/WU16 mask MEASURED at its delivery cell; WU19 adds the
+ * fifth rung at full coverage 1.0 so a highlight can reach a whole cell of ink.
+ * The radii below are derived from them, not from an assumed fraction of the
+ * cell, and the anti-aliased mask holds this ladder at every cell size.
  */
 export const COVERAGE = COVERAGE_LADDER;
 
 /**
  * Drawn radius of each dot, in CELL units, solved from `COVERAGE` so that the
  * exact area of the clipped disc equals the measured ladder. The result is
- * [0, 0.2731, 0.3927, 0.5103]: the three steps the artwork has always laid down,
- * now as real discs. The largest is the inscribed disc of a cell (0.5) plus the
- * 2% the measured ladder asks for, and the raster clips what falls outside the
- * cell — which is why a bright area reads as a full round dot and not a block.
+ * [0, 0.2731, 0.3927, 0.5103, 0.7071]: the three steps the artwork has always
+ * laid down, plus the WU19 full-coverage step — whose radius is the half
+ * diagonal of a cell (the disc that reaches the corners), so a clipped disc at
+ * that radius IS the whole cell. That is what saturation means: a highlight can
+ * now close the cell completely instead of stopping at the 0.8125 dot.
  */
 export const DOT_RADIUS = Object.freeze(COVERAGE.map((coverage) => radiusForCoverage(coverage)));
 
@@ -302,7 +306,7 @@ export function layeredNoise(x, y, seed, options = LAYER_DEFAULTS) {
  * intent and is required to match this measurement.
  */
 export function rampLadder() {
-  const full = MEASURED_COVERAGE[3];
+  const full = MEASURED_COVERAGE[MEASURED_COVERAGE.length - 1];
   return MEASURED_COVERAGE.map((coverage) => coverage / full);
 }
 

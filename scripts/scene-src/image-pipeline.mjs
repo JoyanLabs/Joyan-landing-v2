@@ -69,6 +69,124 @@ export const MEASURE_RULES = Object.freeze({
     + 'ground, so a photograph keeps its own colour and its tone survives to the palette.',
 });
 
+/**
+ * THE ANTI-MOIRÉ PREFILTER (WU19). The calibration target's fine diagonal hatch
+ * aliased into a dominant dither block: detail finer than the cell lattice beats
+ * against the sampling pitch instead of averaging into tone. The fix is to
+ * low-pass the SOURCE to the lattice BEFORE the per-cell measurement, with a
+ * support that follows the requested grid, so a high-frequency region converts
+ * to its mean tone. Gaussian, σ = 0.75 × cell pitch, built as three box passes
+ * of radius round(0.75·pitch) each (σ ≈ √3·boxσ, the standard box approximation),
+ * premultiplied alpha so transparent art does not bleed colour, and unpremultiplied
+ * afterwards. Deterministic, exact integer arithmetic on prefix sums, browser-safe.
+ */
+export const PREFILTER_RULE = 'gaussian matched to the cell pitch: three box passes of radius '
+  + 'round(0.75·pitch) each (σ = 0.75·pitch), premultiplied alpha, applied before per-cell measurement '
+  + 'so sub-lattice detail averages into tone instead of beating against the grid';
+
+/** One separable box pass over straight-alpha RGBA, premultiplied, clamped edges. */
+function boxPassRGBA(src, width, height, radius) {
+  const tmp = new Float64Array(src.length);
+  const out = new Float64Array(src.length);
+  const line = (input, output, outer, inner, stride, innerStride) => {
+    for (let o = 0; o < outer; o++) {
+      let sumR = 0;
+      let sumG = 0;
+      let sumB = 0;
+      let sumA = 0;
+      const window = 2 * radius + 1;
+      for (let k = -radius; k <= radius; k++) {
+        const i = Math.min(inner - 1, Math.max(0, k));
+        const at = (o * stride + i * innerStride) * 4;
+        sumR += input[at]; sumG += input[at + 1]; sumB += input[at + 2]; sumA += input[at + 3];
+      }
+      for (let i = 0; i < inner; i++) {
+        const at = (o * stride + i * innerStride) * 4;
+        output[at] = sumR / window; output[at + 1] = sumG / window; output[at + 2] = sumB / window; output[at + 3] = sumA / window;
+        const addAt = (o * stride + Math.min(inner - 1, i + radius + 1) * innerStride) * 4;
+        const subAt = (o * stride + Math.max(0, i - radius) * innerStride) * 4;
+        sumR += input[addAt] - input[subAt];
+        sumG += input[addAt + 1] - input[subAt + 1];
+        sumB += input[addAt + 2] - input[subAt + 2];
+        sumA += input[addAt + 3] - input[subAt + 3];
+      }
+    }
+  };
+  line(src, tmp, height, width, width, 1);
+  line(tmp, out, width, height, 1, width);
+  return out;
+}
+
+/**
+ * The prefilter itself: straight-alpha RGBA in, straight-alpha RGBA out. The
+ * `false` option reproduces the WU18 behaviour byte for byte, which is what
+ * makes the before/after evidence honest rather than decorative.
+ * @param {Uint8ClampedArray|Uint8Array|Buffer} rgba @param {number} width @param {number} height
+ * @param {number} pitchPx source pixels per cell (1 / fit.scale)
+ */
+export function prefilterRgba(rgba, width, height, pitchPx) {
+  if (!(pitchPx > 0)) return rgba;
+  const radius = Math.max(1, Math.round(0.75 * pitchPx));
+  const n = width * height;
+  const pre = new Float64Array(n * 4);
+  for (let i = 0; i < n; i++) {
+    const alpha = rgba[i * 4 + 3] / 255;
+    pre[i * 4] = rgba[i * 4] * alpha;
+    pre[i * 4 + 1] = rgba[i * 4 + 1] * alpha;
+    pre[i * 4 + 2] = rgba[i * 4 + 2] * alpha;
+    pre[i * 4 + 3] = rgba[i * 4 + 3];
+  }
+  let out = pre;
+  for (let pass = 0; pass < 3; pass++) out = boxPassRGBA(out, width, height, radius);
+  const res = new Uint8ClampedArray(n * 4);
+  for (let i = 0; i < n; i++) {
+    const alpha = out[i * 4 + 3] / 255;
+    const inv = alpha > 1e-6 ? 1 / alpha : 0;
+    res[i * 4] = out[i * 4] * inv;
+    res[i * 4 + 1] = out[i * 4 + 1] * inv;
+    res[i * 4 + 2] = out[i * 4 + 2] * inv;
+    res[i * 4 + 3] = out[i * 4 + 3];
+  }
+  return res;
+}
+
+/**
+ * AUTO-GAIN (WU19). Sparse line art measures light: the unicorn probe put 3.57%
+ * of ink into cells whose 90th-percentile tone was 0.395, so almost everything
+ * landed in the empty step and the drawing nearly vanished. The normalisation
+ * lifts the measured tone so the drawing's own p90 reaches the ladder, without
+ * touching art that is already dark or full-range.
+ */
+export const AUTO_GAIN_TARGET = 0.75;
+export const AUTO_GAIN_MAX = 3.5;
+export const AUTO_GAIN_RULE = 'per-image normalisation: gain = clamp(0.75 / p90, 1, 3.5) where p90 is the '
+  + '90th percentile of the cells that carry ink (level > 0.05), so sparse light art reaches the ladder '
+  + 'and dark or full-range art stays at gain 1; the gain is recorded in the scene params and the serialisation';
+
+/** The p90 of the inked cells of a measurement. */
+export function inkedPercentile(levels, fraction = 0.9) {
+  const inked = [...levels].filter((value) => value > 0.05).sort((a, b) => a - b);
+  return inked.length ? inked[Math.floor(fraction * (inked.length - 1))] : 1;
+}
+
+/**
+ * Apply an auto-gain to a measurement: levels scale up (clamped), rgb colours
+ * move away from the ground by the same factor so hue survives. Returns NEW
+ * arrays; the input measurement is not mutated.
+ */
+export function applyAutoGain(measure, groundRgb, gain) {
+  const levels = new Float32Array(measure.levels.length);
+  for (let i = 0; i < levels.length; i++) levels[i] = Math.min(1, measure.levels[i] * gain);
+  const rgb = new Uint8ClampedArray(measure.rgb.length);
+  for (let i = 0; i < measure.rgb.length / 3; i++) {
+    for (let c = 0; c < 3; c++) {
+      const ground = groundRgb[c] * 255;
+      rgb[i * 3 + c] = ground + (measure.rgb[i * 3 + c] - ground) * gain;
+    }
+  }
+  return { levels, rgb };
+}
+
 /** A named lab palette for image-derived scenes. Ground is index 0 everywhere. */
 export const IMAGE_PALETTES = Object.freeze([
   Object.freeze({ id: 'ink', label: 'bone ink on ink', ground: 0,
@@ -125,11 +243,17 @@ export function quantizeLevels(levels) {
  * @param {ReturnType<typeof fitGrid>} fit
  * @param {'ink'|'luminance'} mode chosen explicitly
  * @param {[number, number, number]} groundRgb the ground, in 0..1, used to composite
+ * @param {{prefilter?: 'pitch'|false}} [options] WU19: the anti-moiré prefilter
+ *   ('pitch', the default) or false to reproduce the WU18 behaviour byte for byte
  * @returns {{cols, rows, levels: Float32Array, rgb: Uint8ClampedArray, mode: string,
  *   rule: string, stats: object}}
  */
-export function measureCells(rgba, width, height, fit, mode, groundRgb = [0, 0, 0]) {
+export function measureCells(rgba, width, height, fit, mode, groundRgb = [0, 0, 0], options = {}) {
   if (!MEASURE_MODES.includes(mode)) throw new Error(`unknown measure mode: ${mode}`);
+  const prefilter = options.prefilter === undefined ? 'pitch' : options.prefilter;
+  const source = prefilter === false
+    ? rgba
+    : prefilterRgba(rgba, width, height, 1 / fit.scale);
   const { cols, rows, scale, offsetX, offsetY } = fit;
   const inv = 1 / scale;
   const levels = new Float32Array(cols * rows);
@@ -161,10 +285,10 @@ export function measureCells(rgba, width, height, fit, mode, groundRgb = [0, 0, 
           if (wx <= 0) continue;
           const w = wx * wy;
           const at = (py * width + px) * 4;
-          const alpha = rgba[at + 3] / 255;
-          const r = rgba[at] / 255;
-          const g = rgba[at + 1] / 255;
-          const b = rgba[at + 2] / 255;
+          const alpha = source[at + 3] / 255;
+          const r = source[at] / 255;
+          const g = source[at + 1] / 255;
+          const b = source[at + 2] / 255;
           let dark;
           let rr;
           let gg;
@@ -225,6 +349,7 @@ export function measureCells(rgba, width, height, fit, mode, groundRgb = [0, 0, 
     cols, rows, mode, cells: cols * rows, inkedCells: inked, inkedFraction: inked / (cols * rows),
     minLevel, maxLevel, meanLevel: levels.reduce((sum, value) => sum + value, 0) / levels.length,
     fit: { scale, offsetX, offsetY, drawnWidth: fit.drawnWidth, drawnHeight: fit.drawnHeight, margin: fit.margin },
+    prefilter: prefilter === false ? 'none' : `pitch (source px per cell ${(1 / scale).toFixed(2)}): ${PREFILTER_RULE}`,
   };
   return { cols, rows, levels, rgb, mode, rule: MEASURE_RULES[mode], stats };
 }
@@ -306,6 +431,7 @@ export function sceneFromMeasurement(measure, options = {}) {
   const preset = options.palettePreset ?? null;
   const palette = preset ? [...preset.palette] : [...(options.palette ?? IMAGE_PALETTES[0].palette)];
   const ground = preset ? preset.ground : options.ground ?? 0;
+  const gain = options.gain ?? 1;
   const rgb = measure.rgb;
   const readCell = (x, y) => {
     const cx = x < 0 ? 0 : x >= cols ? cols - 1 : Math.floor(x);
@@ -336,6 +462,8 @@ export function sceneFromMeasurement(measure, options = {}) {
       palette: options.paletteId ?? (preset ? preset.id : 'extract'),
       margin: measure.stats.fit.margin,
       grid: `${cols}×${rows}`,
+      gain,
+      prefilter: measure.stats.prefilter,
     },
     field,
     converted: {
@@ -352,6 +480,17 @@ export function sceneFromMeasurement(measure, options = {}) {
  * The whole pure conversion: pixels in, `{ scene, measure, fit, serialized }` out.
  * `palette` is a named `IMAGE_PALETTES` id or the literal `extract`.
  */
+export const DEFAULT_EXTRACT_COUNT = 16;
+
+/**
+ * The whole pure conversion: pixels in, `{ scene, measure, fit, serialized }` out.
+ * `palette` is a named `IMAGE_PALETTES` id or the literal `extract`.
+ *
+ * WU19 options: `prefilter` ('pitch' by default — the anti-moiré prefilter;
+ * `false` reproduces WU18) and `autoGain` ('auto' by default — the per-image
+ * normalisation; 'none' leaves the raw measurement). The gain is recorded in
+ * the scene params and therefore in the serialisation.
+ */
 export function convertRgba(rgba, width, height, options = {}) {
   const cols = options.cols ?? 200;
   const rows = options.rows ?? 100;
@@ -362,19 +501,36 @@ export function convertRgba(rgba, width, height, options = {}) {
   const paletteId = options.palette ?? 'ink';
   const preset = paletteId === 'extract' ? null : imagePalette(paletteId);
   const groundRgb = preset ? hexToRgb(preset.palette[preset.ground]) : [0, 0, 0];
-  const measure = measureCells(rgba, width, height, fit, mode, groundRgb);
+  const measure = measureCells(rgba, width, height, fit, mode, groundRgb, { prefilter: options.prefilter });
+  // Auto-gain (WU19): the normalisation is measured from the PREFILTERED levels,
+  // so it also compensates the softening the prefilter applies to sparse art.
+  const autoGain = options.autoGain === undefined ? 'auto' : options.autoGain;
+  if (autoGain !== 'auto' && autoGain !== 'none') throw new Error(`unknown autoGain: ${autoGain}`);
+  const p90 = inkedPercentile(measure.levels);
+  const gain = autoGain === 'none' ? 1
+    : Math.min(AUTO_GAIN_MAX, Math.max(1, AUTO_GAIN_TARGET / Math.max(1e-6, p90)));
+  const stats = { ...measure.stats, gain, autoGain: AUTO_GAIN_RULE };
+  const measured = { ...measure, stats };
+  let sceneMeasure = measured;
+  if (gain > 1) {
+    const lifted = applyAutoGain(measure, groundRgb, gain);
+    // The scene is built from the GAINED tone; the returned measurement stays
+    // the honest pre-gain reading, with the gain recorded beside it.
+    sceneMeasure = { ...measured, levels: lifted.levels, rgb: lifted.rgb };
+  }
   let sceneInput;
   if (preset) {
     sceneInput = { palettePreset: preset, paletteId: preset.id };
   } else {
-    const palette = extractPalette(measure.rgb, options.paletteCount ?? 8);
+    const palette = extractPalette(measure.rgb, options.paletteCount ?? DEFAULT_EXTRACT_COUNT);
     sceneInput = { palette, ground: 0, paletteId: `extract:${palette.length}` };
   }
-  const scene = sceneFromMeasurement(measure, {
+  const scene = sceneFromMeasurement(sceneMeasure, {
     ...sceneInput, colorMode, id: options.id ?? 'image-scene', label: options.label,
     fps: options.fps, cycleFrames: options.cycleFrames, posterFrame: options.posterFrame,
+    gain,
   });
-  return { scene, measure, fit, serialized: serializeScene(scene), palette: scene.palette };
+  return { scene, measure: measured, fit, serialized: serializeScene(scene), palette: scene.palette };
 }
 
 /** base64 of a byte array, in Node and in a browser, without a dependency. */

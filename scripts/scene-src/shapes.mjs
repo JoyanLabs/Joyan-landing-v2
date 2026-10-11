@@ -46,8 +46,13 @@
  * options can be compared and so the limits can be measured.
  */
 
-/** The authored ladder: the measured WU16 dot ladder, one value per ramp step. */
-export const LADDER = Object.freeze([0, 0.2344, 0.4844, 0.8125]);
+/**
+ * The authored ladder: the measured WU16 dot ladder for the first three rungs
+ * (one value per ramp step), plus the WU19 fifth rung at FULL coverage 1.0 —
+ * a highlight must be able to reach a whole cell of ink. The radii below are
+ * derived from it, not from an assumed fraction of the cell.
+ */
+export const LADDER = Object.freeze([0, 0.2344, 0.4844, 0.8125, 1.0]);
 
 /** Every mask this unit ships. `disc` and `glyph` are described below. */
 export const SHAPES = Object.freeze(['disc', 'square', 'rounded', 'diamond', 'triangle', 'hexagon',
@@ -187,15 +192,19 @@ function rectAreaInRect(ax0, ay0, ax1, ay1, x0, y0, x1, y1) {
 // The glyph table. `glyph` reuses the adopted atlas path — one finished cell per
 // (mask, step, ink) is built once and copied per cell — and its footprint is a
 // small bitmap of the ramp's dot glyphs, kept here as rows of '.' and '#'. The
-// three bitmaps carry exactly 15, 31 and 52 of the 64 cells, so at 8 px per cell
-// the glyph mode holds the ladder with hard pixels; at any other pitch its
-// footprint is still solved from the ladder like every other mask.
+// inked bitmaps carry exactly 15, 31, 52 and 64 of the 64 cells, so at 8 px per
+// cell the glyph mode holds the ladder with hard pixels, including the WU19
+// full-coverage rung; at any other pitch its footprint is still solved from the
+// ladder like every other mask.
 // ---------------------------------------------------------------------------
 const GLYPH_BITMAPS = Object.freeze([
   Object.freeze([]),
   Object.freeze(['........', '........', '..####..', '..####..', '..####..', '..###...', '........', '........']),
   Object.freeze(['........', '..####..', '.######.', '.######.', '.######.', '.#####..', '..####..', '........']),
   Object.freeze(['..####..', '.######.', '########', '########', '########', '########', '.######.', '..####..']),
+  // WU19: the full-coverage rung. The whole 8x8 bitmap is ink, 64 of 64 cells,
+  // so the glyph ladder also tops out at exactly 1.0.
+  Object.freeze(['########', '########', '########', '########', '########', '########', '########', '########']),
 ]);
 
 /** The bitmap footprint of one glyph step as axis-aligned boxes in bitmap units. */
@@ -324,15 +333,43 @@ const SCAN_LIMIT = 3;
 const sizeCache = new Map();
 
 /**
+ * The coverage a shape can physically reach in a cell. Most shapes reach the
+ * whole cell; the ring cannot — its hole is fixed at 0.30 of the outer radius,
+ * and because the hole grows with the ring the coverage is NOT monotone: it
+ * peaks where the outer disc just covers the cell and then falls to zero as the
+ * hole swallows it. The cap is MEASURED as that peak on the same scan grid the
+ * size solver uses, per geometry, so the full-coverage rung solves to the ring's
+ * honest maximum instead of silently failing the scan.
+ */
+const ringPeakCache = new Map();
+function ringPeak(geometry) {
+  const cached = ringPeakCache.get(geometry);
+  if (cached !== undefined) return cached;
+  const box = cellSizeFor(geometry, REFERENCE_CELL);
+  let best = 0;
+  for (let i = 1; i <= SCAN_STEPS; i++) {
+    const size = (i / SCAN_STEPS) * SCAN_LIMIT;
+    best = Math.max(best, coverageOf('ring', 1, box.w, box.h, size));
+  }
+  ringPeakCache.set(geometry, best);
+  return best;
+}
+export function shapeCoverageCap(shape, geometry = 'square') {
+  return shape === 'ring' ? ringPeak(geometry) : 1;
+}
+
+/**
  * The size, in cell units, that makes a cell of `geometry` lay down `coverage`.
  * A coarse scan finds the FIRST crossing (the ring's coverage is not monotone —
  * its hole grows — so a bare bisection is not enough), then a bisection refines
- * inside that bracket and returns the smallest size that reaches the rung.
+ * inside that bracket and returns the smallest size that reaches the rung. The
+ * target is capped by the shape's own measured maximum (see shapeCoverageCap).
  */
 export function solveSize(shape, geometry, step, coverage = LADDER[step]) {
   if (!(coverage > 0)) return 0;
   if (shape === 'grain') return coverage; // no shape: the ladder IS the answer
-  const key = `${shape}|${geometry}|${coverage}`;
+  const capped = Math.min(coverage, shapeCoverageCap(shape, geometry));
+  const key = `${shape}|${geometry}|${capped}`;
   const cached = sizeCache.get(key);
   if (cached !== undefined) return cached;
   const box = cellSizeFor(geometry, REFERENCE_CELL);
@@ -341,7 +378,7 @@ export function solveSize(shape, geometry, step, coverage = LADDER[step]) {
   let previous = 0;
   for (let i = 1; i <= SCAN_STEPS; i++) {
     const size = (i / SCAN_STEPS) * SCAN_LIMIT;
-    if (coverageOf(shape, step, box.w, box.h, size) >= coverage) {
+    if (coverageOf(shape, step, box.w, box.h, size) >= capped) {
       lo = previous;
       hi = size;
       break;
@@ -354,7 +391,7 @@ export function solveSize(shape, geometry, step, coverage = LADDER[step]) {
   }
   for (let i = 0; i < 30; i++) {
     const mid = (lo + hi) / 2;
-    if (coverageOf(shape, step, box.w, box.h, mid) >= coverage) hi = mid;
+    if (coverageOf(shape, step, box.w, box.h, mid) >= capped) hi = mid;
     else lo = mid;
   }
   sizeCache.set(key, hi);
@@ -369,7 +406,7 @@ const DERIVATIONS = Object.freeze({
   diamond: 'the half-diagonal is solved by bisection so the exact clipped area of the diamond equals the ladder coverage',
   triangle: 'the half-height of the isosceles triangle is solved by bisection so its exact clipped area equals the ladder coverage',
   hexagon: 'the circumradius of the pointy-top hexagon (a vertex up and one down) is solved by bisection so its exact clipped area equals the ladder coverage',
-  ring: 'the outer radius is solved by bisection with the hole fixed at 0.30 of it (a ring cannot cover more than 1 - 0.30^2 of a cell), so the exact ring area equals the ladder coverage',
+  ring: 'the outer radius is solved by bisection with the hole fixed at 0.30 of it; a ring cannot cover the whole cell (the hole grows with it), so at the full-coverage rung it solves to its measured peak coverage and says so',
   cross: 'the arm half-length is solved by bisection with the arm half-thickness fixed at 0.42 of it, so the exact clipped area of the plus equals the ladder coverage',
   hatch: 'the 45-degree line duty cycle is solved by bisection so the exact striped area inside a cell equals the ladder coverage',
   grain: 'no size is solved: the ladder coverage is laid down as a deterministic rank order over the cell pixels, coverage only',

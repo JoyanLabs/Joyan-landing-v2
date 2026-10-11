@@ -937,11 +937,15 @@ with the user's impression.
   `from-image.mjs` is Node-only, `image-pipeline.mjs` is browser-safe (no `sharp`
   import), and nothing in either duplicates `engine.mjs`/`shapes.mjs`.
 - **The fixture numbers, measured at three grid densities** (fixture decodes to
-  **1024**×1024): fitted scale 0.08984375 with the art drawn **92×92 cells inside
-  a 4 % margin** on the 200×100 grid; 713 inked cells of 20,000 (fraction
-  **0.0357**), mean level 0.00949, max 0.68281, step histogram 19452/490/58/**0**,
-  raster sha256 `da63f9e9…`, 13,962 B PNG. At 100×50: 270 inked, 0.0540, sha
-  `3669f24e…`, 3,664 B. At 50×25: 95 inked, 0.0760, sha `775d68b9…`, 1,079 B. The
+  **1024**×1024). WU18 measured 713 inked cells (0.0357), max 0.68281, histogram
+  19452/490/58/0, raster sha256 `da63f9e9…`, 13,962 B PNG. **WU19 re-measured with
+  the pitch-matched prefilter and auto-gain on by default:** fitted scale
+  0.08984375 with the art drawn **92×92 cells inside a 4 % margin** on the
+  200×100 grid; **1180** inked cells of 20,000 (fraction **0.0590**), mean level
+  0.00949, max 0.44081 (pre-gain measurement), **gain 2.944 recorded**, step
+  histogram 18827/554/370/175/**74**, raster sha256 `125557ea…`, 22,637 B PNG. At
+  100×50: 368 inked, 0.0736, gain 3.500, sha `5454fa09…`, 5,929 B. At 50×25: 86
+  inked, 0.0688, gain 3.500, sha `009cb8c2…`, 1,823 B. The
   serialised scene rasters to **the same sha256 as the live one** (round trip),
   the PNG decodes to the identical measurement, and JPEG opens at the same size
   with the same measurement inside 0.01. The two modes are different instruments:
@@ -960,14 +964,17 @@ with the user's impression.
   0.0265 / 0.00261; glimmer 0 / 0 vs 0.0184 / 0.00111. Rendered cells changing at
   the seam vs at an adjacent pair: 84/88, 458/512, 66/84, 99/404 — the seam is
   never worse. Every overlay changes the base scene and repeats identically;
-  composition order is fixed by the catalogue. Two honest notes: the aurora
+  composition order is fixed by the catalogue. (WU19 re-measured the seam table
+  with the tuned aurora and an exhaustive adjacent-pair baseline; see the WU19
+  section below.) Two honest notes: the aurora
   overlay needs a **chromatic palette** — with `--palette ink` its colours
   approximate to greys and the CLI PNG is monochrome
   (`dist-motion-verify/wu18/cli/image-scene[stars+aurora]-8px-density1.png`),
   while `--palette aurora` renders green/blue/violet
-  (`…/unicorn-aurora[stars+aurora]-8px-density1.png`) — and at 200×100 the aurora
-  reads as **large dither blocks** (~33 cells per blob at `scaleX = 0.06`), not a
-  fine curtain. Stated, not hidden.
+  (`…/unicorn-aurora[stars+aurora]-8px-density1.png`) — and at 200×100 the WU18
+  aurora read as **large dither blocks** (~33 cells per blob at `scaleX = 0.06`), not a
+  fine curtain. WU19 tuned it; the before/after numbers are in the WU19 section
+  below and in `docs/AUDITORIA-ESCENAS.md`.
 - **The laboratory (`/lab/image`, noindex) converts with our own drawings.**
   `joyan-mark` and `test-target` are authored in
   `scripts/scene-src/local-inputs.mjs`; the page converts them in its frontmatter
@@ -986,22 +993,27 @@ with the user's impression.
   generated page or in `public/`. If the user confirms they hold the rights, a
   later unit may add it as a third laboratory input.
 - **The honest comparison, with numbers.** At the same 200×100 grid and displayed
-  size, the converted unicorn reads **sparser and flatter** than the library's
-  scenes, and this unit records it rather than defending the motor: the library's
+  size, the converted unicorn reads **sparser** than the library's
+  scenes, and this unit recorded it rather than defending the motor: the library's
   `night-coast` declares a **30**-entry palette (20 used at frame 0) and uses all
-  four ramp steps (2540 / 10311 / 6739 / 410 cells), while the converted unicorn
-  has 7 entries, uses only **three** of four steps, never the full dot
-  (19452 / 490 / 58 / **0**), and leaves 96.8 % of adjacent cell pairs flat
+  its ramp steps (2540 / 10311 / 6739 / 410 cells), while the converted WU18
+  unicorn had 7 entries, used only **three** of four steps, never the full dot
+  (19452 / 490 / 58 / **0**), and left 96.8 % of adjacent cell pairs flat
   (`flatRunFraction` 0.9682) where the library leaves 51.7 % flat. The cause is mainly the subject — a thin line drawing
   covers 3.57 % of the cells where a landscape fills the frame — but the result
-  at the same grid is thinner, and that is input for the audit unit that follows.
+  at the same grid was thinner, and that is what the WU19 audit round measured and
+  partly closed: with the prefilter and auto-gain the same drawing covers 5.90 %
+  of cells, gains 2.944, uses all five steps (18827 / 554 / 370 / 175 / 74) and
+  leaves 94.4 % flat. The full prioritised audit is `docs/AUDITORIA-ESCENAS.md`.
 - **Budget, re-measured rather than assumed.** The engine chunk is now 33,296 B
   raw / **12,787 B gzip** shared by the three laboratory routes; the laboratory's
   executable total is **38,211 B gzip** (library 25,256 + engine 12,787 + three
   56 B entry chunks, 0 B inline), capped at **40,259 B** (measured + 2,048 B,
   margin rule ≤ 4,096 B), asserted identically in `check-iteration-3.mjs` and
   `check-ascii-runtime.mjs`, with the laboratory copy updated to the same
-  numbers. The landing five chunks are untouched.
+  numbers. The landing five chunks are untouched. (WU19 re-measured: engine chunk
+  33,856 B raw / 12,997 B gzip, lab total 38,421 B gzip, cap 40,469 B — see the
+  WU19 section.)
 
 ```bash
 node scripts/scene-src/from-image.mjs --in input.svg --mode ink --palette ink --png --out out
@@ -1010,6 +1022,69 @@ node scripts/check-scene-engine.mjs              # dot geometry, catalog, ledger
 node scripts/check-shape-study.mjs               # WU17 catalog + the three-lab cross-links
 node scripts/check-ascii-runtime.mjs --out dist-motion-verify/wu18/lab
 pnpm check
+```
+
+## WU19 — measured audit and improvement round
+
+The user praised the stars-and-aurora treatment, was confused that the unicorn
+never appeared on the laboratory page (licence decision: the gist art is a local
+fixture only), and flagged that **our calibration-target drawing converts badly**
+— a fine diagonal hatch aliased into a dominant dither block. The round produced
+a measured audit (`docs/AUDITORIA-ESCENAS.md`, Spanish), four engine-level fixes
+and re-measured everything they touch:
+
+- **Anti-moiré prefilter** (`image-pipeline.mjs`, `prefilterRgba`, on by default;
+  `--prefilter none` reproduces the WU18 measurement path byte for byte — the
+  measurement matches; the raster does not, because this round's fifth ladder rung
+  also changes the output): a Gaussian matched to the
+  cell pitch (σ = 0.75 × pitch, three box passes, premultiplied alpha) applied
+  **before** per-cell measurement. The calibration target's hatch region tone
+  coefficient of variation falls **0.8145 → 0.3519** with the region's mean kept
+  (0.3190 → 0.3177); a smooth-gradient control is untouched (identical mean and
+  monotonicity). Honest cost: strokes narrower than a cell soften (the mark's ink
+  p90 drops to 0.6009 ungained); auto-gain claws much of that back for sparse art.
+- **Auto-gain** (`AUTO_GAIN_RULE`, on by default; `--auto-gain none` disables):
+  `gain = clamp(0.75 / p90, 1, 3.5)` over inked cells, recorded in
+  `scene.params.gain` and in the serialisation. The unicorn fixture moves from p90
+  0.395 / histogram 19452/490/58/**0** to gain 2.944 and 18827/554/370/175/**74**;
+  full-range input stays at gain 1, and our dark sparse mark takes a mild gain of
+  1.248 because the prefilter softens its ink p90 to 0.6009.
+- **Deeper default palette**: extraction now asks for **16** entries
+  (`DEFAULT_EXTRACT_COUNT`); on a smooth gradient that yields 15 real entries and
+  cuts the mean per-cell tone error **0.0174 → 0.0078** against 8 requested.
+- **Fifth ladder rung at full coverage**: `COVERAGE = [0, 0.2344, 0.4844, 0.8125,
+  1.0]`, radii re-derived to `[0, 0.2732, 0.3927, 0.5103, 0.7071]` (the fifth is
+  the half diagonal — the clipped disc IS the cell, which is what saturation
+  means), the ramp gains the `⬤` mark, and the ring solves to its measured peak
+  (`shapeCoverageCap`) where it cannot close a cell. **The shipped default scene
+  changed**: 63 poster cells of `joyan-night-coast` step up, so the bake was
+  re-rendered — PNG 41,906 → **43,235 B** (`16310df3…`), poster raster
+  `2808ffc7…` → **`bd1c708d…`**, MP4 re-encoded (350,674 B). Checker assertions
+  were updated to the NEW measured ladder, never the old one.
+- **Aurora tuned** (finer octaves, finer lattice, blend 0.92 → 0.55,
+  subject-preserving blending): on our mark at 200×100 the tinted wash falls
+  **28.33 % → 9.30 %** of the grid, the largest connected blob **1193 → 117
+  cells**, and the subject's local contrast retention rises **0.8562 → 0.9650**.
+  Periodicity stays exact by construction (field seam 4.36e−15; rendered seam 192
+  cells vs an exhaustive adjacent-pair maximum of 198).
+- **Laboratory copy refreshed**: the licence note beside the inputs states the
+  gist art was a local fixture only, the exact CLI conversion command is shown,
+  and the quality statement names the prefilter, the auto-gain and the aliasing
+  defect with its numbers. All three laboratory routes stay linked, still by
+  default, with Play, reduced-motion and cleanup behaviour unchanged.
+- **Budget re-measured**: engine chunk 33,856 B raw / **12,997 B gzip**; lab
+  executable total **38,421 B gzip**, cap **40,469 B** (measured + 2,048 B,
+  margin ≤ 4,096 B), asserted identically in both budget checkers. The landing
+  five chunks remain byte-identical at 109,818 B gzip (delta 17,913 against the
+  untouched 91,905 B fixture).
+- **The audit document** is the prioritised record: every finding with its
+  number, evidence file, P1/P2/P3 priority and fixed-this-round status, plus what
+  remains (deeper authored palettes, photographic dither default, presentation
+  pitch per width) feeding the single-page unit.
+
+```bash
+node scripts/check-audit.mjs                     # WU19: audit claims re-measured against the doc
+node scripts/scene-src/bake.mjs --scene joyan-night-coast --cell 8 --mp4 --frames 360 --crf 41
 ```
 
 ## MAGI SVG diagram guide

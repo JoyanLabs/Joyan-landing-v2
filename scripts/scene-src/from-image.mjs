@@ -23,6 +23,8 @@
  *   --cell <px>            delivery pixels per cell for the PNG (default 8)
  *   --density <1|2|4>      grid stride for the PNG (default 1)
  *   --overlays <ids>       comma list of stars,aurora,grain,glimmer (default none)
+ *   --prefilter pitch|none anti-moiré prefilter matched to the cell pitch (default pitch)
+ *   --auto-gain auto|none  per-image normalisation for sparse inputs (default auto)
  *   --png                  also write <id>-cell<N>.png into --out
  *
  * Usage: node scripts/scene-src/from-image.mjs --in <file> [flags]
@@ -31,8 +33,8 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import sharp from 'sharp';
 import {
-  IMAGE_PALETTES, MEASURE_MODES, COLOR_MODES, convertRgba, fitGrid, sceneFromMeasurement,
-  serializeScene, PIPELINE_RECIPE,
+  AUTO_GAIN_RULE, DEFAULT_EXTRACT_COUNT, IMAGE_PALETTES, MEASURE_MODES, COLOR_MODES, PREFILTER_RULE,
+  convertRgba, fitGrid, sceneFromMeasurement, serializeScene, PIPELINE_RECIPE,
 } from './image-pipeline.mjs';
 import { OVERLAY_IDS, withOverlays } from './overlays.mjs';
 import { DELIVERY_CELL, renderFrame, rasterize } from './engine.mjs';
@@ -87,8 +89,10 @@ export async function convert(input, options = {}) {
     mode: options.mode ?? 'ink',
     colorMode: options.colorMode ?? 'levels',
     palette: options.palette ?? 'ink',
-    paletteCount: options.paletteCount ?? 8,
+    paletteCount: options.paletteCount ?? DEFAULT_EXTRACT_COUNT,
     margin: options.margin ?? 0.04,
+    prefilter: options.prefilter,
+    autoGain: options.autoGain,
     id: options.id ?? 'image-scene',
     label: options.label,
   });
@@ -138,11 +142,14 @@ if (isMain) {
   const density = Number(at('--density') ?? 1);
   const dither = at('--dither') ?? 'bayer4';
   const shape = at('--shape') ?? 'disc';
+  const prefilter = (at('--prefilter') ?? 'pitch') === 'none' ? false : 'pitch';
+  const autoGain = (at('--auto-gain') ?? 'auto') === 'none' ? 'none' : 'auto';
   const out = at('--out');
   const options = {
     cols: Number(at('--cols') ?? 200), rows: Number(at('--rows') ?? 100),
     margin: Number(at('--margin') ?? 0.04), mode, colorMode, palette,
-    paletteCount: Number(at('--palette-count') ?? 8),
+    paletteCount: Number(at('--palette-count') ?? DEFAULT_EXTRACT_COUNT),
+    prefilter, autoGain,
     id: at('--id') ?? 'image-scene', label: at('--label'),
     rasterSize: Number(at('--raster-size') ?? 1024),
   };
@@ -157,6 +164,7 @@ if (isMain) {
       bytes: converted.decoded.source.bytes, decoded: `${converted.decoded.width}x${converted.decoded.height}` },
     recipe: PIPELINE_RECIPE,
     mode, colorMode, palette: converted.scene.converted.paletteSource,
+    prefilter: converted.scene.params.prefilter, autoGain: converted.scene.params.gain > 1 ? `auto (gain ${converted.scene.params.gain.toFixed(2)})` : 'auto (gain 1)',
     fit: converted.measure.stats.fit,
     fitRule: converted.fit.rule,
     measureRule: converted.measure.rule,
@@ -189,5 +197,6 @@ export { convertRgba } from './image-pipeline.mjs';
 export const CLI_USAGE = 'node scripts/scene-src/from-image.mjs --in <file> [--mode ink|luminance] '
   + '[--color levels|rgb] [--palette <id|extract>] [--cols n] [--rows n] [--margin f] '
   + '[--dither bayer4|bayer8|blue|none] [--shape id] [--cell px] [--density 1|2|4] '
+  + '[--prefilter pitch|none] [--auto-gain auto|none] '
   + '[--overlays stars,aurora,grain,glimmer] [--out dir] [--png]';
 export const CLI_EXTENSIONS = ['svg', 'png', 'jpg', 'jpeg'];

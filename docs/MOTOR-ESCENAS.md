@@ -66,12 +66,16 @@ distinto, serían dos parecidos y no la misma pieza.
   supersampleada de WU15 **midió** en su celda de entrega; se conserva como
   objetivo y ahora la máscara la alcanza **exactamente en cualquier tamaño de
   celda** (medido 0.234400 / 0.484400 / 0.812500 a 4, 8 y 16 px por celda, frente
-  a la deriva 0.2422 / 0.5117 / 0.7930 de la versión anterior a 8 px). De esa
-  escalera se **derivan** los radios (`DOT_RADIUS`, en unidades de celda):
-  `[0, 0.2731, 0.3927, 0.5103]`, por bisección sobre el área exacta del disco
-  recortado, no por una fracción asumida de la celda. El mayor es el disco
-  inscrito (0.5) más el 2 % que pide la escalera medida, y el raster recorta lo
-  que cae fuera de la celda. La escalera de tono (`ladder`) se deriva de esa
+  a la deriva 0.2422 / 0.5117 / 0.7930 de la versión anterior a 8 px). **WU19 añade
+  el quinto peldaño a cobertura completa: `COVERAGE = [0, 0.2344, 0.4844, 0.8125,
+  1.0]`** — un brillo puede cerrar la celda entera de tinta (la rampa gana la marca
+  `⬤`). De esa escalera se **derivan** los radios (`DOT_RADIUS`, en unidades de
+  celda): `[0, 0.2731, 0.3927, 0.5103, 0.7071]`, por bisección sobre el área exacta
+  del disco recortado, no por una fracción asumida de la celda. El cuarto es el
+  disco inscrito (0.5) más el 2 % que pide la escalera medida; el quinto es la
+  **media diagonal de la celda** (0.7071), el disco que llega a las esquinas, cuyo
+  recorte ES la celda completa — eso es lo que significa saturación. La escalera de
+  tono (`ladder`) se deriva de esa
   medición: la curva que traduce luminancia a paso es la misma curva que dibuja
   los puntos.
 - **Dither ordenado.** Matriz de Bayer 4 × 4. Un nivel entre dos peldaños de la
@@ -546,12 +550,16 @@ byte idénticos y ningún JavaScript de motor fuera de `/lab/**`.
 
 ### 12.1 Cómo se deriva el tamaño de cada forma
 
-Ninguna forma recibe un radio adivinado. La escalera es la medida en WU16
-(`LADDER = [0, 0.2344, 0.4844, 0.8125]`, la fracción de celda que cubre cada
-peldaño) y cada forma tiene **un solo escalar** que se resuelve desde ella: un
-barrido de 160 pasos hasta 3,0 unidades de celda busca el **primer** cruce
-(el anillo no es monótono: su agujero crece), y 30 bisecciones refinan dentro de
-ese intervalo. Se devuelve el menor tamaño cuya área exacta alcanza el peldaño;
+Ninguna forma recibe un radio adivinado. La escalera es la medida en WU16 con el
+quinto peldaño de WU19 (`LADDER = [0, 0.2344, 0.4844, 0.8125, 1.0]`, la fracción
+de celda que cubre cada peldaño) y cada forma tiene **un solo escalar** que se
+resuelve desde ella: un barrido de 160 pasos hasta 3,0 unidades de celda busca el
+**primer** cruce (el anillo no es monótono: su agujero crece), y 30 bisecciones
+refinan dentro de ese intervalo. El objetivo se **recorta por el máximo físico de
+la forma** (`shapeCoverageCap`, medido sobre la misma rejilla de barrido): un
+anillo no puede cubrir la celda entera porque su agujero crece con él, así que en
+el peldaño de cobertura completa resuelve a su pico medido y lo declara. Se
+devuelve el menor tamaño cuya área exacta alcanza el peldaño;
 `maskSize(forma, rampa, geometría, paso)` publica el número y
 `maskDerivation(forma)` la frase que dice qué se resuelve.
 
@@ -782,21 +790,27 @@ la duda de derechos no salga del directorio de evidencias; si el usuario confirm
 que tiene los derechos, otra unidad puede añadirlo como tercera entrada.
 
 Medidas del fixture (variante `line-transparent`, 2.067 B, decodificada a
-1024 × 1024):
+1024 × 1024). Desde WU19 la conversión por defecto lleva **prefiltro antimoaré**
+y **auto-ganancia** (sección 14), así que la fila 200 × 100 cambia frente a WU18:
+la tinta se mide tras el prefiltro y el tono se normaliza con una ganancia
+registrada (2,944 a 200 × 100):
 
-| Rejilla | Escala | Dibujado | Celdas con tinta | Fracción | Nivel medio | Máx | Pasos 0/1/2/3 | sha256 del raster (12) | PNG |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 200 × 100 | 0,08984375 | 92 × 92 | 713 | 0,0357 | 0,00949 | 0,68281 | 19452/490/58/0 | `da63f9e930ac` | 13.962 B |
-| 100 × 50 | 0,044921875 | 46 × 46 | 270 | 0,0540 | 0,00949 | 0,48436 | 4867/128/5/0 | `3669f24e1bbe` | 3.664 B |
-| 50 × 25 | 0,0224609375 | 23 × 23 | 95 | 0,0760 | 0,00949 | 0,37326 | 1224/26/0/0 | `775d68b9bde8` | 1.079 B |
+| Rejilla | Escala | Dibujado | Celdas con tinta | Fracción | Nivel medio | Máx | Ganancia | Pasos 0/1/2/3/4 | sha256 del raster (12) | PNG |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 200 × 100 | 0,08984375 | 92 × 92 | 1180 | 0,0590 | 0,00949 | 0,44081 | 2,944 | 18827/554/370/175/74 | `125557ea13bf` | 22.637 B |
+| 100 × 50 | 0,044921875 | 46 × 46 | 368 | 0,0736 | 0,00948 | 0,32676 | 3,500 | 4596/252/97/45/10 | `5454fa09dbf3` | 5.929 B |
+| 50 × 25 | 0,0224609375 | 23 × 23 | 86 | 0,0688 | 0,00948 | 0,20970 | 3,500 | 1141/72/32/5/0 | `009cb8c2f3ff` | 1.823 B |
 
 Otras medidas: ida y vuelta por la serialización **mismo hash** que la escena en
-vivo (`da63f9e9…`); PNG decodificado mide idéntico (nivel medio 0,00949) y JPEG
+vivo (`125557ea…`); PNG decodificado mide idéntico (nivel medio 0,00949) y JPEG
 decodifica al mismo tamaño con la misma medida dentro de 0,01. El modo `ink` da
 nivel medio 0,00949 y el `luminance` 0,4232 (paletas de 7 y 2 entradas): son dos
 instrumentos distintos. La extracción por median cut de este dibujo da solo
 **4 entradas** (`#060607`…`#0b0b0c`): un line art casi monocromo tiene una paleta
-poco profunda por naturaleza, y por eso existe la paleta con nombre.
+poco profunda por naturaleza, y por eso existe la paleta con nombre. Sobre un
+input rico en tono (un degradado liso), la extracción por defecto de WU19 rinde
+**15 entradas** con un error tonal medio por celda de 0,0078 frente a 0,0174 con
+8 entradas (sección 14.3).
 
 ### 13.3 Overlays periódicos, medidos en el `field`
 
@@ -810,41 +824,47 @@ hace que el cierre caiga exacto en la retícula.
 
 | Overlay | Costura máx/medio (`t=0` vs 30 s) | Paso adyacente máx/medio | Celdas que cambian: costura vs adyacente |
 | --- | --- | --- | --- |
-| stars | 3,39e−15 / 5,05e−17 | 0,0390 / 0,00089 | 84 vs 88 |
-| aurora | 5,61e−15 / 1,63e−16 | 0,1088 / 0,00649 | 458 vs 512 |
-| grain | 1,34e−15 / 6,33e−17 | 0,0265 / 0,00261 | 66 vs 84 |
-| glimmer | 0 / 0 | 0,0184 / 0,00111 | 99 vs 404 |
+| stars | 3,44e−15 / 4,94e−17 | 0,0390 / 0,00087 | 91 vs 108 |
+| aurora | 4,36e−15 / 6,00e−17 | 0,0652 / 0,00261 | 192 vs 198 |
+| grain | 1,39e−15 / 6,61e−17 | 0,0265 / 0,00274 | 99 vs 148 |
+| glimmer | 0 / 0 | 0,0184 / 0,00111 | 115 vs 580 |
 
 Dos avisos honestos: el overlay de aurora **necesita una paleta cromática** — con
 `--palette ink` sus colores se aproximan a grises y el PNG sale monocromo (evidencia:
 `dist-motion-verify/wu18/cli/image-scene[stars+aurora]-8px-density1.png`) mientras
 que con `--palette aurora` sale en verde/azul/violeta
-(`…/unicorn-aurora[stars+aurora]-8px-density1.png`) —, y a 200 × 100 la aurora se
-lee en **bloques de dither grandes** (~33 celdas por mancha con `scaleX = 0,06`),
-no como una cortina fina. Se dice, no se disimula.
+(`…/unicorn-aurora[stars+aurora]-8px-density1.png`) —, y a 200 × 100 la aurora de
+WU18 se leía en **bloques de dither grandes** (~33 celdas por mancha con
+`scaleX = 0,06`), no como una cortina fina. WU19 la afinó (octavas 3, retícula
+más fina, amplitud 0,92 → 0,55 y mezcla que preserva el sujeto); las cifras
+antes/después están en la sección 14.4 y en
+`docs/AUDITORIA-ESCENAS.md`.
 
 ### 13.4 Comparación honesta con las escenas de la librería
 
 El usuario cree que las escenas de la librería aún se leen mejor. No se discute:
 se mide. A la misma rejilla de 200 × 100 y al mismo tamaño mostrado:
 
-| Medida | Librería `night-coast` | Nuestro unicornio convertido |
+| Medida | Librería `night-coast` | Nuestro unicornio convertido (WU19) |
 | --- | --- | --- |
 | Entradas de paleta | **30** (20 usadas en el fotograma 0) | **7** |
-| Niveles distintos en la rejilla | n/d (4 pasos) | 136 (de 256) |
-| Reparto de pasos (0/1/2/3) | 2540 / 10311 / 6739 / 410 | 19452 / 490 / 58 / **0** |
-| Celdas planas (pares adyacentes iguales) | 0,5168 | 0,9682 |
+| Niveles distintos en la rejilla | n/d (5 pasos) | 227 (de 256) |
+| Reparto de pasos (0/1/2/3/4) | 2540 / 10311 / 6739 / 410 / n/d | 18827 / 554 / 370 / 175 / **74** |
+| Celdas planas (pares adyacentes iguales) | 0,5168 | 0,9439 |
 | fps | 15 | 12 |
 
-Es decir: **a igual tamaño, el unicornio convertido se lee más pobre y más plano
-que las escenas de la librería**, y los números lo dicen sin adornos — solo usa
-tres de los cuatro pasos, nunca el punto lleno, el 97 % de las celdas quedan
-vacías y su paleta tiene 7 entradas frente a 30. La causa principal es el sujeto
-(un dibujo de línea fina cubre el 3,57 % de las celdas, mientras una escena de
-paisaje llena el marco) y no el motor; pero el resultado a la misma rejilla es
-más escaso, y eso es un dato para la unidad de auditoría que sigue.
-`scripts/check-image-pipeline.mjs` mide ambos lados y esta sección se contrasta
-contra `dist-motion-verify/wu18/`.
+Es decir: **a igual tamaño, el unicornio convertido sigue leyéndose más escaso
+que las escenas de la librería**, y los números lo dicen sin adornos — el 94 % de
+las celdas quedan vacías y su paleta tiene 7 entradas frente a 30. Pero WU19 cierra
+la brecha que sí era del motor: antes de esta ronda el dibujo usaba tres de cuatro
+pasos y **nunca** el punto lleno (reparto 19452/490/58/0, plano 0,9682); con
+auto-ganancia y el quinto peldaño usa los cinco pasos y llega a la cobertura
+completa (18827/554/370/175/74, plano 0,9439). La causa principal de la escasez
+sigue siendo el sujeto (un dibujo de línea fina cubre el 5,90 % de las celdas
+medidas tras el prefiltro, mientras una escena de paisaje llena el marco) y no el
+motor. La comparación completa, con prioridades, está en
+`docs/AUDITORIA-ESCENAS.md`. `scripts/check-image-pipeline.mjs` mide ambos lados y
+esta sección se contrasta contra `dist-motion-verify/wu19/`.
 
 ### 13.5 La superficie: `/lab/image`
 
@@ -858,3 +878,114 @@ declarados: no hay conversión arbitraria de un fichero del usuario en el
 navegador (la conversión es en Node y el runtime dibuja la conversión embebida);
 el fit es *contain* centrado, sin recorte tipo *cover*; y el vídeo queda
 explícitamente fuera de esta unidad.
+
+## 14. Ronda de mejora WU19: prefiltro, auto-ganancia, paleta y quinto peldaño
+
+La auditoría completa, con cada hallazgo, su evidencia y su prioridad, vive en
+`docs/AUDITORIA-ESCENAS.md`. Esta sección documenta los cuatro arreglos de motor
+que la auditoría pidió, cada uno con su número antes/después.
+
+### 14.1 Prefiltro antimoaré acoplado al paso de la rejilla
+
+El diana de calibración propia tiene un cuadrante de rayado fino diagonal que
+convertía mal: el rayado batía contra la retícula en lugar de medirse como tono
+(variación de tono en la región del rayado, coeficiente de variación **0,8145**).
+La causa es de muestreo: el periodo del rayado (~2,03 celdas) cae justo en la
+frecuencia de Nyquist de la retícula y las celdas alternan golpe/agua.
+
+La solución está en `image-pipeline.mjs` (`prefilterRgba`): un **gaussiano con
+σ = 0,75 × paso de celda** (tres pasadas de caja de radio `round(0,75·pitch)`, la
+aproximación estándar por cajas), con alfa premultiplicado y deshecho después,
+aplicado a los píxeles de origen **antes** de la medición por celda. Es aritmética
+exacta con sumas prefijadas: determinista, sin muestreo, idéntica en Node y en el
+navegador. `--prefilter none` lo desactiva y reproduce el comportamiento de medición
+de WU18 byte a byte (la medición coincide; el raster no, porque la escalera de cinco
+peldaños de esta ronda también cambia la salida) — eso es lo que hace honesta la comparación:
+
+| Medida (región del rayado de la diana, 160 × 80) | Antes | Después |
+| --- | --- | --- |
+| Coeficiente de variación del tono | 0,8145 | **0,3519** |
+| Tono medio de la región | 0,3190 | 0,3177 (−0,4 %) |
+| Degradado liso: tono medio | 0,21390 | 0,21390 (intacto) |
+| Degradado liso: inversiones de monotonía | 71 | 71 (intacto) |
+
+El compromiso, dicho claro: los trazos más finos que una celda se suavizan (el
+p90 de tinta de nuestra marca baja de 0,946 a 0,601 medido sin ganancia); la
+auto-ganancia de la sección 14.2 compensa buena parte de esa pérdida en arte
+escaso, y el tono medio de cada región se conserva.
+
+### 14.2 Auto-ganancia por imagen, registrada en la serialización
+
+El hallazgo de tono: un line art escaso y claro mide casi todo por debajo del
+primer peldaño — el fixture del unicornio ponía el p90 de sus celdas entintadas en
+**0,395** y el reparto de pasos era 19452/490/58/**0**: ni un solo punto lleno. La
+normalización (`AUTO_GAIN_RULE`) es `ganancia = clamp(0,75 / p90, 1, 3,5)` sobre el
+p90 de las celdas con tinta (> 0,05), aplicada al tono medido y **registrada** en
+`scene.params.gain` y en la serialización (`serialized.params.gain`), para que el
+canvas dibuje exactamente la misma conversión ganada. El arte que ya es oscuro o de
+rango completo se queda en ganancia 1 — la regla decide, no un refuerzo
+incondicional:
+
+| Entrada | p90 antes | Ganancia | p90 ganado | Pasos |
+| --- | --- | --- | --- | --- |
+| Unicornio (fixture local), 200 × 100 | 0,395 | 2,944 | — | 18827/554/370/175/**74** |
+| Sintético escaso y claro (6,2 % de tinta) | 0,209 | 3,500 | 0,722 | usa la parte alta de la escalera |
+| Nuestra marca (escasa pero oscura) | 0,946 | 1,248 | 1,181 | suave subida: el prefiltro afloja su p90 a 0,601 y la regla la normaliza |
+| Degradado liso (rango completo) | 0,900 | 1,000 | 0,900 | sin cambio |
+
+### 14.3 Paleta por defecto más profunda para imágenes
+
+La extracción median-cut pasa de 8 a **16 entradas pedidas** por defecto
+(`DEFAULT_EXTRACT_COUNT`; la deduplicación puede devolver menos en inputs pobres).
+Calidad de extracción medida como el error tonal medio por celda contra la paleta
+extraída, sobre un degradado liso (el input donde la profundidad significa algo):
+
+| Profundidad pedida | Entradas tras deduplicar | Error tonal medio |
+| --- | --- | --- |
+| 8 (WU18) | 7 | 0,0174 |
+| 16 (WU19) | **15** | **0,0078** |
+
+En un line art casi monocromo la profundidad no cambia nada (la paleta que la
+imagen tiene es la que hay); para fotografía y degradados es donde se nota.
+
+### 14.4 Aurora afinada: menos lavado, sujeto preservado
+
+La aurora de WU18 (`scaleX = 0,06`, 2 octavas, mezcla 0,92, puerta 0,46–0,86)
+formaba **un solo lavado conexo de ~1.193 celdas** que teñía el **28,3 %** de una
+rejilla de 200 × 100 por encima de 0,12 de tono, y restaba contraste al sujeto.
+WU19 la afina: 3 octavas, retícula 0,13/0,16, mezcla 0,55, puerta 0,52–0,94 y una
+**mezcla que preserva el sujeto** (una celda brillante —el dibujo sobre suelo
+oscuro— retiene hasta `keep = 0,55` más de sí misma). La corteza es la misma
+estética que el usuario aplaudió; lo que cambia es el grano y el respeto por el
+dibujo. Medido sobre nuestra marca a 200 × 100, tratamiento aurora+estrellas:
+
+| Medida | WU18 | WU19 |
+| --- | --- | --- |
+| Fracción de la rejilla teñida (> 0,12 de tono) | 0,2833 | **0,0946** |
+| Mayor mancha conexa (celdas) | 1193 | **117** |
+| Contraste local del sujeto retenido | 0,8562 | **0,9548** |
+
+La periodicidad se mantiene por construcción (los wraps siguen siendo enteros y
+las octavas los escalan): costura de campo 4,36e−15, y la costura renderizada
+(192 celdas) sigue sin superar el máximo paso adyacente (198, medido sobre los 360
+pares, no sobre una muestra).
+
+### 14.5 Quinto peldaño de la escalera y re-horneado
+
+`COVERAGE` gana `1.0` y `DOT_RADIUS` el radio 0,7071 (sección 2). La escena
+entregada cambia: en el fotograma de póster de `joyan-night-coast` 63 celdas suben
+al paso de cobertura completa (luna, corazón de la lámpara, pintura hueso), así que
+el PNG se re-horneó con el mismo motor:
+
+| Activo | WU18 | WU19 |
+| --- | --- | --- |
+| `scripts/scene-src/baked/joyan-night-coast.png` | 41.906 B, `5c2f8f3d…` | **43.235 B**, `16310df3…` |
+| Raster del póster (píxeles) | `2808ffc7…` | **`bd1c708d…`** |
+| `joyan-night-coast.mp4` (360 fotogramas, CRF 41) | — | 350.674 B, `1f77d7c1…` |
+
+El bake sigue siendo **exactamente** el raster del motor del fotograma de póster
+(medido, no asumido) y el cliente canvas y el raster de Node siguen de acuerdo hash
+a hash. El presupuesto de laboratorio se midió de nuevo: chunk de motor 33.856 B
+raw / 12.997 B gzip, laboratorio ejecutable 38.421 B gzip, tope 40.469 B
+(medido + 2.048 B, margen ≤ 4.096 B); los cinco chunks de la portada siguen
+byte a byte idénticos en 109.818 B gzip.

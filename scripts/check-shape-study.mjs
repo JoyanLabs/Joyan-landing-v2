@@ -51,7 +51,7 @@ const engine = await import(new URL('./scene-src/engine.mjs', import.meta.url));
 const scenes = await import(new URL('./scene-src/scenes/index.mjs', import.meta.url));
 const scene = scenes.SCENES[SCENE_ID];
 const { COVERAGE, DELIVERY_CELL, renderFrame, rasterize, maskFor, maskSize, cellSizeFor,
-  effectiveShape, ditherThreshold, maskDerivation } = engine;
+  effectiveShape, ditherThreshold, maskDerivation, shapeCoverageCap } = engine;
 // RED safety: on a tree without the WU17 catalog every catalog assertion below
 // must REPORT a missing surface instead of crashing on it.
 const hasCatalogApi = typeof maskFor === 'function' && typeof maskSize === 'function'
@@ -176,13 +176,17 @@ for (const shape of SHAPE_IDS) {
   const rows = [];
   for (const cell of [8, 4, 2]) {
     const box = cellSizeFor('square', cell);
-    for (let step = 1; step < 4; step++) {
+    for (let step = 1; step < 5; step++) {
       const mask = maskFor(shape, step, box.w, box.h, 'shape', 'square');
       const stats = metrics(mask, box.w, box.h);
       rows.push({ cell, step, ...stats, size: maskSize(shape, 'shape', 'square', step) });
-      check(Math.abs(stats.coverage - COVERAGE[step]) < COVERAGE_TOLERANCE,
+      // A shape that cannot cover a whole cell (the ring's hole grows with it) is
+      // allowed its stated cap at the WU19 full-coverage rung.
+      const cap = typeof shapeCoverageCap === 'function' ? shapeCoverageCap(shape) : 1;
+      const wanted = Math.min(COVERAGE[step], cap);
+      check(Math.abs(stats.coverage - wanted) < COVERAGE_TOLERANCE,
         `${shape}: step ${step} at ${cell} px per cell covers ${stats.coverage.toFixed(4)} `
-        + `against the ladder ${COVERAGE[step]}`);
+        + `against the ladder ${wanted}`);
     }
   }
   const derivation = maskDerivation(shape);
@@ -307,7 +311,7 @@ const toneResolution = hasCatalogApi ? [...SHAPE_IDS, 'ramp:block', 'ramp:glyph'
   const ramp = label.startsWith('ramp:') ? label.slice(5) : 'shape';
   const shape = label.startsWith('ramp:') ? effectiveShape('disc', ramp) : label;
   const box = cellSizeFor('square', 8);
-  return { label, ramp, shape, perStep: [1, 2, 3].map((step) =>
+  return { label, ramp, shape, perStep: [1, 2, 3, 4].map((step) =>
     new Set([...maskFor(shape, step, box.w, box.h, ramp, 'square')]).size) };
 }) : [];
 const ditherLevels = hasCatalogApi ? DITHER_IDS.map((mode) => {
@@ -327,13 +331,13 @@ const maskMean = (mask) => mask.reduce((sum, value) => sum + value, 0) / mask.le
 const blockRamp = {};
 const glyphRamp = {};
 for (const cell of [8, 4, 2, 16, 32]) {
-  const read = (ramp) => [1, 2, 3].map((step) => maskMean(maskFor('disc', step, cell, cell, ramp, 'square')));
+  const read = (ramp) => [1, 2, 3, 4].map((step) => maskMean(maskFor('disc', step, cell, cell, ramp, 'square')));
   blockRamp[cell] = read('block');
   glyphRamp[cell] = read('glyph');
 }
 const near = (a, b, tolerance = 1e-9) => Math.abs(a - b) <= tolerance;
-check(blockRamp[8].every((value, index) => near(value, [0.25, 0.5625, 0.9375][index]))
-  && blockRamp[4].every((value, index) => near(value, [0.25, 0.25, 1][index])),
+check(blockRamp[8].every((value, index) => near(value, [0.25, 0.5625, 0.9375, 1][index]))
+  && blockRamp[4].every((value, index) => near(value, [0.25, 0.25, 1, 1][index])),
 `the hard block ramp quantises to whole pixels: measured ${JSON.stringify(blockRamp[8])} at 8 px per cell and ${JSON.stringify(blockRamp[4])} at 4 px per cell`);
 check(blockRamp[8].some((value, index) => Math.abs(value - COVERAGE[index + 1]) > 0.01),
   'the block ramp must not be described as holding the ladder: it snaps to whole pixels');

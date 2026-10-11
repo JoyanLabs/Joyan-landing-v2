@@ -282,9 +282,9 @@ const { RAMP, CELL, COVERAGE, DELIVERY_CELL, DOT_RADIUS, renderFrame, frameChars
 check(typeof renderFrame === 'function' && typeof rasterize === 'function'
   && typeof frameChars === 'function' && typeof sceneMetrics === 'function',
   'engine must export renderFrame, rasterize, frameChars and sceneMetrics');
-check(RAMP === ' ·•●', `ramp must be exactly " ·•●", saw ${JSON.stringify(RAMP)}`);
+check(RAMP === ' ·•●⬤', `ramp must be exactly " ·•●⬤" (WU19 adds the full-coverage dot), saw ${JSON.stringify(RAMP)}`);
 for (const ch of RAMP) {
-  check(ch === ' ' || '·•●'.includes(ch),
+  check(ch === ' ' || '·•●⬤'.includes(ch),
     `ramp must contain only dots and space, saw ${JSON.stringify(ch)}`);
 }
 check(!/[A-Za-z0-9]/.test(RAMP), 'ramp must never contain ASCII glyph art');
@@ -293,14 +293,16 @@ check(!/[A-Za-z0-9]/.test(RAMP), 'ramp must never contain ASCII glyph art');
 assert.equal(RAMP.includes('A'), false);
 assert.equal(' .:-=+*#%@'.split('').every((ch) => RAMP.includes(ch)), false);
 check(stepFor(0, 0, 0) === 0 && stepFor(0, 1, 1) === 0, 'a zero level must stay on the ground');
-check(stepFor(1, 3, 3) === 3, 'a full level must use the largest dot');
+check(stepFor(1, 3, 3) === 4, 'a full level must use the WU19 full-coverage dot (step 4)');
 check(CELL === 1, `cell aspect unit must be 1 (square cells), saw ${CELL}`);
 check(Number.isInteger(DELIVERY_CELL) && DELIVERY_CELL >= 8,
   `delivery cell size must be an integer >= 8 px per cell: below that the smallest dot is a `
   + `hard 2x2 block rather than an anti-aliased disc, saw ${DELIVERY_CELL}`);
-check(COVERAGE.length === 4 && COVERAGE[0] === 0,
-  'coverage curve must have one entry per ramp step and start at 0');
-for (let s = 1; s < 4; s++) check(COVERAGE[s] > COVERAGE[s - 1], `coverage curve must increase at step ${s}`);
+check(COVERAGE.length === 5 && COVERAGE[0] === 0,
+  'coverage curve must have one entry per ramp step (five, WU19) and start at 0');
+for (let s = 1; s < 5; s++) check(COVERAGE[s] > COVERAGE[s - 1], `coverage curve must increase at step ${s}`);
+check(COVERAGE[4] === 1,
+  'the WU19 fifth rung must be full coverage: a highlight must be able to reach a whole cell of ink');
 
 check(scene.cols === 200 && scene.rows === 100,
   `${SCENE_ID} must be authored on the library's 200x100 grid, saw ${scene.cols}x${scene.rows}`);
@@ -328,24 +330,25 @@ check(Object.keys(scene.params).length <= 8,
 //    describe the dots the raster actually paints.
 // ---------------------------------------------------------------------------
 const metrics = sceneMetrics(scene);
-check(metrics.coverage.length === 4, 'sceneMetrics must report the measured dot coverage per step');
-for (let s = 1; s < 4; s++) {
-  check(Math.abs(metrics.coverage[s] - COVERAGE[s]) < 0.002,
+check(metrics.coverage.length === 5, 'sceneMetrics must report the measured dot coverage per step (WU19: five rungs)');
+for (let s = 1; s < 5; s++) {
+  const measured = Number(metrics.coverage?.[s]);
+  check(Math.abs(measured - COVERAGE[s]) < 0.002,
     `the ladder the mask paints must be the ladder the engine reports: step ${s} reports `
-    + `${COVERAGE[s]} but the mask measures ${metrics.coverage[s].toFixed(4)}`);
+    + `${COVERAGE[s]} but the mask measures ${Number.isFinite(measured) ? measured.toFixed(4) : String(measured)}`);
 }
-check(metrics.ladder.length === 4 && metrics.ladder[3] === 1,
-  'the tone ladder must be normalised to the largest dot');
-for (let s = 1; s < 4; s++) {
+check(metrics.ladder.length === 5 && metrics.ladder[4] === 1,
+  'the tone ladder must be normalised to the largest dot and top out at full coverage (WU19 fifth rung)');
+for (let s = 1; s < 5; s++) {
   check(metrics.ladder[s] > metrics.ladder[s - 1], `tone ladder must increase at step ${s}`);
 }
 // Palette compensation: normalising the field against the scene's own palette
 // range is what keeps a dark palette from collapsing onto step 0.
 check(metrics.maxTone > metrics.groundTone + 0.2,
   'a scene palette must offer real contrast above its ground');
-check(metrics.headroom.length === 4,
-  'sceneMetrics must report the rendered tone each ramp step can carry');
-for (let s = 1; s < 4; s++) {
+check(metrics.headroom.length === 5,
+  'sceneMetrics must report the rendered tone each ramp step can carry (five, WU19)');
+for (let s = 1; s < 5; s++) {
   check(metrics.headroom[s] > metrics.groundTone,
     `step ${s} must render brighter than the dark ground, saw ${metrics.headroom[s]}`);
 }
@@ -370,7 +373,7 @@ for (let s = 1; s < 4; s++) {
 //     checked to be DERIVED from the measured coverage rather than an assumed
 //     fraction of the cell.
 // ---------------------------------------------------------------------------
-const RECORDED_LADDER = [0, 0.2344, 0.4844, 0.8125];
+const RECORDED_LADDER = [0, 0.2344, 0.4844, 0.8125, 1.0];
 const REFERENCE_SAMPLES = 32;
 const referenceMask = (radiusInCells, size) => {
   const mask = new Float64Array(size * size);
@@ -429,10 +432,10 @@ const shapeStats = (mask, size) => {
     cornerOverEdge: edge > 0 ? corner / edge : 0, outsideDiscMass: total > 0 ? outside / total : 0,
     distinctValues: new Set([...mask]).size };
 };
-check(Array.isArray(DOT_RADIUS) && DOT_RADIUS.length === 4 && DOT_RADIUS[0] === 0,
-  'the engine must export DOT_RADIUS, one radius in cell units per ramp step');
+check(Array.isArray(DOT_RADIUS) && DOT_RADIUS.length === 5 && DOT_RADIUS[0] === 0,
+  'the engine must export DOT_RADIUS, one radius in cell units per ramp step (five, WU19)');
 const dotEvidence = [];
-for (let step = 1; step < 4; step++) {
+for (let step = 1; step < 5; step++) {
   check(Array.isArray(DOT_RADIUS) && Math.abs(DOT_RADIUS[step] - derivedRadius[step]) < 0.003,
     `DOT_RADIUS[${step}] must be DERIVED from the measured coverage ${RECORDED_LADDER[step]} `
     + `(that coverage solved as a disc is about ${derivedRadius[step].toFixed(4)} of a cell, saw `
@@ -441,10 +444,14 @@ for (let step = 1; step < 4; step++) {
     `dot radii must increase with the ramp, step ${step}`);
 }
 check(Array.isArray(DOT_RADIUS) && DOT_RADIUS[3] >= 0.5 && DOT_RADIUS[3] <= 0.52,
-  `the largest dot must be the inscribed disc of a cell or the measured ladder's equivalent `
+  `the fourth step (0.8125) must stay the inscribed disc of a cell or the measured ladder's equivalent `
   + `(0.5..0.52 of a cell), saw ${Array.isArray(DOT_RADIUS) ? DOT_RADIUS[3] : 'nothing'}`);
+const HALF_DIAGONAL = Math.SQRT1_2;
+check(Array.isArray(DOT_RADIUS) && Math.abs(DOT_RADIUS[4] - HALF_DIAGONAL) < 0.003,
+  `the WU19 fifth step (coverage 1.0) must be derived as the disc that reaches the cell corners, i.e. the `
+  + `half diagonal ${HALF_DIAGONAL.toFixed(4)} of a cell, saw ${Array.isArray(DOT_RADIUS) ? DOT_RADIUS[4] : 'nothing'}`);
 for (const cell of [4, 8, 16]) {
-  for (let step = 1; step < 4; step++) {
+  for (let step = 1; step < 5; step++) {
     const mask = discMask(step, cell);
     const reference = referenceMask(derivedRadius[step], cell);
     const stats = shapeStats(mask, cell);
@@ -452,6 +459,14 @@ for (const cell of [4, 8, 16]) {
     check(Math.abs(stats.coverage - RECORDED_LADDER[step]) < 0.002,
       `the ladder must hold at every cell size: step ${step} at ${cell} px per cell covers `
       + `${stats.coverage.toFixed(4)} of a cell against the recorded ${RECORDED_LADDER[step]}`);
+    if (step === 4) {
+      // Full coverage is geometrically the whole cell: the disc of the half-diagonal
+      // radius clipped to the cell is the cell itself. That is what saturation means;
+      // the checker asserts it instead of pretending it is still a free-standing dot.
+      check(stats.coverage > 0.999 && stats.distinctValues >= 1,
+        `the WU19 fifth step must paint the FULL cell (coverage 1.0), saw ${stats.coverage.toFixed(4)}`);
+      continue;
+    }
     check(worstPixel(mask, reference) <= 0.004,
       `step ${step} at ${cell} px per cell must be the anti-aliased disc, not a block: its worst `
       + `pixel differs from an independent ${REFERENCE_SAMPLES}x${REFERENCE_SAMPLES}-sampled disc of the `
@@ -508,7 +523,7 @@ const directRaster = (frame, size) => {
   const width = frame.cols * size;
   const height = frame.rows * size;
   const out = new Uint8ClampedArray(width * height * 4);
-  const masks = [null, discMask(1, size), discMask(2, size), discMask(3, size)];
+  const masks = [null, discMask(1, size), discMask(2, size), discMask(3, size), discMask(4, size)];
   const ground = metrics.colors[metrics.groundIndex];
   for (let y = 0; y < frame.rows; y++) {
     for (let x = 0; x < frame.cols; x++) {
@@ -676,11 +691,11 @@ if (hasCatalogApi) {
   // per step), never a fixed radius reused across steps.
   for (const shape of SHAPE_IDS) {
     const sizes = [];
-    for (let step = 1; step < 4; step++) sizes.push(engine.maskSize(shape, 'shape', 'square', step));
+    for (let step = 1; step < 5; step++) sizes.push(engine.maskSize(shape, 'shape', 'square', step));
     catalog.sizes.push({ shape, sizes });
     check(sizes.every((size) => typeof size === 'number' && size > 0),
       `${shape}: maskSize must report the solved size per ramp step`);
-    check(sizes[0] <= sizes[1] + 0.002 && sizes[1] <= sizes[2] + 0.002,
+    check(sizes[0] <= sizes[1] + 0.002 && sizes[1] <= sizes[2] + 0.002 && sizes[2] <= sizes[3] + 0.002,
       `${shape}: the solved size must not decrease as the ladder grows, saw ${JSON.stringify(sizes)}`);
     // The one mask whose footprint already carries the ladder (the glyph bitmap)
     // solves to size 1 and is allowed to land on either side of it.
@@ -691,14 +706,19 @@ if (hasCatalogApi) {
       `${shape}: the engine must state how its size is derived from the coverage ladder, saw ${JSON.stringify(derivation)}`);
     for (const { geometry, cell } of [{ geometry: 'square', cell: 8 }, { geometry: 'square', cell: 4 }, { geometry: 'char', cell: 8 }]) {
       const box = engine.cellSizeFor(geometry, cell);
-      for (let step = 1; step < 4; step++) {
+      for (let step = 1; step < 5; step++) {
         const mask = engine.maskFor(shape, step, box.w, box.h, 'shape', geometry);
         const stats = catalogMetrics(mask, box.w, box.h);
         if (geometry === 'square' && cell === 8) catalog.masks.push({ shape, step, ...stats });
         check(mask.length === box.w * box.h, `${shape}: maskFor must return one value per pixel`);
-        check(Math.abs(stats.coverage - COVERAGE[step]) < MASK_LADDER_TOLERANCE,
+        // A shape that cannot cover a whole cell (the ring's hole grows with it) is
+        // allowed its stated cap at the WU19 full-coverage rung; the cap is measured
+        // from the engine, not assumed here.
+        const cap = typeof engine.shapeCoverageCap === 'function' ? engine.shapeCoverageCap(shape, geometry) : 1;
+        const wanted = Math.min(COVERAGE[step], cap);
+        check(Math.abs(stats.coverage - wanted) < MASK_LADDER_TOLERANCE,
           `${shape} at ${geometry}/${cell} px must hold the coverage ladder: step ${step} covers `
-          + `${stats.coverage.toFixed(4)} against the measured ${COVERAGE[step]}`);
+          + `${stats.coverage.toFixed(4)} against the measured ${wanted}`);
       }
     }
   }
@@ -866,12 +886,12 @@ if (imageHtml) {
 // exactly on a rung must render that rung and nothing else, and a level halfway
 // between two rungs must spend the 4x4 Bayer block evenly between them.
 const bayerBlock = () => [...Array(16).keys()].map((i) => stepFor(0, i % 4, (i / 4) | 0));
-for (let s = 0; s < 4; s++) {
+for (let s = 0; s < 5; s++) {
   const at = [...Array(16).keys()].map((i) => stepFor(metrics.ladder[s], i % 4, (i / 4) | 0));
   check(new Set(at).size === 1 && at.every((v) => v === s),
     `a level exactly on ladder rung ${s} must render only step ${s}, saw ${JSON.stringify(at)}`);
 }
-for (let s = 0; s < 3; s++) {
+for (let s = 0; s < 4; s++) {
   const mid = (metrics.ladder[s] + metrics.ladder[s + 1]) / 2;
   const at = [...Array(16).keys()].map((i) => stepFor(mid, i % 4, (i / 4) | 0));
   const low = at.filter((v) => v === s).length;
@@ -1046,10 +1066,10 @@ check(colourSet.size <= scene.palette.length * (DELIVERY_CELL * DELIVERY_CELL + 
 
 const rasterAgain = rasterize(renderFrame(scene, scene.posterFrame), scene, DELIVERY_CELL);
 check(hash(Buffer.from(raster)) === hash(Buffer.from(rasterAgain)), 'the raster path must repeat identically');
-const masks = [1, 2, 3].map((step) => discMask(step, DELIVERY_CELL));
+const masks = [1, 2, 3, 4].map((step) => discMask(step, DELIVERY_CELL));
 check(masks.every((mask) => mask.length === DELIVERY_CELL * DELIVERY_CELL),
   'a dot mask must cover exactly one square cell');
-for (let s = 1; s < 4; s++) {
+for (let s = 1; s < 5; s++) {
   const measured = masks[s - 1].reduce((sum, v) => sum + v, 0) / masks[s - 1].length;
   check(Math.abs(measured - metrics.coverage[s]) < 0.03, 'measured coverage must match the engine report');
 }

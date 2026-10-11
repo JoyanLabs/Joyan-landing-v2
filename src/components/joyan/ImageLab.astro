@@ -58,10 +58,29 @@ const views = [
   <p class="mt-3 max-w-prose text-sm text-plomo-400">{cost}</p>
   <p class="mt-3 max-w-prose text-sm text-plomo-400">
     <span class="text-bone-100">Licence and rights.</span> The user's probe input — the Blade Runner unicorn gist —
-    is a film prop design. It is used here ONLY as a local test fixture under a gitignored evidence path: never
-    committed, never copied into <span class="font-mono">public/</span>, never shipped in any build. The two inputs
-    this page demonstrates are drawings we authored (<span class="font-mono">scripts/scene-src/local-inputs.mjs</span>);
-    if the user confirms they hold the rights to the gist art, a future unit may add it as a third input.
+    is a film prop design. It was used ONLY as a local fixture under a gitignored evidence path, and it was
+    never part of this page: never committed, never copied into <span class="font-mono">public/</span>, never shipped
+    in any build. That is why it never appeared on the laboratory page; the two inputs this page demonstrates are
+    drawings we authored (<span class="font-mono">scripts/scene-src/local-inputs.mjs</span>). If the user confirms they
+    hold the rights to the gist art, a future unit may add it as a third input.
+  </p>
+  <p class="mt-3 max-w-prose text-sm text-plomo-400">
+    <span class="text-bone-100">Convert your own file.</span> The same pipeline runs from the command line on any local
+    SVG, PNG or JPEG — no upload, no network:
+    <span class="mt-1 block break-all font-mono text-xs text-bone-100">node scripts/scene-src/from-image.mjs --in your-file.svg --mode ink --color levels --palette ink --overlays stars,aurora --out dist-motion-verify/wu19 --png</span>
+    Add <span class="font-mono">--prefilter none</span> to disable the anti-moiré prefilter, or
+    <span class="font-mono">--auto-gain none</span> to disable the per-image normalisation; both are on by default.
+  </p>
+  <p class="mt-3 max-w-prose text-sm text-plomo-400">
+    <span class="text-bone-100">Quality, measured (WU19).</span> A fine diagonal hatch in our calibration target used to
+    alias into a dominant dither block: the hatch beat against the cell lattice (tone coefficient of variation 0.8145
+    across the hatch region). Conversions now pass the source through a prefilter matched to the cell pitch before
+    measuring, which averages sub-lattice detail into tone (hatch variation 0.3519 with the region's mean tone kept
+    within 0.4%); the trade-off is that strokes narrower than a cell soften slightly. Sparse light drawings used to
+    land almost entirely in the empty step; an auto-gain now normalises each image (gain recorded in the scene;
+    1.0 for full-range art, and a mild gain for dark art such as our mark, whose prefiltered ink p90 is 0.6009). The
+    ladder gained a fifth rung at full coverage, so highlights can
+    close a cell completely. What did NOT improve is stated in <span class="font-mono">docs/AUDITORIA-ESCENAS.md</span>.
   </p>
   <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
     <label class={controlLabelClass}>

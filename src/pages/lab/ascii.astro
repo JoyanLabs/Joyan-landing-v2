@@ -60,7 +60,7 @@ const metadata = {
       <p class="mt-2 max-w-prose text-sm text-plomo-400">
         Three panes, the same 200 × 100 grid and the same displayed size: the library's <span class="font-mono">night-coast</span> live,
         our own coastal night live, and our own coastal night baked. Ours is drawn by an engine we wrote
-        (<span class="font-mono">scripts/scene-src/engine.mjs</span>): square cells, the dot ramp <span class="font-mono">· • ●</span>
+        (<span class="font-mono">scripts/scene-src/engine.mjs</span>): square cells, the dot ramp <span class="font-mono">· • ● ⬤</span>
         only, ordered 4×4 Bayer dithering, one indexed palette per scene, deterministic hash noise and per-cell palette
         compensation, so a small dot is carried by a brighter ink instead of disappearing into the dark ground. The same
         frame function draws the canvas and the PNG: the baked still is the engine's poster frame, not a lookalike.
@@ -71,7 +71,9 @@ const metadata = {
         no movie, no external asset. Only section 01 is a video. A dot is a <span class="text-bone-100">round,
         anti-aliased disc</span>: each pixel receives the exact area of the disc inside it, and each step's radius is derived
         from the measured coverage ladder (0.2344 / 0.4844 / 0.8125 of a cell becomes a radius of 0.2731 / 0.3927 / 0.5103 of a
-        cell), so the largest dot is the inscribed disc and never a block. The two live panes are <em>not</em> drawn at the same
+        cell), so the largest dot is the inscribed disc and never a block. Since WU19 the ladder has a fifth rung at
+        full coverage 1.0 — a radius of 0.7071 of a cell, the disc that reaches the corners — so a highlight can close
+        the cell completely instead of stopping at the 0.8125 dot. The two live panes are <em>not</em> drawn at the same
         pixel pitch: our canvas is a fixed 1600 × 800 backing store (8 px per cell) that the browser resamples to the pane,
         while the library sizes its own canvas to its display box — measured 307 × 154, about 1.54 device px per cell, at a
         1440-wide viewport. Same grid, same displayed size, different internal resolution; and our image is no longer
@@ -81,11 +83,11 @@ const metadata = {
         Measured cost of each pane, shipped bytes at gzip level 6. The library's own bundle carries all eight library mounts
         on this page (two pieces, the six gallery scenes and this pane): <span class="font-mono">25256 B</span> gzip in one
         chunk, so that is not a per-pane number. Our engine, our scene, the WU17 shape catalogue, the WU18 image
-        pipeline and overlays and its runtime come to <span class="font-mono">33296 B</span> of JavaScript, shipped as
+        pipeline and overlays and its runtime come to <span class="font-mono">33856 B</span> of JavaScript, shipped as
         one chunk shared by the three laboratory routes (<span class="font-mono">/lab/ascii</span>,
         <span class="font-mono">/lab/shapes</span> and <span class="font-mono">/lab/image</span>), measured at
-        <span class="font-mono">12787 B</span> gzip; WU17 replaced the single-page inline module with that shared chunk.
-        The baked still is <span class="font-mono">41906 B</span> of PNG at 1600 × 800 and ships no script at all.
+        <span class="font-mono">12997 B</span> gzip; WU17 replaced the single-page inline module with that shared chunk.
+        The baked still is <span class="font-mono">43235 B</span> of PNG at 1600 × 800 and ships no script at all.
       </p>
       <div class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <article data-ascii-compare="night-coast" class="flex min-w-0 flex-col border border-hairline">
@@ -110,8 +112,8 @@ const metadata = {
             Static fallback · JavaScript unavailable
           </p>
         </article>
-        <SceneCanvas scene="joyan-night-coast" variant="live" index="02 · ours · live" cost="engine + scene + catalogue + image pipeline + overlays + runtime: 12787 B gzip in the /lab/** chunk shared with both other laboratories; 1600 × 800 backing store (8 px per cell)" />
-        <SceneCanvas scene="joyan-night-coast" variant="baked" index="03 · ours · baked" cost="the engine's own poster frame, 41906 B PNG, 1600 × 800, no JavaScript" />
+        <SceneCanvas scene="joyan-night-coast" variant="live" index="02 · ours · live" cost="engine + scene + catalogue + image pipeline + overlays + runtime: 12997 B gzip in the /lab/** chunk shared with both other laboratories; 1600 × 800 backing store (8 px per cell)" />
+        <SceneCanvas scene="joyan-night-coast" variant="baked" index="03 · ours · baked" cost="the engine's own poster frame, 43235 B PNG, 1600 × 800, no JavaScript" />
       </div>
       <p class="mt-5 max-w-prose text-sm text-plomo-400">
         Provenance, in three parts, and the licence boundary is now an explicit adoption ledger

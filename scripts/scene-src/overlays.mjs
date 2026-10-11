@@ -39,7 +39,7 @@ export const OVERLAY_IDS = Object.freeze(['stars', 'aurora', 'grain', 'glimmer']
 /** Human labels, for the laboratory's controls and the docs. */
 export const OVERLAY_LABELS = Object.freeze({
   stars: 'twinkling stars (positions by hash, 6 s twinkle)',
-  aurora: 'aurora curtains (9 whole lattice wraps per loop)',
+  aurora: 'aurora curtains (9 whole lattice wraps per loop, WU19 tuned finer, subject-preserving)',
   grain: 'drifting grain (21 whole lattice wraps per loop)',
   glimmer: 'glimmer sweep (whole sweeps per loop)',
 });
@@ -51,8 +51,13 @@ export const OVERLAY_LABELS = Object.freeze({
 export const OVERLAY_DEFAULTS = Object.freeze({
   stars: Object.freeze({ seed: 20261010, density: 0.055, twinkle: 0.9, period: 6,
     colour: Object.freeze([0.95, 0.97, 1]) }),
-  aurora: Object.freeze({ seed: 0x7a1, scaleX: 0.06, scaleY: 0.11, wrapsX: 9, wrapsY: 5,
-    hueScale: 0.05, hueWraps: 4, blend: 0.92 }),
+  // WU19 tuning, measured in docs/AUDITORIA-ESCENAS.md: the WU18 aurora read as
+  // one ~1200-cell connected wash on a 200x100 grid (28.9% of cells shifted by
+  // more than 0.12 of tone) and could submerge the subject. Finer octaves, a
+  // finer lattice, a lower amplitude and subject-preserving blending bring the
+  // wash down without losing the look the user praised.
+  aurora: Object.freeze({ seed: 0x7a1, scaleX: 0.13, scaleY: 0.16, wrapsX: 9, wrapsY: 5,
+    hueScale: 0.05, hueWraps: 4, octaves: 3, blend: 0.55, keep: 0.55 }),
   grain: Object.freeze({ seed: 0x6a1, scale: 0.34, wrapsY: 21, amount: 0.14 }),
   glimmer: Object.freeze({ seed: 0x9117, sweeps: 1, sigma: 0.055, intensity: 0.6,
     colour: Object.freeze([0.92, 0.95, 1]) }),
@@ -60,6 +65,12 @@ export const OVERLAY_DEFAULTS = Object.freeze({
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 const mix = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
+// Rec.709 luma weights for the subject-preserving aurora blend (WU19): the same
+// published convention the engine's tone model uses, so "bright" means the same
+// thing here as everywhere else in the engine.
+const LUMA_R = 0.2126;
+const LUMA_G = 0.7152;
+const LUMA_B = 0.0722;
 const smoothstep = (edge0, edge1, v) => {
   const k = clamp01((v - edge0) / (edge1 - edge0));
   return k * k * (3 - 2 * k);
@@ -107,7 +118,7 @@ function auroraOverlay(overrides) {
     label: OVERLAY_LABELS.aurora,
     apply(x, y, t, base, ctx) {
       const curtain = layeredNoise(x * p.scaleX + driftX(t), y * p.scaleY + driftY(t), p.seed,
-        { octaves: 2, wrapX: p.wrapsX, wrapY: p.wrapsY });
+        { octaves: p.octaves ?? 3, wrapX: p.wrapsX, wrapY: p.wrapsY });
       const hue = layeredNoise(x * p.hueScale + driftHue(t), y * p.hueScale, p.seed + 0x51,
         { octaves: 2, wrapX: p.hueWraps });
       const at = hue * AURORA_COLOURS.length;
@@ -116,7 +127,13 @@ function auroraOverlay(overrides) {
       const colour = mix(AURORA_COLOURS[i], AURORA_COLOURS[j], at - i);
       // Vertical banding: the curtain hangs from the top and fades downward.
       const vertical = 1 - 0.55 * (ctx.rows > 1 ? y / (ctx.rows - 1) : 0);
-      const strength = smoothstep(0.46, 0.86, curtain) * vertical * p.blend;
+      // Subject-preserving blending (WU19, measured): a cell that already carries
+      // a bright structure keeps `keep` more of itself per unit of brightness, so
+      // the curtain washes the ground, not the drawing. The 0.55 knee is the tone
+      // above which a cell reads as subject on our dark grounds.
+      const lum = LUMA_R * base[0] + LUMA_G * base[1] + LUMA_B * base[2];
+      const preserve = 1 - (p.keep ?? 0.5) * clamp01((lum - 0.55) / 0.45);
+      const strength = smoothstep(0.52, 0.94, curtain) * vertical * p.blend * preserve;
       return mix(base, colour, clamp01(strength));
     },
   };

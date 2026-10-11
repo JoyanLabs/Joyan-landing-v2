@@ -198,8 +198,15 @@ const labTotalGzip = labChunkGzip + inlineGzip;
 // measures 33,296 B raw / 12,787 B gzip; the lab executable is library 25,256 B +
 // engine chunk 12,787 B + three 56 B entry chunks, 0 B inline. Cap re-measured as
 // measured + 2,048 B, the same documented margin, never a silent raise.
-const LAB_CAP_GZIP = 40259;
-const LAB_MEASURED_GZIP = 38211;
+//
+// WU19 (38,421 B): the anti-moiré prefilter, the auto-gain, the deeper default
+// palette, the full-coverage fifth ladder rung and the tuned aurora join the SAME
+// engine chunk, still shared by three laboratory routes. The chunk measures
+// 33,856 B raw / 12,997 B gzip; the lab executable is library 25,256 B + engine
+// chunk 12,997 B + three 56 B entry chunks, 0 B inline. Cap re-measured as
+// measured + 2,048 B, the same documented margin, never a silent raise.
+const LAB_CAP_GZIP = 40469;
+const LAB_MEASURED_GZIP = 38421;
 const LAB_MARGIN_LIMIT = 4096;
 // What the lab page itself claims about its own cost. The copy must carry the
 // measured numbers, so a claim cannot drift away from the bundle it describes.
@@ -207,7 +214,7 @@ const LAB_MARGIN_LIMIT = 4096;
 // the lab engine chunk (engine + scene + shape catalogue + image pipeline +
 // overlays + runtime), found below by the scene id and the shape-laboratory
 // marker it contains.
-const LAB_CLAIMS = { libraryChunkGzip: 25256, ownModuleRaw: 33296, ownModuleGzip: 12787, bakedStillBytes: 41906 };
+const LAB_CLAIMS = { libraryChunkGzip: 25256, ownModuleRaw: 33856, ownModuleGzip: 12997, bakedStillBytes: 43235 };
 const withinLabCap = (total, cap) => total <= cap;
 assert.equal(withinLabCap(LAB_CAP_GZIP, LAB_CAP_GZIP), true);
 assert.equal(withinLabCap(LAB_CAP_GZIP + 1, LAB_CAP_GZIP), false);
@@ -254,6 +261,10 @@ check(OWN_BAKED.test(html), 'the comparison must show the baked still of our sce
 check(html.includes('200 × 100') || html.includes('200x100'),
   'the comparison must state the shared 200 x 100 grid');
 check(/measured/i.test(html), 'the comparison must state the measured cost of what it draws');
+// WU19: the laboratory must state the ladder that now reaches full coverage, so
+// the five-rung engine and the copy cannot drift apart.
+check(/full coverage|full-coverage/i.test(html) && /1\.0|1,0/.test(html),
+  'the lab copy must state the WU19 fifth rung at full coverage 1.0');
 // The page must quote the numbers that were actually measured, and this guard
 // must fail if either side moves without the other. WU17 moved the engine into a
 // chunk shared by both laboratory routes, so the claim is checked against the
