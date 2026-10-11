@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Joyan motion</title>
+    <style>
+      /* Brand tokens (docs/DESIGN.md — Visual tokens). Radius 0, no italics,
+         no purple gradients. Two-value dither only. */
+      @font-face {
+        font-family: 'Archivo';
+        src: url('./archivo.woff2') format('woff2-variations');
+        font-weight: 100 900;
+        font-stretch: 25% 200%;
+      }
+      @font-face {
+        font-family: 'JetBrains Mono';
+        src: url('./mono.woff2') format('woff2-variations');
+        font-weight: 100 800;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { background: #0b0b0c; overflow: hidden; }
+      body { font-family: 'Archivo', sans-serif; }
+      svg, canvas { position: absolute; inset: 0; display: block; }
+    </style>
+  </head>
+  <body>
+    <script type="module">
+      import { createScene, cameraAt, operatorAt } from './lib.js';
+
+      // One page, SVG or raster. The film is a parameter so every asset is
+      // rendered by the same code path and therefore cannot drift.
+      const id = new URLSearchParams(location.search).get('film') ?? 'F1';
+      // A scene lives beside the argument films, not among them: `films/` is the
+      // five films that carry a claim, `scenes/` is art with tone. There is no
+      // existsSync in a browser, so resolve by trying the nearer directory first.
+      const mod = await import(`./scenes/${id}.js`).catch(() => import(`./films/${id}.js`));
+      const film = mod.default;
+
+      if (film.meta.mode === 'canvas') {
+        // The scene owns its tone field; the bake pass alone owns the dots.
+        const canvas = document.createElement('canvas');
+        canvas.width = film.meta.width;
+        canvas.height = film.meta.height;
+        document.body.appendChild(canvas);
+        window.__seek = film.build(canvas);
+      } else {
+        const scene = createScene(film.meta);
+        const seek = film.build(scene);
+        // Camera: one continuous move per film, never a cut.
+        const cam = film.meta.camera;
+        const hits = film.meta.hits ?? [];
+
+        window.__seek = (t) => {
+          const c = cameraAt(t, cam);
+          const op = operatorAt(t, film.meta.quiet, hits);
+          scene.set(scene.cam, {
+            transform:
+              `translate(${(c.x + op.x).toFixed(3)} ${(c.y + op.y).toFixed(3)}) ` +
+              `scale(${c.scale.toFixed(4)}) ` +
+              `translate(${-film.meta.focal.x} ${-film.meta.focal.y})`,
+          });
+          return seek(t);
+        };
+      }
+
+      window.__meta = film.meta;
+      window.__seek(0);
+      window.__ready = true;
+    </script>
+  </body>
+</html>
