@@ -252,10 +252,10 @@ export const IMAGE_PALETTES = Object.freeze([
   // combining accent (a warm rose, bridging the amber and the violet). Ground
   // is ink-950, the highlight is bone-50, the accent is the reserved amber.
   // Swappable in ONE place: pages reference PAGE_PALETTE_ID, never a literal.
-  Object.freeze({ id: 'joyan-page', label: 'the page — ink ground, bone ink, amber accent, adapted aurora + rose',
+  Object.freeze({ id: 'joyan-page', label: 'the page — ink ground, plomo greys, bone ink, amber and rose accents (WU22 user note: the aurora greens/violets did not match the page, so they are gone)',
     ground: 0,
-    palette: Object.freeze(['#0b0b0c', '#10141a', '#0d3a36', '#116b5e', '#1ea88a', '#4de3b0',
-      '#3d3f8f', '#7d7ce8', '#b9a7f5', '#ffb000', '#ff5d73', '#f4f2ed']) }),
+    palette: Object.freeze(['#0b0b0c', '#131318', '#1c1d26', '#2b2c3a', '#4a4b60', '#74758c',
+      '#a3a4b8', '#ffb000', '#ff5d73', '#d9d7d2', '#f4f2ed', '#fffdf8']) }),
 ]);
 
 /** The palette the public page uses; swappable in one place (WU22). */
