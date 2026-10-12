@@ -1477,18 +1477,20 @@ const sceneMovie = resolve(ROOT, 'public/assets/motion/harness-tones-dither.mp4'
 //     The old five-chunk landing set died with the old landing: the
 //     framer-motion reveal/viewport chunks left the build. The recorded WU20
 //     set is client x2 (byte-identical to the WU12 recordings) + the hero
-//     entry + the shared scene-runtime chunk, 100811 B gzip total. The delta
-//     against the untouched committed fixture (91905 B) is 8906 B and must
-//     stay <= 22528 B (22 KiB). Fail closed: any extra, missing or changed
-//     chunk fails here.
+//     entry + the shared scene-runtime chunk, 101281 B gzip total after the WU22
+//     re-measure (the engine chunk grew with the tone cap, the roll helper, the
+//     wash + shimmer sweeps and the page palette — re-measured loudly, never
+//     silently). The delta against the untouched committed fixture (91905 B) is
+//     9376 B and must stay <= 22528 B (22 KiB). Fail closed: any extra, missing
+//     or changed chunk fails here.
 // ---------------------------------------------------------------------------
 const WU20_LANDING_SET = {
   'client.BxDIQlYz.js': { gz: 60302, sha256: 'ed1f3e2228ec0a53328513096c375276d3aea8e4c8e2ded754af7b67a13d77f0' },
   'client.kF-MUc6b.js': { gz: 27057, sha256: 'c72b737a3f669a7845f10ec12cf2206a3d4f964c2aef13d4572c6b831b74937d' },
-  'JoyanComingHero.astro_astro_type_script_index_0_lang.0_DvE05y.js': { gz: 56, sha256: '0b2110e79eaed434dd4c3abf8a5e397ff193c940e7a7750bb91eed6e63b5ba6d' },
-  'scene-runtime.DsllR3tT.js': { gz: 13396, sha256: 'a0b498384f6bb6d561192cd1600906ccae53b43bb1866ffb94a270ff1182b0df' },
+  'JoyanComingHero.astro_astro_type_script_index_0_lang.TQG2gabZ.js': { gz: 56, sha256: 'b3cd477a3515e31640fd479c7031bb77dc84495e804734ffbc1586d23ee8e214' },
+  'scene-runtime.BYq3d7Le.js': { gz: 13866, sha256: '741a0145ecd439856b53d372258da6d4ece5ac61fbadfc1012615c94c9777451' },
 };
-const WU20_LANDING_GZIP = 100811;
+const WU20_LANDING_GZIP = 101281;
 const WU20_DELTA_LIMIT = 22 * 1024; // 22528 bytes, unchanged rule
 {
   const distJs = existsSync(cssDir) ? readdirSync(cssDir).filter((file) => file.endsWith('.js')) : [];

@@ -33,15 +33,17 @@ import { hashNoise, layeredNoise } from './engine.mjs';
 /** The loop every overlay assumes. A converted scene must use the same one. */
 export const LOOP_SECONDS = 30;
 
-/** Every overlay id, in composition order. */
-export const OVERLAY_IDS = Object.freeze(['stars', 'aurora', 'grain', 'glimmer']);
+/** Every overlay id, in composition order. WU22 adds the sweep family. */
+export const OVERLAY_IDS = Object.freeze(['stars', 'aurora', 'grain', 'glimmer', 'wash', 'shimmer']);
 
 /** Human labels, for the laboratory's controls and the docs. */
 export const OVERLAY_LABELS = Object.freeze({
   stars: 'twinkling stars (positions by hash, 6 s twinkle)',
   aurora: 'aurora curtains (9 whole lattice wraps per loop, WU19 tuned finer, subject-preserving)',
   grain: 'drifting grain (21 whole lattice wraps per loop)',
-  glimmer: 'glimmer sweep (whole sweeps per loop)',
+  glimmer: 'glimmer sweep (soft subject-preserving band, whole sweeps per loop, WU22 tuned)',
+  wash: 'colour wash (a wide tinted band crosses the whole scene and fades through two hues, WU22)',
+  shimmer: 'shimmer band (a narrow bright band with hash sparkle travels whole sweeps per loop, WU22)',
 });
 
 /**
@@ -59,8 +61,19 @@ export const OVERLAY_DEFAULTS = Object.freeze({
   aurora: Object.freeze({ seed: 0x7a1, scaleX: 0.13, scaleY: 0.16, wrapsX: 9, wrapsY: 5,
     hueScale: 0.05, hueWraps: 4, octaves: 3, blend: 0.55, keep: 0.55 }),
   grain: Object.freeze({ seed: 0x6a1, scale: 0.34, wrapsY: 21, amount: 0.14 }),
-  glimmer: Object.freeze({ seed: 0x9117, sweeps: 1, sigma: 0.055, intensity: 0.6,
-    colour: Object.freeze([0.92, 0.95, 1]) }),
+  glimmer: Object.freeze({ seed: 0x9117, sweeps: 1, sigma: 0.09, intensity: 0.32,
+    keep: 0.45, colour: Object.freeze([0.92, 0.95, 1]) }),
+  // WU22 — the sweep family. Both travel a WHOLE number of sweeps per loop (the
+  // wrapped-distance band of glimmer), so they are periodic by construction.
+  // wash: a WIDE diagonal band (sigma 0.18 of the diagonal) tints the scene
+  // toward one of two colours chosen by a slow hue noise with whole wraps, at a
+  // strength that fades on bright structure (keep) so the subject survives.
+  wash: Object.freeze({ seed: 0x21f2, sweeps: 1, sigma: 0.18, intensity: 0.4, keep: 0.5,
+    colourA: Object.freeze([0.07, 0.55, 0.47]), colourB: Object.freeze([0.42, 0.36, 0.85]) }),
+  // shimmer: a NARROW bright band (sigma 0.035) whose strength is modulated by
+  // hash sparkle along the band, so it reads as glitter crossing the picture.
+  shimmer: Object.freeze({ seed: 0x31d7, sweeps: 2, sigma: 0.035, intensity: 0.35, keep: 0.55,
+    sparkle: 0.5, sparkleScale: 0.35, colour: Object.freeze([0.95, 0.96, 1]) }),
 });
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
@@ -155,7 +168,9 @@ function grainOverlay(overrides) {
   };
 }
 
-/** GLIMMER SWEEP — a diagonal band that crosses a whole number of times. */
+/** GLIMMER SWEEP — a diagonal band that crosses a whole number of times. WU22
+ * tunes it: a softer, wider band at lower intensity, and subject-preserving so
+ * the pass brightens the scene without blowing out the drawing's bright cells. */
 function glimmerOverlay(overrides) {
   const p = { ...OVERLAY_DEFAULTS.glimmer, ...overrides };
   return {
@@ -167,13 +182,63 @@ function glimmerOverlay(overrides) {
       // The wrapped distance to the band, so the seam is not a jump.
       let d = fract(u - position + 0.5) - 0.5;
       const band = Math.exp(-(d * d) / (2 * p.sigma * p.sigma));
-      return mix(base, p.colour, clamp01(band * p.intensity));
+      // Subject-preserving (WU22): bright structure keeps itself, as the aurora does.
+      const lum = LUMA_R * base[0] + LUMA_G * base[1] + LUMA_B * base[2];
+      const preserve = 1 - (p.keep ?? 0) * clamp01((lum - 0.55) / 0.45);
+      return mix(base, p.colour, clamp01(band * p.intensity * preserve));
+    },
+  };
+}
+
+/** COLOUR WASH (WU22) — a wide tinted band crossing whole sweeps per loop, its
+ * hue moving between two aurora-adapted colours by a lattice noise with whole
+ * wraps, so both the band's position and its hue are periodic by construction. */
+function washOverlay(overrides) {
+  const p = { ...OVERLAY_DEFAULTS.wash, ...overrides };
+  return {
+    id: 'wash',
+    label: OVERLAY_LABELS.wash,
+    apply(x, y, t, base, ctx) {
+      const position = fract((t / LOOP_SECONDS) * p.sweeps);
+      const u = (x + y) / Math.max(1, ctx.cols + ctx.rows - 2);
+      let d = fract(u - position + 0.5) - 0.5;
+      const band = Math.exp(-(d * d) / (2 * p.sigma * p.sigma));
+      // The band's hue: a lattice that wraps a whole number of times per loop.
+      const hue = layeredNoise(x * 0.04, y * 0.04 + (t / LOOP_SECONDS) * 2, p.seed,
+        { octaves: 2, wrapY: 2 });
+      const colour = mix(p.colourA, p.colourB, hue);
+      const lum = LUMA_R * base[0] + LUMA_G * base[1] + LUMA_B * base[2];
+      const preserve = 1 - (p.keep ?? 0) * clamp01((lum - 0.55) / 0.45);
+      return mix(base, colour, clamp01(band * p.intensity * preserve));
+    },
+  };
+}
+
+/** SHIMMER BAND (WU22) — a narrow bright band with hash sparkle along it,
+ * travelling a whole number of sweeps (two by default) per loop. */
+function shimmerOverlay(overrides) {
+  const p = { ...OVERLAY_DEFAULTS.shimmer, ...overrides };
+  return {
+    id: 'shimmer',
+    label: OVERLAY_LABELS.shimmer,
+    apply(x, y, t, base, ctx) {
+      const position = fract((t / LOOP_SECONDS) * p.sweeps);
+      const u = (x + y) / Math.max(1, ctx.cols + ctx.rows - 2);
+      let d = fract(u - position + 0.5) - 0.5;
+      const band = Math.exp(-(d * d) / (2 * p.sigma * p.sigma));
+      // Sparkle along the band: a per-cell phase driven by a whole-cycle sine
+      // (15 twinkle cycles per loop), so it is deterministic and periodic.
+      const phase = hashNoise(x, y, p.seed) * Math.PI * 2;
+      const sparkle = 1 - p.sparkle * (0.5 + 0.5 * Math.sin((Math.PI * 2 * 15 * t) / LOOP_SECONDS + phase));
+      const lum = LUMA_R * base[0] + LUMA_G * base[1] + LUMA_B * base[2];
+      const preserve = 1 - (p.keep ?? 0) * clamp01((lum - 0.55) / 0.45);
+      return mix(base, p.colour, clamp01(band * p.intensity * sparkle * preserve));
     },
   };
 }
 
 const BUILDERS = { stars: starsOverlay, aurora: auroraOverlay, grain: grainOverlay,
-  glimmer: glimmerOverlay };
+  glimmer: glimmerOverlay, wash: washOverlay, shimmer: shimmerOverlay };
 
 /** Build one overlay by id. Throws on an unknown id rather than guessing. */
 export function makeOverlay(id, overrides = {}) {

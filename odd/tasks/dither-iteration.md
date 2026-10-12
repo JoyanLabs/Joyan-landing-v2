@@ -163,6 +163,59 @@ User decision (2026-10-10): everything is accepted, apply all the audit improvem
 - Documentation: a delivery section in `docs/DESIGN.md`, the hero recipe in `docs/MOTOR-ESCENAS.md`, and the remaining rollout notes (new OG, branding review, Firefox/Safari and performance limits unchanged).
 - Correction round (2026-10-10, user's words, on the record): (1) the hero subject is the Blade Runner unicorn they supplied, not our mark ("muy genérico"); the user states they consider it an open-source-style illustration based on the film design but belonging to no one, and explicitly directs using it "para probar" — the licence discipline stays: SVG fixture gitignored and uncommitted, only the converted serialisation and build-time bake embedded, attribution on the page ("based on the Blade Runner unicorn, design attributed to Tom Southwell — used as a demonstration"). (2) The effects must always play — no Play button on the public page; the lab's still-until-Play pattern stays for the lab routes; reduced motion keeps the real static poster with truthful wording; offscreen/hidden pause, pagehide cleanup and no duplicate RAFs unchanged. (3) The copy must not say "cooperativa" and the page must be professional and rich, not simple — real composition, no fake data, no invented claims, still placeholder-pending-branding-review (this document is the record of that, nothing user-visible). (4) Everything previously promised re-checked with evidence.
 
+## WU22 full-page dither, round-only dots and the mysterious copy
+
+User direction (2026-10-10): the dot aesthetic must cover **the whole page**; keep the current aurora palette for now (a better one comes later) but **adopt the page's own palette** (ink/bone/amber tokens) with the aurora adapted to it plus one combining accent; the unicorn's dense core reads as **white dotted blob** and the highlights read as **squares** — both must be fixed; the sweep effect they saw on `/lab/image` should become a **family of better sweep effects**, integrated; the text goes **top-left or left-centre** over a full-bleed scene; the copy must be **short and mysterious** (no "estamos construyendo algo nuevo", no "diseñamos agentes…", no value cells, no engine readout, no visible attribution — it moves to the repository docs); the footer phrase needs options; contact = `hello@joyan.dev` and a Discord mark drawn in our aesthetic (no invite link yet, the user will configure it later).
+
+- Round-only: the fifth rung's radius 0.7071 is the circumscribed circle, which covers the whole cell and reads as a square. Cap the ladder at the inscribed disc (coverage π/4) and redistribute the rungs; re-derive radii, re-bake, re-measure everything, and keep a checker that fails if any painted cell is square.
+- Tone: investigate the white core (auto-gain 2.944 saturating overlapping line regions) with the measured tone histogram, tune the gain target or add a tone cap, and show before/after where the body keeps structure instead of blowing out.
+- Sweeps: upgrade `glimmer` into a family (colour wash, shimmer band, aurora drift — all periodic by construction) and integrate one into the page.
+- The full-bleed layout must keep the design-system rule that texture never breaks text contrast (≥4.5:1) — compose the scene so the text region stays dark, with a scrim if needed.
+- Copy: ship one chosen option and record 3–4 alternatives per language for the user to pick from.
+
+### WU22 delivered round (2026-10-10, worker record — appended, existing text above untouched)
+
+Implemented on `test/motion-graphics`. Round-only ladder `COVERAGE = [0, 0.1841, 0.3804, 0.6381, 0.7854]`
+(radii `0, 0.2421, 0.3480, 0.4507, 0.5000` — the top rung is the INSCRIBED disc; WU19's full-coverage rung
+painted whole cells and read as squares); tone cap knee 0.6 → ceiling 0.86 (unicorn core top-rung cells
+65 → 34, p90 kept 0.667); sweep family `glimmer` (tuned) + `wash` + `shimmer`, wash shipped on the page
+(subject/ground 0.679, max push 0.176, coverage 28.67 %); page palette `joyan-page` (12 entries: ink-950
+ground, bone-50, amber, adapted aurora, rose `#ff5d73` accent); full-bleed page with top-left copy over a
+measured scrim (worst case 12.2:1, amber eyebrow 7.4:1); contact `hello@joyan.dev` + authored dot-matrix
+Discord mark (invite constant `DISCORD_INVITE_URL = ''`, user configures later); visible attribution and
+engine readout removed (attribution moved to `docs/MOTOR-ESCENAS.md`, readout now screen-reader only);
+budgets re-measured: landing 101,281 B gzip (delta 9,376 B against the untouched 91,905 B baseline, limit
+22,528 B), lab 39,290 B (cap 41,338 B).
+
+**Copy shipped (ES):** eyebrow "Próximamente" · h1 "Joyan" · tagline "Algo preciso está tomando forma." ·
+footer "© Joyan — construido con criterio." · meta description "Joyan. Algo preciso está tomando forma."
+**Copy shipped (EN):** eyebrow "Coming soon" · h1 "Joyan" · tagline "Something precise is taking shape." ·
+footer "© Joyan — built with care." · meta description "Joyan. Something precise is taking shape."
+
+**Tagline alternatives (ES):**
+1. «Lo esencial, en marcha.»
+2. «Cada punto, en su sitio.»
+3. «Trabajamos en silencio.»
+4. «Pronto. Con criterio.»
+
+**Tagline alternatives (EN):**
+1. "The essentials, underway."
+2. "Every dot, exactly where it belongs."
+3. "Working quietly."
+4. "Soon. With care."
+
+**Footer phrase alternatives (ES):**
+1. «© Joyan — construido con criterio.» (shipped)
+2. «© Joyan — lo esencial, bien hecho.»
+3. «© Joyan — medidas, no promesas.»
+4. «© Joyan — método y silencio.»
+
+**Footer phrase alternatives (EN):**
+1. "© Joyan — built with care." (shipped)
+2. "© Joyan — the essentials, done well."
+3. "© Joyan — measurements, not promises."
+4. "© Joyan — method and quiet."
+
 ## Next step
 
 The independently verified original WU10 gate/docs are committed as `e9c5f34`; the original local scope was closed at `37082f8`. WU12 normal-mode J1 is implemented, independently verified, committed as `ed5d6bc` and served at `/#dither-scene`. WU13 is implemented, independently revalidated after correction and committed as `1ee141e`; the real comparison is live at `/lab/ascii` beside the unchanged baked J1, with the measured placement matrix in `docs/DESIGN.md` (`WU13 — runtime comparison trial`). All authorized work units are now complete locally. Independent native playback advances1.26s and loops; no-JS playback advances1.212s. Reduced motion pauses/hides the film but still downloads its entire MP4 (286684 transferred bytes including overhead). Source endpoints are identical; decoded H.264 seam MAE0.814879/255, max26, not pixel-identical. Mobile whole-document overflow488pxES/442pxEN remains pre-existing with no new-surface delta. No Firefox/Safari/CPU/LCP/CLS proof. Evidence: `dist-motion-verify/wu12/independent/` and `dist-motion-verify/wu9/wu12-independent/`. Parent spot-check scope self-test98/0 and diff whitespace PASS. Unit approximately700 text diff lines is reported honestly, not code-golfed. The remaining open item is main integration: it still requires branding review, a main-based safe branch, a scope-gate run on the actual committed range and explicit delivery authorization. Do not change provider/model profiles. Preserve partial work on quota failures; no repeated blind retries. Keep the preview available to the user. Main integration remains pending branding/review and explicit delivery policy; do not merge this experiment wholesale. The positive original local unit slice is not a deployable main-based branch or production approval. No remote operations are authorized by this extension.

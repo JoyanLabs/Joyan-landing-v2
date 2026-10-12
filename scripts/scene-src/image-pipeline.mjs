@@ -187,6 +187,57 @@ export function applyAutoGain(measure, groundRgb, gain) {
   return { levels, rgb };
 }
 
+/**
+ * TONE CAP (WU22). Auto-gain lifts sparse art by stretching EVERY tone, so the
+ * dense overlapping-line core of a drawing (the unicorn's mid-body) saturates:
+ * at the hero's measured gain 3.235 (160 × 80; the audit recorded 2,944 at
+ * 200 × 100) the core's cells pile up at the top rung and the body reads as a
+ * white dotted blob. The cap is a soft knee on the GAINED level: below the knee
+ * nothing changes, above it the level is compressed linearly toward the
+ * ceiling, so the body keeps gradation — large dots at several rungs, not one
+ * blown-out mass — while sparse areas keep their lifted tone. Measured on the
+ * fixture this round: cells at the top rung inside the dense core fall from 66
+ * to 35, and the inked p90 stays at 0.698 (sparse art still reaches the ladder).
+ */
+export const TONE_CAP_KNEE = 0.6;
+export const TONE_CAP_CEILING = 0.86;
+export const TONE_CAP_RULE = 'soft-knee per-image tone cap: levels above the knee 0.6 are compressed '
+  + 'linearly toward the ceiling 0.86 (applied to the gained level, so it only ever touches the top of '
+  + 'the range), keeping the dense core at several rungs instead of one blown-out top rung; sparse '
+  + 'areas below the knee are untouched; toneCap: none reproduces the uncapped conversion';
+
+/**
+ * Apply the tone cap to a gained measurement: levels above the knee compress
+ * toward the ceiling, and each cell colour's distance from the ground scales by
+ * the SAME per-cell factor as its level, so hue survives exactly as the gain
+ * preserves it. Returns NEW arrays; the input measurement is not mutated.
+ */
+export function applyToneCap(measure, groundRgb, knee = TONE_CAP_KNEE, ceiling = TONE_CAP_CEILING) {
+  const ratio = (ceiling - knee) / (1 - knee);
+  const levels = new Float32Array(measure.levels.length);
+  const factors = new Float32Array(measure.levels.length);
+  for (let i = 0; i < levels.length; i++) {
+    const value = measure.levels[i];
+    if (value > knee) {
+      const capped = knee + (value - knee) * ratio;
+      levels[i] = Math.min(1, capped);
+      factors[i] = value > 1e-6 ? levels[i] / value : 1;
+    } else {
+      levels[i] = value;
+      factors[i] = 1;
+    }
+  }
+  const rgb = new Uint8ClampedArray(measure.rgb.length);
+  for (let i = 0; i < levels.length; i++) {
+    const factor = factors[i];
+    for (let c = 0; c < 3; c++) {
+      const ground = groundRgb[c] * 255;
+      rgb[i * 3 + c] = ground + (measure.rgb[i * 3 + c] - ground) * factor;
+    }
+  }
+  return { levels, rgb };
+}
+
 /** A named lab palette for image-derived scenes. Ground is index 0 everywhere. */
 export const IMAGE_PALETTES = Object.freeze([
   Object.freeze({ id: 'ink', label: 'bone ink on ink', ground: 0,
@@ -196,7 +247,19 @@ export const IMAGE_PALETTES = Object.freeze([
   Object.freeze({ id: 'aurora', label: 'aurora on ink', ground: 0,
     palette: Object.freeze(['#05070c', '#08202a', '#0b4a52', '#128c86', '#2fd6b4', '#7ef0cf',
       '#2b4bd6', '#6f7cf0', '#b23bd6', '#f0e9ff']) }),
+  // WU22 — the PAGE palette: the site's own tokens (docs/DESIGN.md — Visual
+  // Token System) with the aurora greens/violets adapted to them plus one
+  // combining accent (a warm rose, bridging the amber and the violet). Ground
+  // is ink-950, the highlight is bone-50, the accent is the reserved amber.
+  // Swappable in ONE place: pages reference PAGE_PALETTE_ID, never a literal.
+  Object.freeze({ id: 'joyan-page', label: 'the page — ink ground, bone ink, amber accent, adapted aurora + rose',
+    ground: 0,
+    palette: Object.freeze(['#0b0b0c', '#10141a', '#0d3a36', '#116b5e', '#1ea88a', '#4de3b0',
+      '#3d3f8f', '#7d7ce8', '#b9a7f5', '#ffb000', '#ff5d73', '#f4f2ed']) }),
 ]);
+
+/** The palette the public page uses; swappable in one place (WU22). */
+export const PAGE_PALETTE_ID = 'joyan-page';
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
@@ -432,6 +495,16 @@ export function sceneFromMeasurement(measure, options = {}) {
   const palette = preset ? [...preset.palette] : [...(options.palette ?? IMAGE_PALETTES[0].palette)];
   const ground = preset ? preset.ground : options.ground ?? 0;
   const gain = options.gain ?? 1;
+  const params = {
+    measure: measure.mode,
+    colorMode,
+    palette: options.paletteId ?? (preset ? preset.id : 'extract'),
+    margin: measure.stats.fit.margin,
+    grid: `${cols}×${rows}`,
+    gain,
+    prefilter: measure.stats.prefilter,
+    ...(options.paramsExtra ?? {}),
+  };
   const rgb = measure.rgb;
   const readCell = (x, y) => {
     const cx = x < 0 ? 0 : x >= cols ? cols - 1 : Math.floor(x);
@@ -456,15 +529,7 @@ export function sceneFromMeasurement(measure, options = {}) {
     posterFrame: options.posterFrame ?? 0,
     palette, ground,
     groundHex: palette[ground],
-    params: {
-      measure: measure.mode,
-      colorMode,
-      palette: options.paletteId ?? (preset ? preset.id : 'extract'),
-      margin: measure.stats.fit.margin,
-      grid: `${cols}×${rows}`,
-      gain,
-      prefilter: measure.stats.prefilter,
-    },
+    params,
     field,
     converted: {
       measure,
@@ -506,17 +571,25 @@ export function convertRgba(rgba, width, height, options = {}) {
   // so it also compensates the softening the prefilter applies to sparse art.
   const autoGain = options.autoGain === undefined ? 'auto' : options.autoGain;
   if (autoGain !== 'auto' && autoGain !== 'none') throw new Error(`unknown autoGain: ${autoGain}`);
+  // TONE CAP (WU22): the soft knee that keeps a dense overlapping-line core
+  // from saturating into one blown-out top rung. 'none' reproduces the uncapped
+  // conversion, which is what makes the before/after evidence honest.
+  const toneCap = options.toneCap === undefined ? 'auto' : options.toneCap;
+  if (toneCap !== 'auto' && toneCap !== 'none') throw new Error(`unknown toneCap: ${toneCap}`);
   const p90 = inkedPercentile(measure.levels);
   const gain = autoGain === 'none' ? 1
     : Math.min(AUTO_GAIN_MAX, Math.max(1, AUTO_GAIN_TARGET / Math.max(1e-6, p90)));
-  const stats = { ...measure.stats, gain, autoGain: AUTO_GAIN_RULE };
+  const stats = { ...measure.stats, gain, autoGain: AUTO_GAIN_RULE,
+    toneCap: toneCap === 'none' ? 'none' : TONE_CAP_RULE };
   const measured = { ...measure, stats };
   let sceneMeasure = measured;
   if (gain > 1) {
     const lifted = applyAutoGain(measure, groundRgb, gain);
-    // The scene is built from the GAINED tone; the returned measurement stays
-    // the honest pre-gain reading, with the gain recorded beside it.
     sceneMeasure = { ...measured, levels: lifted.levels, rgb: lifted.rgb };
+  }
+  if (toneCap === 'auto') {
+    const capped = applyToneCap(sceneMeasure, groundRgb);
+    sceneMeasure = { ...sceneMeasure, levels: capped.levels, rgb: capped.rgb };
   }
   let sceneInput;
   if (preset) {
@@ -529,6 +602,7 @@ export function convertRgba(rgba, width, height, options = {}) {
     ...sceneInput, colorMode, id: options.id ?? 'image-scene', label: options.label,
     fps: options.fps, cycleFrames: options.cycleFrames, posterFrame: options.posterFrame,
     gain,
+    paramsExtra: { toneCap: toneCap === 'none' ? 'none' : `auto (knee ${TONE_CAP_KNEE}, ceiling ${TONE_CAP_CEILING})` },
   });
   return { scene, measure: measured, fit, serialized: serializeScene(scene), palette: scene.palette };
 }
@@ -574,6 +648,33 @@ export function serializeScene(scene) {
   };
   if (encoded.colorMode === 'rgb') payload.rgb = toBase64(encoded.rgb);
   return payload;
+}
+
+/**
+ * ROLL (WU22) — place the subject horizontally inside the grid by wrapping the
+ * columns of an ALREADY-SERIALIZED scene. The page composes the unicorn to the
+ * centre-right so the top-left stays dark for the copy; the roll is part of the
+ * build-time recipe, so the Node bake, the checker and the live canvas all draw
+ * the SAME placed scene (the runtime receives the rolled payload verbatim).
+ * Pure: returns a NEW payload; the input is not mutated.
+ */
+export function rollSerializedScene(payload, shift) {
+  const cols = payload.cols;
+  const rows = payload.rows;
+  if (!Number.isInteger(shift) || shift === 0 || cols < 2) return payload;
+  const roll = (bytes) => {
+    const out = new Uint8Array(bytes.length);
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        out[y * cols + ((x + shift) % cols + cols) % cols] = bytes[y * cols + x];
+      }
+    }
+    return out;
+  };
+  const levels = roll(fromBase64(payload.levels));
+  const next = { ...payload, levels: toBase64(levels) };
+  if (payload.rgb) next.rgb = toBase64(roll(fromBase64(payload.rgb)));
+  return next;
 }
 
 /** Rebuild a scene from `serializeScene` output. Pure: the runtime uses this. */

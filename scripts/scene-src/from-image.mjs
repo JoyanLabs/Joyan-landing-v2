@@ -25,6 +25,7 @@
  *   --overlays <ids>       comma list of stars,aurora,grain,glimmer (default none)
  *   --prefilter pitch|none anti-moiré prefilter matched to the cell pitch (default pitch)
  *   --auto-gain auto|none  per-image normalisation for sparse inputs (default auto)
+ *   --tone-cap auto|none   WU22 soft-knee tone cap over the gained levels (default auto)
  *   --png                  also write <id>-cell<N>.png into --out
  *
  * Usage: node scripts/scene-src/from-image.mjs --in <file> [flags]
@@ -93,6 +94,7 @@ export async function convert(input, options = {}) {
     margin: options.margin ?? 0.04,
     prefilter: options.prefilter,
     autoGain: options.autoGain,
+    toneCap: options.toneCap,
     id: options.id ?? 'image-scene',
     label: options.label,
   });
@@ -144,12 +146,13 @@ if (isMain) {
   const shape = at('--shape') ?? 'disc';
   const prefilter = (at('--prefilter') ?? 'pitch') === 'none' ? false : 'pitch';
   const autoGain = (at('--auto-gain') ?? 'auto') === 'none' ? 'none' : 'auto';
+  const toneCap = (at('--tone-cap') ?? 'auto') === 'none' ? 'none' : 'auto';
   const out = at('--out');
   const options = {
     cols: Number(at('--cols') ?? 200), rows: Number(at('--rows') ?? 100),
     margin: Number(at('--margin') ?? 0.04), mode, colorMode, palette,
     paletteCount: Number(at('--palette-count') ?? DEFAULT_EXTRACT_COUNT),
-    prefilter, autoGain,
+    prefilter, autoGain, toneCap,
     id: at('--id') ?? 'image-scene', label: at('--label'),
     rasterSize: Number(at('--raster-size') ?? 1024),
   };
@@ -197,6 +200,6 @@ export { convertRgba } from './image-pipeline.mjs';
 export const CLI_USAGE = 'node scripts/scene-src/from-image.mjs --in <file> [--mode ink|luminance] '
   + '[--color levels|rgb] [--palette <id|extract>] [--cols n] [--rows n] [--margin f] '
   + '[--dither bayer4|bayer8|blue|none] [--shape id] [--cell px] [--density 1|2|4] '
-  + '[--prefilter pitch|none] [--auto-gain auto|none] '
+  + '[--prefilter pitch|none] [--auto-gain auto|none] [--tone-cap auto|none] '
   + '[--overlays stars,aurora,grain,glimmer] [--out dir] [--png]';
 export const CLI_EXTENSIONS = ['svg', 'png', 'jpg', 'jpeg'];

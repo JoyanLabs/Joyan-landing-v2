@@ -1,17 +1,20 @@
 ---
 /**
- * WU20 (correction round) — the single coming-soon page (EN). Same contract as
- * the ES page: the autoplaying unicorn hero (build-time conversion of the
- * gitignored fixture, data-URI bake, attribution on the page), professional
- * placeholder copy pending branding review (recorded in the tracking
- * document), real metadata, and the / ↔ /en hreflang pair owned by the layout.
+ * WU22 — the single coming-soon page (EN). Same contract as the ES page:
+ * the full-bleed autoplaying unicorn hero (build-time conversion, tone cap,
+ * roll, page palette, data-URI bake), short and mysterious placeholder copy
+ * pending branding review (shipped option and alternatives recorded in the
+ * tracking document), real metadata, and the / ↔ /en hreflang pair owned by
+ * the layout. The attribution lives in docs/MOTOR-ESCENAS.md, not on the page.
  */
 import PageLayout from '~/layouts/PageLayout.astro';
 import JoyanComingHero from '~/components/joyan/JoyanComingHero.astro';
 import { en, LOCALES } from '~/lib/i18n';
 import { convert } from '../../../scripts/scene-src/from-image.mjs';
 import { applyTreatment } from '../../../scripts/scene-src/overlays.mjs';
-import { serializeScene, IMAGE_PALETTES } from '../../../scripts/scene-src/image-pipeline.mjs';
+import {
+  serializeScene, sceneFromSerialized, rollSerializedScene, PAGE_PALETTE_ID, IMAGE_PALETTES,
+} from '../../../scripts/scene-src/image-pipeline.mjs';
 import { LOCAL_INPUTS } from '../../../scripts/scene-src/local-inputs.mjs';
 import { renderFrame, rasterize, DELIVERY_CELL } from '../../../scripts/scene-src/engine.mjs';
 import { existsSync } from 'node:fs';
@@ -20,10 +23,11 @@ import sharp from 'sharp';
 
 const pathname = Astro.url.pathname;
 
-// The hero recipe (docs/MOTOR-ESCENAS.md — coming-hero): the supplied film-prop
-// line art, ink measurement at 160 × 80, the deep aurora image palette,
-// stars + aurora overlays, the engine's own five-rung ladder and bayer4 dither
-// at the 8 px delivery pitch.
+// The hero recipe. The subject is composed centre-right (roll +18 columns) so
+// the text region of the full-bleed layout stays over dark ground.
+const HERO_ROLL = 18;
+const HERO_OVERLAYS = ['stars', 'aurora', 'wash'];
+
 const HERO_FIXTURE = resolve('dist-motion-verify/wu18/input/blade-runner-unicorn-line-transparent.svg');
 const heroHasFixture = existsSync(HERO_FIXTURE);
 const heroConverted = await convert(
@@ -32,11 +36,18 @@ const heroConverted = await convert(
     cols: 160, rows: 80, mode: 'ink', colorMode: 'levels', palette: 'ink',
     id: 'joyan-coming-hero',
     label: heroHasFixture
-      ? 'the coming-hero — based on the Blade Runner unicorn, design attributed to Tom Southwell (demonstration)'
+      ? 'the coming-hero — based on the Blade Runner unicorn, design attributed to Tom Southwell (demonstration; attribution recorded in docs/MOTOR-ESCENAS.md)'
       : 'the Joyan mark — ring, two triangles, axis and dots',
   },
 );
-const heroScene = applyTreatment(heroConverted.scene, { palette: 'aurora', overlays: ['stars', 'aurora'] }, IMAGE_PALETTES);
+// The rolled, treated serialisation is the ONE payload the runtime receives, so
+// the live canvas draws exactly the placed scene the Node bake produces.
+const heroRolledPayload = rollSerializedScene(serializeScene(heroConverted.scene), HERO_ROLL);
+const heroScene = applyTreatment(
+  sceneFromSerialized(heroRolledPayload),
+  { palette: PAGE_PALETTE_ID, overlays: HERO_OVERLAYS },
+  IMAGE_PALETTES,
+);
 const payload = JSON.stringify(serializeScene(heroScene));
 
 // The no-JS still is the build-time bake of the SAME scene, embedded as a data
@@ -55,40 +66,29 @@ if (heroHasFixture) {
 
 // Placeholder copy pending branding review (recorded in the tracking document).
 const content = en;
-const attribution = heroHasFixture
-  ? 'The hero is based on the Blade Runner unicorn, design attributed to Tom Southwell — used as a demonstration at the user’s explicit direction. Production use requires confirmed rights.'
-  : 'The hero uses our own mark; the unicorn demonstration requires the local fixture file.';
 ---
 
 <PageLayout
   lang={LOCALES.EN}
   metadata={{
     title: content.meta.title,
-    description:
-      'We design agents that operate within agreed limits and connected systems that record what happens in the physical world, so every operation is auditable and reviewable. Joyan — coming soon.',
+    description: 'Joyan. Something precise is taking shape.',
     robots: { index: true, follow: true },
   }}
   pathname={pathname}
 >
   <div class="flex min-h-dvh flex-col bg-ink-950 font-sans text-bone-100 antialiased">
-    <div class="flex flex-1 flex-col items-center justify-center">
-      <JoyanComingHero
-        poster={poster}
-        payload={payload}
-        palette="aurora"
-        overlays="stars,aurora"
-        name="Joyan"
-        tagline="We design agents that operate within agreed limits and connected systems that record what happens in the physical world, so every operation stays auditable and reviewable."
-        values={['Agents that operate within agreed limits', 'An auditable record of every action', 'Human review for the decisions that matter']}
-        comingSoon="We are building something new"
-        attribution={attribution}
-      />
-    </div>
-    <footer class="border-t border-hairline">
-      <div class="mx-auto flex w-full max-w-6xl flex-col gap-1 px-4 py-6 text-xs text-plomo-400 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <p>© Joyan — built with care.</p>
-        <p class="font-mono">Site under construction · back soon.</p>
-      </div>
-    </footer>
+    <JoyanComingHero
+      poster={poster}
+      payload={payload}
+      palette={PAGE_PALETTE_ID}
+      overlays={HERO_OVERLAYS.join(',')}
+      name="Joyan"
+      tagline="Something precise is taking shape."
+      comingSoon="Coming soon"
+      footerNote="© Joyan — built with care."
+      contactEmail="hello@joyan.dev"
+      discordLabel="Discord — the invite is coming soon"
+    />
   </div>
 </PageLayout>

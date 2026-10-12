@@ -66,17 +66,23 @@ distinto, serían dos parecidos y no la misma pieza.
   supersampleada de WU15 **midió** en su celda de entrega; se conserva como
   objetivo y ahora la máscara la alcanza **exactamente en cualquier tamaño de
   celda** (medido 0.234400 / 0.484400 / 0.812500 a 4, 8 y 16 px por celda, frente
-  a la deriva 0.2422 / 0.5117 / 0.7930 de la versión anterior a 8 px). **WU19 añade
-  el quinto peldaño a cobertura completa: `COVERAGE = [0, 0.2344, 0.4844, 0.8125,
-  1.0]`** — un brillo puede cerrar la celda entera de tinta (la rampa gana la marca
-  `⬤`). De esa escalera se **derivan** los radios (`DOT_RADIUS`, en unidades de
-  celda): `[0, 0.2731, 0.3927, 0.5103, 0.7071]`, por bisección sobre el área exacta
-  del disco recortado, no por una fracción asumida de la celda. El cuarto es el
-  disco inscrito (0.5) más el 2 % que pide la escalera medida; el quinto es la
-  **media diagonal de la celda** (0.7071), el disco que llega a las esquinas, cuyo
-  recorte ES la celda completa — eso es lo que significa saturación. La escalera de
-  tono (`ladder`) se deriva de esa
-  medición: la curva que traduce luminancia a paso es la misma curva que dibuja
+  a la deriva 0.2422 / 0.5117 / 0.7930 de la versión anterior a 8 px). WU19 añadió
+  un quinto peldaño a cobertura completa; **WU22 lo recapsula al disco inscrito**:
+  el disco de la media diagonal (0.7071) cubre la celda ENTERA, de modo que cada
+  brillo saturado se leía como un CUADRADO. La escalera de autor es ahora
+  `COVERAGE = [0, 0.1841, 0.3804, 0.6381, 0.7854]` — los peldaños interiores de
+  WU19 reescalados a la nueva tapa (cada uno × π/4), y el quinto peldaño es el
+  disco inscrito, cobertura π/4 ≈ 0.7854. De esa escalera se **derivan** los
+  radios (`DOT_RADIUS`, en unidades de celda):
+  `[0, 0.2421, 0.3480, 0.4507, 0.5000]`, por bisección sobre el área exacta
+  del disco recortado, no por una fracción asumida de la celda. El quinto es
+  exactamente el medio LADO de la celda (0.5): un brillo ahora culmina en un
+  punto redondo lleno y **ninguna celda pintada es nunca un cuadrado completo**
+  (las comprobaciones exigen que la masa de esquina del último peldaño sea la de
+  un disco). La consecuencia se declara honestamente: los brillos culminan en el
+  disco inscrito — la celda más brillante es un punto grande, no la celda entera.
+  La escalera de tono normalizada (`ladder`) no cambia (es relativa al mayor
+  punto): la curva que traduce luminancia a paso es la misma curva que dibuja
   los puntos.
 - **Dither ordenado.** Matriz de Bayer 4 × 4. Un nivel entre dos peldaños de la
   escalera se reparte **espacialmente** entre esos dos pasos vecinos: nunca salta
@@ -583,15 +589,15 @@ comprobaciones miden en vez de afirmar:
 
 | Máscara | Qué es | Tamaño resuelto (pasos 1 / 2 / 3, unidades de celda) | Prueba geométrica medida a 32 px por celda |
 | --- | --- | --- | --- |
-| `disc` | disco (la máscara de WU16) | 0,2732 / 0,3927 / 0,5103 | paso 3: esquinas 0 % de los ejes; 2,6 % de masa fuera del disco inscrito; no separable (error 1,000) |
-| `square` | cuadrado de eje | 0,2421 / 0,3480 / 0,4507 | paso 3: **separable exactamente** (error 0,000), es su propio producto fila × columna; 10,1 % de masa fuera del disco inscrito |
-| `rounded` | cuadrado con esquinas a 0,34 del semilado | 0,2451 / 0,3524 / 0,4564 | paso 3: separable 0,9555 (las esquinas cortadas rompen el producto), relleno de caja 0,9244; en el paso 1 el relleno de caja es 0,9376 |
-| `diamond` | rombo | 0,3423 / 0,4921 / 0,6938 | paso 1: fila superior 6,3 % del ancho, relleno de caja 0,6001 (½ de la caja) |
-| `triangle` | triángulo isósceles, vértice arriba | 0,3423 / 0,4921 / 0,8876 | paso 3: masa abajo/arriba 1,55 (asimétrico), transpuesta 0,5586 (0,63 a 64 px) |
-| `hexagon` | hexágono puntiagudo (un vértice arriba y otro abajo) | 0,3004 / 0,4318 / 0,5641 | paso 1: relleno de caja 0,8334, fila superior 12,5 %, esquinas 0 %, separable 1,000 |
-| `ring` | anillo con agujero a 0,30 del radio exterior | 0,2863 / 0,4116 / 0,5578 | paso 3: centro 0,000 con borde 1,000 (hay agujero) |
-| `cross` | cruz / más, brazos a 0,42 del semilargo | 0,2972 / 0,4272 / 0,6750 | paso 1: centro y puntas de brazo con tinta (1,00), cuadrantes vacíos (0,00) |
-| `hatch` | rayado a 45°, ciclo de trabajo resuelto | 0,2344 / 0,4844 / 0,8125 | paso 3: invariancia diagonal 0,9459 (0,9156 a 16 px, 0,9698 a 64 px). La métrica cuenta pares de píxeles vecinos en diagonal con la misma cobertura, que no es lo mismo que \"la tinta es constante en la diagonal\": 1,000 solo sale de una prueba más estricta (solo píxeles entintados) |
+| `disc` | disco (la máscara de WU16) | 0,2421 / 0,3480 / 0,4507 | paso 4 (disco inscrito): esquinas 0 % de los ejes; 0,8 % de masa fuera del disco inscrito; no separable (error 1,000) |
+| `square` | cuadrado de eje | 0,2145 / 0,3084 / 0,3994 | paso 4: **separable exactamente** (error 0,000), es su propio producto fila × columna; 8,7 % de masa fuera del disco inscrito |
+| `rounded` | cuadrado con esquinas a 0,34 del semilado | 0,2172 / 0,3123 / 0,4045 | paso 3: separable 0,9555 (las esquinas cortadas rompen el producto), relleno de caja 0,9666; en el paso 1 el relleno de caja es 0,9618 |
+| `diamond` | rombo | 0,3034 / 0,4361 / 0,5746 | paso 1: fila superior 6,3 % del ancho, relleno de caja 0,6001 (½ de la caja) |
+| `triangle` | triángulo isósceles, vértice arriba | 0,3034 / 0,4361 / 0,6492 | paso 3: masa abajo/arriba 2,20 (asimétrico), transpuesta 0,4414 (0,63 a 64 px) |
+| `hexagon` | hexágono puntiagudo (un vértice arriba y otro abajo) | 0,2662 / 0,3826 / 0,4956 | paso 1: relleno de caja 0,8334, fila superior 12,5 %, esquinas 0 %, separable 1,000 |
+| `ring` | anillo con agujero a 0,30 del radio exterior | 0,2538 / 0,3648 / 0,4724 | paso 4: centro 0,000 con borde 1,000 (hay agujero) |
+| `cross` | cruz / más, brazos a 0,42 del semilargo | 0,2634 / 0,3786 / 0,4903 | paso 1: centro y puntas de brazo con tinta (1,00), cuadrantes vacíos (0,00); la punta se mide a 0,22 de celda porque el brazo resuelto llega a 0,2634 |
+| `hatch` | rayado a 45°, ciclo de trabajo resuelto | 0,1841 / 0,3804 / 0,6381 | paso 3: invariancia diagonal 0,9875 (0,9378 a 16 px, 0,9960 a 64 px). La métrica cuenta pares de píxeles vecinos en diagonal con la misma cobertura, que no es lo mismo que \"la tinta es constante en la diagonal\": 1,000 solo sale de una prueba más estricta (solo píxeles entintados) |
 | `grain` | **sin forma**: solo cobertura | = la escalera (no hay tamaño) | paso 1: simetría de transpuesta 0,67 y de giro 0,63; fracción binaria 1,00 |
 | `glyph` | glifo de mapa de bits (la ruta del atlas adoptado) | ≈1,0000 (el propio mapa de bits ya lleva la escalera) | paso 1: fracción binaria 1,00; separable 1,00 |
 
@@ -675,7 +681,7 @@ paneles de prueba a 8 px, y WU16 fijó `DELIVERY_CELL = 8` para la escena real.
 | Perilla | Qué hace | Medido |
 | --- | --- | --- |
 | Rampa `shape` | cada paso es la forma elegida, con su tamaño resuelto | — |
-| Rampa `block` | pasos de **bloques duros** de píxel: cada píxel cae a 0 o 1, sin antialiasing | **no sostiene la escalera**: medias 0,2500 / 0,5625 / 0,9375 a 8 px por celda y 0,2500 / 0,2500 / 1,0000 a 4 px (objetivo 0,2344 / 0,4844 / 0,8125); a 16 px, 0,2500 / 0,5469 / 0,7656. Un bloque duro solo alcanza múltiplos de 1/(px²) |
+| Rampa `block` | pasos de **bloques duros** de píxel: cada píxel cae a 0 o 1, sin antialiasing | **no sostiene la escalera**: medias 0,2500 / 0,2500 / 0,5625 / 0,9375 a 8 px por celda y 0,2500 / 0,2500 / 0,7500 / 1,0000 a 4 px (objetivo 0,1841 / 0,3804 / 0,6381 / 0,7854); a 16 px, 0,1406 / 0,3906 / 0,5625 / 0,7656. Un bloque duro solo alcanza múltiplos de 1/(px²) — con la escalera WU22 el bloque del paso 2 cuantiza al mismo 0,2500 que el paso 1 a 8 px |
 | Rampa `glyph` | la tabla de glifos (los mapas de bits son 15, 31 y 52 de 64 celdas, y el tamaño se resuelve igual) | **sí sostiene la escalera**: 0,2344 / 0,4844 / 0,8125 a 8, 4 y 2 px por celda (tolerancia 0,001). El 15/64 pertenece a esta rampa, no a `block` |
 | Dither `bayer4` | matriz ordenada 4 × 4 | 16 umbrales |
 | Dither `bayer8` | matriz ordenada 8 × 8 | 64 umbrales |
@@ -972,36 +978,44 @@ pares, no sobre una muestra).
 
 ### 14.5 Quinto peldaño de la escalera y re-horneado
 
-`COVERAGE` gana `1.0` y `DOT_RADIUS` el radio 0,7071 (sección 2). La escena
-entregada cambia: en el fotograma de póster de `joyan-night-coast` 63 celdas suben
-al paso de cobertura completa (luna, corazón de la lámpara, pintura hueso), así que
-el PNG se re-horneó con el mismo motor:
+WU19 añadió el quinto peldaño a cobertura completa (radio 0,7071) y re-horneó.
+**WU22 recapsula ese peldaño al disco inscrito** (π/4, radio 0,5): el peldaño
+completo pintaba la celda entera y leía como cuadrado. La escena entregada vuelve
+a cambiar: en el fotograma de póster de `joyan-night-coast` 63 celdas tocan el
+último peldaño (luna, corazón de la lámpara, pintura hueso) y ahora lo pintan
+como el disco inscrito, no como la celda completa, así que el PNG (y el MP4) se
+re-hornearon con el mismo motor:
 
-| Activo | WU18 | WU19 |
+| Activo | WU19 | **WU22** |
 | --- | --- | --- |
-| `scripts/scene-src/baked/joyan-night-coast.png` | 41.906 B, `5c2f8f3d…` | **43.235 B**, `16310df3…` |
-| Raster del póster (píxeles) | `2808ffc7…` | **`bd1c708d…`** |
-| `joyan-night-coast.mp4` (360 fotogramas, CRF 41) | — | 350.674 B, `1f77d7c1…` |
+| `scripts/scene-src/baked/joyan-night-coast.png` | 43.235 B, `16310df3…` | **35.270 B**, `6ae11f51…` |
+| Raster del póster (píxeles) | `bd1c708d…` | **`e6844efc…`** |
+| `joyan-night-coast.mp4` (360 fotogramas, CRF 41) | 350.674 B, `1f77d7c1…` | **323.910 B**, `d11398bb…` |
+| `public/assets/dither/coming-hero.png` (póster de la marca, fallback) | 38.615 B | **31.561 B**, `a0ae3011…` |
 
 El bake sigue siendo **exactamente** el raster del motor del fotograma de póster
 (medido, no asumido) y el cliente canvas y el raster de Node siguen de acuerdo hash
-a hash. El presupuesto de laboratorio se midió de nuevo: chunk de motor 33.856 B
-raw / 12.997 B gzip, laboratorio ejecutable 38.421 B gzip, tope 40.469 B
-(medido + 2.048 B, margen ≤ 4.096 B); los cinco chunks de la portada siguen
-byte a byte idénticos en 109.818 B gzip.
+a hash. El presupuesto de laboratorio se midió de nuevo en WU22: chunk de motor
+13.866 B gzip (crece con el tope de tono, el roll, las barridos wash/shimmer y la
+paleta de página), laboratorio ejecutable 39.290 B gzip, tope 41.338 B
+(medido + 2.048 B, margen ≤ 4.096 B); la portada mide 101.281 B gzip en 4 chunks,
+9.376 B sobre el baseline intacto de WU12 (91.905 B), dentro del límite intacto
+de 22.528 B.
 
 ## 15. El hero de la página única (WU20, corrección)
 
 La página pública es una sola página (`/` y `/en`) y su hero es una escena de puntos **animada**. Receta exacta, todo medido y verificado por `scripts/check-scene-engine.mjs`:
 
-- **Entrada**: el unicornio de Blade Runner que suministró el usuario (fixture local gitignored `dist-motion-verify/wu18/input/blade-runner-unicorn-line-transparent.svg`), por decisión expresa y en registro del usuario. Atribución visible en la página: "basado en el unicornio de Blade Runner, diseño atribuido a Tom Southwell — usado como demostración". El SVG nunca entra al repositorio: la página convierte **en build** y embarca solo la serialización convertida y el PNG del póster (data URI). Sin fixture, el build cae a nuestra marca (el id serializado se mantiene `joyan-coming-hero`, pero póster, atribución y etiqueta pasan a la marca) para no depender del arte.
-- **Conversión**: pipeline WU18/WU19 — `--mode ink --color levels --cols 160 --rows 80` (rejilla 160 × 80), prefiltro de pitch y auto-ganancia activos.
-- **Paleta**: `aurora` de `IMAGE_PALETTES` (10 entradas, suelo `#05070c`).
-- **Overlays**: `stars` + `aurora` (`applyTreatment`), periódicos por construcción (LOOP_SECONDS 30, 12 fps, 360 frames).
-- **Motor**: rampa de puntos ` ·•●⬤` (cinco peldaños, WU19), máscara `disc`, dither `bayer4`, celdas cuadradas 1:1, pitch de entrega 8 px → lienzo 1280 × 640.
+- **Entrada**: el unicornio de Blade Runner que suministró el usuario (fixture local gitignored `dist-motion-verify/wu18/input/blade-runner-unicorn-line-transparent.svg`), por decisión expresa y en registro del usuario. **Atribución (WU22): la línea visible salió de la página por petición expresa del usuario y vive aquí, en este documento:** el hero está basado en el unicornio de Blade Runner, diseño atribuido a Tom Southwell — usado como demostración a petición expresa del usuario; su uso en producción requiere derechos confirmados. La nota de licencia completa se mantiene también en el laboratorio noindex. El SVG nunca entra al repositorio: la página convierte **en build** y embarca solo la serialización convertida y el PNG del póster (data URI). Sin fixture, el build cae a nuestra marca (el id serializado se mantiene `joyan-coming-hero`, pero póster, atribución y etiqueta pasan a la marca) para no depender del arte.
+- **Conversión**: pipeline WU18/WU19/WU22 — `--mode ink --color levels --cols 160 --rows 80` (rejilla 160 × 80), prefiltro de pitch, auto-ganancia (medida 3,235 en esta rejilla; la auditoría registró 2,944 a 200 × 100) **y tope de tono** (WU22: rodilla 0,6 → techo 0,86) activos. Medido sobre el núcleo denso del unicornio: las celdas del último peldaño caen de 65 a 34 (47,7 % menos) y el p90 entintado se queda en 0,667 — el cuerpo conserva estructura (puntos grandes en varios peldaños) en vez de un blob blanco; evidencia y recortes en `dist-motion-verify/wu22/white-core/`.
+- **Colocación (WU22)**: la serialización se **rueda +18 columnas** (`rollSerializedScene`) en build, de modo que el sujeto queda al centro-derecha y la zona superior izquierda queda oscura para el texto.
+- **Paleta**: `joyan-page` de `IMAGE_PALETTES` (12 entradas, suelo `#0b0b0c` = tinta ink-950, hueso `#f4f2ed`, ámbar `#ffb000`, la aurora adaptada a los tokens del sitio y un acento rosa `#ff5d73` que combina; referenciada por `PAGE_PALETTE_ID`, intercambiable en un solo sitio).
+- **Overlays**: `stars` + `aurora` + **`wash`** (WU22, la familia de barridos: wash elegido para la página — cubre más escena (28,7 % de celdas > 0,12 de tono), empuje máximo más suave (0,176) y es el más respetuoso con el sujeto (relación sujeto/fondo 0,679, frente a 0,858 de `glimmer` y 0,860 de `shimmer`)), periódicos por construcción (LOOP_SECONDS 30, 12 fps, 360 frames; costura de campo ≤ 1e-6 verificada para los seis overlays).
+- **Motor**: rampa de puntos ` ·•●⬤` (cinco peldaños, WU22: el último es el disco inscrito), máscara `disc`, dither `bayer4`, celdas cuadradas 1:1, pitch de entrega 8 px → lienzo 1280 × 640 estirado a cubrir la ventana (object-cover).
+- **Página (WU22)**: escena a sangre completa (toda la ventana), texto arriba-izquierda sobre un scrim medido (peor caso medido tras el punto más fino del scrim sobre un píxel hueso: 12,2:1; el título ámbar 7,4:1, ambos por encima del mínimo de 4,5:1 del sistema de diseño), copy corto y misterioso pendiente de revisión de marca (opciones alternativas registradas en el documento de seguimiento), lectura del motor solo para lectores de pantalla, fila de contacto `hello@joyan.dev` + marca de Discord dibujada en nuestra estética de puntos (la invitación futura vive en la constante `DISCORD_INVITE_URL`, aún vacía), y la estética de puntos continúa en el pie.
 - **Autoplay**: decidido por el usuario — los efectos siempre se reproducen, sin botón. El bucle arranca al cargar (pinta el fotograma 0 — el mismo raster de Node — y sigue a 12 fps), pausa fuera de pantalla y en pestaña oculta, y se limpia en `pagehide`. Bajo `prefers-reduced-motion` la página muestra el póster estático real con texto veraz y nunca anima. El patrón "still hasta Play" se mantiene solo en las rutas de laboratorio.
 - **Igualdad de hashes**: Node raster = lienzo en vivo = horneado (data URI del póster) por escena, verificado por frame (`data-hero-frame`) contra el raster de Node del MISMO frame.
-- **Presupuesto**: el runtime del hero es el chunk compartido `scene-runtime` (35,514 B raw / 13,396 B gzip) más la entrada del hero (56 B gzip) y los dos chunks del ClientRouter de Astro (60,302 + 27,057 B gzip, byte-idénticos a los de WU12). Total landing 100,811 B gzip en 4 chunks, 8,906 B sobre el baseline intacto de WU12 (91,905 B), dentro del margen de 22 KiB. El lab ejecuta 38,820 B (tope 40,868 B = medido + 2,048 B).
+- **Presupuesto**: el runtime del hero es el chunk compartido `scene-runtime` (13,866 B gzip tras WU22) más la entrada del hero (56 B gzip) y los dos chunks del ClientRouter de Astro (60,302 + 27,057 B gzip, byte-idénticos a los de WU12). Total landing 101,281 B gzip en 4 chunks, 9,376 B sobre el baseline intacto de WU12 (91,905 B), dentro del margen intacto de 22 KiB. El lab ejecuta 39,290 B (tope 41,338 B = medido + 2,048 B).
 
 ## 16. Qué **no** está medido del hero
 

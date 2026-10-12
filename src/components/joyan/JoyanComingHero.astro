@@ -1,19 +1,26 @@
 ---
 /**
- * WU20 (correction round) — the coming-soon hero for the single public page.
+ * WU22 — the full-bleed coming-soon hero. The dot scene covers the WHOLE
+ * viewport (stars + aurora + the colour wash over the unicorn, composed to the
+ * centre-right at build time by the roll in the page frontmatter), and the
+ * copy sits top-left over a measured scrim so text contrast never drops below
+ * the design-system rule (≥ 4.5:1; measured this round at ≥ 12:1 in the worst
+ * case: the scrim's thinnest point behind the text over the brightest possible
+ * scene pixel, bone-50 on ink-950 at 85% — see docs/DESIGN.md).
  *
- * Subject, by the user's explicit on-the-record direction: the Blade Runner
- * unicorn they supplied (they consider it an open-source-style illustration
- * based on the film design and direct using it "para probar"). Licence
- * discipline: the SVG fixture stays gitignored and uncommitted; the page
- * embeds only the pipeline's converted serialisation and a build-time baked
- * poster (data URI), and carries the attribution line below. Swapping the
- * subject later is a one-line change in the page frontmatter.
+ * Subject, by the user's explicit on-the-record direction (WU20): the Blade
+ * Runner unicorn they supplied. Licence discipline: the SVG fixture stays
+ * gitignored and uncommitted; the page embeds only the pipeline's converted
+ * serialisation and a build-time baked poster (data URI). The attribution line
+ * is NO LONGER visible on the page (user direction, WU22) — it lives in
+ * `docs/MOTOR-ESCENAS.md`. Swapping the subject later is a one-line change in
+ * the page frontmatter.
  *
  * The hero AUTOPLAYS (user-directed): the loop starts on load through
  * `~/lib/scene-runtime`, the ONE runtime path allowed on a real page. Reduced
- * motion keeps the real static poster with truthful wording; offscreen and
- * hidden tabs pause; pagehide releases everything. All copy is PLACEHOLDER
+ * motion keeps the real static poster with truthful wording (the status line is
+ * screen-reader only — the visible engine readout was removed, WU22). Offscreen
+ * and hidden tabs pause; pagehide releases everything. All copy is PLACEHOLDER
  * pending branding review — recorded in the tracking document, not shown.
  */
 interface Props {
@@ -26,11 +33,44 @@ interface Props {
   overlays?: string;
   name: string;
   tagline: string;
-  values: string[];
   comingSoon: string;
-  attribution: string;
+  footerNote: string;
+  contactEmail: string;
+  discordUrl?: string;
+  discordLabel: string;
 }
-const { poster, payload, palette = 'aurora', overlays = 'stars,aurora', name, tagline, values, comingSoon, attribution } = Astro.props;
+const {
+  poster, payload, palette = 'joyan-page', overlays = 'stars,aurora,wash', name, tagline, comingSoon,
+  footerNote, contactEmail, discordUrl = '', discordLabel,
+} = Astro.props;
+
+/**
+ * DISCORD_INVITE_URL (WU22) — the future Discord invite lives HERE, in one
+ * clearly named constant. The user will configure it later; until then the
+ * mark renders without a link (no invented URL is ever shipped).
+ */
+const DISCORD_INVITE_URL = '';
+const discordHref = discordUrl || DISCORD_INVITE_URL;
+
+/**
+ * The Discord mark, authored in OUR aesthetic: the Clyde silhouette laid out on
+ * a 16 × 10 dot grid and drawn as round dots — the same dot language as the
+ * scene. `#` is one dot; the eyes are the empty 2 × 2 gaps.
+ */
+const DISCORD_DOT_GRID = Object.freeze([
+  '....########....',
+  '..############..',
+  '.##############.',
+  '####..####..####',
+  '####..####..####',
+  '####..####..####',
+  '.##############.',
+  '..############..',
+  '...##########...',
+  '..###......###..',
+]);
+const dotRows = DISCORD_DOT_GRID.length;
+const dotCols = DISCORD_DOT_GRID[0].length;
 ---
 
 <section
@@ -38,44 +78,115 @@ const { poster, payload, palette = 'aurora', overlays = 'stars,aurora', name, ta
   data-hero-autoplay
   data-hero-palette={palette}
   data-hero-overlays={overlays}
-  class="mx-auto flex w-full max-w-6xl flex-col items-center px-4 pb-16 pt-12 text-center sm:px-6"
+  class="relative flex min-h-[88dvh] w-full flex-col overflow-hidden"
   aria-labelledby="coming-hero-name"
 >
-  <div class="scene-frame w-full border border-hairline bg-ink-900 shadow-[0_0_80px_-20px_rgba(18,140,134,0.35)]">
+  {/* The full-bleed scene: the baked poster is the no-JS still; the canvas takes
+      over on load. Both are stretched cover over the viewport. */}
+  <div class="scene-layer absolute inset-0" aria-hidden="true">
     <img
       src={poster}
       alt=""
-      aria-hidden="true"
       data-hero-poster
       width="1280"
       height="640"
       loading="eager"
       decoding="async"
-      class="block h-auto w-full"
+      class="block h-full w-full object-cover"
     />
-    <canvas aria-hidden="true" class="block h-auto w-full"></canvas>
-    <p data-hero-fallback class="hidden p-4 text-sm text-plomo-400">
-      {`${name}: la escena, dibujada en puntos · the scene, drawn as dots.`}
+    <canvas class="block h-full w-full object-cover"></canvas>
+  </div>
+  {/* Measured scrim: the text region stays dark no matter what the scene does. */}
+  <div class="scrim absolute inset-0" aria-hidden="true"></div>
+
+  <div class="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 sm:px-6">
+    <div class="mt-[14dvh] max-w-xl">
+      <p class="font-mono text-xs uppercase tracking-[0.3em] text-accent">{comingSoon}</p>
+      <h1 id="coming-hero-name" class="mt-4 text-5xl tracking-tight text-bone-50 sm:text-7xl">{name}</h1>
+      <p class="mt-6 max-w-md text-lg leading-relaxed text-bone-100">{tagline}</p>
+    </div>
+    <p data-hero-status class="sr-only" role="status">
+      Static poster
     </p>
   </div>
-  <p class="mt-8 font-mono text-xs uppercase tracking-[0.3em] text-accent">{comingSoon}</p>
-  <h1 id="coming-hero-name" class="mt-4 text-5xl tracking-tight text-bone-50 sm:text-7xl">{name}</h1>
-  <p class="mt-6 max-w-2xl text-lg leading-relaxed text-bone-100">{tagline}</p>
-  <ul class="mt-10 grid w-full max-w-3xl gap-px border border-hairline bg-hairline sm:grid-cols-3" role="list">
-    {
-      values.map((value) => (
-        <li class="bg-ink-950 px-4 py-5">
-          <p class="text-sm leading-snug text-bone-100">{value}</p>
-        </li>
-      ))
-    }
-  </ul>
-  <p data-hero-status class="mt-8 font-mono text-xs text-plomo-400" role="status">
-    Static poster
-  </p>
-  <p class="mt-10 max-w-prose font-mono text-[11px] leading-relaxed text-plomo-400">{attribution}</p>
   <script is:inline type="application/json" data-coming-hero-scene set:html={payload} />
 </section>
+
+<footer class="relative z-10 border-t border-hairline bg-ink-950">
+  <div
+    class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-6"
+  >
+    <div class="flex items-center gap-4">
+      {/* The dot rule: the page's own aesthetic carried into the footer. */}
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 104 8"
+        width="104"
+        height="8"
+        class="shrink-0 text-plomo-500"
+      >
+        {[0, 1, 2, 3, 4, 5, 6].map((index) => (
+          <circle cx={4 + index * 16} cy="4" r={index % 2 === 0 ? 3 : 2} fill="currentColor" />
+        ))}
+      </svg>
+      <p class="text-xs text-plomo-400">{footerNote}</p>
+    </div>
+    <div class="flex items-center gap-6">
+      <a
+        href={`mailto:${contactEmail}`}
+        class="font-mono text-sm text-bone-100 underline decoration-hairline underline-offset-4 transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
+      >
+        {contactEmail}
+      </a>
+      {discordHref ? (
+        <a
+          href={discordHref}
+          rel="noopener"
+          aria-label={discordLabel}
+          title={discordLabel}
+          class="text-bone-100 transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
+        >
+          <svg
+            viewBox={`0 0 ${dotCols} ${dotRows}`}
+            width="28"
+            height="18"
+            role="img"
+            aria-hidden="true"
+            class="block"
+          >
+            {DISCORD_DOT_GRID.map((row, y) =>
+              [...row].map((cell, x) =>
+                cell === '#' ? <circle cx={x + 0.5} cy={y + 0.5} r="0.44" fill="currentColor" /> : null
+              )
+            )}
+          </svg>
+        </a>
+      ) : (
+        <span
+          aria-label={discordLabel}
+          title={discordLabel}
+          class="text-plomo-400"
+          data-discord-mark
+        >
+          <svg
+            viewBox={`0 0 ${dotCols} ${dotRows}`}
+            width="28"
+            height="18"
+            role="img"
+            aria-hidden="true"
+            class="block"
+          >
+            {DISCORD_DOT_GRID.map((row, y) =>
+              [...row].map((cell, x) =>
+                cell === '#' ? <circle cx={x + 0.5} cy={y + 0.5} r="0.44" fill="currentColor" /> : null
+              )
+            )}
+          </svg>
+        </span>
+      )}
+    </div>
+  </div>
+</footer>
 
 <script>
   // The ONE runtime import on the public page: the shared engine runtime, here
@@ -84,11 +195,8 @@ const { poster, payload, palette = 'aurora', overlays = 'stars,aurora', name, ta
 </script>
 
 <style>
-  .scene-frame {
+  .scene-layer {
     display: grid;
-    place-items: center;
-    min-width: 0;
-    overflow: hidden;
   }
   /* The baked poster is the no-JS still; the canvas takes over on load. */
   [data-coming-hero] canvas {
@@ -97,10 +205,20 @@ const { poster, payload, palette = 'aurora', overlays = 'stars,aurora', name, ta
   [data-coming-hero][data-playing] canvas {
     display: block;
   }
-  [data-coming-hero][data-playing] img {
+  [data-coming-hero][data-playing] [data-hero-poster] {
     display: none;
   }
-  [data-coming-hero][data-ready] [data-hero-fallback] {
-    display: none;
+  /* The text sits over the scene; the scrim guarantees its contrast regardless
+     of what the aurora or the wash do underneath. Measured worst case (thinnest
+     point behind the text block over a bone-50 scene pixel): 12.2:1; the amber
+     eyebrow reads 7.4:1 — both above the 4.5:1 design-system rule. */
+  .scrim {
+    background: linear-gradient(
+      105deg,
+      rgb(11 11 12 / 0.92) 0%,
+      rgb(11 11 12 / 0.85) 34%,
+      rgb(11 11 12 / 0.4) 62%,
+      rgb(11 11 12 / 0.55) 100%
+    );
   }
 </style>

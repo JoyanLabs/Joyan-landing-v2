@@ -214,8 +214,43 @@ if (existsSync(DIST)) {
     else fail(`wu20: ${name} page must NOT carry a hero Play control`);
     if (html.includes('data-hero-autoplay')) pass(`wu20: ${name} page declares the autoplaying hero`);
     else fail(`wu20: ${name} page must declare the autoplaying hero`);
-    if (/Tom Southwell/.test(html)) pass(`wu20: ${name} page carries the hero attribution line`);
-    else fail(`wu20: ${name} page must carry the hero attribution line`);
+    // WU22: the attribution line is NOT on the page — it moved to docs/MOTOR-ESCENAS.md.
+    // The test targets VISIBLE text: the serialisation's own label (inside the
+    // JSON payload script) is invisible metadata and is stripped first.
+    const visibleHtml = html.replace(/<script\b[\s\S]*?<\/script\s*>/gi, '');
+    if (!/Tom Southwell/.test(visibleHtml)) pass(`wu22: ${name} page carries no visible attribution line`);
+    else fail(`wu22: ${name} page must NOT carry the attribution line (it moved to the repository docs)`);
+    // WU22 copy removals: no construction note, no agent pitch, no value cells,
+    // no visible engine readout, no old coming-soon eyebrow.
+    for (const removed of ['Estamos construyendo', 'Diseñamos agentes', 'Sitio en construcción',
+      'We are building', 'We design agents', 'Site under construction', 'coming soon for Joyan']) {
+      if (!html.includes(removed)) pass(`wu22: ${name} page carries none of the removed copy (${removed})`);
+      else fail(`wu22: ${name} page must not carry the removed copy (${removed})`);
+    }
+    const statusTag = html.match(/<p[^>]*data-hero-status[^>]*>/)?.[0] ?? '';
+    if (statusTag && /sr-only/.test(statusTag)) pass(`wu22: ${name} hero status readout is screen-reader only`);
+    else fail(`wu22: ${name} hero must carry no visible engine readout (the status line must be sr-only)`);
+    // WU22 full-bleed: the scene covers the viewport and the copy sits over a scrim.
+    if (/data-coming-hero[^>]*min-h-\[88dvh\]/.test(html.replace(/\n/g, ' ')) || /min-h-\[88dvh\][^>]*data-coming-hero/.test(html.replace(/\n/g, ' '))) {
+      pass(`wu22: ${name} hero section is full-bleed (min-h-[88dvh])`);
+    } else if (/data-coming-hero/.test(html) && /min-h-\[88dvh\]/.test(html)) {
+      pass(`wu22: ${name} hero section is full-bleed (min-h-[88dvh])`);
+    } else {
+      fail(`wu22: ${name} hero must be full-bleed (the scene covers the viewport)`);
+    }
+    if (html.includes('object-cover')) pass(`wu22: ${name} scene layer covers the viewport (object-cover)`);
+    else fail(`wu22: ${name} scene must cover the viewport (object-cover)`);
+    // WU22 contact row: the mail link, the authored Discord mark, and the clearly
+    // named constant for the future invite (no invented URL is ever shipped).
+    if (html.includes('mailto:hello@joyan.dev')) pass(`wu22: ${name} contact row links hello@joyan.dev`);
+    else fail(`wu22: ${name} contact row must link hello@joyan.dev`);
+    if (html.includes('data-discord-mark')) pass(`wu22: ${name} carries the authored dot Discord mark`);
+    else fail(`wu22: ${name} must carry the authored dot Discord mark`);
+    const heroSrc = read(resolve(ROOT, 'src/components/joyan/JoyanComingHero.astro'));
+    if (/DISCORD_INVITE_URL\s*=\s*''/.test(heroSrc)) pass('wu22: the future Discord invite lives in a clearly named, empty constant');
+    else fail('wu22: JoyanComingHero.astro must declare DISCORD_INVITE_URL as an empty constant (the user configures it later)');
+    if (!/discord.com|discord.gg/i.test(html)) pass('wu22: no invented Discord invite URL is shipped');
+    else fail('wu22: the page must not ship an invented Discord invite URL');
     if (/<title>[^<]*Joyan/i.test(html)) pass(`wu20: ${name} page has a real title`);
     else fail(`wu20: ${name} page must carry a real Joyan title`);
     if (/rel="canonical"/.test(html)) pass(`wu20: ${name} page has a canonical`);
@@ -619,15 +654,17 @@ const candidate = gzipSum();
 // (framer-motion reveal/viewport chunks plus the two Astro client chunks)
 // is gone: the reveal script no longer exists on the single page, so those
 // chunks left the build. What REPLACED them, measured loudly: the coming-hero
-// entry chunk (56 B gzip) plus the shared scene-runtime chunk (13,396 B gzip)
-// — the hero's own interaction path, the ONE runtime allowed on a real page.
+// entry chunk (56 B gzip) plus the shared scene-runtime chunk — the hero's own
+// interaction path, the ONE runtime allowed on a real page.
 // The two Astro client chunks (59,520 + 26,689 B gzip, ClientRouter) are
 // unchanged byte-for-byte. Total moved 109,818 -> 100,811 B gzip (-9,007 B, the checker's own gzipSync accounting).
-// The frozen hashes below are the NEW set, recorded at this delivery; the
-// delta against the untouched WU12-era baseline fixture (91,905 B) is now
-// 7,786 B, re-measured here — never silently.
-const LANDING_FROZEN_GZIP = 100811;
-const LANDING_FROZEN_DELTA = 8906; // 100811 - 91905, baseline fixture untouched
+// WU22 re-measure (never silently): the engine chunk grew with the tone cap,
+// the roll helper, the wash + shimmer overlays and the page palette, so the
+// scene-runtime chunk is now 13,866 B gzip under a new hash, and the landing
+// set totals 101,281 B gzip. The delta against the UNCHANGED WU12-era baseline
+// fixture (91,905 B) is 9,376 B — still far inside the untouched 22,528 B limit.
+const LANDING_FROZEN_GZIP = 101281;
+const LANDING_FROZEN_DELTA = 9376; // 101281 - 91905, baseline fixture untouched
 // WU18 (38,211 B): the image→dot-scene pipeline, its browser-safe core, the
 // composable overlays and the `/lab/image` route were added to the SAME engine
 // chunk, now shared by THREE laboratory routes. The chunk measures 33,296 B raw
@@ -636,15 +673,14 @@ const LANDING_FROZEN_DELTA = 8906; // 100811 - 91905, baseline fixture untouched
 // re-measured as measured + 2,048 B, the same documented margin, never a silent
 // raise.
 //
-// WU19 (38,421 B -> WU20 38,904 B): the scene-runtime chunk is now shared by
-// the THREE laboratory routes AND the two coming-soon pages (the coming-hero,
-// the one allowed runtime path on a real page), so the chunk grew by 364 B
-// raw / 245 B gzip with the hero host code. The lab executable is
-// AsciiRuntime 25,256 B + engine chunk 13,396 B + three 56 B entry chunks, with
-// 0 B of executable inline on any lab page. Cap re-measured as measured
-// + 2,048 B, the same documented margin, never a silent raise.
-const LAB_MEASURED_GZIP = 38820;
-const LAB_CAP_GZIP = 40868; // measured total + 2048 B honest margin (<= 4096 B)
+// WU19 (38,421 B -> WU20 38,904 B -> WU22 39,290 B): the scene-runtime chunk is
+// shared by the THREE laboratory routes AND the two coming-soon pages, and WU22
+// grew it with the tone cap, the roll helper, the wash + shimmer sweeps and the
+// page palette. The lab executable is AsciiRuntime 25,256 B + engine chunk
+// 13,866 B + three 56 B entry chunks, with 0 B of executable inline on any lab
+// page. Cap re-measured as measured + 2,048 B, the same documented margin.
+const LAB_MEASURED_GZIP = 39290;
+const LAB_CAP_GZIP = 41338; // measured total + 2048 B honest margin (<= 4096 B)
 const LAB_MARGIN_LIMIT = 4096;
 const LANDING_ROUTE_PAGES = ['index.html', 'en/index.html'];
 /** Every `/lab/**` page is a laboratory page; nothing else is. */
@@ -655,11 +691,11 @@ const isLabPage = (name) => name.startsWith('lab/') && name.endsWith('.html');
 // in this set: the coming-hero is the one runtime path on the public page, and
 // the laboratories share the same engine code.
 const LANDING_FROZEN_HASHES = {
-  '_astro/JoyanComingHero.astro_astro_type_script_index_0_lang.0_DvE05y.js':
-    '0b2110e79eaed434dd4c3abf8a5e397ff193c940e7a7750bb91eed6e63b5ba6d',
+  '_astro/JoyanComingHero.astro_astro_type_script_index_0_lang.TQG2gabZ.js':
+    'b3cd477a3515e31640fd479c7031bb77dc84495e804734ffbc1586d23ee8e214',
   '_astro/client.BxDIQlYz.js': 'ed1f3e2228ec0a53328513096c375276d3aea8e4c8e2ded754af7b67a13d77f0',
   '_astro/client.kF-MUc6b.js': 'c72b737a3f669a7845f10ec12cf2206a3d4f964c2aef13d4572c6b831b74937d',
-  '_astro/scene-runtime.DsllR3tT.js': 'a0b498384f6bb6d561192cd1600906ccae53b43bb1866ffb94a270ff1182b0df',
+  '_astro/scene-runtime.BYq3d7Le.js': '741a0145ecd439856b53d372258da6d4ece5ac61fbadfc1012615c94c9777451',
 };
 
 const isClientChunk = (file) => typeof file === 'string' && /\.js$/i.test(file);

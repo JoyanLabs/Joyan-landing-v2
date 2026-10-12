@@ -213,13 +213,13 @@ const proof = (shape, step, cell = 32) => (hasCatalogApi
     separability: 0 });
 let pitch = [];
 if (hasCatalogApi) {
-check(proof('square', 3).separability <= 0.02 && proof('square', 3).outsideDiscMass >= 0.05,
+check(proof('square', 4).separability <= 0.02 && proof('square', 4).outsideDiscMass >= 0.05,
   'square: a square must be its own row x column product and keep mass outside the inscribed disc');
-check(proof('disc', 3).outsideDiscMass <= 0.05 && proof('disc', 3).separability >= 0.2,
+check(proof('disc', 4).outsideDiscMass <= 0.05 && proof('disc', 4).separability >= 0.2,
   'disc: no corner mass outside the inscribed disc, and not a separable block');
-check(proof('ring', 3).centreFill <= 0.05 && proof('ring', 3).edgeMidFill >= 0.5,
+check(proof('ring', 4).centreFill <= 0.05 && proof('ring', 4).edgeMidFill >= 0.5,
   'ring: a hole must be visible at the centre of the largest step');
-check(proof('triangle', 3).massBelowOverAbove >= 1.4,
+check(proof('triangle', 4).massBelowOverAbove >= 1.4,
   'triangle: the mass must be asymmetric above and below the centre');
 check(proof('diamond', 1).topRowWidth <= 0.12 && proof('diamond', 1).bboxFill <= 0.65,
   'diamond: the axes are inked, the diagonals are empty and the bounding box is half full');
@@ -228,8 +228,8 @@ check(proof('hexagon', 1).bboxFill >= 0.7 && proof('hexagon', 1).bboxFill <= 0.9
 'hexagon: a pointy top, empty corners and a bounding box fuller than a diamond, emptier than a square');
 check(probeAt(maskFor('cross', 1, 32, 32, 'shape', 'square'), 32, 32, 0, 0) > 0.5
   && probeAt(maskFor('cross', 1, 32, 32, 'shape', 'square'), 32, 32, 0.25, 0.25) <= 0.05
-  && probeAt(maskFor('cross', 1, 32, 32, 'shape', 'square'), 32, 32, 0, 0.28) > 0.5,
-'cross: two bars through the centre, empty quadrants and inked arm tips');
+  && probeAt(maskFor('cross', 1, 32, 32, 'shape', 'square'), 32, 32, 0, 0.22) > 0.5,
+'cross: two bars through the centre, empty quadrants and inked arm tips (tip probe at 0.22: the WU22 step-1 arm solves to 0.2634 of a cell)');
 check(proof('hatch', 3).diagonalInvariance >= 0.9, 'hatch: neighbouring pixels along one diagonal keep the same coverage');
 check(proof('grain', 1).transposeSymmetry <= 0.8 && proof('grain', 1).rotationSymmetry <= 0.8
   && proof('grain', 1).binaryFraction >= 0.9,
@@ -336,9 +336,9 @@ for (const cell of [8, 4, 2, 16, 32]) {
   glyphRamp[cell] = read('glyph');
 }
 const near = (a, b, tolerance = 1e-9) => Math.abs(a - b) <= tolerance;
-check(blockRamp[8].every((value, index) => near(value, [0.25, 0.5625, 0.9375, 1][index]))
-  && blockRamp[4].every((value, index) => near(value, [0.25, 0.25, 1, 1][index])),
-`the hard block ramp quantises to whole pixels: measured ${JSON.stringify(blockRamp[8])} at 8 px per cell and ${JSON.stringify(blockRamp[4])} at 4 px per cell`);
+check(blockRamp[8].every((value, index) => near(value, [0.25, 0.25, 0.5625, 0.9375][index]))
+  && blockRamp[4].every((value, index) => near(value, [0.25, 0.25, 0.75, 1][index])),
+`the hard block ramp quantises to whole pixels: measured ${JSON.stringify(blockRamp[8])} at 8 px per cell and ${JSON.stringify(blockRamp[4])} at 4 px per cell (WU22 ladder: the smaller step-2 block quantises to the same 0.25 as step 1 at 8 px)`);
 check(blockRamp[8].some((value, index) => Math.abs(value - COVERAGE[index + 1]) > 0.01),
   'the block ramp must not be described as holding the ladder: it snaps to whole pixels');
 for (const cell of [8, 4, 2, 16, 32]) {

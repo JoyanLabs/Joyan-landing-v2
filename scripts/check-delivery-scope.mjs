@@ -72,9 +72,11 @@ function selfTest() {
     test(`WU20 reject M archive copy ${dest}`, () => assert.equal(accepted(fixture('M', dest)), false));
     test(`WU20 reject A unknown archive path ${dest.replace(/\.astro$/, '.bak')}`, () => assert.equal(accepted(fixture('A', dest.replace(/\.astro$/, '.bak'))), false));
   }
-  test('WU20 reject lab pages outside the contract', () => {
-    assert.equal(accepted(fixture('M', 'src/pages/lab/ascii.astro')), false);
-    assert.equal(accepted(fixture('M', 'src/pages/lab/shapes.astro')), false);
+  test('WU22 allows the re-measured lab pages, WU20 still rejects the rest', () => {
+    assert.equal(accepted(fixture('M', 'src/pages/lab/ascii.astro')), true);
+    assert.equal(accepted(fixture('M', 'src/pages/lab/shapes.astro')), true);
+    assert.equal(accepted(fixture('D', 'src/pages/lab/ascii.astro')), false);
+    assert.equal(accepted(fixture('A', 'src/pages/lab/other.astro')), false);
   });
   for (const path of [
     'src/components/joyan/DitherScene.astro',
@@ -206,6 +208,14 @@ const exactPaths = new Set([
 // `archive/`. Everything else keeps failing closed. The archive destinations
 // are enumerated one by one: a generic `archive/` prefix would let an unrelated
 // new file in through the back door.
+// WU22 — the full-page dither round also re-measured the laboratory pages'
+// copy and the shape laboratory component; the engine's own source now lives
+// in scripts/scene-src/ (covered by the prefixes below).
+const WU22_EDITS = new Map([
+  ['src/pages/lab/ascii.astro', ['M']],
+  ['src/pages/lab/shapes.astro', ['M']],
+  ['src/components/joyan/ShapeLab.astro', ['M']],
+]);
 const WU20_EDITS = new Map([
   ['src/pages/index.astro', ['M']],
   ['src/pages/en/index.astro', ['M']],
@@ -230,9 +240,13 @@ const WU20_ARCHIVE_DEST = new Set([
   ...[...WU20_MOVED].map((path) => path.replace(/^src\//, 'archive/src/')),
 ]);
 const prefixes = ['public/assets/dither/', 'public/assets/brand/', 'public/assets/motion/',
-  'scripts/dither-src/', 'scripts/motion-src/', 'docs/', 'odd/tasks/'];
+  'scripts/dither-src/', 'scripts/motion-src/', 'scripts/scene-src/', 'docs/', 'odd/tasks/'];
 
 function pathReason(path, status) {
+  if (WU22_EDITS.has(path)) {
+    const statuses = WU22_EDITS.get(path);
+    return statuses.includes(status) ? null : `wu22-status-${status}`;
+  }
   if (WU20_EDITS.has(path)) {
     const statuses = WU20_EDITS.get(path);
     return statuses.includes(status) ? null : `wu20-status-${status}`;

@@ -47,12 +47,19 @@
  */
 
 /**
- * The authored ladder: the measured WU16 dot ladder for the first three rungs
- * (one value per ramp step), plus the WU19 fifth rung at FULL coverage 1.0 —
- * a highlight must be able to reach a whole cell of ink. The radii below are
- * derived from it, not from an assumed fraction of the cell.
+ * The authored ladder: one coverage per ramp step. WU22 caps the ladder at the
+ * INSCRIBED DISC — coverage π/4 ≈ 0.7854. The WU19 fifth rung at 1.0 was the
+ * circumscribed circle (radius 0.7071, the half diagonal): a disc that size
+ * covers the entire cell, so every saturated highlight read as a SQUARE. The
+ * interior rungs keep their measured relative positions across the range and
+ * are rescaled to the new cap: each old rung × π/4. The radii below are
+ * derived from these coverages by bisection, not from an assumed fraction of
+ * the cell, and the consequence is stated honestly in the docs: highlights now
+ * top out at the inscribed disc — the brightest cell is a full round dot, and
+ * no painted cell is ever a full square (the checkers assert the top rung's
+ * corner mass equals a disc's).
  */
-export const LADDER = Object.freeze([0, 0.2344, 0.4844, 0.8125, 1.0]);
+export const LADDER = Object.freeze([0, 0.1841, 0.3804, 0.6381, Math.PI / 4]);
 
 /** Every mask this unit ships. `disc` and `glyph` are described below. */
 export const SHAPES = Object.freeze(['disc', 'square', 'rounded', 'diamond', 'triangle', 'hexagon',
@@ -193,17 +200,19 @@ function rectAreaInRect(ax0, ay0, ax1, ay1, x0, y0, x1, y1) {
 // (mask, step, ink) is built once and copied per cell — and its footprint is a
 // small bitmap of the ramp's dot glyphs, kept here as rows of '.' and '#'. The
 // inked bitmaps carry exactly 15, 31, 52 and 64 of the 64 cells, so at 8 px per
-// cell the glyph mode holds the ladder with hard pixels, including the WU19
-// full-coverage rung; at any other pitch its footprint is still solved from the
-// ladder like every other mask.
+// cell the glyph mode holds the ladder with hard pixels, including the WU22
+// inscribed-disc rung (whose footprint is scaled down to coverage π/4); at any
+// other pitch its footprint is still solved from the ladder like every other mask.
 // ---------------------------------------------------------------------------
 const GLYPH_BITMAPS = Object.freeze([
   Object.freeze([]),
   Object.freeze(['........', '........', '..####..', '..####..', '..####..', '..###...', '........', '........']),
   Object.freeze(['........', '..####..', '.######.', '.######.', '.######.', '.#####..', '..####..', '........']),
   Object.freeze(['..####..', '.######.', '########', '########', '########', '########', '.######.', '..####..']),
-  // WU19: the full-coverage rung. The whole 8x8 bitmap is ink, 64 of 64 cells,
-  // so the glyph ladder also tops out at exactly 1.0.
+  // WU22: the inscribed-disc rung. The whole 8x8 bitmap is ink, 64 of 64 cells,
+  // and the solver scales the footprint down to coverage π/4 (radius 0.5 of a
+  // cell), so the glyph ladder also tops out at the inscribed disc, never a
+  // full square.
   Object.freeze(['########', '########', '########', '########', '########', '########', '########', '########']),
 ]);
 

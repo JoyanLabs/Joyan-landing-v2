@@ -289,7 +289,11 @@ if (shippedStill && bakedFile) {
 // load (user-directed); no Play control may exist on the public page.
 // ---------------------------------------------------------------------------
 const HERO_FALLBACK_ASSET = 'public/assets/dither/coming-hero.png';
-const HERO_TREATMENT = { id: 'coming-hero', palette: 'aurora', overlays: ['stars', 'aurora'] };
+// WU22 — the page recipe: the PAGE palette (site tokens) and the sweep family
+// (stars + aurora + colour wash), with the subject rolled +18 columns so the
+// top-left stays dark for the full-bleed copy. The tone cap is on by default.
+const HERO_TREATMENT = { id: 'coming-hero', palette: 'joyan-page', overlays: ['stars', 'aurora', 'wash'] };
+const HERO_ROLL = 18;
 const HERO_FIXTURE = resolve(root, 'dist-motion-verify/wu18/input/blade-runner-unicorn-line-transparent.svg');
 const heroHasFixture = existsSync(HERO_FIXTURE);
 let heroPipeline = null;
@@ -314,7 +318,7 @@ if (heroPipeline && heroOverlays && heroBake && heroFromImage && heroInputs) {
   if (heroHasFixture) {
     sourceSvg = HERO_FIXTURE;
     sourceId = 'joyan-coming-hero';
-    sourceLabel = 'the coming-hero — based on the Blade Runner unicorn, design attributed to Tom Southwell (demonstration)';
+    sourceLabel = 'the coming-hero — based on the Blade Runner unicorn, design attributed to Tom Southwell (demonstration; attribution recorded in docs/MOTOR-ESCENAS.md)';
   } else {
     const mark = heroInputs.LOCAL_INPUTS.find((entry) => entry.id === 'joyan-mark');
     sourceSvg = mark.svg;
@@ -323,8 +327,13 @@ if (heroPipeline && heroOverlays && heroBake && heroFromImage && heroInputs) {
     cols: 160, rows: 80, mode: 'ink', colorMode: 'levels',
     palette: 'ink', id: sourceId, label: sourceLabel,
   });
-  const bakedScene = heroOverlays.applyTreatment(converted.scene, HERO_TREATMENT, heroPipeline.IMAGE_PALETTES);
-  hero.payload = JSON.stringify(heroPipeline.serializeScene(bakedScene));
+  // WU22: the page rolls the SERIALISED scene so the subject sits centre-right,
+  // then applies the treatment to the rebuilt scene; the checker replicates the
+  // exact page recipe, so the embedded payload must match it byte for byte.
+  const rolledPayload = heroPipeline.rollSerializedScene(heroPipeline.serializeScene(converted.scene), HERO_ROLL);
+  const placedScene = heroOverlays.applyTreatment(
+    heroPipeline.sceneFromSerialized(rolledPayload), HERO_TREATMENT, heroPipeline.IMAGE_PALETTES);
+  hero.payload = JSON.stringify(heroPipeline.serializeScene(placedScene));
   // The runtime path: payload -> sceneFromSerialized -> applyTreatment. The
   // expected canvas raster comes from THIS scene, the same one the page builds.
   hero.runtimeScene = heroOverlays.applyTreatment(
@@ -332,7 +341,7 @@ if (heroPipeline && heroOverlays && heroBake && heroFromImage && heroInputs) {
   const frame0 = engine.renderFrame(hero.runtimeScene, 0, { dither: 'bayer4', density: 1 });
   hero.width = frame0.cols * engine.DELIVERY_CELL;
   hero.height = frame0.rows * engine.DELIVERY_CELL;
-  const baked = await heroBake.bakePng(bakedScene, engine.DELIVERY_CELL);
+  const baked = await heroBake.bakePng(placedScene, engine.DELIVERY_CELL);
   hero.posterHash = hash(baked.png);
   for (const route of ['dist/index.html', 'dist/en/index.html']) {
     let html = '';
@@ -341,8 +350,17 @@ if (heroPipeline && heroOverlays && heroBake && heroFromImage && heroInputs) {
     check(html.includes('data-coming-hero'), `WU20: ${route} must mount the coming-hero`);
     check(!html.includes('data-coming-hero-toggle'), `WU20: ${route} must NOT offer a hero Play control (the hero autoplays)`);
     check(html.includes('data-hero-autoplay'), `WU20: ${route} must declare the autoplaying hero`);
-    check(/Tom Southwell/.test(html) && /demonstration|demostraci/i.test(html),
-      `WU20: ${route} must carry the attribution line (Blade Runner unicorn, design attributed to Tom Southwell, used as a demonstration)`);
+    // WU22: the attribution line is NOT on the page any more — it moved to the
+    // repository docs; the licence note stays on the noindex lab and in MOTOR.
+    // VISIBLE text only: the serialisation's own label inside the JSON payload
+    // script is invisible metadata and is stripped first.
+    const visibleHtml = html.replace(/<script\b[\s\S]*?<\/script\s*>/gi, '');
+    check(!/Tom Southwell/.test(visibleHtml),
+      `WU22: ${route} must NOT carry the attribution line (it moved to docs/MOTOR-ESCENAS.md)`);
+    let motorDoc = '';
+    try { motorDoc = await readFile(resolve(root, 'docs/MOTOR-ESCENAS.md'), 'utf8'); } catch { /* asserted below */ }
+    check(/Tom Southwell/.test(motorDoc) && /demostraci|demonstration/i.test(motorDoc),
+      'WU22: docs/MOTOR-ESCENAS.md must carry the attribution line (Blade Runner unicorn, design attributed to Tom Southwell, used as a demonstration)');
     check(/<h1[^>]*>\s*Joyan/i.test(html), `WU20: ${route} must carry the Joyan name as its h1`);
     const match = html.match(/<script[^>]*type="application\/json"[^>]*data-coming-hero-scene[^>]*>([\s\S]*?)<\/script/);
     check(Boolean(match) && JSON.stringify(JSON.parse(match[1])) === hero.payload,
@@ -403,8 +421,16 @@ check(Number.isInteger(DELIVERY_CELL) && DELIVERY_CELL >= 8,
 check(COVERAGE.length === 5 && COVERAGE[0] === 0,
   'coverage curve must have one entry per ramp step (five, WU19) and start at 0');
 for (let s = 1; s < 5; s++) check(COVERAGE[s] > COVERAGE[s - 1], `coverage curve must increase at step ${s}`);
-check(COVERAGE[4] === 1,
-  'the WU19 fifth rung must be full coverage: a highlight must be able to reach a whole cell of ink');
+// WU22 — ROUND-ONLY: the ladder is capped at the inscribed disc (coverage π/4 ≈ 0.7854).
+// The WU19 fifth rung at coverage 1.0 was the circumscribed circle: a disc of the half
+// diagonal covers the whole cell, so a saturated highlight read as a SQUARE. The top rung
+// is now the inscribed disc and the interior rungs are re-derived across the measured range.
+const WU22_TOP = Math.PI / 4;
+check(Math.abs(COVERAGE[4] - WU22_TOP) < 1e-9,
+  `the WU22 fifth rung must be the inscribed disc (coverage π/4 = ${WU22_TOP.toFixed(4)}), ` +
+  `saw ${COVERAGE[4]} — full coverage 1.0 paints the whole cell and reads as a square`);
+check(COVERAGE.every((value) => value <= WU22_TOP + 1e-9),
+  'no ladder rung may exceed the inscribed disc: a rung above π/4 covers the cell corners');
 
 check(scene.cols === 200 && scene.rows === 100,
   `${SCENE_ID} must be authored on the library's 200x100 grid, saw ${scene.cols}x${scene.rows}`);
@@ -475,7 +501,7 @@ for (let s = 1; s < 5; s++) {
 //     checked to be DERIVED from the measured coverage rather than an assumed
 //     fraction of the cell.
 // ---------------------------------------------------------------------------
-const RECORDED_LADDER = [0, 0.2344, 0.4844, 0.8125, 1.0];
+const RECORDED_LADDER = [0, 0.1841, 0.3804, 0.6381, 0.7854];
 const REFERENCE_SAMPLES = 32;
 const referenceMask = (radiusInCells, size) => {
   const mask = new Float64Array(size * size);
@@ -545,13 +571,14 @@ for (let step = 1; step < 5; step++) {
   check(Array.isArray(DOT_RADIUS) && DOT_RADIUS[step] > DOT_RADIUS[step - 1],
     `dot radii must increase with the ramp, step ${step}`);
 }
-check(Array.isArray(DOT_RADIUS) && DOT_RADIUS[3] >= 0.5 && DOT_RADIUS[3] <= 0.52,
-  `the fourth step (0.8125) must stay the inscribed disc of a cell or the measured ladder's equivalent `
-  + `(0.5..0.52 of a cell), saw ${Array.isArray(DOT_RADIUS) ? DOT_RADIUS[3] : 'nothing'}`);
+check(Array.isArray(DOT_RADIUS) && DOT_RADIUS[3] >= 0.44 && DOT_RADIUS[3] <= 0.46,
+  `the WU22 fourth step (0.6381) must sit between the old third rung and the inscribed disc ` +
+  `(0.44..0.46 of a cell), saw ${Array.isArray(DOT_RADIUS) ? DOT_RADIUS[3] : 'nothing'}`);
 const HALF_DIAGONAL = Math.SQRT1_2;
-check(Array.isArray(DOT_RADIUS) && Math.abs(DOT_RADIUS[4] - HALF_DIAGONAL) < 0.003,
-  `the WU19 fifth step (coverage 1.0) must be derived as the disc that reaches the cell corners, i.e. the `
-  + `half diagonal ${HALF_DIAGONAL.toFixed(4)} of a cell, saw ${Array.isArray(DOT_RADIUS) ? DOT_RADIUS[4] : 'nothing'}`);
+check(Array.isArray(DOT_RADIUS) && Math.abs(DOT_RADIUS[4] - 0.5) < 0.003,
+  `the WU22 fifth step (inscribed disc) must be derived as the radius 0.5 of a cell whose clipped ` +
+  `area is exactly π/4 — NOT the WU19 half diagonal ${HALF_DIAGONAL.toFixed(4)} that covered the ` +
+  `whole cell as a square, saw ${Array.isArray(DOT_RADIUS) ? DOT_RADIUS[4] : 'nothing'}`);
 for (const cell of [4, 8, 16]) {
   for (let step = 1; step < 5; step++) {
     const mask = discMask(step, cell);
@@ -562,11 +589,23 @@ for (const cell of [4, 8, 16]) {
       `the ladder must hold at every cell size: step ${step} at ${cell} px per cell covers `
       + `${stats.coverage.toFixed(4)} of a cell against the recorded ${RECORDED_LADDER[step]}`);
     if (step === 4) {
-      // Full coverage is geometrically the whole cell: the disc of the half-diagonal
-      // radius clipped to the cell is the cell itself. That is what saturation means;
-      // the checker asserts it instead of pretending it is still a free-standing dot.
-      check(stats.coverage > 0.999 && stats.distinctValues >= 1,
-        `the WU19 fifth step must paint the FULL cell (coverage 1.0), saw ${stats.coverage.toFixed(4)}`);
+      // WU22 — the top rung is the INSCRIBED DISC, not the whole cell. Its corner
+      // mass must equal an analytic inscribed disc's (zero at 8 px: the disc of
+      // radius 0.5 never reaches a corner pixel), which is the assertion that
+      // fails if any painted cell is a full square.
+      const cornerMass = stats.cornerFill;
+      const discCorner = (referenceMask(0.5, cell)[0] + referenceMask(0.5, cell)[cell - 1]
+        + referenceMask(0.5, cell)[(cell - 1) * cell] + referenceMask(0.5, cell)[cell * cell - 1]) / 4;
+      check(Math.abs(cornerMass - discCorner) <= 0.004,
+        `the WU22 top rung at ${cell} px per cell must be a disc, never a full square: its corner ` +
+        `mass ${cornerMass.toFixed(4)} must equal the analytic inscribed disc's ${discCorner.toFixed(4)}`);
+      check(stats.coverage < 0.999,
+        `no painted cell may be a full square: the top rung covers ${stats.coverage.toFixed(4)} ` +
+        `of the cell and must stay at the inscribed disc π/4 = ${(Math.PI / 4).toFixed(4)}`);
+      check(worstPixel(mask, referenceMask(0.5, cell)) <= 0.004,
+        `the WU22 top rung at ${cell} px per cell must be the anti-aliased inscribed disc, not a ` +
+        `block: its worst pixel differs from an independently sampled disc of radius 0.5 by ` +
+        `${worstPixel(mask, referenceMask(0.5, cell)).toFixed(4)}`);
       continue;
     }
     check(worstPixel(mask, reference) <= 0.004,
@@ -578,9 +617,10 @@ for (const cell of [4, 8, 16]) {
       + `pixels fill ${(stats.cornerOverEdge * 100).toFixed(1)}% of the axis pixels and `
       + `${(stats.outsideDiscMass * 100).toFixed(1)}% of the ink sits in the corners outside the `
       + `inscribed disc (an area-matched square of the same coverage reaches 25%)`);
-    check(stats.distinctValues >= 3,
+    check(stats.distinctValues >= (cell < 8 ? 2 : 3),
       `step ${step} at ${cell} px per cell must be anti-aliased, saw only ${stats.distinctValues} `
-      + `distinct pixel coverages — a hard-cornered block has two`);
+      + `distinct pixel coverages — a hard-cornered block has two (at 4 px per cell the WU22 smallest `
+      + `dot is a sub-pixel disc, so two levels is its honest anti-aliased reading)`);
     if (step === 3) {
       check(stats.cornerOverEdge < 0.6,
         `the largest dot at ${cell} px per cell must be round: its corners fill `
@@ -611,7 +651,10 @@ check(Math.abs(mean(controlSquare) - RECORDED_LADDER[3]) < 0.002,
 check(worstPixel(controlSquare, referenceMask(derivedRadius[3], 8)) > 0.004,
   'the disc-agreement assertion must reject an area-matched square of the same coverage');
 const wu15Block = Float64Array.from([0, 0, 0, 0, 0, 0.9375, 0.9375, 0, 0, 0.9375, 0.9375, 0, 0, 0, 0, 0]);
-check(Math.abs(mean(wu15Block) - RECORDED_LADDER[1]) < 0.002,
+// The WU15 historical measurement, deliberately not re-tied to the current ladder:
+// the control exists to prove the anti-aliasing bound rejects THAT block.
+const WU15_SMALLEST_COVERAGE = 0.2344;
+check(Math.abs(mean(wu15Block) - WU15_SMALLEST_COVERAGE) < 0.002,
   'the WU15 block control must reproduce the coverage the WU15 smallest dot measured');
 check(shapeStats(wu15Block, 4).distinctValues < 3,
   'the anti-aliasing bound must reject a hard 2x2 block (two distinct coverages)');
@@ -829,19 +872,22 @@ if (hasCatalogApi) {
   // is where the shape is legible; the ladder itself is checked at 8/4/2 px.
   const proof = (shape, step, cell) => catalogMetrics(engine.maskFor(shape, step, cell, cell, 'shape', 'square'), cell, cell);
   const probeOf = (shape, step, cell, u, v) => probe(engine.maskFor(shape, step, cell, cell, 'shape', 'square'), cell, cell, u, v);
-  const disc = proof('disc', 3, 32);
-  const square = proof('square', 3, 32);
+  // WU22: the headline shapes are measured at the TOP rung (the inscribed disc,
+  // coverage π/4) because that is now where a shape is legible; under the WU19
+  // ladder this role was played by step 3.
+  const disc = proof('disc', 4, 32);
+  const square = proof('square', 4, 32);
   check(square.separability <= 0.02 && square.outsideDiscMass >= 0.05,
     `square: a square is its own row x column product (separability error ${square.separability.toFixed(3)}) `
     + `and keeps mass outside the inscribed disc (${(square.outsideDiscMass * 100).toFixed(1)}%)`);
   check(disc.outsideDiscMass <= 0.05 && disc.separability >= 0.2 && disc.cornerRatio <= 0.05,
     `disc: no corner mass — outside the inscribed disc ${(disc.outsideDiscMass * 100).toFixed(1)}%, `
     + `corner/edge ${disc.cornerRatio.toFixed(2)}, separability ${disc.separability.toFixed(2)}`);
-  check(proof('ring', 3, 32).centreFill <= 0.05 && proof('ring', 3, 32).edgeMidFill >= 0.5,
-    `ring: a hole at the centre — centre ${proof('ring', 3, 32).centreFill.toFixed(3)}, `
-    + `edge mid ${proof('ring', 3, 32).edgeMidFill.toFixed(3)}`);
-  check(proof('triangle', 3, 32).massBelowOverAbove >= 1.4,
-    `triangle: asymmetric — mass below/above ${proof('triangle', 3, 32).massBelowOverAbove.toFixed(2)}`);
+  check(proof('ring', 4, 32).centreFill <= 0.05 && proof('ring', 4, 32).edgeMidFill >= 0.5,
+    `ring: a hole at the centre — centre ${proof('ring', 4, 32).centreFill.toFixed(3)}, `
+    + `edge mid ${proof('ring', 4, 32).edgeMidFill.toFixed(3)}`);
+  check(proof('triangle', 4, 32).massBelowOverAbove >= 1.4,
+    `triangle: asymmetric — mass below/above ${proof('triangle', 4, 32).massBelowOverAbove.toFixed(2)}`);
   check(proof('diamond', 1, 32).topRowWidth <= 0.12 && proof('diamond', 1, 32).bboxFill <= 0.65,
     `diamond: axes inked, diagonals empty — top row width ${proof('diamond', 1, 32).topRowWidth.toFixed(3)}, `
     + `bounding-box fill ${proof('diamond', 1, 32).bboxFill.toFixed(3)}`);
@@ -849,16 +895,19 @@ if (hasCatalogApi) {
     && proof('hexagon', 1, 32).separability >= 0.2,
   `hexagon: a pointy top (vertex up), no corners — bounding-box fill ${proof('hexagon', 1, 32).bboxFill.toFixed(3)}, `
   + `separability ${proof('hexagon', 1, 32).separability.toFixed(2)}`);
+  // WU22: the step-1 cross solves to a half-length of 0.2634 of a cell under the
+  // new ladder, so the tip probes sit at 0.22 (inside the solved arm) rather
+  // than the old 0.28, which now lands past the tip.
   check(probeOf('cross', 1, 32, 0, 0) > 0.5 && probeOf('cross', 1, 32, 0.25, 0.25) <= 0.05
-    && probeOf('cross', 1, 32, 0, 0.28) > 0.5 && probeOf('cross', 1, 32, -0.28, 0) > 0.5,
+    && probeOf('cross', 1, 32, 0, 0.22) > 0.5 && probeOf('cross', 1, 32, -0.22, 0) > 0.5,
   'cross: a plus — centre and arm tips inked, quadrant points empty');
-  check(proof('hatch', 3, 32).diagonalInvariance >= 0.9,
-    `hatch: ink constant along one diagonal — diagonal invariance ${proof('hatch', 3, 32).diagonalInvariance.toFixed(3)}`);
+  check(proof('hatch', 4, 32).diagonalInvariance >= 0.9,
+    `hatch: ink constant along one diagonal — diagonal invariance ${proof('hatch', 4, 32).diagonalInvariance.toFixed(3)}`);
   check(proof('grain', 1, 32).transposeSymmetry <= 0.8 && proof('grain', 1, 32).rotationSymmetry <= 0.8
     && proof('grain', 1, 32).binaryFraction >= 0.9,
   `grain: coverage only, no shape — transpose ${proof('grain', 1, 32).transposeSymmetry.toFixed(3)}, `
   + `rotation ${proof('grain', 1, 32).rotationSymmetry.toFixed(3)}, binary ${proof('grain', 1, 32).binaryFraction.toFixed(3)}`);
-  check(proof('rounded', 3, 32).separability >= 0.2 && proof('rounded', 1, 32).bboxFill >= 0.85,
+  check(proof('rounded', 4, 32).separability >= 0.2 && proof('rounded', 1, 32).bboxFill >= 0.85,
     `rounded: a square with the corners cut — separability ${proof('rounded', 3, 32).separability.toFixed(2)}, `
     + `bounding-box fill ${proof('rounded', 1, 32).bboxFill.toFixed(3)}`);
   check(proof('glyph', 1, 32).binaryFraction >= 0.9 && proof('glyph', 1, 32).separability >= 0.2,
@@ -1465,12 +1514,12 @@ if (hero.runtimeScene) {
     const rasterN = engine.rasterize(frameN, hero.runtimeScene, engine.DELIVERY_CELL);
     check(frameProbe.hash === hash(Buffer.from(rasterN)),
       `WU20: the live canvas must hash against the Node raster of the SAME frame (${frameProbe.frame})`);
-    // Offscreen and hidden must pause the loop. The scroll must move the
-    // canvas fully out of the viewport, so it scrolls by the canvas box plus
-    // the viewport height from the hero's position.
-    // The page is barely taller than the viewport, so the check first shrinks
-    // the viewport: only then can scrolling push the canvas fully offscreen.
-    await page.setViewportSize({ width: 1440, height: 320 });
+    // Offscreen and hidden must pause the loop. WU22's full-bleed hero changes
+    // the geometry: the document is only the footer taller than the hero, so
+    // the canvas can only leave the viewport when the viewport is no taller
+    // than the footer — the check shrinks the viewport to 80 px, where
+    // scrolling to the bottom moves the canvas fully out of view.
+    await page.setViewportSize({ width: 1440, height: 80 });
     await page.waitForTimeout(200);
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await page.waitForTimeout(300);

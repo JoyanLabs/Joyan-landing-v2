@@ -121,8 +121,9 @@ export { SHAPES, DITHER_MODES, RAMP_MODES, CELL_GEOMETRIES, cellSizeFor, ditherT
   effectiveShape, maskDerivation, shapeCoverageCap };
 
 /**
- * The only inked ramp. Index 0 is an empty cell. Dots, never ASCII art. WU19
- * adds the fifth mark: the full-coverage dot a highlight can now reach.
+ * The only inked ramp. Index 0 is an empty cell. Dots, never ASCII art. WU22
+ * keeps the fifth mark: the largest dot is now the INSCRIBED DISC of a cell —
+ * the whole-cell rung of WU19 read as a square, so the ladder tops out at π/4.
  */
 export const RAMP = ' ·•●⬤';
 
@@ -138,22 +139,22 @@ export const CELL = 1;
 export const DELIVERY_CELL = 8;
 
 /**
- * The dot ladder: how much of a cell each dot covers. The first three rungs are
- * the values the WU15/WU16 mask MEASURED at its delivery cell; WU19 adds the
- * fifth rung at full coverage 1.0 so a highlight can reach a whole cell of ink.
- * The radii below are derived from them, not from an assumed fraction of the
- * cell, and the anti-aliased mask holds this ladder at every cell size.
+ * The dot ladder: how much of a cell each dot covers. WU22 caps the ladder at
+ * the INSCRIBED DISC, coverage π/4 ≈ 0.7854: the WU19 fifth rung at 1.0 was the
+ * circumscribed circle (radius 0.7071), which covers the whole cell and reads
+ * as a square. The interior rungs are the WU19 measured rungs rescaled to the
+ * new cap. The radii below are derived from them, not from an assumed fraction
+ * of the cell, and the anti-aliased mask holds this ladder at every cell size.
  */
 export const COVERAGE = COVERAGE_LADDER;
 
 /**
  * Drawn radius of each dot, in CELL units, solved from `COVERAGE` so that the
- * exact area of the clipped disc equals the measured ladder. The result is
- * [0, 0.2731, 0.3927, 0.5103, 0.7071]: the three steps the artwork has always
- * laid down, plus the WU19 full-coverage step — whose radius is the half
- * diagonal of a cell (the disc that reaches the corners), so a clipped disc at
- * that radius IS the whole cell. That is what saturation means: a highlight can
- * now close the cell completely instead of stopping at the 0.8125 dot.
+ * exact area of the clipped disc equals the ladder. The result is
+ * [0, 0.2421, 0.3480, 0.4507, 0.5000]: the top radius is exactly the half SIDE
+ * of a cell — the inscribed disc — so a highlight tops out at a full round dot
+ * and no painted cell is ever a full square (the WU19 half diagonal 0.7071 was
+ * the circumscribed circle and DID cover the whole cell).
  */
 export const DOT_RADIUS = Object.freeze(COVERAGE.map((coverage) => radiusForCoverage(coverage)));
 

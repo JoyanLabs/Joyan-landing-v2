@@ -1,25 +1,35 @@
 ---
 /**
- * WU20 (correction round) — the single coming-soon page (ES).
+ * WU22 — the single coming-soon page (ES), full-bleed.
  *
  * The hero subject is the Blade Runner unicorn the user supplied, by their
  * explicit on-the-record direction (they consider it an open-source-style
  * illustration based on the film design and direct using it "para probar").
- * The conversion and the poster bake happen HERE, in Node, at build time from
- * the gitignored local fixture: the SVG never enters the repository, and only
- * the converted serialisation and the baked PNG travel as data. When the
- * fixture is absent (any other machine), the hero falls back to our mark so
- * the build never depends on the art.
+ * The conversion, the tone cap, the horizontal placement (roll) and the poster
+ * bake happen HERE, in Node, at build time from the gitignored fixture: the SVG
+ * never enters the repository, and only the converted serialisation and the
+ * baked PNG travel as data. When the fixture is absent (any other machine), the
+ * hero falls back to our mark so the build never depends on the art.
  *
- * The hero autoplays (user-directed); the copy is PLACEHOLDER pending branding
- * review — recorded in the tracking document, not shown to visitors.
+ * WU22 recipe (docs/MOTOR-ESCENAS.md): ink measurement at 160 × 80 with the
+ * anti-moiré prefilter, auto-gain and the tone cap; the PAGE palette built from
+ * the site tokens (`PAGE_PALETTE_ID` — swappable in one place); stars + aurora
+ * + the colour wash, all periodic by construction; the subject rolled +18
+ * columns so the top-left stays dark for the copy; bayer4 at the 8 px pitch.
+ *
+ * Copy is SHORT and MYSTERIOUS (user direction): placeholder pending branding
+ * review — the shipped option and the alternatives are recorded in the tracking
+ * document's WU22 section. The visible attribution line moved to
+ * docs/MOTOR-ESCENAS.md; no engine readout, no value cells, no construction note.
  */
 import PageLayout from '~/layouts/PageLayout.astro';
 import JoyanComingHero from '~/components/joyan/JoyanComingHero.astro';
 import { es, LOCALES } from '~/lib/i18n';
 import { convert } from '../../scripts/scene-src/from-image.mjs';
 import { applyTreatment } from '../../scripts/scene-src/overlays.mjs';
-import { serializeScene, IMAGE_PALETTES } from '../../scripts/scene-src/image-pipeline.mjs';
+import {
+  serializeScene, sceneFromSerialized, rollSerializedScene, PAGE_PALETTE_ID, IMAGE_PALETTES,
+} from '../../scripts/scene-src/image-pipeline.mjs';
 import { LOCAL_INPUTS } from '../../scripts/scene-src/local-inputs.mjs';
 import { renderFrame, rasterize, DELIVERY_CELL } from '../../scripts/scene-src/engine.mjs';
 import { existsSync } from 'node:fs';
@@ -28,10 +38,11 @@ import sharp from 'sharp';
 
 const pathname = Astro.url.pathname;
 
-// The hero recipe (docs/MOTOR-ESCENAS.md — coming-hero): the supplied film-prop
-// line art, ink measurement at 160 × 80, the deep aurora image palette,
-// stars + aurora overlays, the engine's own five-rung ladder and bayer4 dither
-// at the 8 px delivery pitch.
+// The hero recipe. The subject is composed centre-right (roll +18 columns) so
+// the text region of the full-bleed layout stays over dark ground.
+const HERO_ROLL = 18;
+const HERO_OVERLAYS = ['stars', 'aurora', 'wash'];
+
 const HERO_FIXTURE = resolve('dist-motion-verify/wu18/input/blade-runner-unicorn-line-transparent.svg');
 const heroHasFixture = existsSync(HERO_FIXTURE);
 const heroConverted = await convert(
@@ -40,11 +51,18 @@ const heroConverted = await convert(
     cols: 160, rows: 80, mode: 'ink', colorMode: 'levels', palette: 'ink',
     id: 'joyan-coming-hero',
     label: heroHasFixture
-      ? 'the coming-hero — based on the Blade Runner unicorn, design attributed to Tom Southwell (demonstration)'
+      ? 'the coming-hero — based on the Blade Runner unicorn, design attributed to Tom Southwell (demonstration; attribution recorded in docs/MOTOR-ESCENAS.md)'
       : 'the Joyan mark — ring, two triangles, axis and dots',
   },
 );
-const heroScene = applyTreatment(heroConverted.scene, { palette: 'aurora', overlays: ['stars', 'aurora'] }, IMAGE_PALETTES);
+// The rolled, treated serialisation is the ONE payload the runtime receives, so
+// the live canvas draws exactly the placed scene the Node bake produces.
+const heroRolledPayload = rollSerializedScene(serializeScene(heroConverted.scene), HERO_ROLL);
+const heroScene = applyTreatment(
+  sceneFromSerialized(heroRolledPayload),
+  { palette: PAGE_PALETTE_ID, overlays: HERO_OVERLAYS },
+  IMAGE_PALETTES,
+);
 const payload = JSON.stringify(serializeScene(heroScene));
 
 // The no-JS still is the build-time bake of the SAME scene. With the local
@@ -64,40 +82,29 @@ if (heroHasFixture) {
 
 // Placeholder copy pending branding review (recorded in the tracking document).
 const content = es;
-const attribution = heroHasFixture
-  ? 'El hero está basado en el unicornio de Blade Runner, diseño atribuido a Tom Southwell — usado como demostración a petición expresa del usuario. Su uso en producción requiere derechos confirmados.'
-  : 'El hero usa nuestra marca propia; la demostración del unicornio requiere el fichero local.';
 ---
 
 <PageLayout
   lang={LOCALES.ES}
   metadata={{
     title: content.meta.title,
-    description:
-      'Diseñamos agentes que trabajan dentro de límites acordados y sistemas conectados que registran lo que ocurre en el mundo físico, para que cada operación sea auditable y revisable. Joyan — próximamente.',
+    description: 'Joyan. Algo preciso está tomando forma.',
     robots: { index: true, follow: true },
   }}
   pathname={pathname}
 >
   <div class="flex min-h-dvh flex-col bg-ink-950 font-sans text-bone-100 antialiased">
-    <div class="flex flex-1 flex-col items-center justify-center">
-      <JoyanComingHero
-        poster={poster}
-        payload={payload}
-        palette="aurora"
-        overlays="stars,aurora"
-        name="Joyan"
-        tagline="Diseñamos agentes que trabajan dentro de límites acordados y sistemas conectados que registran lo que ocurre en el mundo físico, para que cada operación sea auditable y revisable."
-        values={['Agentes que operan dentro de límites acordados', 'Registro auditable de cada acción', 'Revisión humana en las decisiones que importan']}
-        comingSoon="Estamos construyendo algo nuevo"
-        attribution={attribution}
-      />
-    </div>
-    <footer class="border-t border-hairline">
-      <div class="mx-auto flex w-full max-w-6xl flex-col gap-1 px-4 py-6 text-xs text-plomo-400 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <p>© Joyan — construido con criterio.</p>
-        <p class="font-mono">Sitio en construcción · volveremos pronto.</p>
-      </div>
-    </footer>
+    <JoyanComingHero
+      poster={poster}
+      payload={payload}
+      palette={PAGE_PALETTE_ID}
+      overlays={HERO_OVERLAYS.join(',')}
+      name="Joyan"
+      tagline="Algo preciso está tomando forma."
+      comingSoon="Próximamente"
+      footerNote="© Joyan — construido con criterio."
+      contactEmail="hello@joyan.dev"
+      discordLabel="Discord — la invitación llegará pronto"
+    />
   </div>
 </PageLayout>

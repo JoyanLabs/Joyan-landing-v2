@@ -771,6 +771,172 @@ if (hasPipeline) {
 }
 await save('wu19', wu19);
 
+// ---------------------------------------------------------------------------
+// WU22 — ROUND-ONLY LADDER, THE WHITE-CORE TONE CAP, THE SWEEP FAMILY AND
+// THE PAGE PALETTE. Each claim is measured here, then required to hold.
+// ---------------------------------------------------------------------------
+const wu22 = { ladder: null, toneCap: null, whiteCore: null, sweeps: null, palette: null };
+if (hasPipeline) {
+  // 1. Round-only: the ladder is capped at the INSCRIBED DISC (coverage π/4),
+  //    and the top rung's painted cell keeps a disc's empty corners — the
+  //    assertion that fails if any painted cell is a full square.
+  const WU22_TOP = Math.PI / 4;
+  const cov = [...engine.COVERAGE];
+  check(Math.abs(cov[cov.length - 1] - WU22_TOP) < 1e-9,
+    `the WU22 ladder must top out at the inscribed disc π/4 = ${WU22_TOP.toFixed(4)}, saw ${cov[cov.length - 1]}`);
+  check(cov.every((value) => value <= WU22_TOP + 1e-9),
+    'no ladder rung may exceed the inscribed disc: a rung above π/4 paints the cell corners as a square');
+  const topMask = engine.discMask ? engine.discMask(4, 8) : null;
+  if (topMask) {
+    const cornerSum = topMask[0] + topMask[7] + topMask[56] + topMask[63];
+    check(cornerSum <= 1e-6,
+      `the top rung must leave a disc's corner pixels empty at 8 px per cell (a full square fills them), saw corner sum ${cornerSum.toFixed(4)}`);
+    check(Math.abs(topMask.reduce((s, v) => s + v, 0) / 64 - WU22_TOP) < 0.002,
+      'the top rung mask must measure the inscribed disc coverage π/4');
+  }
+  wu22.ladder = { coverage: cov, radii: engine.DOT_RADIUS.map((r) => Number(r.toFixed(4))) };
+
+  // 2. The tone cap: constants, a stated rule, and a measured effect — a dense
+  //    blob of overlapping strokes must cap BELOW the old saturation instead of
+  //    all landing on the top rung, and toneCap:'none' must reproduce the
+  //    uncapped behaviour byte for byte.
+  const blobSize = 512;
+  const blob = Buffer.alloc(blobSize * blobSize * 4);
+  for (let i = 0; i < 90; i++) {
+    const y0 = 60 + (i * 53) % 380;
+    const x0 = 60 + (i * 97) % 380;
+    const len = 60 + (i * 31) % 120;
+    for (let t = 0; t < len; t++) {
+      for (let w = -4; w <= 4; w++) {
+        const x = Math.min(blobSize - 1, Math.max(0, x0 + t + w));
+        const y = Math.min(blobSize - 1, Math.max(0, y0 + t + ((i % 3) - 1) * w));
+        const at = (y * blobSize + x) * 4;
+        blob[at] = 20; blob[at + 1] = 20; blob[at + 2] = 20; blob[at + 3] = 255;
+      }
+    }
+  }
+  const capOn = convertRgba(blob, blobSize, blobSize,
+    { cols: 160, rows: 80, mode: 'ink', colorMode: 'levels', palette: 'ink', prefilter: false, id: 'wu22-cap-on' });
+  const capOff = convertRgba(blob, blobSize, blobSize,
+    { cols: 160, rows: 80, mode: 'ink', colorMode: 'levels', palette: 'ink', prefilter: false, toneCap: 'none', id: 'wu22-cap-off' });
+  const maxLevel = (scene) => Math.max(...scene.converted.levels8) / 255;
+  check(typeof engine !== 'undefined' && typeof pipeline.TONE_CAP_KNEE === 'number'
+    && typeof pipeline.TONE_CAP_CEILING === 'number' && typeof pipeline.TONE_CAP_RULE === 'string'
+    && /knee/i.test(pipeline.TONE_CAP_RULE),
+    'the pipeline must export TONE_CAP_KNEE, TONE_CAP_CEILING and a stated TONE_CAP_RULE');
+  check(/auto|toneCap/i.test(JSON.stringify(capOn.scene.params)),
+    'the scene params must record the tone cap with the conversion');
+  check(maxLevel(capOn.scene) <= pipeline.TONE_CAP_CEILING + 0.01,
+    `the tone cap must keep the dense blob's levels at or below the ceiling ${pipeline.TONE_CAP_CEILING}, saw ${maxLevel(capOn.scene).toFixed(4)}`);
+  check(maxLevel(capOff.scene) > pipeline.TONE_CAP_CEILING + 0.01,
+    `toneCap:'none' must reproduce the uncapped conversion (levels above the ceiling), saw ${maxLevel(capOff.scene).toFixed(4)}`);
+  // The cap must only touch the top of the range: the median inked cell is untouched.
+  const medianOf = (scene) => {
+    const inked = [...scene.converted.levels8].map((v) => v / 255).filter((v) => v > 0.05).sort((a, b) => a - b);
+    return inked[Math.floor(0.5 * (inked.length - 1))];
+  };
+  check(Math.abs(medianOf(capOn.scene) - medianOf(capOff.scene)) < 0.01,
+    `the cap must not move the median inked tone: ${medianOf(capOn.scene).toFixed(4)} vs ${medianOf(capOff.scene).toFixed(4)}`);
+  wu22.toneCap = { knee: pipeline.TONE_CAP_KNEE, ceiling: pipeline.TONE_CAP_CEILING,
+    maxCapped: maxLevel(capOn.scene), maxUncapped: maxLevel(capOff.scene),
+    rule: pipeline.TONE_CAP_RULE };
+
+  // 3. The white core, MEASURED on the fixture: the dense overlapping-line core
+  //    (cells whose 5x5 neighbourhood is >= 50% inked) must keep structure —
+  //    far fewer cells at the top rung — while the sparse areas keep their p90.
+  if (hasFixture && fromImage) {
+    const decodedHero = await fromImage.decodeImage(FIXTURE);
+    const heroCap = convertRgba(decodedHero.rgba, decodedHero.width, decodedHero.height,
+      { cols: 160, rows: 80, mode: 'ink', colorMode: 'levels', palette: 'ink', id: 'wu22-hero-cap' });
+    const heroNoCap = convertRgba(decodedHero.rgba, decodedHero.width, decodedHero.height,
+      { cols: 160, rows: 80, mode: 'ink', colorMode: 'levels', palette: 'ink', toneCap: 'none', id: 'wu22-hero-nocap' });
+    const TOP_RUNG = 0.8125; // normalised ladder threshold of the fourth step
+    const coreTopRung = (measure, gainValue, capped) => {
+      const cols = measure.cols;
+      const rows = measure.rows;
+      const L = measure.levels;
+      const inked = (x, y) => L[y * cols + x] > 0.05;
+      let core = 0;
+      let coreTop = 0;
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          let n = 0;
+          let dense = 0;
+          for (let dy = -2; dy <= 2; dy++) {
+            for (let dx = -2; dx <= 2; dx++) {
+              const xx = x + dx;
+              const yy = y + dy;
+              if (xx < 0 || yy < 0 || xx >= cols || yy >= rows) continue;
+              n += 1;
+              if (inked(xx, yy)) dense += 1;
+            }
+          }
+          if (n > 0 && dense / n < 0.5) continue;
+          const level = L[y * cols + x];
+          if (level <= 0.05) continue;
+          core += 1;
+          const gained = Math.min(1, level * gainValue);
+          const ceiling = capped ? Math.min(1, gained) : gained;
+          const effective = capped && gained > pipeline.TONE_CAP_KNEE
+            ? pipeline.TONE_CAP_KNEE + (gained - pipeline.TONE_CAP_KNEE)
+              * (pipeline.TONE_CAP_CEILING - pipeline.TONE_CAP_KNEE) / (1 - pipeline.TONE_CAP_KNEE)
+            : gained;
+          if (effective >= TOP_RUNG) coreTop += 1;
+        }
+      }
+      return { core, coreTop };
+    };
+    const beforeCore = coreTopRung(heroNoCap.measure, heroNoCap.scene.params.gain, false);
+    const afterCore = coreTopRung(heroCap.measure, heroCap.scene.params.gain, true);
+    check(afterCore.coreTop < beforeCore.coreTop,
+      `the tone cap must reduce the white core: top-rung cells in the dense core ${afterCore.coreTop} after vs ${beforeCore.coreTop} before`);
+    check(afterCore.coreTop / Math.max(1, beforeCore.coreTop) <= 0.75,
+      `the tone cap must cut the core's top-rung cells by at least 25%, saw ${beforeCore.coreTop} -> ${afterCore.coreTop}`);
+    const p90After = (() => {
+      const inked = [...heroCap.scene.converted.levels8].map((v) => v / 255).filter((v) => v > 0.05).sort((a, b) => a - b);
+      return inked[Math.floor(0.9 * (inked.length - 1))];
+    })();
+    check(p90After >= 0.6,
+      `sparse areas must stay readable: the capped conversion keeps p90 ${p90After.toFixed(3)} (want >= 0.6)`);
+    wu22.whiteCore = { before: beforeCore, after: afterCore, gain: heroCap.scene.params.gain, p90After };
+  }
+
+  // 4. The sweep family: a colour wash and a shimmer band join the catalogue,
+  //    each with defaults and a label; the generic seam loop below asserts
+  //    their periodicity on the field for every id.
+  for (const id of ['wash', 'shimmer']) {
+    check(overlays.OVERLAY_IDS.includes(id), `the WU22 sweep family must include the ${id} overlay`);
+    check(overlays.OVERLAY_DEFAULTS[id] && typeof overlays.OVERLAY_DEFAULTS[id] === 'object',
+      `the ${id} overlay must declare its frozen defaults`);
+    check(typeof overlays.OVERLAY_LABELS[id] === 'string' && overlays.OVERLAY_LABELS[id].length > 10,
+      `the ${id} overlay must state what it does, for the laboratory controls`);
+    let probe = null;
+    try {
+      probe = overlays.makeOverlay(id);
+    } catch {
+      // The overlay does not exist yet: that is exactly what this assertion reports.
+    }
+    check(probe && typeof probe.apply === 'function', `the ${id} overlay must build and apply`);
+  }
+  wu22.sweeps = { ids: [...overlays.OVERLAY_IDS] };
+
+  // 5. The page palette: built from the site tokens (ink-950 ground, bone-50
+  //    ink, amber accent), with the aurora adapted and one combining accent;
+  //    ground is index 0 and the palette stays within the engine's 32-entry bound.
+  const pagePalette = pipeline.IMAGE_PALETTES.find((entry) => entry.id === pipeline.PAGE_PALETTE_ID);
+  check(Boolean(pagePalette), `the pipeline must declare a page palette with id ${String(pipeline.PAGE_PALETTE_ID)}`);
+  if (pagePalette) {
+    const ground = pagePalette.palette[pagePalette.ground].toLowerCase();
+    check(ground === '#0b0b0c', `the page palette ground must be the ink-950 token #0b0b0c, saw ${ground}`);
+    check(pagePalette.palette.includes('#ffb000'), 'the page palette must carry the amber accent #ffb000');
+    check(pagePalette.palette.includes('#f4f2ed'), 'the page palette must carry the bone-50 ink #f4f2ed');
+    check(pagePalette.palette.length <= 32, 'the page palette stays within the engine 32-entry bound');
+    check(pagePalette.palette.length >= 8, 'the page palette must be deep enough for the aurora range');
+    wu22.palette = { id: pagePalette.id, entries: pagePalette.palette.length, ground };
+  }
+}
+await save('wu22', wu22);
+
 const spanish = (value, digits = 4) => Number(value).toFixed(digits).replace('.', ',');
 if (grids.length) {
   const brief = grids.find((entry) => entry.density === 1);

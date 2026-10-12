@@ -149,8 +149,8 @@ const baselineBudget = await json('.artifacts/iteration-2-client-js.json');
 const LANDING_HASHES = {
   'client.BxDIQlYz.js': { gz: 60302, sha256: 'ed1f3e2228ec0a53328513096c375276d3aea8e4c8e2ded754af7b67a13d77f0' },
   'client.kF-MUc6b.js': { gz: 27057, sha256: 'c72b737a3f669a7845f10ec12cf2206a3d4f964c2aef13d4572c6b831b74937d' },
-  'JoyanComingHero.astro_astro_type_script_index_0_lang.0_DvE05y.js': { gz: 56, sha256: '0b2110e79eaed434dd4c3abf8a5e397ff193c940e7a7750bb91eed6e63b5ba6d' },
-  'scene-runtime.DsllR3tT.js': { gz: 13396, sha256: 'a0b498384f6bb6d561192cd1600906ccae53b43bb1866ffb94a270ff1182b0df' },
+  'JoyanComingHero.astro_astro_type_script_index_0_lang.TQG2gabZ.js': { gz: 56, sha256: 'b3cd477a3515e31640fd479c7031bb77dc84495e804734ffbc1586d23ee8e214' },
+  'scene-runtime.BYq3d7Le.js': { gz: 13866, sha256: '741a0145ecd439856b53d372258da6d4ece5ac61fbadfc1012615c94c9777451' },
 };
 const landingChunkNames = Object.keys(chunks).filter((name) => LANDING_HASHES[name]);
 for (const name of Object.keys(LANDING_HASHES)) {
@@ -174,7 +174,7 @@ const totalGzip = assetGzip + inlineGzip;
 // framer-motion reveal/viewport chunks left with the old landing). The lab
 // accounting below includes the shared chunk's real bytes: the laboratory
 // executes the same engine the coming-hero does.
-const LANDING_FIVE_GZIP = 100811;
+const LANDING_FIVE_GZIP = 101281; // WU22 re-measure (engine chunk grew with tone cap, roll, sweeps, page palette)
 const landingGzip = landingChunkNames.reduce((sum, name) => sum + chunks[name].gzip, 0);
 check(landingChunkNames.length === 4 && landingGzip === LANDING_FIVE_GZIP,
   `WU20 landing four-chunk set changed: ${landingChunkNames.length} chunks / ${landingGzip} B gzip`);
@@ -182,7 +182,7 @@ const labChunkNames = Object.keys(chunks).filter((name) => !LANDING_HASHES[name]
 const labChunkGzip = labChunkNames.reduce((sum, name) => sum + chunks[name].gzip, 0);
 // The shared scene-runtime chunk is landing-attributed but the lab runs it
 // too; the honest lab total adds its bytes once.
-const sharedChunkGzip = 13396;
+const sharedChunkGzip = 13866; // WU22 re-measure (tone cap, roll, wash/shimmer, page palette)
 const labTotalGzip = labChunkGzip + sharedChunkGzip + inlineGzip;
 // Cap prior (RED): the six scene modules at their own gzip level 9
 // (5318 + 7223 + 7317 + 7631 + 7724 + 7863 = 43076 B) plus the largest honest
@@ -230,13 +230,14 @@ const labTotalGzip = labChunkGzip + sharedChunkGzip + inlineGzip;
 // chunk 12,997 B + three 56 B entry chunks, 0 B inline. Cap re-measured as
 // measured + 2,048 B, the same documented margin, never a silent raise.
 // WU20 (38,666 B): the scene-runtime chunk now also serves the coming-hero on
-// the single public page (the one runtime path allowed there), so the shared
-// chunk measured 35,514 B raw / 13,396 B gzip after the autoplay correction;
-// the lab executable is the ascii runtime/library chunk 25,256 B + the shared
-// chunk 13,396 B + three 56 B entry chunks, 0 B inline. Cap re-measured as measured + 2,048 B, the same
-// documented margin, never a silent raise.
-const LAB_CAP_GZIP = 40868;
-const LAB_MEASURED_GZIP = 38820;
+// the single public page (the one runtime path allowed there).
+// WU22 (39,290 B): the shared chunk grew to 13,866 B gzip with the tone cap,
+// the roll helper, the wash + shimmer sweeps and the page palette; the lab
+// executable is the ascii runtime/library chunk 25,256 B + the shared chunk
+// 13,866 B + three 56 B entry chunks, 0 B inline. Cap re-measured as measured
+// + 2,048 B, the same documented margin, never a silent raise.
+const LAB_CAP_GZIP = 41338;
+const LAB_MEASURED_GZIP = 39290;
 const LAB_MARGIN_LIMIT = 4096;
 // What the lab page itself claims about its own cost. The copy must carry the
 // measured numbers, so a claim cannot drift away from the bundle it describes.
@@ -244,7 +245,7 @@ const LAB_MARGIN_LIMIT = 4096;
 // the lab engine chunk (engine + scene + shape catalogue + image pipeline +
 // overlays + runtime), found below by the scene id and the shape-laboratory
 // marker it contains.
-const LAB_CLAIMS = { libraryChunkGzip: 25256, ownModuleRaw: 35514, ownModuleGzip: 13396, bakedStillBytes: 43235 };
+const LAB_CLAIMS = { libraryChunkGzip: 25256, ownModuleRaw: 37167, ownModuleGzip: 13866, bakedStillBytes: 35270 };
 const withinLabCap = (total, cap) => total <= cap;
 assert.equal(withinLabCap(LAB_CAP_GZIP, LAB_CAP_GZIP), true);
 assert.equal(withinLabCap(LAB_CAP_GZIP + 1, LAB_CAP_GZIP), false);
@@ -636,7 +637,7 @@ try {
   // two coming-soon pages must not leak ANY laboratory runtime beyond the
   // coming-hero's own recorded set, and the archived routes must be OUT of the
   // build (the preview answers 404; the archive branch holds the old pages).
-  const WU20_LANDING_CHUNKS = ['JoyanComingHero.astro_astro_type_script_index_0_lang.0_DvE05y.js', 'scene-runtime.DsllR3tT.js'];
+  const WU20_LANDING_CHUNKS = ['JoyanComingHero.astro_astro_type_script_index_0_lang.TQG2gabZ.js', 'scene-runtime.BYq3d7Le.js'];
   for (const route of ['/', '/en']) {
     const page = await browser.newPage();
     const requests = [];

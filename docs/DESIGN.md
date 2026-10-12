@@ -777,19 +777,22 @@ makes the options comparable and states where each one breaks down.
   (the ring's coverage is not monotone — its hole grows) followed by 30
   bisections finds the smallest size whose area inside a cell reaches that
   ladder rung, and `maskDerivation()` states in words what is solved for each
-  mask. Solved sizes per step, in cell units:
-  disc 0.2732/0.3927/0.5103, square 0.2421/0.3480/0.4507, rounded
-  0.2451/0.3524/0.4564, diamond 0.3423/0.4921/0.6938, triangle
-  0.3423/0.4921/0.8876, hexagon 0.3004/0.4318/0.5641, ring 0.2863/0.4116/0.5578,
-  cross 0.2972/0.4272/0.6750, hatch (line duty) 0.2344/0.4844/0.8125,
-  glyph ≈1.0000 (its own bitmap already carries the ladder), grain = the coverage
-  itself (there is no shape to size).
+  mask. Solved sizes per step, in cell units (WU22 ladder; the WU19-era values
+  were disc 0.2732/0.3927/0.5103 and are superseded):
+  disc 0.2421/0.3480/0.4507 (top rung 0.5000, the inscribed disc), square
+  0.2145/0.3084/0.3994, rounded 0.2172/0.3123/0.4045, diamond
+  0.3034/0.4361/0.5746, triangle 0.3034/0.4361/0.6492, hexagon 0.2662/0.3826/0.4956,
+  ring 0.2538/0.3648/0.4724, cross 0.2634/0.3786/0.4903, hatch (line duty)
+  0.1841/0.3804/0.6381, glyph ≈0.8862 (its own bitmap carries the ladder, scaled
+  to the inscribed-disc rung), grain = the coverage itself (there is no shape to
+  size).
 - **Coverage is an exact area, never a sample count** — polygon clipping for the
   polygonal masks, closed-form circle/rectangle areas for the disc and the ring,
   closed quarter-disc areas for the rounded square, rectangle intersections for
   the cross and the glyph, clipped diagonal bands for the hatch. Two consequences,
   both measured rather than asserted: the ladder holds **at every pitch** (0.0000
-  deviation from 0.2344/0.4844/0.8125 at 8, 4 and 2 px per cell, tolerance 0.001)
+  deviation from the WU22 ladder 0.1841/0.3804/0.6381/0.7854 at 8, 4 and 2 px per
+  cell, tolerance 0.001)
   because the per-pixel areas sum to the shape's own area, and the mask is
   bit-identical in Node and in the browser without any sampling. A sampled mask
   cannot do that: at 4 px a symmetric square can only reach 0.4727 or 0.5166 of a
@@ -797,16 +800,16 @@ makes the options comparable and states where each one breaks down.
 - **The geometry each name claims is proven by an independent metric**
   (`scripts/check-shape-study.mjs`, 32 px per cell, computed in the checker): a
   square is **exactly separable** as row × column (error 0.000) while the disc
-  scores 1.000; the disc keeps only **2.6 %** of its mass outside the inscribed
-  disc against the square's 10.1 %; the ring's centre pixel is 0.00 with its edge
-  at 1.00 (a hole); the triangle's mass below/above the centre is **1.55** (it is
+  scores 1.000; the disc keeps only **0.8 %** of its mass outside the inscribed
+  disc at the WU22 top rung against the square's 8.7 %; the ring's centre pixel is 0.00 with its edge
+  at 1.00 (a hole); the triangle's mass below/above the centre is **2.20** (it is
   asymmetric); hatch ink is measurably constant along one diagonal but NOT exactly
-  (diagonal invariance **0.9459** at 32 px per cell, 0.9156 at 16 and 0.9698 at 64:
+  (diagonal invariance **0.9875** at 32 px per cell, 0.9378 at 16 and 0.9960 at 64:
   the metric counts neighbouring pixel pairs with the same coverage, so a stripe
   edge inside a cell breaks it — only a stricter inked-run test reaches 1.000);
   grain shows no symmetry at all (transpose 0.67, rotation 0.63) and a binary
-  fraction of 1.00. The rounded square's bounding-box fill is **0.9244** at 32 px
-  per cell (0.9376 at step 1), and the hexagon is **pointy-top** — a vertex up and
+  fraction of 1.00. The rounded square's bounding-box fill is **0.9666** at 32 px
+  per cell (0.9618 at step 1), and the hexagon is **pointy-top** — a vertex up and
   one down, which is the orientation its six vertices encode. Headline versions of
   the square/disc/ring/triangle
   proofs also live in `scripts/check-scene-engine.mjs`, and
@@ -1052,15 +1055,41 @@ and re-measured everything they touch:
 - **Deeper default palette**: extraction now asks for **16** entries
   (`DEFAULT_EXTRACT_COUNT`); on a smooth gradient that yields 15 real entries and
   cuts the mean per-cell tone error **0.0174 → 0.0078** against 8 requested.
-- **Fifth ladder rung at full coverage**: `COVERAGE = [0, 0.2344, 0.4844, 0.8125,
-  1.0]`, radii re-derived to `[0, 0.2732, 0.3927, 0.5103, 0.7071]` (the fifth is
-  the half diagonal — the clipped disc IS the cell, which is what saturation
-  means), the ramp gains the `⬤` mark, and the ring solves to its measured peak
-  (`shapeCoverageCap`) where it cannot close a cell. **The shipped default scene
-  changed**: 63 poster cells of `joyan-night-coast` step up, so the bake was
-  re-rendered — PNG 41,906 → **43,235 B** (`16310df3…`), poster raster
-  `2808ffc7…` → **`bd1c708d…`**, MP4 re-encoded (350,674 B). Checker assertions
-  were updated to the NEW measured ladder, never the old one.
+- **Fifth ladder rung at full coverage** (WU19), **recapped to the inscribed disc
+  in WU22**: WU19's rung at coverage 1.0 was the circumscribed circle — its
+  clipped disc IS the cell, so saturated highlights read as squares (the user saw
+  exactly that). WU22 caps the ladder at the inscribed disc: `COVERAGE = [0,
+  0.1841, 0.3804, 0.6381, 0.7854]` (the WU19 interior rungs rescaled by π/4),
+  radii re-derived to `[0, 0.2421, 0.3480, 0.4507, 0.5000]`. The honest
+  consequence, stated plainly: **highlights now top out at the inscribed disc** —
+  the brightest cell is a full round dot, never a full square (the checkers
+  require the top rung's corner mass to equal a disc's). The shipped default
+  scene changed again: the same 63 poster cells now paint the inscribed disc, so
+  the bake was re-rendered — PNG 43,235 → **35,270 B** (`6ae11f51…`), poster
+  raster `bd1c708d…` → **`e6844efc…`**, MP4 re-encoded (**323,910 B**,
+  `d11398bb…`), and the mark fallback `coming-hero.png` re-baked (38,615 →
+  **31,561 B**, `a0ae3011…`). Checker assertions were updated to the NEW measured
+  ladder, never the old one. The normalized tone ladder is unchanged (it is
+  relative to the largest dot).
+- **Tone cap for dense line art (WU22)**: auto-gain lifts the whole tone range,
+  so the unicorn's dense overlapping-line core saturated (65 of 663 inked core
+  cells at the top rung — the "white dotted blob"). A per-image soft-knee cap
+  (knee 0.6 → ceiling 0.86 on the gained level; below-knee tones untouched;
+  `toneCap: 'none'` reproduces the uncapped conversion) brings the core's
+  top-rung cells to **34** (−47.7 %) while the inked p90 stays at **0.667**, so
+  sparse areas keep their lift. Before/after crops:
+  `dist-motion-verify/wu22/white-core/`.
+- **Sweep family and page palette (WU22)**: `glimmer` is tuned (softer band,
+  subject-preserving) and joined by `wash` (a wide colour wash crossing the
+  scene, its hue travelling between two adapted aurora colours) and `shimmer`
+  (a narrow sparkled band) — all periodic by construction with field-level seam
+  assertions. Measured over the unicorn: wash covers 28.67 % of cells above a
+  0.12 tone shift with the gentlest maximum (0.176) and the best subject
+  preservation (subject/ground 0.679), so **wash** is the page's sweep. The page
+  palette `joyan-page` (12 entries) is built from the site tokens — ink-950
+  ground `#0b0b0c`, bone-50 ink `#f4f2ed`, amber accent `#ffb000`, the adapted
+  aurora greens/violets and one combining accent (rose `#ff5d73`) — swappable in
+  one place (`PAGE_PALETTE_ID`).
 - **Aurora tuned** (finer octaves, finer lattice, blend 0.92 → 0.55,
   subject-preserving blending): on our mark at 200×100 the tinted wash falls
   **28.33 % → 9.30 %** of the grid, the largest connected blob **1193 → 117

@@ -102,19 +102,20 @@ if (ready) {
   const { renderFrame, stepFor, COVERAGE, DOT_RADIUS, DELIVERY_CELL, sceneMetrics, luma } = engine;
   const { withOverlays } = overlays;
 
-  // 1. Ramp coverage: five rungs, the top at full coverage, radii re-derived.
+  // 1. Ramp coverage: five rungs, the top at the INSCRIBED DISC (WU22), radii re-derived.
   findings.ramp = {
     rungs: COVERAGE.length, coverage: [...COVERAGE], radii: DOT_RADIUS.map((r) => Number(r.toFixed(4))),
     top: COVERAGE[COVERAGE.length - 1], fullLevelStep: stepFor(1, 0, 0),
   };
   check(COVERAGE.length === 5, `the ladder must have five rungs, saw ${COVERAGE.length}`);
-  check(COVERAGE[4] === 1, `the fifth rung must be full coverage 1.0, saw ${COVERAGE[4]}`);
-  check(Math.abs(DOT_RADIUS[4] - Math.SQRT1_2) < 0.003,
-    `the fifth radius must be the half diagonal ${Math.SQRT1_2.toFixed(4)}, saw ${DOT_RADIUS[4]?.toFixed(4)}`);
+  check(Math.abs(COVERAGE[4] - Math.PI / 4) < 1e-9,
+    `the WU22 fifth rung must be the inscribed disc (coverage π/4 = ${(Math.PI / 4).toFixed(4)}), saw ${COVERAGE[4]}`);
+  check(Math.abs(DOT_RADIUS[4] - 0.5) < 0.003,
+    `the WU22 fifth radius must be the half side 0.5 (the inscribed disc, NOT the WU19 half diagonal), saw ${DOT_RADIUS[4]?.toFixed(4)}`);
   if (auditDoc) {
-    check(docHas(1, 1) && /1,0|1\.0/.test(auditDoc),
-      'the audit must state the fifth rung at 1.0');
-    check(docHas(DOT_RADIUS[4]),
+    check(docHas(COVERAGE[4]) || /0,7854|0\.7854/.test(auditDoc),
+      'the audit must state the WU22 inscribed-disc cap (coverage π/4 ≈ 0.7854)');
+    check(docHas(DOT_RADIUS[4]) || /0,5|0\.5/.test(auditDoc),
       `the audit must state the re-derived fifth radius ${es(DOT_RADIUS[4])}`);
   }
 
