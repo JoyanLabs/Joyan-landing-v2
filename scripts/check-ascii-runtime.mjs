@@ -141,25 +141,49 @@ const html = await readFile(resolve(root, 'dist/lab/ascii/index.html'), 'utf8');
 const { inline, excluded } = inlineScripts(html);
 const beforeBudget = await json('dist-motion-verify/wu13/before.json');
 const baselineBudget = await json('.artifacts/iteration-2-client-js.json');
-const landingChunkNames = Object.keys(beforeBudget.chunks);
-for (const name of landingChunkNames) {
-  check(JSON.stringify(chunks[name]) === JSON.stringify(beforeBudget.chunks[name]), `original chunk changed: ${name}`);
+// WU20: the site is ONE page. Of the WU12-era landing five chunks only the two
+// Astro client chunks survive, byte-identical; the framer-motion reveal/viewport
+// chunks left the build with the old landing. The recorded landing set is now
+// the WU20 set (same values as check-iteration-3 section 7): client x2 + the
+// coming-hero entry + the shared scene-runtime chunk, pinned by hash.
+const LANDING_HASHES = {
+  'client.BxDIQlYz.js': { gz: 60302, sha256: 'ed1f3e2228ec0a53328513096c375276d3aea8e4c8e2ded754af7b67a13d77f0' },
+  'client.kF-MUc6b.js': { gz: 27057, sha256: 'c72b737a3f669a7845f10ec12cf2206a3d4f964c2aef13d4572c6b831b74937d' },
+  'JoyanComingHero.astro_astro_type_script_index_0_lang.0_DvE05y.js': { gz: 56, sha256: '0b2110e79eaed434dd4c3abf8a5e397ff193c940e7a7750bb91eed6e63b5ba6d' },
+  'scene-runtime.DsllR3tT.js': { gz: 13396, sha256: 'a0b498384f6bb6d561192cd1600906ccae53b43bb1866ffb94a270ff1182b0df' },
+};
+const landingChunkNames = Object.keys(chunks).filter((name) => LANDING_HASHES[name]);
+for (const name of Object.keys(LANDING_HASHES)) {
+  const actual = chunks[name];
+  if (!actual) { check(false, `WU20 landing chunk missing from dist: ${name}`); continue; }
+  check(actual.gzip === LANDING_HASHES[name].gz,
+    `WU20 landing chunk gzip changed: ${name} (${actual.gzip} != ${LANDING_HASHES[name].gz})`);
+  check(actual.hash === LANDING_HASHES[name].sha256,
+    `WU20 landing chunk bytes changed: ${name}`);
 }
 const assetGzip = assets.reduce((sum, asset) => sum + asset.gzip, 0);
 const inlineGzip = inline.reduce((sum, script) => sum + script.gzip, 0);
 const totalGzip = assetGzip + inlineGzip;
 
 // ---- WU14 accounting ----------------------------------------------------
-// The landing allowance is unchanged and enforced the hard way: the five
-// original chunks must be byte-identical and sum to the recorded 109818 B
-// gzip. Only /lab/ascii may grow, under a cap measured from the real bundle.
-const LANDING_FIVE_GZIP = 109818;
-const landingGzip = landingChunkNames.reduce((sum, name) => sum + beforeBudget.chunks[name].gzip, 0);
-check(landingChunkNames.length === 5 && landingGzip === LANDING_FIVE_GZIP,
-  `landing five-chunk set changed: ${landingChunkNames.length} chunks / ${landingGzip} B gzip`);
-const labChunkNames = Object.keys(chunks).filter((name) => !landingChunkNames.includes(name));
+// WU20: the landing allowance is now the ONE-PAGE set recorded above (client
+// x2, unchanged bytes; the coming-hero entry 56 B; the shared
+// scene-runtime 13,396 B — the one runtime path the public page is allowed).
+// Total 100,895 B gzip (the checker's own gzipSync accounting), down from
+// the WU14 landing's 109,818 B (the
+// framer-motion reveal/viewport chunks left with the old landing). The lab
+// accounting below includes the shared chunk's real bytes: the laboratory
+// executes the same engine the coming-hero does.
+const LANDING_FIVE_GZIP = 100811;
+const landingGzip = landingChunkNames.reduce((sum, name) => sum + chunks[name].gzip, 0);
+check(landingChunkNames.length === 4 && landingGzip === LANDING_FIVE_GZIP,
+  `WU20 landing four-chunk set changed: ${landingChunkNames.length} chunks / ${landingGzip} B gzip`);
+const labChunkNames = Object.keys(chunks).filter((name) => !LANDING_HASHES[name]);
 const labChunkGzip = labChunkNames.reduce((sum, name) => sum + chunks[name].gzip, 0);
-const labTotalGzip = labChunkGzip + inlineGzip;
+// The shared scene-runtime chunk is landing-attributed but the lab runs it
+// too; the honest lab total adds its bytes once.
+const sharedChunkGzip = 13396;
+const labTotalGzip = labChunkGzip + sharedChunkGzip + inlineGzip;
 // Cap prior (RED): the six scene modules at their own gzip level 9
 // (5318 + 7223 + 7317 + 7631 + 7724 + 7863 = 43076 B) plus the largest honest
 // margin this unit allows (4096 B) = 47172 B. The measured build came in far
@@ -205,8 +229,14 @@ const labTotalGzip = labChunkGzip + inlineGzip;
 // 33,856 B raw / 12,997 B gzip; the lab executable is library 25,256 B + engine
 // chunk 12,997 B + three 56 B entry chunks, 0 B inline. Cap re-measured as
 // measured + 2,048 B, the same documented margin, never a silent raise.
-const LAB_CAP_GZIP = 40469;
-const LAB_MEASURED_GZIP = 38421;
+// WU20 (38,666 B): the scene-runtime chunk now also serves the coming-hero on
+// the single public page (the one runtime path allowed there), so the shared
+// chunk measured 35,514 B raw / 13,396 B gzip after the autoplay correction;
+// the lab executable is the ascii runtime/library chunk 25,256 B + the shared
+// chunk 13,396 B + three 56 B entry chunks, 0 B inline. Cap re-measured as measured + 2,048 B, the same
+// documented margin, never a silent raise.
+const LAB_CAP_GZIP = 40868;
+const LAB_MEASURED_GZIP = 38820;
 const LAB_MARGIN_LIMIT = 4096;
 // What the lab page itself claims about its own cost. The copy must carry the
 // measured numbers, so a claim cannot drift away from the bundle it describes.
@@ -214,7 +244,7 @@ const LAB_MARGIN_LIMIT = 4096;
 // the lab engine chunk (engine + scene + shape catalogue + image pipeline +
 // overlays + runtime), found below by the scene id and the shape-laboratory
 // marker it contains.
-const LAB_CLAIMS = { libraryChunkGzip: 25256, ownModuleRaw: 33856, ownModuleGzip: 12997, bakedStillBytes: 43235 };
+const LAB_CLAIMS = { libraryChunkGzip: 25256, ownModuleRaw: 35514, ownModuleGzip: 13396, bakedStillBytes: 43235 };
 const withinLabCap = (total, cap) => total <= cap;
 assert.equal(withinLabCap(LAB_CAP_GZIP, LAB_CAP_GZIP), true);
 assert.equal(withinLabCap(LAB_CAP_GZIP + 1, LAB_CAP_GZIP), false);
@@ -421,7 +451,11 @@ if (correctionRed) {
   process.exit(failures.length ? 1 : 0);
 }
 const protectedPaths = execFileSync('git', ['ls-files', 'public/assets/motion', 'public/assets/dither',
-  'public/assets/brand', 'scripts/motion-src', 'src/components/joyan/Hero.astro',
+  'public/assets/brand', 'scripts/motion-src',
+  // WU20: Hero.astro moved to archive/ (the old landing survives on the
+  // archive/full-landing branch, and the moved copy is tracked once this unit
+  // is committed), so its byte-identity guard here is replaced by the one-page
+  // structural contract; DitherScene still serves the laboratory.
   'src/components/joyan/DitherScene.astro', '.artifacts/iteration-2-client-js.json'], { encoding: 'utf8' })
   .trim().split('\n');
 for (const path of protectedPaths) {
@@ -598,20 +632,29 @@ async function scenePass(page, width, mode) {
   return view;
 }
 try {
-  for (const route of ['/', '/en', '/bitacora', '/en/log', '/privacy', '/terms', '/404']) {
+  // WU20 — the old-route preservation walk becomes the one-page contract: the
+  // two coming-soon pages must not leak ANY laboratory runtime beyond the
+  // coming-hero's own recorded set, and the archived routes must be OUT of the
+  // build (the preview answers 404; the archive branch holds the old pages).
+  const WU20_LANDING_CHUNKS = ['JoyanComingHero.astro_astro_type_script_index_0_lang.0_DvE05y.js', 'scene-runtime.DsllR3tT.js'];
+  for (const route of ['/', '/en']) {
     const page = await browser.newPage();
     const requests = [];
     page.on('request', r => requests.push(r.url()));
     const response = await page.goto(base + route, { waitUntil: 'networkidle' });
-    check(response.status() === 200 || route === '/404', `${route}: old route HTTP failure`);
+    check(response.status() === 200, `${route}: coming-soon page HTTP failure`);
     old.pages[route] = await page.evaluate(fingerprint);
-    check(await page.locator('[data-ascii-piece]').count() === 0, `${route}: runtime leaked into old page`);
-    if (!red) {
-      const before = await json('dist-motion-verify/wu13/before.json');
-      assert.deepEqual(JSON.parse(JSON.stringify(old.pages[route])), before.pages[route], `${route}: F1 DOM/style or metadata changed`);
-      const added = Object.keys(chunks).filter(n => !before.chunks[n]);
-      check(!requests.some(url => added.some(n => url.endsWith(n))), `${route}: runtime chunk fetched`);
-    }
+    check(await page.locator('[data-ascii-piece]').count() === 0, `${route}: runtime leaked into the coming-soon page`);
+    check(await page.locator('[data-coming-hero]').count() === 1, `${route}: the coming-hero must mount`);
+    const leaked = Object.keys(chunks).filter(n => !WU20_LANDING_CHUNKS.includes(n))
+      .filter(n => requests.some(url => url.endsWith(n)));
+    check(leaked.length === 0, `${route}: laboratory runtime chunk fetched: ${leaked.join(', ')}`);
+    await page.close();
+  }
+  for (const route of ['/bitacora', '/en/log', '/privacy', '/terms', '/404']) {
+    const page = await browser.newPage();
+    const response = await page.goto(base + route, { waitUntil: 'networkidle' }).catch(() => null);
+    check(!response || response.status() === 404, `${route}: archived route must be out of the build (HTTP ${response ? response.status() : 'error'})`);
     await page.close();
   }
   if (red) {
@@ -624,16 +667,22 @@ try {
     sceneViews.push(await scenePass(page, 390, 'normal'));
     await page.close();
   } else {
-    const mainBaseline = await json('dist-motion-verify/wu13/before.json');
+    // WU20: the two coming-soon pages replaced the old landing, so the WU13
+    // DOM fingerprint can no longer be compared against. The honest guard is
+    // structural: real metadata, no inline ascii runtime, no horizontal
+    // overflow, and the coming-hero present at every width.
     for (const route of ['/', '/en']) for (const width of [390, 768, 1440]) {
       const page = await browser.newPage({ viewport: { width, height: 1000 } });
       const response = await page.goto(base + route, { waitUntil: 'networkidle' });
-      const measured = JSON.parse(JSON.stringify(await page.evaluate(fingerprint)));
-      assert.deepEqual(measured, mainBaseline.pages[route], `${route}/${width}: normal F1 DOM/style or metadata changed`);
+      check(response.ok(), `${route}/${width}: coming-soon page HTTP failure`);
+      const measured = await page.evaluate(fingerprint);
+      check(measured.metadata.some(m => /name="description"/.test(m)), `${route}/${width}: real description metadata missing`);
+      check(measured.metadata.some(m => /name="robots" content="index,follow"/.test(m)), `${route}/${width}: the public page must be indexable`);
       const inlineRuntime = await page.evaluate(() => [...document.scripts].some(s => s.textContent.includes('data-ascii-piece')));
-      check(!inlineRuntime && response.ok(), `${route}/${width}: runtime leaked or HTTP failure`);
-      mainViews.push({ route, width, unchanged: true,
+      check(!inlineRuntime, `${route}/${width}: runtime leaked into the coming-soon page`);
+      mainViews.push({ route, width,
         documentWidth: await page.evaluate(() => document.documentElement.scrollWidth) });
+      check(mainViews.at(-1).documentWidth === width, `${route}/${width}: horizontal overflow ${mainViews.at(-1).documentWidth}`);
       await page.close();
     }
     const installed = await json('node_modules/ascii.rest/package.json');
@@ -679,7 +728,12 @@ try {
     }
     await save('scene-frames.json', { dots: SCENE_DOTS, scenes: sceneMeta });
     const before = await json('dist-motion-verify/wu13/before.json');
-    for (const [name, evidence] of Object.entries(before.chunks)) assert.deepEqual(chunks[name], evidence, `original chunk changed: ${name}`);
+    // WU20: of the WU13 landing set only the two client chunks survive (the
+    // framer-motion reveal/viewport chunks left with the old landing); the
+    // surviving ones must stay byte-identical.
+    for (const [name, evidence] of Object.entries(before.chunks)) {
+      if (name.includes('client.')) assert.deepEqual(chunks[name], evidence, `original chunk changed: ${name}`);
+    }
     check(landingGzip === LANDING_FIVE_GZIP && labTotalGzip <= LAB_CAP_GZIP,
       'WU14 budget accounting regressed after the browser pass');
     for (const width of [390, 768, 1440]) for (const mode of ['normal', 'reduce', 'no-js']) {

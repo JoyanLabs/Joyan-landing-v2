@@ -1,0 +1,106 @@
+---
+/**
+ * WU20 (correction round) — the coming-soon hero for the single public page.
+ *
+ * Subject, by the user's explicit on-the-record direction: the Blade Runner
+ * unicorn they supplied (they consider it an open-source-style illustration
+ * based on the film design and direct using it "para probar"). Licence
+ * discipline: the SVG fixture stays gitignored and uncommitted; the page
+ * embeds only the pipeline's converted serialisation and a build-time baked
+ * poster (data URI), and carries the attribution line below. Swapping the
+ * subject later is a one-line change in the page frontmatter.
+ *
+ * The hero AUTOPLAYS (user-directed): the loop starts on load through
+ * `~/lib/scene-runtime`, the ONE runtime path allowed on a real page. Reduced
+ * motion keeps the real static poster with truthful wording; offscreen and
+ * hidden tabs pause; pagehide releases everything. All copy is PLACEHOLDER
+ * pending branding review — recorded in the tracking document, not shown.
+ */
+interface Props {
+  /** Build-time baked poster PNG of the scene's poster frame (data URI or asset path). */
+  poster: string;
+  /** The pipeline's own serialisation of the converted scene, as JSON text. */
+  payload: string;
+  /** The image-palette id and overlay ids the treatment applies. */
+  palette?: string;
+  overlays?: string;
+  name: string;
+  tagline: string;
+  values: string[];
+  comingSoon: string;
+  attribution: string;
+}
+const { poster, payload, palette = 'aurora', overlays = 'stars,aurora', name, tagline, values, comingSoon, attribution } = Astro.props;
+---
+
+<section
+  data-coming-hero
+  data-hero-autoplay
+  data-hero-palette={palette}
+  data-hero-overlays={overlays}
+  class="mx-auto flex w-full max-w-6xl flex-col items-center px-4 pb-16 pt-12 text-center sm:px-6"
+  aria-labelledby="coming-hero-name"
+>
+  <div class="scene-frame w-full border border-hairline bg-ink-900 shadow-[0_0_80px_-20px_rgba(18,140,134,0.35)]">
+    <img
+      src={poster}
+      alt=""
+      aria-hidden="true"
+      data-hero-poster
+      width="1280"
+      height="640"
+      loading="eager"
+      decoding="async"
+      class="block h-auto w-full"
+    />
+    <canvas aria-hidden="true" class="block h-auto w-full"></canvas>
+    <p data-hero-fallback class="hidden p-4 text-sm text-plomo-400">
+      {`${name}: la escena, dibujada en puntos · the scene, drawn as dots.`}
+    </p>
+  </div>
+  <p class="mt-8 font-mono text-xs uppercase tracking-[0.3em] text-accent">{comingSoon}</p>
+  <h1 id="coming-hero-name" class="mt-4 text-5xl tracking-tight text-bone-50 sm:text-7xl">{name}</h1>
+  <p class="mt-6 max-w-2xl text-lg leading-relaxed text-bone-100">{tagline}</p>
+  <ul class="mt-10 grid w-full max-w-3xl gap-px border border-hairline bg-hairline sm:grid-cols-3" role="list">
+    {
+      values.map((value) => (
+        <li class="bg-ink-950 px-4 py-5">
+          <p class="text-sm leading-snug text-bone-100">{value}</p>
+        </li>
+      ))
+    }
+  </ul>
+  <p data-hero-status class="mt-8 font-mono text-xs text-plomo-400" role="status">
+    Static poster
+  </p>
+  <p class="mt-10 max-w-prose font-mono text-[11px] leading-relaxed text-plomo-400">{attribution}</p>
+  <script is:inline type="application/json" data-coming-hero-scene set:html={payload} />
+</section>
+
+<script>
+  // The ONE runtime import on the public page: the shared engine runtime, here
+  // driving only the coming-hero host. The laboratories import the same file.
+  import '~/lib/scene-runtime';
+</script>
+
+<style>
+  .scene-frame {
+    display: grid;
+    place-items: center;
+    min-width: 0;
+    overflow: hidden;
+  }
+  /* The baked poster is the no-JS still; the canvas takes over on load. */
+  [data-coming-hero] canvas {
+    display: none;
+  }
+  [data-coming-hero][data-playing] canvas {
+    display: block;
+  }
+  [data-coming-hero][data-playing] img {
+    display: none;
+  }
+  [data-coming-hero][data-ready] [data-hero-fallback] {
+    display: none;
+  }
+</style>

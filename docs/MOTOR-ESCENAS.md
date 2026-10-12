@@ -989,3 +989,22 @@ a hash. El presupuesto de laboratorio se midió de nuevo: chunk de motor 33.856 
 raw / 12.997 B gzip, laboratorio ejecutable 38.421 B gzip, tope 40.469 B
 (medido + 2.048 B, margen ≤ 4.096 B); los cinco chunks de la portada siguen
 byte a byte idénticos en 109.818 B gzip.
+
+## 15. El hero de la página única (WU20, corrección)
+
+La página pública es una sola página (`/` y `/en`) y su hero es una escena de puntos **animada**. Receta exacta, todo medido y verificado por `scripts/check-scene-engine.mjs`:
+
+- **Entrada**: el unicornio de Blade Runner que suministró el usuario (fixture local gitignored `dist-motion-verify/wu18/input/blade-runner-unicorn-line-transparent.svg`), por decisión expresa y en registro del usuario. Atribución visible en la página: "basado en el unicornio de Blade Runner, diseño atribuido a Tom Southwell — usado como demostración". El SVG nunca entra al repositorio: la página convierte **en build** y embarca solo la serialización convertida y el PNG del póster (data URI). Sin fixture, el build cae a nuestra marca (el id serializado se mantiene `joyan-coming-hero`, pero póster, atribución y etiqueta pasan a la marca) para no depender del arte.
+- **Conversión**: pipeline WU18/WU19 — `--mode ink --color levels --cols 160 --rows 80` (rejilla 160 × 80), prefiltro de pitch y auto-ganancia activos.
+- **Paleta**: `aurora` de `IMAGE_PALETTES` (10 entradas, suelo `#05070c`).
+- **Overlays**: `stars` + `aurora` (`applyTreatment`), periódicos por construcción (LOOP_SECONDS 30, 12 fps, 360 frames).
+- **Motor**: rampa de puntos ` ·•●⬤` (cinco peldaños, WU19), máscara `disc`, dither `bayer4`, celdas cuadradas 1:1, pitch de entrega 8 px → lienzo 1280 × 640.
+- **Autoplay**: decidido por el usuario — los efectos siempre se reproducen, sin botón. El bucle arranca al cargar (pinta el fotograma 0 — el mismo raster de Node — y sigue a 12 fps), pausa fuera de pantalla y en pestaña oculta, y se limpia en `pagehide`. Bajo `prefers-reduced-motion` la página muestra el póster estático real con texto veraz y nunca anima. El patrón "still hasta Play" se mantiene solo en las rutas de laboratorio.
+- **Igualdad de hashes**: Node raster = lienzo en vivo = horneado (data URI del póster) por escena, verificado por frame (`data-hero-frame`) contra el raster de Node del MISMO frame.
+- **Presupuesto**: el runtime del hero es el chunk compartido `scene-runtime` (35,514 B raw / 13,396 B gzip) más la entrada del hero (56 B gzip) y los dos chunks del ClientRouter de Astro (60,302 + 27,057 B gzip, byte-idénticos a los de WU12). Total landing 100,811 B gzip en 4 chunks, 8,906 B sobre el baseline intacto de WU12 (91,905 B), dentro del margen de 22 KiB. El lab ejecuta 38,820 B (tope 40,868 B = medido + 2,048 B).
+
+## 16. Qué **no** está medido del hero
+
+- Firefox/Safari: igual que el resto del motor, solo Chromium verificado.
+- LCP/CLS reales en campo; el póster data URI mide 47.442 B (46,3 KiB) en el HTML, unos 34.562 B gzip transferidos: se nota en el HTML transferido, no en JS ejecutable.
+- La animación en reproducción automática es una decisión del usuario para esta página; su coste de CPU por frame es el mismo que el medido para el laboratorio (12 fps).

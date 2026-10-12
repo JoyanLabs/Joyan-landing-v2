@@ -204,7 +204,14 @@ if (labHtml) {
 for (const path of await walk(resolve(root, 'dist'))) {
   // WU17: every `/lab/**` page is a laboratory page; no real page may carry any
   // of the laboratory markup or assets.
-  if (!path.endsWith('.html') || path.replaceAll('\\', '/').includes('/lab/')) continue;
+  // WU20: the two coming-soon pages (`/`, `/en`) are the ONE exception — they
+  // carry the coming-hero's own interaction path (its canvas, its payload and
+  // its poster asset) and nothing else of the laboratory. Every other real
+  // page, and every other laboratory token on those two pages, still fails.
+  const distPath = path.replaceAll('\\', '/');
+  // WU20: the two coming-soon pages are the ONE real-page exception.
+  const comingSoon = distPath.endsWith('/index.html') || distPath.endsWith('/en/index.html');
+  if (!path.endsWith('.html') || distPath.includes('/lab/')) continue;
   const source = await readFile(path, 'utf8');
   check(!source.includes('data-own-scene'), `our runtime markup reached ${path.slice(root.length + 1)}`);
   check(!source.includes('data-ascii-compare'), `the comparison markup reached ${path.slice(root.length + 1)}`);
@@ -215,19 +222,27 @@ for (const path of await walk(resolve(root, 'dist'))) {
   check(!source.includes('data-image-view'), `the image laboratory views reached ${path.slice(root.length + 1)}`);
   check(!source.includes('data-image-scene'), `a converted scene payload reached ${path.slice(root.length + 1)}`);
   check(!BAKED_URL.test(source), `the baked still reached ${path.slice(root.length + 1)}`);
+  if (!comingSoon) {
+    check(!source.includes('data-coming-hero'), `the coming-hero reached ${path.slice(root.length + 1)}`);
+    check(!source.includes('data-coming-hero-scene'), `a coming-hero payload reached ${path.slice(root.length + 1)}`);
+  }
 }
 // Only the laboratory may reach the runtime. The page check is the real one:
 // `dist` is what ships. The source check catches a page that would import it
 // before anyone builds.
 const landingImporters = [];
+// WU20: the two coming-soon pages import the scene runtime for the coming-hero
+// (the public page's ONE allowed runtime path); every other page still fails.
+const WU20_HERO_PAGES = new Set([resolve(root, 'src/pages/index.astro'), resolve(root, 'src/pages/en/index.astro')]);
 for (const path of await walk(resolve(root, 'src/pages'))) {
   if (path.includes(`${resolve(root, 'src/pages/lab')}`)) continue;
+  if (WU20_HERO_PAGES.has(path)) continue;
   if (!/\.(?:astro|ts|tsx|vue|js|mjs)$/.test(path)) continue;
   const source = await readFile(path, 'utf8');
   if (source.includes('scene-runtime') || source.includes('scene-src')) landingImporters.push(path.slice(root.length + 1));
 }
 check(landingImporters.length === 0,
-  `no landing page may import the scene runtime: ${landingImporters.join(', ')}`);
+  `no page outside the laboratory and the two coming-soon pages may import the scene runtime: ${landingImporters.join(', ')}`);
 const runtimeImporters = [];
 for (const dir of ['src/components', 'src/layouts']) {
   for (const path of await walk(resolve(root, dir))) {
@@ -237,10 +252,10 @@ for (const dir of ['src/components', 'src/layouts']) {
   }
 }
 // WU17 added `ShapeLab.astro` for `/lab/shapes`; WU18 added `ImageLab.astro` for
-// `/lab/image`. All are laboratory components and no other component or layout
-// may reference the runtime.
+// `/lab/image`; WU20 added `JoyanComingHero.astro` for the single coming-soon
+// page. No other component or layout may reference the runtime.
 const allowedRuntimeImporters = ['src/components/joyan/SceneCanvas.astro', 'src/components/joyan/ShapeLab.astro',
-  'src/components/joyan/ImageLab.astro'];
+  'src/components/joyan/ImageLab.astro', 'src/components/joyan/JoyanComingHero.astro'];
 check(runtimeImporters.every((path) => allowedRuntimeImporters.includes(path))
   && allowedRuntimeImporters.every((path) => runtimeImporters.includes(path)),
 `only the laboratory's own SceneCanvas.astro, ShapeLab.astro and ImageLab.astro may reference the scene runtime: ${runtimeImporters.join(', ')}`);
@@ -262,6 +277,93 @@ if (shippedStill && bakedFile) {
 } else if (!shippedStill) {
   check(false, 'the baked still was not emitted as its own file (check the assets inline limit / ?no-inline)');
 }
+
+// ---------------------------------------------------------------------------
+// WU20 (correction round) — the coming-hero contract (node side).
+// Subject: the Blade Runner unicorn the user supplied, by their explicit
+// on-the-record direction (they consider it an open-source-style illustration
+// based on the film design and direct using it "para probar"). Licence
+// discipline: the SVG fixture stays gitignored and uncommitted; the page
+// embeds only the pipeline's converted serialisation and a build-time baked
+// poster (data URI), and carries the attribution line. The hero AUTOPLAYS on
+// load (user-directed); no Play control may exist on the public page.
+// ---------------------------------------------------------------------------
+const HERO_FALLBACK_ASSET = 'public/assets/dither/coming-hero.png';
+const HERO_TREATMENT = { id: 'coming-hero', palette: 'aurora', overlays: ['stars', 'aurora'] };
+const HERO_FIXTURE = resolve(root, 'dist-motion-verify/wu18/input/blade-runner-unicorn-line-transparent.svg');
+const heroHasFixture = existsSync(HERO_FIXTURE);
+let heroPipeline = null;
+let heroOverlays = null;
+let heroBake = null;
+let heroFromImage = null;
+let heroInputs = null;
+try {
+  heroPipeline = await import(new URL('./scene-src/image-pipeline.mjs', import.meta.url));
+  heroOverlays = await import(new URL('./scene-src/overlays.mjs', import.meta.url));
+  heroBake = await import(new URL('./scene-src/bake.mjs', import.meta.url));
+  heroFromImage = await import(new URL('./scene-src/from-image.mjs', import.meta.url));
+  heroInputs = await import(new URL('./scene-src/local-inputs.mjs', import.meta.url));
+} catch (error) {
+  check(false, `WU20: scene-src pipeline modules missing: ${error.message}`);
+}
+const hero = { payload: null, runtimeScene: null, width: 0, height: 0, posterHash: null, subject: heroHasFixture ? 'film-prop-demo' : 'joyan-mark' };
+if (heroPipeline && heroOverlays && heroBake && heroFromImage && heroInputs) {
+  let sourceSvg = null;
+  let sourceId = 'joyan-coming-hero';
+  let sourceLabel = 'the Joyan mark — ring, two triangles, axis and dots';
+  if (heroHasFixture) {
+    sourceSvg = HERO_FIXTURE;
+    sourceId = 'joyan-coming-hero';
+    sourceLabel = 'the coming-hero — based on the Blade Runner unicorn, design attributed to Tom Southwell (demonstration)';
+  } else {
+    const mark = heroInputs.LOCAL_INPUTS.find((entry) => entry.id === 'joyan-mark');
+    sourceSvg = mark.svg;
+  }
+  const converted = await heroFromImage.convert(sourceSvg, {
+    cols: 160, rows: 80, mode: 'ink', colorMode: 'levels',
+    palette: 'ink', id: sourceId, label: sourceLabel,
+  });
+  const bakedScene = heroOverlays.applyTreatment(converted.scene, HERO_TREATMENT, heroPipeline.IMAGE_PALETTES);
+  hero.payload = JSON.stringify(heroPipeline.serializeScene(bakedScene));
+  // The runtime path: payload -> sceneFromSerialized -> applyTreatment. The
+  // expected canvas raster comes from THIS scene, the same one the page builds.
+  hero.runtimeScene = heroOverlays.applyTreatment(
+    heroPipeline.sceneFromSerialized(JSON.parse(hero.payload)), HERO_TREATMENT, heroPipeline.IMAGE_PALETTES);
+  const frame0 = engine.renderFrame(hero.runtimeScene, 0, { dither: 'bayer4', density: 1 });
+  hero.width = frame0.cols * engine.DELIVERY_CELL;
+  hero.height = frame0.rows * engine.DELIVERY_CELL;
+  const baked = await heroBake.bakePng(bakedScene, engine.DELIVERY_CELL);
+  hero.posterHash = hash(baked.png);
+  for (const route of ['dist/index.html', 'dist/en/index.html']) {
+    let html = '';
+    try { html = await readFile(resolve(root, route), 'utf8'); } catch { check(false, `WU20: ${route} missing`); }
+    if (!html) continue;
+    check(html.includes('data-coming-hero'), `WU20: ${route} must mount the coming-hero`);
+    check(!html.includes('data-coming-hero-toggle'), `WU20: ${route} must NOT offer a hero Play control (the hero autoplays)`);
+    check(html.includes('data-hero-autoplay'), `WU20: ${route} must declare the autoplaying hero`);
+    check(/Tom Southwell/.test(html) && /demonstration|demostraci/i.test(html),
+      `WU20: ${route} must carry the attribution line (Blade Runner unicorn, design attributed to Tom Southwell, used as a demonstration)`);
+    check(/<h1[^>]*>\s*Joyan/i.test(html), `WU20: ${route} must carry the Joyan name as its h1`);
+    const match = html.match(/<script[^>]*type="application\/json"[^>]*data-coming-hero-scene[^>]*>([\s\S]*?)<\/script/);
+    check(Boolean(match) && JSON.stringify(JSON.parse(match[1])) === hero.payload,
+      `WU20: ${route} must embed the exact hero serialisation the Node pipeline produces`);
+    // The no-JS still is the build-time bake of the SAME scene, embedded as a
+    // data URI (never a committed derivative) — or the committed mark asset
+    // when the local fixture is absent.
+    const imgMatch = html.match(/<img[^>]*data-hero-poster[^>]*>/)?.[0] ?? '';
+    if (heroHasFixture) {
+      const uri = imgMatch.match(/src="data:image\/png;base64,([^"]+)"/)?.[1] ?? '';
+      check(Boolean(uri) && hash(Buffer.from(uri, 'base64')) === hero.posterHash,
+        `WU20: ${route}'s no-JS poster must be byte-identical to the Node bake of the hero scene`);
+    } else {
+      check(imgMatch.includes('/assets/dither/coming-hero.png'),
+        `WU20: ${route} must fall back to the committed mark poster when the fixture is absent`);
+    }
+  }
+} else {
+  check(false, 'WU20: hero contract not evaluated (pipeline modules missing)');
+}
+
 // Only a missing engine can hide the rest of the run: every other failure above
 // accumulates into the same report, so no assertion can hide behind another.
 if (!engine || !scenes) {
@@ -1312,6 +1414,128 @@ try {
   }
 } finally {
   await browser.close();
+}
+
+// ---------------------------------------------------------------------------
+// WU20 (correction round) — the coming-hero AUTOPLAYS in a real browser: the
+// canvas animates on load with no interaction, pauses offscreen and hidden,
+// resumes on return, cleans up on pagehide, never duplicates RAFs, and reduced
+// motion gets the real static poster with truthful wording and no control.
+// ---------------------------------------------------------------------------
+if (hero.runtimeScene) {
+  const { chromium } = await loadPlaywright();
+  const browser = await chromium.launch();
+  try {
+    const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
+    await page.goto(base + '/', { waitUntil: 'networkidle' });
+    const heroRead = () => page.locator('[data-coming-hero]').evaluate(async (host) => {
+      const canvas = host.querySelector('canvas');
+      const context2d = canvas.getContext('2d');
+      if (!canvas.width || !canvas.height) return { hash: 'unpainted', width: 0, height: 0, frame: host.dataset.heroFrame, playing: host.hasAttribute('data-playing') };
+      const data = context2d.getImageData(0, 0, canvas.width, canvas.height).data;
+      const digest = await crypto.subtle.digest('SHA-256', data);
+      return { hash: [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join(''),
+        width: canvas.width, height: canvas.height, frame: Number(host.dataset.heroFrame ?? -1),
+        playing: host.hasAttribute('data-playing') };
+    });
+    // Autoplay on load: with no interaction at all the canvas is live.
+    await page.waitForTimeout(700);
+    const live1 = await heroRead();
+    check(live1.playing === true, 'WU20: the coming-hero must autoplay on load (no interaction)');
+    check(live1.width === hero.width && live1.height === hero.height,
+      `WU20: hero canvas must be ${hero.width}x${hero.height}, saw ${live1.width}x${live1.height}`);
+    check(await page.locator('[data-coming-hero-toggle]').count() === 0,
+      'WU20: the public page must not carry a hero Play control');
+    await page.waitForTimeout(600);
+    const live2 = await heroRead();
+    check(live2.frame !== live1.frame, `WU20: the hero must advance on its own (${live1.frame} -> ${live2.frame})`);
+    // Engine truth: hash the canvas and the Node raster OF THE SAME FRAME.
+    const frameProbe = await page.locator('[data-coming-hero]').evaluate(async (host) => {
+      const canvas = host.querySelector('canvas');
+      const frame = Number(host.dataset.heroFrame ?? -1);
+      const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+      const digest = await crypto.subtle.digest('SHA-256', data);
+      return { frame, hash: [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('') };
+    });
+    const frameN = engine.renderFrame(hero.runtimeScene, frameProbe.frame, { dither: 'bayer4', density: 1 });
+    const rasterN = engine.rasterize(frameN, hero.runtimeScene, engine.DELIVERY_CELL);
+    check(frameProbe.hash === hash(Buffer.from(rasterN)),
+      `WU20: the live canvas must hash against the Node raster of the SAME frame (${frameProbe.frame})`);
+    // Offscreen and hidden must pause the loop. The scroll must move the
+    // canvas fully out of the viewport, so it scrolls by the canvas box plus
+    // the viewport height from the hero's position.
+    // The page is barely taller than the viewport, so the check first shrinks
+    // the viewport: only then can scrolling push the canvas fully offscreen.
+    await page.setViewportSize({ width: 1440, height: 320 });
+    await page.waitForTimeout(200);
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await page.waitForTimeout(300);
+    const offHash = await heroRead();
+    await page.waitForTimeout(600);
+    const offAfter = await heroRead();
+    hero.offscreen = { offHash, offAfter, moved: offHash.hash !== offAfter.hash };
+    check(offHash.hash === offAfter.hash, 'WU20: scrolling the hero offscreen must pause it');
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(300);
+    const resumed = await heroRead();
+    await page.waitForTimeout(400);
+    const resumedAfter = await heroRead();
+    check(resumedAfter.frame !== resumed.frame || resumedAfter.hash !== resumed.hash,
+      'WU20: the hero must resume when it returns on screen');
+    await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: true }); document.dispatchEvent(new Event('visibilitychange')); });
+    await page.waitForTimeout(150);
+    const hiddenHash = await heroRead();
+    await page.waitForTimeout(500);
+    const hiddenAfter = await heroRead();
+    hero.hidden = { hiddenHash, hiddenAfter, moved: hiddenHash.hash !== hiddenAfter.hash };
+    check(hiddenHash.hash === hiddenAfter.hash, 'WU20: a hidden tab must pause the coming-hero');
+    await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: false }); document.dispatchEvent(new Event('visibilitychange')); });
+    // pagehide cleanup, proven like the laboratory's own evidence.
+    await page.evaluate(() => {
+      window.wu20HeroId = crypto.randomUUID();
+      window.addEventListener('pagehide', (event) => sessionStorage.setItem('wu20-hero-pagehide', JSON.stringify({
+        documentId: window.wu20HeroId, playing: document.querySelector('[data-coming-hero]')?.hasAttribute('data-playing'), persisted: event.persisted,
+      })));
+      return window.wu20HeroId;
+    });
+    const documentId = await page.evaluate(() => window.wu20HeroId);
+    await page.goto(base + '/lab/ascii', { waitUntil: 'networkidle' });
+    const cleanup = await page.evaluate(() => JSON.parse(sessionStorage.getItem('wu20-hero-pagehide') ?? 'null'));
+    check(Boolean(cleanup) && cleanup.documentId === documentId, 'WU20: pagehide evidence missing for the coming-soon document');
+    // Reduced motion: the real static poster, truthful wording, no control.
+    const reducedContext = await browser.newContext({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
+    const reducedPage = await reducedContext.newPage();
+    await reducedPage.goto(base + '/', { waitUntil: 'networkidle' });
+    const reducedStatus = (await reducedPage.locator('[data-hero-status]').innerText()).trim();
+    check(/static|poster/i.test(reducedStatus), `WU20: reduced-motion status must be truthful, saw "${reducedStatus}"`);
+    check(await reducedPage.locator('[data-coming-hero] img').isVisible(), 'WU20: reduced motion must show the real static poster');
+    const reducedStill = await reducedPage.locator('[data-coming-hero]').evaluate((host) => ({
+      playing: host.hasAttribute('data-playing'), frame: host.dataset.heroFrame ?? null }));
+    check(reducedStill.playing === false && reducedStill.frame == null,
+      'WU20: reduced motion must never animate the hero');
+    check(await reducedPage.locator('[data-coming-hero-toggle]').count() === 0,
+      'WU20: reduced motion must not be offered a playback control either');
+    // Responsive screenshots of the public page at the accepted widths.
+    for (const width of [390, 768, 1440, 2560]) {
+      const view = await browser.newPage({ viewport: { width, height: 1200 }, reducedMotion: 'reduce' });
+      await view.goto(base + '/', { waitUntil: 'networkidle' });
+      await view.waitForTimeout(300);
+      const box = await view.evaluate(() => ({ documentWidth: document.documentElement.scrollWidth }));
+      check(box.documentWidth === width, `WU20: ${width} must not overflow (${box.documentWidth})`);
+      await view.screenshot({ path: resolve(out, 'captures', `hero-${width}.png`), fullPage: true });
+      await view.close();
+    }
+    check(errors.length === 0, `WU20: browser errors: ${errors.join('; ')}`);
+    await context.close();
+    await reducedContext.close();
+  } finally {
+    await browser.close();
+  }
 }
 
 async function readFrame(page) {

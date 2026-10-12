@@ -1,80 +1,94 @@
 ---
+/**
+ * WU20 (correction round) — the single coming-soon page (EN). Same contract as
+ * the ES page: the autoplaying unicorn hero (build-time conversion of the
+ * gitignored fixture, data-URI bake, attribution on the page), professional
+ * placeholder copy pending branding review (recorded in the tracking
+ * document), real metadata, and the / ↔ /en hreflang pair owned by the layout.
+ */
 import PageLayout from '~/layouts/PageLayout.astro';
-import SiteHeader from '~/components/joyan/SiteHeader.astro';
-import Hero from '~/components/joyan/Hero.astro';
-import AgentsSection from '~/components/joyan/AgentsSection.astro';
-import MagiSection from '~/components/joyan/MagiSection.astro';
-import HardwareSection from '~/components/joyan/HardwareSection.astro';
-import EcosystemSection from '~/components/joyan/EcosystemSection.astro';
-import JournalSection from '~/components/joyan/JournalSection.astro';
-import SiteFooter from '~/components/joyan/SiteFooter.astro';
+import JoyanComingHero from '~/components/joyan/JoyanComingHero.astro';
 import { en, LOCALES } from '~/lib/i18n';
+import { convert } from '../../../scripts/scene-src/from-image.mjs';
+import { applyTreatment } from '../../../scripts/scene-src/overlays.mjs';
+import { serializeScene, IMAGE_PALETTES } from '../../../scripts/scene-src/image-pipeline.mjs';
+import { LOCAL_INPUTS } from '../../../scripts/scene-src/local-inputs.mjs';
+import { renderFrame, rasterize, DELIVERY_CELL } from '../../../scripts/scene-src/engine.mjs';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+import sharp from 'sharp';
 
-const content = en;
 const pathname = Astro.url.pathname;
+
+// The hero recipe (docs/MOTOR-ESCENAS.md — coming-hero): the supplied film-prop
+// line art, ink measurement at 160 × 80, the deep aurora image palette,
+// stars + aurora overlays, the engine's own five-rung ladder and bayer4 dither
+// at the 8 px delivery pitch.
+const HERO_FIXTURE = resolve('dist-motion-verify/wu18/input/blade-runner-unicorn-line-transparent.svg');
+const heroHasFixture = existsSync(HERO_FIXTURE);
+const heroConverted = await convert(
+  heroHasFixture ? HERO_FIXTURE : (LOCAL_INPUTS.find((entry) => entry.id === 'joyan-mark')?.svg ?? ''),
+  {
+    cols: 160, rows: 80, mode: 'ink', colorMode: 'levels', palette: 'ink',
+    id: 'joyan-coming-hero',
+    label: heroHasFixture
+      ? 'the coming-hero — based on the Blade Runner unicorn, design attributed to Tom Southwell (demonstration)'
+      : 'the Joyan mark — ring, two triangles, axis and dots',
+  },
+);
+const heroScene = applyTreatment(heroConverted.scene, { palette: 'aurora', overlays: ['stars', 'aurora'] }, IMAGE_PALETTES);
+const payload = JSON.stringify(serializeScene(heroScene));
+
+// The no-JS still is the build-time bake of the SAME scene, embedded as a data
+// URI; the committed mark poster is only the fallback for builds without the art.
+let poster: string;
+if (heroHasFixture) {
+  const frame = renderFrame(heroScene, heroScene.posterFrame, { dither: 'bayer4', density: 1 });
+  const rgba = rasterize(frame, heroScene, DELIVERY_CELL);
+  const png = await sharp(Buffer.from(rgba), { raw: { width: frame.cols * DELIVERY_CELL, height: frame.rows * DELIVERY_CELL, channels: 4 } })
+    .png({ compressionLevel: 9, adaptiveFiltering: false })
+    .toBuffer();
+  poster = `data:image/png;base64,${png.toString('base64')}`;
+} else {
+  poster = '/assets/dither/coming-hero.png';
+}
+
+// Placeholder copy pending branding review (recorded in the tracking document).
+const content = en;
+const attribution = heroHasFixture
+  ? 'The hero is based on the Blade Runner unicorn, design attributed to Tom Southwell — used as a demonstration at the user’s explicit direction. Production use requires confirmed rights.'
+  : 'The hero uses our own mark; the unicorn demonstration requires the local fixture file.';
 ---
 
 <PageLayout
   lang={LOCALES.EN}
-  metadata={{ title: content.meta.title, description: content.meta.description }}
+  metadata={{
+    title: content.meta.title,
+    description:
+      'We design agents that operate within agreed limits and connected systems that record what happens in the physical world, so every operation is auditable and reviewable. Joyan — coming soon.',
+    robots: { index: true, follow: true },
+  }}
   pathname={pathname}
 >
-  <SiteHeader slot="header" locale={LOCALES.EN} nav={content.nav} path={pathname} />
-  <Hero content={content.hero} />
-  <AgentsSection content={content.agents} />
-  <MagiSection content={content.magi} />
-  <HardwareSection content={content.hardware} />
-  <EcosystemSection content={content.ecosystem} />
-  <JournalSection locale={LOCALES.EN} content={content.journal} />
-  <SiteFooter slot="footer" content={content.footer} nav={content.nav} locale={LOCALES.EN} path={pathname} />
+  <div class="flex min-h-dvh flex-col bg-ink-950 font-sans text-bone-100 antialiased">
+    <div class="flex flex-1 flex-col items-center justify-center">
+      <JoyanComingHero
+        poster={poster}
+        payload={payload}
+        palette="aurora"
+        overlays="stars,aurora"
+        name="Joyan"
+        tagline="We design agents that operate within agreed limits and connected systems that record what happens in the physical world, so every operation stays auditable and reviewable."
+        values={['Agents that operate within agreed limits', 'An auditable record of every action', 'Human review for the decisions that matter']}
+        comingSoon="We are building something new"
+        attribution={attribution}
+      />
+    </div>
+    <footer class="border-t border-hairline">
+      <div class="mx-auto flex w-full max-w-6xl flex-col gap-1 px-4 py-6 text-xs text-plomo-400 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <p>© Joyan — built with care.</p>
+        <p class="font-mono">Site under construction · back soon.</p>
+      </div>
+    </footer>
+  </div>
 </PageLayout>
-
-<script>
-  import { animate, inView } from 'framer-motion/dom';
-
-  // Scroll reveals (docs/DESIGN.md — Motion guide): below-hero sections fade
-  // and rise once on first viewport entry. Server markup stays visible and
-  // static (no-JS and reduced-motion keep it that way); this script only
-  // animates opacity and transform. The pre-reveal hidden state is a CSS
-  // class (opacity/transform-only, in tailwind.css) — never inline style
-  // attributes. Every inView cleanup and animation control is stored so
-  // astro:before-swap can release it before the DOM swap and astro:page-load
-  // can reinitialize after it.
-
-  const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
-  const REVEAL_PENDING_CLASS = 'is-reveal-pending';
-
-  const cleanups: Array<() => void> = [];
-  const controls: Array<{ stop: () => void }> = [];
-
-  function clearAll(): void {
-    for (const control of controls) control.stop();
-    for (const cleanup of cleanups) cleanup();
-    controls.length = 0;
-    cleanups.length = 0;
-  }
-
-  function init(): void {
-    clearAll();
-    if (window.matchMedia(REDUCED_MOTION_QUERY).matches) return;
-    const elements = Array.from(document.querySelectorAll<HTMLElement>('[data-reveal]'));
-    for (const element of elements) {
-      element.classList.add(REVEAL_PENDING_CLASS);
-      const stopInView = inView(
-        element,
-        () => {
-          element.classList.remove(REVEAL_PENDING_CLASS);
-          const control = animate(element, { opacity: 1, y: 0 }, { duration: 0.65, ease: 'easeOut' });
-          controls.push(control);
-          return () => control.stop();
-        },
-        { margin: '0px 0px -12% 0px', amount: 0.2 }
-      );
-      cleanups.push(stopInView);
-    }
-  }
-
-  document.addEventListener('astro:page-load', init);
-  document.addEventListener('astro:before-swap', clearAll);
-  init();
-</script>

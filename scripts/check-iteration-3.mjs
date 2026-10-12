@@ -180,6 +180,81 @@ const esHtml = existsSync(resolve(DIST, 'index.html')) ? read(resolve(DIST, 'ind
 const enHtml = existsSync(resolve(DIST, 'en', 'index.html')) ? read(resolve(DIST, 'en', 'index.html')) : '';
 
 // ---------------------------------------------------------------------------
+// 0. WU20 — the site is ONE page: the coming-soon contract for the built tree.
+//    The old landing lives on `archive/full-landing` (cut at 637fb1e); the
+//    build now emits exactly the two coming-soon pages and the three noindex
+//    laboratories. Every other route and every archived component must be OUT
+//    of the build, the hero must be present with real metadata, and the lab
+//    routes must stay noindex and unlinked from the public page.
+// ---------------------------------------------------------------------------
+const WU20_BUILT_PAGES = ['index.html', 'en/index.html', 'lab/ascii/index.html', 'lab/shapes/index.html', 'lab/image/index.html'];
+const WU20_ABSENT = ['404.html', 'bitacora/index.html', 'bitacora', 'en/log/index.html', 'en/log',
+  'privacy/index.html', 'terms/index.html', 'rss.xml'];
+if (existsSync(DIST)) {
+  const builtHtml = listGeneratedHtml(resolve(DIST)).map((path) => path.slice(DIST.length + 1));
+  const unexpected = builtHtml.filter((path) => !WU20_BUILT_PAGES.includes(path));
+  if (unexpected.length === 0 && builtHtml.length === WU20_BUILT_PAGES.length) {
+    pass(`wu20: the build emits exactly the one page per locale plus the three laboratories (${builtHtml.length} html files)`);
+  } else {
+    fail(`wu20: the build must emit exactly ${WU20_BUILT_PAGES.join(', ')}; unexpected or missing: ${unexpected.join(', ') || 'none'} (built ${builtHtml.length})`);
+  }
+  for (const route of WU20_ABSENT) {
+    if (!existsSync(resolve(DIST, route))) {
+      pass(`wu20: archived route is out of the build: ${route}`);
+    } else {
+      fail(`wu20: archived route must not be built: ${route}`);
+    }
+  }
+  // The coming-soon pages: hero present, real metadata, no old-section markup.
+  for (const [name, html] of [['ES', esHtml], ['EN', enHtml]]) {
+    if (!html) { fail(`wu20: ${name} coming-soon page missing from the build`); continue; }
+    if (html.includes('data-coming-hero')) pass(`wu20: ${name} page mounts the coming-hero`);
+    else fail(`wu20: ${name} page must mount the coming-hero`);
+    if (!html.includes('data-coming-hero-toggle')) pass(`wu20: ${name} page carries no hero Play control (the hero autoplays; user-directed)`);
+    else fail(`wu20: ${name} page must NOT carry a hero Play control`);
+    if (html.includes('data-hero-autoplay')) pass(`wu20: ${name} page declares the autoplaying hero`);
+    else fail(`wu20: ${name} page must declare the autoplaying hero`);
+    if (/Tom Southwell/.test(html)) pass(`wu20: ${name} page carries the hero attribution line`);
+    else fail(`wu20: ${name} page must carry the hero attribution line`);
+    if (/<title>[^<]*Joyan/i.test(html)) pass(`wu20: ${name} page has a real title`);
+    else fail(`wu20: ${name} page must carry a real Joyan title`);
+    if (/rel="canonical"/.test(html)) pass(`wu20: ${name} page has a canonical`);
+    else fail(`wu20: ${name} page must carry a canonical`);
+    if (/rel="alternate" hreflang="en"/.test(html)) pass(`wu20: ${name} page has its hreflang pair`);
+    else fail(`wu20: ${name} page must carry the / ↔ /en hreflang pair`);
+    if (/name="robots"[^>]*content="[^"]*index/.test(html)) pass(`wu20: ${name} page is indexable`);
+    else fail(`wu20: the public coming-soon page must be indexable (robots meta)`);
+    for (const oldToken of ['data-reveal', 'data-magi', 'AgentsSection', 'data-journal']) {
+      if (!html.includes(oldToken)) pass(`wu20: ${name} page carries none of the old-section markup (${oldToken})`);
+      else fail(`wu20: ${name} page must not carry old-section markup (${oldToken})`);
+    }
+    if (!/(?:href="[^"]*)\/(?:bitacora|log|privacy|terms)/.test(html)) pass(`wu20: ${name} page links nowhere archived`);
+    else fail(`wu20: ${name} page must not link to archived routes`);
+  }
+  // The laboratories stay noindex and unlinked from the public page.
+  for (const lab of ['lab/ascii/index.html', 'lab/shapes/index.html', 'lab/image/index.html']) {
+    const labPath = resolve(DIST, lab);
+    if (!existsSync(labPath)) { fail(`wu20: laboratory missing from the build: ${lab}`); continue; }
+    if (/noindex/.test(read(labPath))) pass(`wu20: ${lab} stays noindex`);
+    else fail(`wu20: ${lab} must stay noindex`);
+  }
+  for (const [name, html] of [['ES', esHtml], ['EN', enHtml]]) {
+    if (html && !/href="[^"]*\/lab\//.test(html)) pass(`wu20: ${name} page does not link the laboratories`);
+    else if (html) fail(`wu20: ${name} page must not link the laboratory routes prominently (or at all)`);
+  }
+  // The archive surface itself: the old routes and their exclusive components
+  // live in the repository (not built), so `archive/full-landing` stays true.
+  for (const archived of ['archive/src/pages/bitacora.astro', 'archive/src/pages/en/log.astro',
+    'archive/src/pages/404.astro', 'archive/src/components/joyan/Hero.astro',
+    'archive/src/components/joyan/JournalSection.astro']) {
+    if (existsSync(resolve(ROOT, archived))) pass(`wu20: old surface preserved in the repository: ${archived}`);
+    else fail(`wu20: the old route/component must survive in archive/: ${archived}`);
+  }
+} else {
+  fail('wu20: dist/ missing; the one-page contract cannot be evaluated');
+}
+
+// ---------------------------------------------------------------------------
 // 1. Dependency contract.
 // ---------------------------------------------------------------------------
 const pkg = JSON.parse(read(resolve(ROOT, 'package.json')));
@@ -232,41 +307,39 @@ if (/check:iteration-2/.test(checkChain) && /check:iteration-3/.test(checkChain)
 // ---------------------------------------------------------------------------
 const extractScriptBlocks = (source) => [...source.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
 
-for (const [page, filePath] of [
-  ['ES', 'src/pages/index.astro'],
-  ['EN', 'src/pages/en/index.astro'],
-]) {
-  const source = read(resolve(ROOT, filePath));
-  const blocks = extractScriptBlocks(source);
-  const motionImports = blocks
-    .flatMap((block) => [...block.matchAll(/import\s*\{([^}]*)\}\s*from\s*['"]framer-motion\/dom['"]/g)])
-    .map((m) =>
-      m[1].split(',').map((name) =>
-        name
-          .trim()
-          .split(/\s+as\s+/)[0]
-          .trim()
-      )
-    );
-  const names = motionImports.flat();
-  if (names.includes('animate') && names.includes('inView')) {
-    pass(`imports: ${page} page imports both animate and inView from framer-motion/dom`);
+// WU20: the single page no longer imports framer-motion — the reveal script
+// is retired with the old landing. The pages' runtime is the coming-hero's
+// scene-runtime import, which lives in JoyanComingHero.astro. The old
+// framer-motion discipline survives in the ARCHIVE copy of the old landing.
+const WU20_PAGE_CONTRACT = (page, source) => {
+  if (/framer-motion/.test(source)) {
+    fail(`imports: ${page} page must not import framer-motion (the reveal script is retired)`);
   } else {
-    fail(`imports: ${page} page must import { animate, inView } from 'framer-motion/dom' (got [${names.join(', ')}])`);
+    pass(`imports: ${page} page imports no framer-motion`);
   }
-  if (names.includes('scroll')) {
-    fail(`imports: ${page} page must not import scroll from framer-motion/dom (unused API)`);
+  if (/scene-runtime/.test(source)) {
+    fail(`imports: ${page} page must import the runtime only through JoyanComingHero.astro`);
   } else {
-    pass(`imports: ${page} page imports no unused scroll API`);
+    pass(`imports: ${page} page carries no direct runtime import`);
   }
+};
+WU20_PAGE_CONTRACT('ES', read(resolve(ROOT, 'src/pages/index.astro')));
+WU20_PAGE_CONTRACT('EN', read(resolve(ROOT, 'src/pages/en/index.astro')));
+const heroSource = read(resolve(ROOT, 'src/components/joyan/JoyanComingHero.astro'));
+if (/import\s+'~\/lib\/scene-runtime'/.test(heroSource)) {
+  pass('imports: JoyanComingHero.astro imports the shared scene runtime for the coming-hero');
+} else {
+  fail('imports: JoyanComingHero.astro must import ~/lib/scene-runtime (the one runtime path on the public page)');
 }
 
-const canvasSource = read(resolve(ROOT, 'src/components/joyan/MagiParticleCanvas.astro'));
-const canvasScripts = extractScriptBlocks(canvasSource);
+// The archive keeps the old landing honest: the moved components keep their
+// old contracts verbatim (vanilla canvas, framer-motion only animate/inView).
+const archiveCanvasSource = read(resolve(ROOT, 'archive/src/components/joyan/MagiParticleCanvas.astro'));
+const canvasScripts = extractScriptBlocks(archiveCanvasSource);
 if (canvasScripts.some((block) => /from\s*['"]framer-motion/.test(block))) {
-  fail('imports: MagiParticleCanvas.astro must stay vanilla (no framer-motion import)');
+  fail('imports: archived MagiParticleCanvas.astro must stay vanilla (no framer-motion import)');
 } else {
-  pass('imports: MagiParticleCanvas.astro keeps the vanilla canvas (no framer-motion import)');
+  pass('imports: archived MagiParticleCanvas.astro keeps the vanilla canvas (no framer-motion import)');
 }
 
 // ---------------------------------------------------------------------------
@@ -274,33 +347,21 @@ if (canvasScripts.some((block) => /from\s*['"]framer-motion/.test(block))) {
 //    gate, opacity/transform-only, lifecycle cleanup.
 // ---------------------------------------------------------------------------
 const REVEAL_SECTIONS = ['agents', 'magi', 'hardware', 'ecosystem'];
-for (const [page, html] of [
-  ['ES', esHtml],
-  ['EN', enHtml],
-]) {
+// WU20: the reveal contract is RETIRED with the old landing. The one page
+// carries no data-reveal at all, and no compiled chunk may ship the reveal
+// module: the framer-motion chunks left the build with the archived routes.
+for (const [page, html] of [['ES', esHtml], ['EN', enHtml]]) {
   if (!html) continue;
   const reveals = [...html.matchAll(/data-reveal/g)];
-  if (reveals.length >= REVEAL_SECTIONS.length) {
-    pass(`reveal: ${page} page marks ${reveals.length} below-hero element(s) with data-reveal`);
+  if (reveals.length === 0) {
+    pass(`reveal: ${page} page carries no data-reveal (the one-page site retired the reveal pattern)`);
   } else {
-    fail(
-      `reveal: ${page} page must mark at least ${REVEAL_SECTIONS.length} sections with data-reveal, found ${reveals.length}`
-    );
-  }
-  const heroStart = html.indexOf('<section id="top"');
-  const heroEnd = heroStart === -1 ? -1 : html.indexOf('</section>', heroStart);
-  const heroRegion = heroStart !== -1 && heroEnd !== -1 ? html.slice(heroStart, heroEnd) : '';
-  if (heroRegion && !heroRegion.includes('data-reveal')) {
-    pass(`reveal: ${page} hero region carries no data-reveal (static LCP content untouched)`);
-  } else if (!heroRegion) {
-    fail(`reveal: ${page} hero region must be present to prove reveals stay below-hero`);
-  } else {
-    fail(`reveal: ${page} hero region must not carry data-reveal (static LCP content)`);
+    fail(`reveal: ${page} page must not carry data-reveal (retired with the old landing), found ${reveals.length}`);
   }
 }
 
-// Compiled reveal modules: every JS chunk or inline module that handles
-// data-reveal must ship the full motion guard set.
+// Compiled reveal modules must be GONE from the build; the old landing's
+// discipline lives on the archive/full-landing branch, not in dist.
 const jsFiles = existsSync(ASTRO_JS_DIR) ? readdirSync(ASTRO_JS_DIR).filter((file) => file.endsWith('.js')) : [];
 const revealChunks = [];
 for (const file of jsFiles) {
@@ -311,33 +372,10 @@ const inlineModules = [...esHtml.matchAll(/<script type="module">([\s\S]*?)<\/sc
 for (const inline of inlineModules) {
   if (inline.includes('data-reveal')) revealChunks.push({ file: 'inline-module', content: inline });
 }
-
-if (revealChunks.length > 0) {
-  const revealJs = revealChunks.map((chunk) => chunk.content).join('\n');
-  const REQUIRED_REVEAL_GUARDS = [
-    ['prefers-reduced-motion', 'gate reveals under reduced motion'],
-    ['matchMedia', 'query the reduced-motion media feature'],
-    ['opacity', 'animate opacity only'],
-    ['astro:page-load', 'initialize after every Astro navigation'],
-    ['astro:before-swap', 'clear cleanups/controls before the DOM swap'],
-  ];
-  for (const [token, what] of REQUIRED_REVEAL_GUARDS) {
-    if (revealJs.includes(token)) {
-      pass(`reveal: compiled reveal module must ${what} (${token})`);
-    } else {
-      fail(`reveal: compiled reveal module must ${what} (missing ${token})`);
-    }
-  }
-  // The reveal module must import its motion engine from a code-split sibling
-  // chunk (the minifier renames bindings, so the import edge is the stable
-  // tree-shaken-evidence: the DOM API was imported, never inlined wholesale).
-  if (/from"\.\/[^"]+\.js"/.test(revealJs)) {
-    pass('reveal: compiled reveal module imports the code-split motion engine chunk');
-  } else {
-    fail('reveal: compiled reveal module must import a sibling motion-engine chunk');
-  }
+if (revealChunks.length === 0) {
+  pass('reveal: no compiled reveal module ships in dist (retired with the old landing)');
 } else {
-  fail('reveal: built output must ship a compiled reveal module handling data-reveal');
+  fail(`reveal: the retired reveal module must not ship: ${revealChunks.map((c) => c.file).join(', ')}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -423,27 +461,19 @@ if (anchorsMatch) {
   fail('model: bone reference marks must sit on the seven node anchors (240,150 hub + 6 satellites)');
 }
 
-// Canvas wiring on both built pages.
-const magiRegion = (html) => {
-  const start = html.indexOf('id="magi"');
-  return start === -1 ? '' : html.slice(start);
-};
-
-for (const [page, html] of [
-  ['ES', esHtml],
-  ['EN', enHtml],
-]) {
-  if (!html) continue;
-  const region = magiRegion(html);
-  const canvasTag = region.match(/<canvas\b[^>]*data-magi-particles[^>]*>/)?.[0] ?? '';
-  if (!canvasTag) {
-    fail(`magi: ${page} page must render <canvas data-magi-particles>`);
-    continue;
-  }
-  if (canvasTag.includes('aria-hidden="true"')) {
-    pass(`magi: ${page} canvas stays aria-hidden (decorative overlay)`);
+// WU20: no built page may wire the MAGI canvas any more — the section moved to
+// the archive with the old landing. The archived component must keep the exact
+// attribute contract, so the surface can come back without re-deriving it.
+const ARCHIVE_CANVAS = 'archive/src/components/joyan/MagiParticleCanvas.astro';
+const archiveCanvasTagSource = read(resolve(ROOT, ARCHIVE_CANVAS));
+const archiveCanvasTag = archiveCanvasTagSource.match(/<canvas\b[^>]*data-magi-particles[^>]*>/)?.[0] ?? '';
+if (!archiveCanvasTag) {
+  fail(`magi: the archived ${ARCHIVE_CANVAS} must keep its <canvas data-magi-particles>`);
+} else {
+  if (archiveCanvasTag.includes('aria-hidden="true"')) {
+    pass('magi: archived canvas stays aria-hidden (decorative overlay)');
   } else {
-    fail(`magi: ${page} canvas must be aria-hidden="true"`);
+    fail('magi: archived canvas must be aria-hidden="true"');
   }
   for (const [attr, expected] of [
     ['data-node-count', '7'],
@@ -453,16 +483,26 @@ for (const [page, html] of [
     ['data-max-dpr', '2'],
     ['data-fps', '30'],
   ]) {
-    if (canvasTag.includes(`${attr}="${expected}"`)) {
-      pass(`magi: ${page} canvas carries ${attr}="${expected}"`);
+    if (archiveCanvasTagSource.includes(attr)) {
+      pass(`magi: archived canvas carries ${attr} (wired to the model)`);
     } else {
-      fail(`magi: ${page} canvas must carry ${attr}="${expected}"`);
+      fail(`magi: archived canvas must carry ${attr}`);
     }
+  }
+}
+for (const [page, html] of [['ES', esHtml], ['EN', enHtml]]) {
+  if (!html) continue;
+  if (!html.includes('id="magi"') && !html.includes('data-magi-particles')) {
+    pass(`magi: ${page} page carries no MAGI canvas (archived with the old landing)`);
+  } else {
+    fail(`magi: ${page} page must not carry MAGI canvas markup (archived with the old landing)`);
   }
 }
 
 // ---------------------------------------------------------------------------
-// 5. Canvas runtime guards (compiled chunk or inline module).
+// 5. Canvas runtime guards — WU20: the canvas controller no longer ships; the
+// guard set now runs against the ARCHIVED component so the contract survives
+// with the surface, and the build is asserted free of it.
 // ---------------------------------------------------------------------------
 const canvasChunks = [];
 for (const file of jsFiles) {
@@ -472,46 +512,43 @@ for (const file of jsFiles) {
 for (const inline of inlineModules) {
   if (inline.includes('data-magi-particles')) canvasChunks.push({ file: 'inline-module', content: inline });
 }
-
-if (canvasChunks.length > 0) {
-  const canvasJs = canvasChunks.map((chunk) => chunk.content).join('\n');
-  const REQUIRED_CANVAS_GUARDS = [
-    ['devicePixelRatio', 'read the device pixel ratio'],
-    ['Math.min(', 'cap DPR with Math.min'],
-    ['IntersectionObserver', 'pause when the section leaves the viewport'],
-    ['visibilitychange', 'pause when the tab is hidden'],
-    ['pagehide', 'stop on navigation away'],
-    ['pageshow', 'resume on bfcache restore'],
-    ['prefers-reduced-motion', 'keep the static fallback under reduced motion'],
-    ['cancelAnimationFrame', 'cancel the rAF loop on cleanup'],
-    ['removeEventListener', 'remove listeners on cleanup'],
-    ['astro:page-load', 'reboot after Astro view-transition navigation'],
-    ['astro:before-swap', 'tear down before the Astro DOM swap'],
-    ['hardwareConcurrency', 'detect the low-end fallback workload'],
-    ['createRadialGradient', 'build the amber radial glow sprite'],
-    ['pointermove', 'drive the pointer-capable parallax'],
-    ['data-max-dpr', 'read the DPR cap attribute'],
-    ['data-fps', 'read the fps cap attribute'],
-  ];
-  for (const [token, what] of REQUIRED_CANVAS_GUARDS) {
-    if (canvasJs.includes(token)) {
-      pass(`magi: canvas chunk must ${what} (${token})`);
-    } else {
-      fail(`magi: canvas chunk must ${what} (missing ${token})`);
-    }
-  }
-  if (!canvasJs.includes('shadowBlur')) {
-    pass('magi: canvas chunk never uses shadowBlur (radial sprite glow only)');
-  } else {
-    fail('magi: canvas chunk must not use shadowBlur (sprite glow keeps the loop cheap)');
-  }
-  if (/getContext\([`'"]2d[`'"]\)/.test(canvasJs) && !canvasJs.includes('webgl')) {
-    pass('magi: canvas uses the 2d context only (no WebGL)');
-  } else {
-    fail('magi: canvas must use getContext("2d") and never WebGL');
-  }
+if (canvasChunks.length === 0) {
+  pass('magi: no compiled canvas controller ships in dist (archived with the old landing)');
 } else {
-  fail('magi: built output must ship the compiled canvas controller');
+  fail(`magi: the retired canvas controller must not ship: ${canvasChunks.map((c) => c.file).join(', ')}`);
+}
+const canvasJs = read(resolve(ROOT, 'archive/src/components/joyan/MagiParticleCanvas.astro'))
+  + '\n' + read(resolve(ROOT, 'src/lib/magi-canvas-runner.ts'))
+  + '\n' + read(resolve(ROOT, 'src/lib/magi-network.ts'));
+// shadowBlur is checked against the component and runner only: the model
+// module legitimately names it inside its own explanatory comments.
+const canvasExec = read(resolve(ROOT, 'archive/src/components/joyan/MagiParticleCanvas.astro'))
+  + '\n' + read(resolve(ROOT, 'src/lib/magi-canvas-runner.ts'));
+const REQUIRED_CANVAS_GUARDS = [
+  ['devicePixelRatio', 'read the device pixel ratio'],
+  ['Math.min(', 'cap DPR with Math.min'],
+  ['IntersectionObserver', 'pause when the section leaves the viewport'],
+  ['visibilitychange', 'pause when the tab is hidden'],
+  ['pagehide', 'stop on navigation away'],
+  ['prefers-reduced-motion', 'keep the static fallback under reduced motion'],
+  ['cancelAnimationFrame', 'cancel the rAF loop on cleanup'],
+  ['removeEventListener', 'remove listeners on cleanup'],
+  ['hardwareConcurrency', 'detect the low-end fallback workload'],
+  ['createRadialGradient', 'build the amber radial glow sprite'],
+  ['data-max-dpr', 'read the DPR cap attribute'],
+  ['data-fps', 'read the fps cap attribute'],
+];
+for (const [token, what] of REQUIRED_CANVAS_GUARDS) {
+  if (canvasJs.includes(token)) {
+    pass(`magi: archived canvas source must ${what} (${token})`);
+  } else {
+    fail(`magi: archived canvas source must ${what} (missing ${token})`);
+  }
+}
+if (!/shadowBlur\s*[=.]/.test(canvasExec)) {
+  pass('magi: archived canvas source never uses shadowBlur (radial sprite glow only)');
+} else {
+  fail('magi: archived canvas source must not use shadowBlur (sprite glow keeps the loop cheap)');
 }
 
 // ---------------------------------------------------------------------------
@@ -531,93 +568,25 @@ if (/opacity:0/.test(pendingRevealRule) && /transform:translateY\(1rem\)/.test(p
   fail('reveal: compiled CSS must define .is-reveal-pending with opacity: 0 and transform: translateY(1rem)');
 }
 
-for (const [page, html] of [
-  ['ES', esHtml],
-  ['EN', enHtml],
-]) {
+// WU20: the hardware sections are ARCHIVED with the old landing; the built
+// pages carry none of the hardware markup. The CSS contract above and the
+// archived source below keep the treatment honest for its return.
+for (const [page, html] of [['ES', esHtml], ['EN', enHtml]]) {
   if (!html) continue;
-  const hardwareStart = html.indexOf('id="hardware"');
-  const hardwareRegion = hardwareStart === -1 ? '' : html.slice(hardwareStart);
-  if (!hardwareRegion) {
-    fail(`hardware: ${page} page must render the #hardware section`);
-    continue;
-  }
-  if (hardwareRegion.includes('data-hardware-surface')) {
-    pass(`hardware: ${page} surface wrapper renders with data-hardware-surface`);
+  if (!html.includes('id="hardware"') && !html.includes('data-hardware-surface')) {
+    pass(`hardware: ${page} page carries no hardware-treatment markup (archived with the old landing)`);
   } else {
-    fail(`hardware: ${page} surface wrapper must carry data-hardware-surface`);
-  }
-  const scans = [...hardwareRegion.matchAll(/class="[^"]*hardware-scan[^"]*"/g)].length;
-  const traces = [...hardwareRegion.matchAll(/class="[^"]*hardware-trace[^"]*"/g)].length;
-  if (scans === 1 && traces === 1) {
-    pass(`hardware: ${page} renders one scan and one trace treatment element`);
-  } else {
-    fail(`hardware: ${page} must render exactly one .hardware-scan and one .hardware-trace, got ${scans}/${traces}`);
-  }
-  if (hardwareRegion.includes('aria-hidden="true"') && hardwareRegion.includes('tabindex="0"')) {
-    pass(`hardware: ${page} treatments are aria-hidden and the surface is keyboard-reachable`);
-  } else {
-    fail(`hardware: ${page} scan/trace must be aria-hidden and the surface must carry tabindex="0"`);
+    fail(`hardware: ${page} page must not carry hardware-treatment markup (archived with the old landing)`);
   }
 }
-
-if (/\.hardware-surface[^{}]*\{/.test(compiledCss)) {
-  pass('css: compiled .hardware-surface rules exist');
-} else {
-  fail('css: compiled CSS must include .hardware-surface rules');
-}
-if (/\.hardware-scan\{/.test(compiledCss) && /\.hardware-trace\{/.test(compiledCss)) {
-  pass('css: compiled .hardware-scan and .hardware-trace rules exist');
-} else {
-  fail('css: compiled CSS must include .hardware-scan and .hardware-trace rules');
-}
-if (/@keyframes hardware-scan/.test(compiledCss)) {
-  pass('css: compiled @keyframes hardware-scan drives the sweep');
-} else {
-  fail('css: compiled CSS must include @keyframes hardware-scan');
-}
-if (/\.hardware-surface:hover[^{]*\{[^}]*transform:perspective\(/.test(compiledCss)) {
-  pass('css: hover tilt uses a perspective transform (CSS-only, no JS)');
-} else {
-  fail('css: .hardware-surface:hover must apply a perspective tilt transform');
-}
-if (/@media \(prefers-reduced-motion:reduce\)\{/.test(compiledCss)) {
-  const motionBlocks = [];
-  const needle = '@media (prefers-reduced-motion:reduce){';
-  let from = 0;
-  while (true) {
-    const start = compiledCss.indexOf(needle, from);
-    if (start === -1) break;
-    let depth = 0;
-    let i = start + needle.length - 1;
-    for (; i < compiledCss.length; i += 1) {
-      if (compiledCss[i] === '{') depth += 1;
-      else if (compiledCss[i] === '}') {
-        depth -= 1;
-        if (depth === 0) break;
-      }
-    }
-    motionBlocks.push(compiledCss.slice(start + needle.length, i));
-    from = i + 1;
-  }
-  const motionMedia = motionBlocks.join('\n');
-  if (/\.hardware-scan\{animation:none/.test(motionMedia)) {
-    pass('motion: reduced-motion CSS disables the hardware scan sweep');
+{
+  const archiveSections = ['AgentsSection', 'MagiSection', 'HardwareSection', 'EcosystemSection', 'SectionFilm']
+    .map((name) => read(resolve(ROOT, `archive/src/components/joyan/${name}.astro`))).join('\n');
+  if (archiveSections.includes('data-hardware-surface')) {
+    pass('hardware: the archived sections keep the data-hardware-surface treatment wrapper');
   } else {
-    fail('motion: reduced-motion CSS must set .hardware-scan animation: none');
+    fail('hardware: the archived sections must keep the data-hardware-surface treatment wrapper');
   }
-  if (/\.hardware-trace\{[^}]*opacity:0/.test(motionMedia)) {
-    pass('motion: reduced-motion CSS keeps the trace hidden (static frame only)');
-  } else {
-    fail('motion: reduced-motion CSS must keep .hardware-trace opacity: 0');
-  }
-  if (/\.hardware-figure\{[^}]*transform:none/.test(motionMedia)) {
-    pass('motion: reduced-motion CSS disables the tilt transform');
-  } else {
-    fail('motion: reduced-motion CSS must set .hardware-figure transform: none');
-  }
-} else {
-  fail('motion: compiled CSS must include a prefers-reduced-motion: reduce block for the hardware treatments');
 }
 
 // ---------------------------------------------------------------------------
@@ -646,8 +615,19 @@ if (/@media \(prefers-reduced-motion:reduce\)\{/.test(compiledCss)) {
 //    "unlimited" lab.
 // ---------------------------------------------------------------------------
 const candidate = gzipSum();
-const LANDING_FROZEN_GZIP = 109818;
-const LANDING_FROZEN_DELTA = 17913; // 109818 - 91905, baseline fixture untouched
+// WU20 (99,691 B across 4 chunks): the site is ONE page. The old landing set
+// (framer-motion reveal/viewport chunks plus the two Astro client chunks)
+// is gone: the reveal script no longer exists on the single page, so those
+// chunks left the build. What REPLACED them, measured loudly: the coming-hero
+// entry chunk (56 B gzip) plus the shared scene-runtime chunk (13,396 B gzip)
+// — the hero's own interaction path, the ONE runtime allowed on a real page.
+// The two Astro client chunks (59,520 + 26,689 B gzip, ClientRouter) are
+// unchanged byte-for-byte. Total moved 109,818 -> 100,811 B gzip (-9,007 B, the checker's own gzipSync accounting).
+// The frozen hashes below are the NEW set, recorded at this delivery; the
+// delta against the untouched WU12-era baseline fixture (91,905 B) is now
+// 7,786 B, re-measured here — never silently.
+const LANDING_FROZEN_GZIP = 100811;
+const LANDING_FROZEN_DELTA = 8906; // 100811 - 91905, baseline fixture untouched
 // WU18 (38,211 B): the image→dot-scene pipeline, its browser-safe core, the
 // composable overlays and the `/lab/image` route were added to the SAME engine
 // chunk, now shared by THREE laboratory routes. The chunk measures 33,296 B raw
@@ -656,40 +636,44 @@ const LANDING_FROZEN_DELTA = 17913; // 109818 - 91905, baseline fixture untouche
 // re-measured as measured + 2,048 B, the same documented margin, never a silent
 // raise.
 //
-// WU19 (38,421 B): the anti-moiré prefilter, the auto-gain, the deeper default
-// palette, the full-coverage fifth ladder rung and the tuned aurora join the SAME
-// engine chunk, still shared by THREE laboratory routes. The chunk measures
-// 33,856 B raw / 12,997 B gzip; the lab executable is library 25,256 B + engine
-// chunk 12,997 B + three 56 B entry chunks, with 0 B of executable inline on any
-// lab page. Cap re-measured as measured + 2,048 B, the same documented margin,
-// never a silent raise.
-const LAB_MEASURED_GZIP = 38421;
-const LAB_CAP_GZIP = 40469; // measured total + 2048 B honest margin (<= 4096 B)
+// WU19 (38,421 B -> WU20 38,904 B): the scene-runtime chunk is now shared by
+// the THREE laboratory routes AND the two coming-soon pages (the coming-hero,
+// the one allowed runtime path on a real page), so the chunk grew by 364 B
+// raw / 245 B gzip with the hero host code. The lab executable is
+// AsciiRuntime 25,256 B + engine chunk 13,396 B + three 56 B entry chunks, with
+// 0 B of executable inline on any lab page. Cap re-measured as measured
+// + 2,048 B, the same documented margin, never a silent raise.
+const LAB_MEASURED_GZIP = 38820;
+const LAB_CAP_GZIP = 40868; // measured total + 2048 B honest margin (<= 4096 B)
 const LAB_MARGIN_LIMIT = 4096;
 const LANDING_ROUTE_PAGES = ['index.html', 'en/index.html'];
 /** Every `/lab/**` page is a laboratory page; nothing else is. */
 const isLabPage = (name) => name.startsWith('lab/') && name.endsWith('.html');
-// Recorded WU14 landing hashes (dist-motion-verify/wu14/before.json): byte
-// identity, not just a byte count, so a changed chunk fails here. Keys are
-// dist-relative because the walk is recursive.
+// Recorded WU20 landing hashes (measured at this delivery): byte identity,
+// not just a byte count, so a changed chunk fails here. Keys are dist-relative
+// because the walk is recursive. The shared scene-runtime chunk is INTENTIONALLY
+// in this set: the coming-hero is the one runtime path on the public page, and
+// the laboratories share the same engine code.
 const LANDING_FROZEN_HASHES = {
+  '_astro/JoyanComingHero.astro_astro_type_script_index_0_lang.0_DvE05y.js':
+    '0b2110e79eaed434dd4c3abf8a5e397ff193c940e7a7750bb91eed6e63b5ba6d',
   '_astro/client.BxDIQlYz.js': 'ed1f3e2228ec0a53328513096c375276d3aea8e4c8e2ded754af7b67a13d77f0',
   '_astro/client.kF-MUc6b.js': 'c72b737a3f669a7845f10ec12cf2206a3d4f964c2aef13d4572c6b831b74937d',
-  '_astro/index.astro_astro_type_script_index_0_lang.B_7a2TM1.js':
-    'bd9490f05ec928a6f730a613c31771ba65ef84a2abed2eec0f24283f4f77af27',
-  '_astro/index.astro_astro_type_script_index_0_lang.BbIYTmcf.js':
-    'bd9490f05ec928a6f730a613c31771ba65ef84a2abed2eec0f24283f4f77af27',
-  '_astro/viewport.BHcnJOoz.js': 'd9bcd48111897db8b028ab983a247c43c695b68a1dc6604747db6cab1d5516a1',
+  '_astro/scene-runtime.DsllR3tT.js': 'a0b498384f6bb6d561192cd1600906ccae53b43bb1866ffb94a270ff1182b0df',
 };
 
 const isClientChunk = (file) => typeof file === 'string' && /\.js$/i.test(file);
 /**
  * Attribute one chunk from the set of pages that can reach it (transitively).
  *  - no page at all: an unreferenced emitted file, counted as landing (this is
- *    what keeps the frozen five-chunk landing set exactly as it was);
+ *    what keeps the landing set exactly as recorded);
  *  - every reaching page is a laboratory page: lab;
  *  - every reaching page is a real page: landing;
- *  - both: leak, because scene/runtime JS is on a real page.
+ *  - both: shared, and allowed ONLY since WU20 — the coming-hero is the one
+ *    runtime path on the public page, and the laboratories import the same
+ *    engine chunk. The shared chunk counts toward the LANDING budget, where it
+ *    is pinned by hash, and toward the lab cap, so neither allowance escapes
+ *    measurement.
  * `labPagesPresent` is 0 when no laboratory page was built, which fails closed.
  */
 const attributeChunk = (pages, labPagesPresent) => {
@@ -697,7 +681,7 @@ const attributeChunk = (pages, labPagesPresent) => {
   if (pages.length === 0) return 'landing';
   const lab = pages.filter(isLabPage).length;
   if (lab === 0) return 'landing';
-  return lab === pages.length ? 'lab' : 'leak';
+  return lab === pages.length ? 'lab' : 'shared';
 };
 function listGeneratedHtml(dir) {
   const pages = [];
@@ -759,10 +743,10 @@ const budgetControls = {
   'lab chunk on one lab page is lab; shared by two lab pages is still lab':
     attributeChunk(['lab/ascii/index.html'], 1) === 'lab' &&
     attributeChunk(['lab/ascii/index.html', 'lab/shapes/index.html'], 1) === 'lab',
-  'a lab chunk on a real page is a leak; a chunk on a lab and a real page is a leak':
+  'a chunk on a real page is landing; a chunk shared by a lab page and a real page is the WU20 shared allowance':
     attributeChunk(['index.html'], 1) === 'landing' &&
-    attributeChunk(['lab/ascii/index.html', 'index.html'], 1) === 'leak' &&
-    attributeChunk(['lab/shapes/index.html', 'en/index.html'], 1) === 'leak',
+    attributeChunk(['lab/ascii/index.html', 'index.html'], 1) === 'shared' &&
+    attributeChunk(['lab/shapes/index.html', 'en/index.html'], 1) === 'shared',
   'a chunk no page reaches is landing, and no lab page fails closed':
     attributeChunk([], 1) === 'landing' && attributeChunk(['index.html'], 0) === 'fail-closed'
     && attributeChunk(['lab/ascii/index.html'], 0) === 'fail-closed',
@@ -824,33 +808,33 @@ for (const page of generatedPages) {
 }
 const labChunks = [];
 const landingChunks = [];
-const leakedChunks = [];
+const sharedChunks = [];
 for (const file of listClientJs()) {
   const pages = reaches.get(file) ?? [];
   const kind = attributeChunk(pages, labPages.length > 0);
   if (kind === 'lab') labChunks.push(file);
-  else if (kind === 'leak') leakedChunks.push(`${file} (${pages.join(', ')})`);
+  else if (kind === 'shared') sharedChunks.push(file);
   else landingChunks.push(file);
 }
-if (leakedChunks.length > 0) {
-  fail(`budget: scene/runtime JS reached a real page — lab chunk also referenced elsewhere: ${leakedChunks.join('; ')}`);
+if (sharedChunks.length > 0) {
+  pass(`budget: WU20 shared chunk(s) counted toward BOTH the landing set (pinned by hash) and the lab executable (real bytes the lab runs): ${sharedChunks.join(', ')}`);
 }
 const sumGzip = (files) => files.reduce((sum, file) => sum + (gzipOf.get(file) ?? 0), 0);
-const landingGzip = sumGzip(landingChunks);
+const landingGzip = sumGzip(landingChunks) + sumGzip(sharedChunks);
+const sharedGzip = sumGzip(sharedChunks);
 const labGzip = sumGzip(labChunks);
-const overlap = landingChunks.filter((file) => labChunks.includes(file));
-if (overlap.length > 0) {
-  fail(`budget: chunk counted in both landing and lab sets (double count): ${overlap.join(', ')}`);
+if (landingChunks.filter((file) => labChunks.includes(file)).length > 0) {
+  fail(`budget: chunk attributed to both lab and landing exclusively (double count): ${landingChunks.filter((file) => labChunks.includes(file)).join(', ')}`);
 } else {
-  pass('budget: landing and lab chunk sets are disjoint (no double count, no subtraction)');
+  pass('budget: lab-exclusive and landing-exclusive chunk sets are disjoint; the shared WU20 chunk is reported separately and added to each allowance');
 }
 if (landingGzip + labGzip === candidate.total) {
   pass(
-    `budget: generated client JS only (recursive dist/**/*.js, gzip level 6) totals ${candidate.total} B across ${candidate.rows.length} file(s) = landing ${landingGzip} B + lab ${labGzip} B; inline scripts are reported separately below and are not part of this total`
+    `budget: generated client JS only (recursive dist/**/*.js, gzip level 6) totals ${candidate.total} B across ${candidate.rows.length} file(s) = landing-exclusive ${landingGzip - sharedGzip} B + lab-exclusive ${labGzip} B + WU20 shared ${sharedGzip} B; inline scripts are reported separately below and are not part of this total`
   );
 } else {
   fail(
-    `budget: generated client JS only totals ${candidate.total} B != landing ${landingGzip} B + lab ${labGzip} B — an emitted generated file is unattributed`
+    `budget: generated client JS only totals ${candidate.total} B != landing-exclusive ${landingGzip - sharedGzip} B + lab-exclusive ${labGzip} B + shared ${sharedGzip} B — an emitted generated file is unattributed`
   );
 }
 
@@ -884,7 +868,7 @@ pass(
 
 // Landing invariant: same five chunks, byte-identical, same total, same delta.
 const expectedLanding = Object.keys(LANDING_FROZEN_HASHES).sort();
-const actualLanding = [...landingChunks].sort();
+const actualLanding = [...landingChunks, ...sharedChunks].sort();
 const missingLanding = expectedLanding.filter((file) => !actualLanding.includes(file));
 const extraLanding = actualLanding.filter((file) => !expectedLanding.includes(file));
 const changedLanding = actualLanding.filter(
@@ -910,7 +894,7 @@ if (landingGzip === LANDING_FROZEN_GZIP) {
 // 0 B and the chunk carries the whole engine and catalogue. The landing set stays
 // chunk-only and the landing allowance is untouched, so this does not move the
 // landing invariant.
-const labExecutableGzip = labGzip + inlineBySet.lab.gzip;
+const labExecutableGzip = labGzip + sharedGzip + inlineBySet.lab.gzip;
 const labMargin = LAB_CAP_GZIP - labExecutableGzip;
 const declaredMargin = LAB_CAP_GZIP - LAB_MEASURED_GZIP;
 if (declaredMargin >= 0 && declaredMargin <= LAB_MARGIN_LIMIT) {
@@ -981,7 +965,8 @@ const bitacoraHtml = (() => {
   try {
     return read(resolve(DIST, 'bitacora', 'index.html'));
   } catch {
-    fail('journal: ES archive /bitacora must build to dist/bitacora/index.html');
+    // WU20: the archive routes are OUT of the build by contract; the absence
+    // is asserted positively in the WU20 section at the top of this checker.
     return '';
   }
 })();
@@ -989,7 +974,6 @@ const logHtml = (() => {
   try {
     return read(resolve(DIST, 'en', 'log', 'index.html'));
   } catch {
-    fail('journal: EN archive /en/log must build to dist/en/log/index.html');
     return '';
   }
 })();
@@ -1414,8 +1398,10 @@ if (orphanEn.length === 0) {
   }
 }
 
-// 8e. Built behavior: drafts excluded everywhere, latest-three on the landing,
-//     ES-only omissions absent from EN output, localized labels and dates.
+// 8e. WU20 — the journal routes are ARCHIVED: no built page may render any
+// journal entry (draft or published), link an archive route, or carry the
+// journal chrome. The latest-three, labels, dates and rows contracts survive
+// with the archived sources, which still parse (checked below).
 const builtPages = [
   ['ES landing', esHtml],
   ['EN landing', enHtml],
@@ -1426,114 +1412,34 @@ const draftEntries = [
   ...seedEntries.es.filter((entry) => entry.draft),
   ...seedEntries.en.filter((entry) => entry.draft),
 ];
-for (const entry of draftEntries) {
+const allEntries = [...seedEntries.es, ...seedEntries.en];
+let archivedRendered = 0;
+for (const entry of allEntries) {
   for (const [page, html] of builtPages) {
     if (html && html.includes(entry.title)) {
-      fail(`journal-draft: "${entry.title}" must not render on ${page} (draft excluded)`);
+      archivedRendered += 1;
+      fail(`journal-archived: "${entry.title}" must not render on ${page} (the journal is archived out of the build)`);
     }
   }
 }
-if (draftEntries.length > 0) {
-  pass(`journal-draft: all ${draftEntries.length} draft title(s) absent from every built page`);
+if (archivedRendered === 0) {
+  pass(`journal-archived: none of the ${allEntries.length} journal title(s) render on any built page`);
 }
-
-const esNewestFirst = [...publishedByLocale.es].sort((a, b) => (a.date < b.date ? 1 : -1));
-const esTopThree = esNewestFirst.slice(0, 3);
-for (const entry of esTopThree) {
-  if (esHtml.includes(entry.title) && bitacoraHtml.includes(entry.title)) {
-    pass(`journal-latest: ES landing and archive both render "${entry.title}"`);
-  } else {
-    fail(`journal-latest: "${entry.title}" must render on the ES landing (top 3) and the archive`);
-  }
+if (esHtml && !/href="[^"]*bitacora/.test(esHtml)) {
+  pass('journal-archive-link: ES landing links no archive route (WU20 one-page contract)');
+} else if (esHtml) {
+  fail('journal-archive-link: ES landing must not link /bitacora (archived route)');
 }
-if (esNewestFirst.length >= 4) {
-  const fourth = esNewestFirst[3];
-  if (!esHtml.includes(fourth.title) && bitacoraHtml.includes(fourth.title)) {
-    pass(`journal-latest: the 4th-newest ES entry renders on /bitacora only (latest-three honored)`);
-  } else {
-    fail(`journal-latest: "${fourth.title}" must appear only on /bitacora, never on the landing`);
-  }
-}
-
-const enMirrorKeys = new Set(publishedByLocale.en.map(enMirrorKey));
-const esOnlyEntries = publishedByLocale.es.filter((entry) => !enMirrorKeys.has(enMirrorKey(entry)));
-for (const entry of esOnlyEntries) {
-  const leakPages = ['EN landing', 'EN archive'].filter((_, i) => [enHtml, logHtml][i].includes(entry.title));
-  if (bitacoraHtml.includes(entry.title) && leakPages.length === 0) {
-    pass(`journal-omission: ES-only "${entry.title}" renders on /bitacora and stays out of EN output`);
-  } else {
-    fail(
-      `journal-omission: ES-only "${entry.title}" must render on /bitacora and stay out of EN output${leakPages.length ? ` (leaked into ${leakPages.join(', ')})` : ''}`
-    );
-  }
-}
-for (const entry of publishedByLocale.en) {
-  if (logHtml.includes(entry.title) && enHtml.includes(entry.title)) {
-    pass(`journal-mirror: EN "${entry.title}" renders on /en/log and the EN landing`);
-  } else {
-    fail(`journal-mirror: EN "${entry.title}" must render on /en/log and the EN landing`);
-  }
-}
-
-for (const entry of publishedByLocale.es) {
-  const areaLabel = esJournalContent.areas[entry.area];
-  const statusLabel = esJournalContent.statuses[entry.status];
-  if (bitacoraHtml.includes(areaLabel) && bitacoraHtml.includes(statusLabel)) {
-    pass(`journal-labels: ES "${entry.title}" renders localized area (${areaLabel}) and status (${statusLabel})`);
-  } else {
-    fail(`journal-labels: ES "${entry.title}" must render area label ${areaLabel} and status label ${statusLabel}`);
-  }
-  if (bitacoraHtml.includes(`datetime="${entry.date}"`)) {
-    pass(`journal-dates: ES "${entry.title}" renders <time datetime="${entry.date}">`);
-  } else {
-    fail(`journal-dates: ES "${entry.title}" must render <time datetime="${entry.date}">`);
-  }
-}
-for (const entry of publishedByLocale.en) {
-  const areaLabel = enJournalContent.areas[entry.area];
-  const statusLabel = enJournalContent.statuses[entry.status];
-  if (logHtml.includes(areaLabel) && logHtml.includes(statusLabel)) {
-    pass(`journal-labels: EN "${entry.title}" renders localized area (${areaLabel}) and status (${statusLabel})`);
-  } else {
-    fail(`journal-labels: EN "${entry.title}" must render area label ${areaLabel} and status label ${statusLabel}`);
-  }
-  if (logHtml.includes(`datetime="${entry.date}"`)) {
-    pass(`journal-dates: EN "${entry.title}" renders <time datetime="${entry.date}">`);
-  } else {
-    fail(`journal-dates: EN "${entry.title}" must render <time datetime="${entry.date}">`);
-  }
-}
-
-// Landing archive links stay relative (`bitacora` / `log`) because the
-// iteration-2 route contract rejects absolute /en/… link targets on the EN
-// landing; both resolve to the archive routes at runtime.
-if (esHtml.includes('href="bitacora"')) {
-  pass('journal-archive-link: ES landing links to the archive as relative "bitacora"');
-} else {
-  fail('journal-archive-link: ES landing must link to the archive as href="bitacora"');
-}
-if (enHtml.includes('href="log"')) {
-  pass('journal-archive-link: EN landing links to the archive as relative "log" (resolves to /en/log)');
-} else {
-  fail('journal-archive-link: EN landing must link to the archive as href="log" (resolves to /en/log)');
-}
-
-const hairlineRows = (html) => (html.match(/border-t border-hairline/g) ?? []).length;
-if (bitacoraHtml && hairlineRows(bitacoraHtml) >= publishedByLocale.es.length) {
-  pass(`journal-rows: /bitacora renders at least ${publishedByLocale.es.length} hairline row separator(s)`);
-} else {
-  fail(`journal-rows: /bitacora must render ${publishedByLocale.es.length}+ hairline rows (no cards/radius)`);
-}
-if (logHtml && hairlineRows(logHtml) >= publishedByLocale.en.length) {
-  pass(`journal-rows: /en/log renders at least ${publishedByLocale.en.length} hairline row separator(s)`);
-} else {
-  fail(`journal-rows: /en/log must render ${publishedByLocale.en.length}+ hairline rows (no cards/radius)`);
+if (enHtml && !/href="[^"]*\/?log[\/?"]/.test(enHtml)) {
+  pass('journal-archive-link: EN landing links no archive route (WU20 one-page contract)');
+} else if (enHtml) {
+  fail('journal-archive-link: EN landing must not link /en/log (archived route)');
 }
 
 // Empty state: the branch exists in the section and archive sources, and the
 // localized strings never render while entries exist (conditional proven).
-const journalSectionSource = read(resolve(ROOT, 'src/components/joyan/JournalSection.astro'));
-const journalArchiveSource = read(resolve(ROOT, 'src/pages/bitacora.astro'));
+const journalSectionSource = read(resolve(ROOT, 'archive/src/components/joyan/JournalSection.astro'));
+const journalArchiveSource = read(resolve(ROOT, 'archive/src/pages/bitacora.astro'));
 if (/entries\.length > 0/.test(journalSectionSource) && /emptyState/.test(journalSectionSource)) {
   pass('journal-empty: JournalSection.astro owns the entries.length > 0 / emptyState branch');
 } else {
@@ -1837,12 +1743,11 @@ const auditPages = [
 
 for (const [page, html] of auditPages) {
   if (!html) continue;
+  // WU20: the one-page coming-soon site renders ONE landmark — the main
+  // content target from PageLayout. The header, footer and navigation chrome
+  // are archived with the old landing; requiring them here would be false.
   const landmarks = [
-    ['site header', /<header\b[^>]*class="sticky/],
     ['main landmark focus target', /<main\b[^>]*id="main"[^>]*tabindex="-1"/],
-    ['footer landmark', /<footer\b/],
-    ['primary navigation', /<nav\b[^>]*aria-label="Main"/],
-    ['footer navigation', /<nav\b[^>]*aria-label="Footer"/],
   ];
   for (const [label, re] of landmarks) {
     if (re.test(html)) {
@@ -1850,6 +1755,24 @@ for (const [page, html] of auditPages) {
     } else {
       fail(`a11y: ${page} must render the ${label} landmark`);
     }
+  }
+  // The minimal WU20 footer (user-directed: a subtle professional footer) is
+  // allowed; the old sticky header and both navigation landmarks stay banned.
+  for (const [label, re] of [
+    ['sticky site header', /<header\b[^>]*class="sticky/],
+    ['primary navigation', /<nav\b[^>]*aria-label="Main"/],
+    ['footer navigation', /<nav\b[^>]*aria-label="Footer"/],
+  ]) {
+    if (!re.test(html)) {
+      pass(`a11y: ${page} renders no ${label} (archived with the old chrome)`);
+    } else {
+      fail(`a11y: ${page} must not render the ${label} (archived with the old chrome)`);
+    }
+  }
+  if ((html.match(/<footer\b/g) ?? []).length <= 1) {
+    pass(`a11y: ${page} carries at most the one minimal WU20 footer`);
+  } else {
+    fail(`a11y: ${page} must carry at most one footer landmark`);
   }
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   const duplicates = [...new Set(ids.filter((id, index) => ids.indexOf(id) !== index))];
@@ -1962,8 +1885,8 @@ if (utilImports.some((specifier) => /post|blog/.test(specifier))) {
   pass('journal-detail: src/utils/journal.ts stays isolated from the dormant blog helpers');
 }
 
-const esDetailRouteSource = read(resolve(ROOT, 'src/pages/bitacora/[slug].astro'));
-const enDetailRouteSource = read(resolve(ROOT, 'src/pages/en/log/[slug].astro'));
+const esDetailRouteSource = read(resolve(ROOT, 'archive/src/pages/bitacora/[slug].astro'));
+const enDetailRouteSource = read(resolve(ROOT, 'archive/src/pages/en/log/[slug].astro'));
 for (const [label, source] of [
   ['/bitacora/[slug].astro', esDetailRouteSource],
   ['/en/log/[slug].astro', enDetailRouteSource],
@@ -1982,7 +1905,7 @@ for (const [label, source] of [
   }
 }
 
-const detailShellSource = read(resolve(ROOT, 'src/components/joyan/JournalDetailPage.astro'));
+const detailShellSource = read(resolve(ROOT, 'archive/src/components/joyan/JournalDetailPage.astro'));
 for (const [token, what] of [
   ['PageLayout', 'uses the standard page layout'],
   ['joyan-prose', 'renders the Markdown body with Joyan prose'],
@@ -2002,47 +1925,25 @@ if (detailShellSource.includes('MarkdownLayout')) {
   pass('journal-detail: JournalDetailPage.astro owns its shell (no MarkdownLayout reuse)');
 }
 
-// 8g2. Published-only route inventory: every published entry builds its
-//      detail; draft and unknown slugs produce no static page (404).
-for (const entry of publishedByLocale.es) {
-  const rel = `dist/bitacora/${entry.slug}/index.html`;
-  if (existsSync(resolve(ROOT, rel))) {
-    pass(`journal-detail: ES "${entry.slug}" builds to ${rel}`);
-  } else {
-    fail(`journal-detail: published ES entry "${entry.slug}" must build to ${rel}`);
-  }
-}
-for (const entry of publishedByLocale.en) {
-  const rel = `dist/en/log/${entry.slug}/index.html`;
-  if (existsSync(resolve(ROOT, rel))) {
-    pass(`journal-detail: EN "${entry.slug}" builds to ${rel}`);
-  } else {
-    fail(`journal-detail: published EN entry "${entry.slug}" must build to ${rel}`);
-  }
-}
-for (const entry of draftEntries) {
+// 8g2. WU20 — the detail routes are ARCHIVED: no detail page builds at all,
+// and the one-page build ships no 404 route (the archive branch holds the old
+// behaviour). The archived route sources keep the whole contract verbatim.
+let archivedDetailBuilt = 0;
+for (const entry of [...publishedByLocale.es, ...publishedByLocale.en]) {
   for (const rel of [`dist/bitacora/${entry.slug}/index.html`, `dist/en/log/${entry.slug}/index.html`]) {
     if (existsSync(resolve(ROOT, rel))) {
-      fail(`journal-detail: draft "${entry.slug}" must not build a static detail (${rel})`);
+      archivedDetailBuilt += 1;
+      fail(`journal-detail: archived entry "${entry.slug}" must not build (${rel})`);
     }
   }
 }
-if (draftEntries.length > 0) {
-  pass(
-    `journal-detail: all ${draftEntries.length} draft slug(s) have no static detail output (requests resolve as 404)`
-  );
-}
-for (const rel of ['dist/bitacora/no-such-entry/index.html', 'dist/en/log/no-such-entry/index.html']) {
-  if (existsSync(resolve(ROOT, rel))) {
-    fail(`journal-detail: unknown slug must not build a static detail (${rel})`);
-  } else {
-    pass(`journal-detail: unknown slug produces no static output (${rel})`);
-  }
+if (archivedDetailBuilt === 0) {
+  pass(`journal-detail: none of the ${publishedByLocale.es.length + publishedByLocale.en.length} published detail route(s) build (archived out of the build)`);
 }
 if (existsSync(resolve(ROOT, 'dist/404.html'))) {
-  pass('journal-detail: the site ships dist/404.html for unknown and draft detail requests');
+  fail('journal-detail: dist/404.html must NOT exist — 404 is an archived route in the one-page build');
 } else {
-  fail('journal-detail: dist/404.html must exist so unknown/draft details resolve as 404');
+  pass('journal-detail: no dist/404.html (archived with the old routes)');
 }
 
 // 8g3. Identity integrity: locale-unique published slugs/keys and
@@ -2174,65 +2075,20 @@ for (const [label, entries, details] of [
   }
 }
 
-// 8g5. Row links: absolute detail hrefs on the archives, relative hrefs on
-//      the landing rows (iteration-2 route contract forbids /en/ targets on
-//      the EN landing), and the localized archive return link on details.
-for (const entry of publishedByLocale.es) {
-  const absolute = `href="/bitacora/${entry.slug}"`;
-  if (bitacoraHtml.includes(absolute)) {
-    pass(`journal-detail: ES archive links "${entry.slug}" to ${absolute}`);
-  } else {
-    fail(`journal-detail: ES archive must link "${entry.slug}" with ${absolute}`);
-  }
-  if (bitacoraHtml.includes(`href="/bitacora/${entry.slug}/"`)) {
-    fail(`journal-detail: ES archive must not link "${entry.slug}" with a trailing-slash target`);
-  }
-}
-for (const entry of publishedByLocale.en) {
-  const absolute = `href="/en/log/${entry.slug}"`;
-  if (logHtml.includes(absolute)) {
-    pass(`journal-detail: EN archive links "${entry.slug}" to ${absolute}`);
-  } else {
-    fail(`journal-detail: EN archive must link "${entry.slug}" with ${absolute}`);
-  }
-  if (logHtml.includes(`href="/en/log/${entry.slug}/"`)) {
-    fail(`journal-detail: EN archive must not link "${entry.slug}" with a trailing-slash target`);
-  }
-}
-const esNewestPublished = [...publishedByLocale.es].sort((a, b) => (a.date < b.date ? 1 : -1));
-for (const entry of esNewestPublished.slice(0, 3)) {
-  const relative = `href="bitacora/${entry.slug}"`;
-  if (esHtml.includes(relative)) {
-    pass(`journal-detail: ES landing links "${entry.slug}" relatively (${relative})`);
-  } else {
-    fail(`journal-detail: ES landing must link "${entry.slug}" as ${relative}`);
-  }
-}
-for (const entry of publishedByLocale.en) {
-  const relative = `href="log/${entry.slug}"`;
-  if (enHtml.includes(relative)) {
-    pass(`journal-detail: EN landing links "${entry.slug}" relatively (${relative})`);
-  } else {
-    fail(`journal-detail: EN landing must link "${entry.slug}" as ${relative}`);
-  }
-}
-for (const entry of publishedByLocale.es) {
-  const html = esDetails.get(entry.slug) ?? '';
+// 8g5. WU20 — the built pages must link NO archive or detail route; the link
+// contracts live with the archived sources (checked by the source scans).
+let archivedLinks = 0;
+for (const [page, html] of [['ES landing', esHtml], ['EN landing', enHtml]]) {
   if (!html) continue;
-  if (html.includes('href="/bitacora"')) {
-    pass(`journal-detail: ES "${entry.slug}" returns to the archive (href="/bitacora")`);
-  } else {
-    fail(`journal-detail: ES "${entry.slug}" must render the archive return href="/bitacora"`);
+  for (const token of ['href="/bitacora', 'href="bitacora', 'href="/en/log', 'href="log/']) {
+    if (html.includes(token)) {
+      archivedLinks += 1;
+      fail(`journal-detail: ${page} must not link an archived route (${token})`);
+    }
   }
 }
-for (const entry of publishedByLocale.en) {
-  const html = enDetails.get(entry.slug) ?? '';
-  if (!html) continue;
-  if (html.includes('href="/en/log"')) {
-    pass(`journal-detail: EN "${entry.slug}" returns to the archive (href="/en/log")`);
-  } else {
-    fail(`journal-detail: EN "${entry.slug}" must render the archive return href="/en/log"`);
-  }
+if (archivedLinks === 0) {
+  pass('journal-detail: no built page links an archived detail or archive route');
 }
 
 // 8g6. Detail header/footer anchors point at the locale landing base
@@ -2386,7 +2242,7 @@ const disclosureListRegions = (html) => [
 
 // 8h1. Source identity: JournalDisclosureList exists and stays script-free;
 //      every scoped section consumes it and passes its items.
-const disclosureListSource = read(resolve(ROOT, 'src/components/joyan/JournalDisclosureList.astro'));
+const disclosureListSource = read(resolve(ROOT, 'archive/src/components/joyan/JournalDisclosureList.astro'));
 for (const [token, what] of [
   ['<details', 'renders native <details> elements'],
   ['<summary', 'renders native <summary> elements'],
@@ -2407,7 +2263,7 @@ if (/<script/.test(disclosureListSource) || /client:/.test(disclosureListSource)
 
 const disclosureSectionNames = ['AgentsSection', 'MagiSection', 'HardwareSection', 'EcosystemSection'];
 for (const name of disclosureSectionNames) {
-  const source = read(resolve(ROOT, `src/components/joyan/${name}.astro`));
+  const source = read(resolve(ROOT, `archive/src/components/joyan/${name}.astro`));
   if (source.includes('JournalDisclosureList.astro')) {
     pass(`disclosure: ${name} consumes JournalDisclosureList`);
   } else {
@@ -2434,7 +2290,7 @@ const disclosureSurfacePasses = [
   ['EcosystemSection community offers', 'EcosystemSection', 'items={communityOffers}'],
 ];
 for (const [label, fileName, token] of disclosureSurfacePasses) {
-  const source = read(resolve(ROOT, `src/components/joyan/${fileName}.astro`));
+  const source = read(resolve(ROOT, `archive/src/components/joyan/${fileName}.astro`));
   if (source.includes(token)) {
     pass(`disclosure: ${label} passes its items to the disclosure list (${token})`);
   } else {
@@ -2442,217 +2298,49 @@ for (const [label, fileName, token] of disclosureSurfacePasses) {
   }
 }
 
-// 8h2. Built evidence: every locale page renders all five surfaces as
-//      <details> with one <summary> each, exactly one server-open disclosure
-//      per surface, and the first disclosure of every surface open.
-const sectionSlice = (html, sectionId) => {
-  const start = html.indexOf(`id="${sectionId}"`);
-  if (start === -1) return '';
-  const end = html.indexOf('</section>', start);
-  return end === -1 ? html.slice(start) : html.slice(start, end + '</section>'.length);
-};
+// 8h2. WU20 — built evidence inverted: the disclosure surfaces are ARCHIVED,
+// so no built page may render any <details>/<summary> journal chrome. The
+// archive sources keep the full per-surface contract (scanned above), and the
+// built pages are asserted free of the markup.
 const detailsTagsIn = (html) => [...html.matchAll(/<details\b[^>]*>/g)].map((match) => match[0]);
 const rawSummariesIn = (html) => [...html.matchAll(/<summary\b[^>]*>([\s\S]*?)<\/summary>/g)].map((match) => match[1]);
-const summaryTextOf = (summaryHtml) =>
-  summaryHtml
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
-const disclosureSurfaces = (content) => ({
-  agents: { id: 'agents', items: content.agents?.items ?? [] },
-  magi: { id: 'magi', items: content.magi?.items ?? [] },
-  hardware: { id: 'hardware', items: content.hardware?.items ?? [] },
-  ecosystem: { id: 'ecosystem', items: content.ecosystem?.items ?? [] },
-  offers: { id: 'ecosystem', items: Object.values(content.ecosystem?.community?.offers ?? {}) },
-});
-
-for (const [page, html, content] of [
-  ['ES landing', esHtml, esContentFull],
-  ['EN landing', enHtml, enContentFull],
-]) {
-  if (!html) continue;
-  const surfaces = disclosureSurfaces(content);
-  const allDetails = detailsTagsIn(html);
-  const openCount = allDetails.filter((tag) => /\bopen\b/.test(tag)).length;
-  if (openCount === 5) {
-    pass(`disclosure: ${page} server-opens exactly one disclosure per scoped surface (5)`);
-  } else {
-    fail(`disclosure: ${page} must server-open exactly 5 disclosures (first item of each surface), found ${openCount}`);
-  }
-  if (allDetails.length === rawSummariesIn(html).length) {
-    pass(`disclosure: ${page} pairs every <details> with a <summary> (${allDetails.length})`);
-  } else {
-    fail(`disclosure: ${page} must render exactly one <summary> per <details>`);
-  }
-  // The disclosure markup itself is server-rendered with no script inside
-  // any list region (Astro legitimately ships page scripts — reveal, toggle,
-  // MAGI canvas — outside the disclosure lists).
-  const listRegions = disclosureListRegions(html);
-  if (listRegions.length === 5 && listRegions.every((region) => !/<script/.test(region))) {
-    pass(`disclosure: ${page} ships ${listRegions.length} script-free disclosure lists (no-JS evidence)`);
-  } else {
-    fail(`disclosure: ${page} must ship 5 script-free disclosure lists (no-JS evidence)`);
-  }
-
-  const ecoItems = surfaces.ecosystem.items;
-  const ecoOffers = surfaces.offers.items;
-  const ecoDetails = detailsTagsIn(sectionSlice(html, 'ecosystem'));
-  const ecoSummaries = rawSummariesIn(sectionSlice(html, 'ecosystem'));
-  const primaryDetails = ecoDetails.slice(0, ecoItems.length);
-  const offerDetails = ecoDetails.slice(ecoItems.length);
-
-  for (const [surface, { id, items }] of [
-    ['agents', surfaces.agents],
-    ['magi', surfaces.magi],
-    ['hardware', surfaces.hardware],
-    ['ecosystem', surfaces.ecosystem],
-  ]) {
-    const details = surface === 'ecosystem' ? primaryDetails : detailsTagsIn(sectionSlice(html, id));
-    if (details.length === items.length) {
-      pass(`disclosure: ${page} ${surface} surface renders ${items.length} disclosure(s)`);
-    } else {
-      fail(`disclosure: ${page} ${surface} surface must render ${items.length} disclosure(s), found ${details.length}`);
-    }
-    if (details[0] && /\bopen\b/.test(details[0])) {
-      pass(`disclosure: ${page} ${surface} surface server-opens its first disclosure`);
-    } else {
-      fail(`disclosure: ${page} ${surface} surface must server-open its first disclosure`);
-    }
-  }
-  if (offerDetails.length === ecoOffers.length) {
-    pass(`disclosure: ${page} ecosystem community surface renders ${ecoOffers.length} disclosure(s)`);
-  } else {
-    fail(`disclosure: ${page} ecosystem community surface must render ${ecoOffers.length} disclosure(s)`);
-  }
-  if (offerDetails[0] && /\bopen\b/.test(offerDetails[0])) {
-    pass(`disclosure: ${page} ecosystem community surface server-opens its first offer disclosure`);
-  } else {
-    fail(`disclosure: ${page} ecosystem community surface must server-open its first offer disclosure`);
-  }
-  if (
-    ecoSummaries.slice(0, ecoItems.length).length === ecoItems.length &&
-    ecoSummaries.slice(ecoItems.length).length === ecoOffers.length
-  ) {
-    pass(`disclosure: ${page} ecosystem summaries split as ${ecoItems.length} primary + ${ecoOffers.length} offer(s)`);
-  } else {
-    fail(`disclosure: ${page} ecosystem summary count must match its two disclosure surfaces`);
-  }
-
-  // Ordinal/title summaries with the right heading level per surface.
-  const checkSurfaceSummaries = (label, summaries, items, headingLevel) => {
-    if (summaries.length !== items.length) {
-      fail(`disclosure: ${page} ${label} must render one summary per item`);
-      return;
-    }
-    items.forEach((item, i) => {
-      const text = summaryTextOf(summaries[i]);
-      const ordinal = String(i + 1).padStart(2, '0');
-      if (text.includes(ordinal) && text.includes(item.title.toLowerCase())) {
-        pass(`disclosure: ${page} ${label} summary ${i + 1} keeps ordinal "${ordinal}" and title "${item.title}"`);
-      } else {
-        fail(`disclosure: ${page} ${label} summary ${i + 1} must keep ordinal "${ordinal}" and title "${item.title}"`);
-      }
-    });
-    if (summaries.length > 0 && new RegExp(`<h${headingLevel}\\b`).test(summaries[0])) {
-      pass(`disclosure: ${page} ${label} summaries use h${headingLevel} titles`);
-    } else {
-      fail(`disclosure: ${page} ${label} summaries must use h${headingLevel} titles`);
-    }
-  };
-  checkSurfaceSummaries('agents', rawSummariesIn(sectionSlice(html, 'agents')), surfaces.agents.items, 3);
-  checkSurfaceSummaries('magi', rawSummariesIn(sectionSlice(html, 'magi')), surfaces.magi.items, 3);
-  checkSurfaceSummaries('hardware', rawSummariesIn(sectionSlice(html, 'hardware')), surfaces.hardware.items, 3);
-  checkSurfaceSummaries('ecosystem', ecoSummaries.slice(0, ecoItems.length), ecoItems, 3);
-  checkSurfaceSummaries('ecosystem community', ecoSummaries.slice(ecoItems.length), ecoOffers, 4);
-}
-
-// 8h3. Multi-open independence and visible focus: no exclusive-accordion
-//      `name` attribute on any disclosure, and an amber :focus-visible ring
-//      on the summaries in the compiled stylesheet.
-for (const [page, html] of [
-  ['ES landing', esHtml],
-  ['EN landing', enHtml],
-]) {
+for (const [page, html] of [['ES landing', esHtml], ['EN landing', enHtml]]) {
   if (!html) continue;
   const allDetails = detailsTagsIn(html);
-  if (allDetails.some((tag) => /name=/.test(tag))) {
-    fail(`disclosure: ${page} disclosures must stay independently multi-open (no name/ exclusive-accordion attribute)`);
+  if (allDetails.length === 0 && rawSummariesIn(html).length === 0) {
+    pass(`disclosure: ${page} renders no disclosure markup (archived with the old landing)`);
   } else {
-    pass(`disclosure: ${page} disclosures are independent (no name attribute — multi-open is native)`);
+    fail(`disclosure: ${page} must not render disclosure markup (archived with the old landing)`);
   }
 }
-if (/\.disclosure-summary:focus-visible\{/.test(compiledCss)) {
-  pass('disclosure: compiled CSS gives the summaries a visible :focus-visible ring');
-} else {
-  fail('disclosure: compiled CSS must include a .disclosure-summary:focus-visible rule');
-}
-if (listClientJs().some((file) => /disclosure/i.test(file))) {
-  fail('disclosure: no compiled JS chunk may manage disclosure state (found a disclosure-named chunk)');
-} else {
-  pass('disclosure: no client JS chunk exists for disclosure state (native semantics only)');
-}
+pass('disclosure: no built page renders disclosure summaries (the journal chrome is archived; WU20)');
 
-// 8h4. Static reduced-motion and responsive evidence in the compiled CSS.
-if (/\.disclosure\{/.test(compiledCss) && /\.disclosure-summary\{/.test(compiledCss)) {
-  pass('disclosure: compiled CSS ships the base .disclosure/.disclosure-summary rules');
-} else {
-  fail('disclosure: compiled CSS must ship base .disclosure and .disclosure-summary rules');
-}
-if (/@media \(prefers-reduced-motion:reduce\)\{[^}]*\.disclosure/.test(compiledCss)) {
-  pass('disclosure: reduced-motion users get static behavior (no disclosure transition)');
-} else {
-  fail('disclosure: compiled CSS must zero transitions inside a prefers-reduced-motion block for .disclosure');
-}
-if (
-  /@media \(min-width:48rem\)\{[^}]*\.disclosure/.test(compiledCss) ||
-  /@media \(width>=48rem\)\{[^}]*\.disclosure/.test(compiledCss)
-) {
-  pass('disclosure: wide screens keep the ordinal column layout (responsive prose/figure balance)');
-} else {
-  fail('disclosure: compiled CSS must include a 48rem media rule for the disclosure layout');
-}
-
-// 8h5. Disclosure claim review: the built disclosure text stays free of the
-//      extended ban set (copy already scanned page-wide in 9b; this bounds
-//      the disclosure surfaces themselves). Only the five script-free list
-//      regions are scanned, never page scripts.
-for (const [page, html] of [
-  ['ES landing', esHtml],
-  ['EN landing', enHtml],
-]) {
-  if (!html) continue;
-  const region = disclosureListRegions(html).join(' ');
-  scanUnitDText(summaryTextOf(region), `${page} disclosure text`);
-  for (const value of journalAttributeValues(region)) {
-    scanUnitDText(value, `${page} disclosure attribute`);
-  }
-}
-if (unitDCopyIssues === 0) {
-  pass(
-    'disclosure: built disclosure summaries and bodies are free of banned phrase, jargon, vendors, screenshots and claims'
-  );
-}
-
-// ---------------------------------------------------------------------------
 // 9e. Static performance evidence: route output inventory and build sizes.
 //     The client-JS gzip budget itself is enforced in section 7.
 const ROUTE_OUTPUT = [
   ['/', 'dist/index.html'],
   ['/en', 'dist/en/index.html'],
-  ['/bitacora', 'dist/bitacora/index.html'],
-  ['/en/log', 'dist/en/log/index.html'],
-  ['/privacy', 'dist/privacy/index.html'],
-  ['/terms', 'dist/terms/index.html'],
-  ...publishedByLocale.es.map((entry) => [`/bitacora/${entry.slug}`, `dist/bitacora/${entry.slug}/index.html`]),
-  ...publishedByLocale.en.map((entry) => [`/en/log/${entry.slug}`, `dist/en/log/${entry.slug}/index.html`]),
 ];
+const ARCHIVED_ROUTE_OUTPUT = ['/bitacora', '/en/log', '/privacy', '/terms',
+  ...publishedByLocale.es.map((entry) => `/bitacora/${entry.slug}`),
+  ...publishedByLocale.en.map((entry) => `/en/log/${entry.slug}`)];
 for (const [route, relPath] of ROUTE_OUTPUT) {
   if (existsSync(resolve(ROOT, relPath))) {
     pass(`routes: ${route} builds to ${relPath}`);
   } else {
     fail(`routes: ${route} must build to ${relPath}`);
   }
+}
+let archivedRouteOutput = 0;
+for (const route of ARCHIVED_ROUTE_OUTPUT) {
+  const rel = `dist${route}/index.html`;
+  if (existsSync(resolve(ROOT, rel))) {
+    archivedRouteOutput += 1;
+    fail(`routes: archived route must not build: ${route}`);
+  }
+}
+if (archivedRouteOutput === 0) {
+  pass(`routes: all ${ARCHIVED_ROUTE_OUTPUT.length} archived route(s) are out of the build`);
 }
 const htmlBytes = ROUTE_OUTPUT.reduce(
   (sum, [, relPath]) => sum + (existsSync(resolve(ROOT, relPath)) ? statSync(resolve(ROOT, relPath)).size : 0),

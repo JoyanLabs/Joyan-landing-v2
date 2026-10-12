@@ -49,6 +49,16 @@ const base = 'http://127.0.0.1:4321';
 const LAB = `${base}/lab/image`;
 const FIXTURE = resolve(root, 'dist-motion-verify/wu18/input/blade-runner-unicorn-line-transparent.svg');
 const FIXTURE_NAME = 'blade-runner-unicorn-line-transparent.svg';
+// WU20 — the film-prop demonstration. The user explicitly asked for the unicorn
+// as a laboratory example; rights reality: it is a film prop design, so it
+// enters /lab/image ONLY as a build-time conversion of the gitignored local
+// fixture, with a visible attribution and the rights limit stated. The SVG
+// itself is never committed, never copied into src/ or public/, never shipped;
+// only the converted serialisation is embedded, and only when the fixture is
+// present on the build machine. Without it the page falls back to the
+// documented CLI reproduction, so the build never depends on the art.
+const FILM_PROP = { id: 'film-prop-demo', cols: 160, rows: 80, mode: 'ink', colorMode: 'levels', palette: 'ink' };
+const hasFixture = existsSync(FIXTURE);
 const failures = [];
 const check = (ok, message) => { if (!ok) failures.push(message); };
 const hash = (data) => createHash('sha256').update(data).digest('hex');
@@ -459,6 +469,22 @@ if (existsSync(publicDir)) {
   await walkPublic(publicDir);
 }
 check(publicLeak.length === 0, `the fixture must never be copied into public/: ${publicLeak.join(', ')}`);
+// WU20: the same scan over src/ — the fixture must not enter the repository
+// tree under any name, even though its CONVERTED serialisation may be embedded
+// in the noindex laboratory page by the build.
+const srcLeak = [];
+const srcDir = resolve(root, 'src');
+if (existsSync(srcDir)) {
+  const walkSrc = async (path) => {
+    for (const entry of await readdir(path, { withFileTypes: true })) {
+      const full = resolve(path, entry.name);
+      if (entry.isDirectory()) await walkSrc(full);
+      else if (/unicorn|blade/i.test(full)) srcLeak.push(full.slice(root.length + 1));
+    }
+  };
+  await walkSrc(srcDir);
+}
+check(srcLeak.length === 0, `the fixture must never be copied into src/: ${srcLeak.join(', ')}`);
 
 let imageHtml = '';
 try {
@@ -484,6 +510,21 @@ if (imageHtml) {
   // The licence note must be present in the page, in plain words.
   check(/licen|third.party|rights/i.test(imageHtml),
     'the image laboratory must state the third-party fixture licence limitation');
+  // --- WU20: the film-prop demonstration. When the local fixture is present
+  // the page embeds its converted serialisation under film-prop-demo, with the
+  // attribution and the rights limit visible; without it the page documents
+  // the CLI reproduction instead. Either way the fixture FILENAME never ships.
+  if (hasFixture) {
+    check(imageHtml.includes(`data-image-scene="${FILM_PROP.id}"`),
+      'WU20: with the local fixture present, the laboratory must embed the film-prop demonstration conversion');
+    check(imageHtml.includes('Tom Southwell'),
+      'WU20: the demonstration must carry its attribution (film prop design attributed to Tom Southwell)');
+    check(/confirmed rights|derechos confirmados/i.test(imageHtml),
+      'WU20: the demonstration must state that production use requires confirmed rights');
+  } else {
+    check(/from-image\.mjs --in/.test(imageHtml),
+      'WU20: without the local fixture, the laboratory must document the CLI reproduction of the demonstration');
+  }
 }
 let asciiHtml = '';
 let shapeHtml = '';
@@ -782,8 +823,8 @@ try {
   const response = await page.goto(LAB, { waitUntil: 'networkidle' });
   check(response.status() === 200, `image laboratory HTTP ${response.status()}`);
   check(await page.locator('[data-image-lab]').count() === 1, 'exactly one image laboratory mount required');
-  check(await page.locator('script[type="application/json"][data-image-scene]').count() === LOCAL_INPUTS.length,
-    `the page must embed one converted scene per authored input (${LOCAL_INPUTS.length})`);
+  check(await page.locator('script[type="application/json"][data-image-scene]').count() === LOCAL_INPUTS.length + (hasFixture ? 1 : 0),
+    `the page must embed one converted scene per authored input (${LOCAL_INPUTS.length}) plus the film-prop demonstration when the local fixture exists`);
 
   const hashCanvas = (selector) => page.locator(selector).first().evaluate(async (canvas) => {
     const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
@@ -806,6 +847,32 @@ try {
     const same = JSON.stringify(JSON.parse(embedded)) === JSON.stringify(converted.serialized);
     check(same, `the page's embedded ${input.id} payload must be the pipeline's own serialisation`);
     live.push({ input: input.id, embeddedAgrees: same, levels: converted.serialized.levels.length });
+  }
+
+  // WU20: the film-prop demonstration is the pipeline's own serialisation of
+  // the local fixture, converted at build time, and its canvas is hash-equal
+  // to the Node raster of that conversion — the same contract as our inputs.
+  if (hasFixture) {
+    const converted = await fromImage.convert(FIXTURE, {
+      cols: FILM_PROP.cols, rows: FILM_PROP.rows, mode: FILM_PROP.mode, colorMode: FILM_PROP.colorMode,
+      palette: FILM_PROP.palette, id: FILM_PROP.id,
+      label: 'film prop demonstration — attributed line art (Blade Runner)',
+    });
+    const embedded = await page.locator(`script[data-image-scene="${FILM_PROP.id}"]`).textContent();
+    const same = JSON.stringify(JSON.parse(embedded)) === JSON.stringify(converted.serialized);
+    check(same, 'WU20: the embedded film-prop payload must be the pipeline\'s own serialisation of the local fixture');
+    live.push({ input: FILM_PROP.id, embeddedAgrees: same, levels: converted.serialized.levels.length });
+    await setControl('input', FILM_PROP.id);
+    await setControl('treatment', 'plain');
+    await setControl('density', '1');
+    const scene = sceneFromSerialized(JSON.parse(embedded));
+    const frame = renderFrame(scene, scene.posterFrame, { dither: 'bayer4', density: 1 });
+    const raster = rasterize(frame, scene, DELIVERY_CELL);
+    const expected = { hash: hash(Buffer.from(raster)), width: frame.cols * DELIVERY_CELL, height: frame.rows * DELIVERY_CELL };
+    const measured = await hashCanvas('[data-image-lab] canvas[data-image-view][data-image-cell="8"]');
+    check(expected.hash === measured.hash && measured.width === expected.width && measured.height === expected.height,
+      `WU20: film-prop Node raster and live canvas must agree (${expected.hash} != ${measured.hash})`);
+    await setControl('input', LOCAL_INPUTS[0].id);
   }
 
   // Equality: canvas bytes == Node raster, per treatment, for the first input.

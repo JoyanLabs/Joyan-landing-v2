@@ -7,6 +7,8 @@ import { getCanonical } from '~/utils/permalinks';
 import ImageLab from '~/components/joyan/ImageLab.astro';
 import { convert } from '../../../scripts/scene-src/from-image.mjs';
 import { LOCAL_INPUTS } from '../../../scripts/scene-src/local-inputs.mjs';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const metadata = {
   title: 'Image to dot-scene study',
@@ -42,9 +44,33 @@ for (const input of LOCAL_INPUTS) {
     palette: result.palette,
   });
 }
+// WU20 — the film-prop demonstration. The user explicitly asked for the
+// unicorn as a laboratory example; rights reality: it is a film prop design
+// (Blade Runner, attributed to Tom Southwell), so it enters ONLY as a
+// build-time conversion of the gitignored local fixture, never as a file in
+// the repository. When the fixture is absent (any other machine, CI), the
+// demonstration degrades to the documented CLI reproduction below.
+const FILM_PROP_FIXTURE = fileURLToPath(new URL('../../../dist-motion-verify/wu18/input/blade-runner-unicorn-line-transparent.svg', import.meta.url));
+let demonstration: ConvertedInput | null = null;
+if (existsSync(FILM_PROP_FIXTURE)) {
+  const result = await convert(FILM_PROP_FIXTURE, {
+    cols: 160, rows: 80, mode: 'ink', colorMode: 'levels', palette: 'ink',
+    id: 'film-prop-demo', label: 'film prop demonstration — attributed line art (Blade Runner)',
+  });
+  demonstration = {
+    id: 'film-prop-demo',
+    label: 'film prop demonstration — attributed line art (Blade Runner)',
+    licence: 'third-party film prop design (Blade Runner, attributed to Tom Southwell); demonstration at the user\'s explicit direction — production use requires confirmed rights',
+    cols: 160, rows: 80,
+    payload: JSON.stringify(result.serialized),
+    stats: result.measure.stats,
+    palette: result.palette,
+  };
+}
 // The cost line is measured, not estimated: the payload bytes are this run's.
-const payloadBytes = inputs.reduce((sum, entry) => sum + Buffer.byteLength(entry.payload), 0);
-const cost = `Measured for this build: the two converted scenes travel as data, ${payloadBytes} B of JSON in total `
+const payloadBytes = inputs.reduce((sum, entry) => sum + Buffer.byteLength(entry.payload), 0)
+  + (demonstration ? Buffer.byteLength(demonstration.payload) : 0);
+const cost = `Measured for this build: the converted scenes travel as data, ${payloadBytes} B of JSON in total `
   + `(not executable JavaScript); the engine chunk stays the one both other laboratory routes already share. `
   + `The overlays, the ladder and the palette compensation are the engine's own code, so this route adds markup and `
   + `data, not a second engine.`;
@@ -78,7 +104,7 @@ const cost = `Measured for this build: the two converted scenes travel as data, 
         noindex, none is a product surface, and none changes the landing page.
       </p>
     </header>
-    <ImageLab inputs={inputs} cost={cost} defaultInput={LOCAL_INPUTS[0].id} />
+    <ImageLab inputs={inputs} demonstration={demonstration} cost={cost} defaultInput={LOCAL_INPUTS[0].id} />
     <footer class="border-t border-hairline pt-8 text-sm text-plomo-400">
       <p>The algorithm, the numbered recipe, the CLI flags, the licence boundary and the honest comparison against
         the library's scenes are written up in <span class="font-mono">docs/MOTOR-ESCENAS.md</span> (Spanish) and

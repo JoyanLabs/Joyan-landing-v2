@@ -30,10 +30,14 @@ interface ConvertedInput {
 }
 interface Props {
   inputs: ConvertedInput[];
+  /** WU20: the film-prop demonstration, converted at build time when the
+   * gitignored local fixture exists on the build machine; null otherwise. */
+  demonstration?: ConvertedInput | null;
   cost: string;
   defaultInput: string;
 }
-const { inputs, cost, defaultInput } = Astro.props;
+const { inputs, demonstration = null, cost, defaultInput } = Astro.props;
+const allInputs = demonstration ? [...inputs, demonstration] : inputs;
 const first = inputs.find((entry) => entry.id === defaultInput) ?? inputs[0];
 const selectClass = 'mt-1 w-full border border-hairline bg-ink-950 px-2 py-1.5 font-mono text-xs text-bone-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
 const controlLabelClass = 'flex flex-col font-mono text-xs uppercase tracking-widest text-plomo-400';
@@ -57,12 +61,15 @@ const views = [
   </p>
   <p class="mt-3 max-w-prose text-sm text-plomo-400">{cost}</p>
   <p class="mt-3 max-w-prose text-sm text-plomo-400">
-    <span class="text-bone-100">Licence and rights.</span> The user's probe input — the Blade Runner unicorn gist —
-    is a film prop design. It was used ONLY as a local fixture under a gitignored evidence path, and it was
-    never part of this page: never committed, never copied into <span class="font-mono">public/</span>, never shipped
-    in any build. That is why it never appeared on the laboratory page; the two inputs this page demonstrates are
-    drawings we authored (<span class="font-mono">scripts/scene-src/local-inputs.mjs</span>). If the user confirms they
-    hold the rights to the gist art, a future unit may add it as a third input.
+    <span class="text-bone-100">Rights and the film-prop demonstration (WU20).</span> The user's probe input — a
+    Blade Runner unicorn — is a film prop design, attributed to Tom Southwell. At the user's explicit direction it is
+    shown here as a demonstration, converted at build time from a local, gitignored fixture: the SVG itself is never
+    committed, never copied into <span class="font-mono">src/</span> or <span class="font-mono">public/</span>, and
+    only the converted dot-scene serialisation is embedded on this noindex laboratory page. Production use requires
+    confirmed rights; until then it is a demonstration, not an asset. When the local fixture is absent, the
+    demonstration is documented instead of shipped, and you can reproduce it locally with the same CLI as any other
+    input:
+    <span class="mt-1 block break-all font-mono text-xs text-bone-100">node scripts/scene-src/from-image.mjs --in your-local-copy.svg --mode ink --cols 160 --rows 80 --out dist-motion-verify/wu20 --png</span>
   </p>
   <p class="mt-3 max-w-prose text-sm text-plomo-400">
     <span class="text-bone-100">Convert your own file.</span> The same pipeline runs from the command line on any local
@@ -86,7 +93,7 @@ const views = [
     <label class={controlLabelClass}>
       input
       <select data-image-control="input" class={selectClass}>
-        {inputs.map((entry) => <option value={entry.id} selected={entry.id === first.id}>{entry.label}</option>)}
+        {allInputs.map((entry) => <option value={entry.id} selected={entry.id === first.id}>{entry.label}</option>)}
       </select>
     </label>
     <label class={controlLabelClass}>
@@ -150,7 +157,7 @@ const views = [
     conversion, not estimates.
   </p>
   {
-    inputs.map((entry) => (
+    allInputs.map((entry) => (
       <script is:inline type="application/json" data-image-scene={entry.id} set:html={entry.payload} />
     ))
   }

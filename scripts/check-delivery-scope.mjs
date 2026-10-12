@@ -28,8 +28,10 @@ function selfTest() {
     'odd/tasks/dither-look-spike.md', 'docs/spaces and\nM\tforged.md',
     'public/assets/dither/space ü\tquote".png',
   ]) test(`allow ${path}`, () => assert.equal(accepted(fixture('M', path)), true));
-  for (const component of ['Hero', 'SectionFilm', 'MotionFigure', 'MagiParticleCanvas',
-    'AgentNetworkDiagram', 'Wordmark', 'JournalEntryRow']) {
+  // WU20: most of these components MOVED to archive/, so an edit (M) on them is
+  // no longer in contract — DitherScene stays as the live example of an allowed
+  // edit, and the movers are asserted in the WU20 move block below.
+  for (const component of ['DitherScene']) {
     test(`allow ${component}`, () => assert.equal(accepted(fixture('M', `src/components/joyan/${component}.astro`)), true));
   }
   for (const path of [
@@ -39,7 +41,41 @@ function selfTest() {
     'src/components/joyan/NewFigure.astro', 'src/components/joyan/Hero .astro',
     'src/components/joyan/Hero.astro\n', 'public/assets/dither-other/a.png',
     'scripts/check-iteration-4.mjs', 'package.json', '.gitignore',
+    // WU20 keeps failing closed around the new contract: the archive folder is
+    // not a general dumping ground, an edit to a moved file is not a move, and
+    // the two landing pages may be edited but never deleted or added.
+    'archive/src/pages/whatever.astro', 'archive/notes.md',
+    'src/components/joyan/SiteFooter2.astro',
   ]) test(`block ${path}`, () => assert.equal(accepted(fixture('M', path)), false));
+  for (const path of ['src/pages/index.astro', 'src/pages/en/index.astro', 'src/pages/lab/image.astro']) {
+    test(`WU20 allow M ${path}`, () => assert.equal(accepted(fixture('M', path)), true));
+    for (const status of ['A', 'D', 'T']) test(`WU20 reject ${status} ${path}`, () => assert.equal(accepted(fixture(status, path)), false));
+  }
+  test('WU20 allow the hero component as an add', () => {
+    const path = 'src/components/joyan/JoyanComingHero.astro';
+    assert.equal(accepted(fixture('A', path)), true);
+    assert.equal(accepted(fixture('M', path)), true);
+    assert.equal(accepted(fixture('D', path)), false);
+  });
+  for (const path of ['src/components/joyan/ImageLab.astro', 'src/lib/scene-runtime.ts']) {
+    test(`WU20 allow M ${path}`, () => assert.equal(accepted(fixture('M', path)), true));
+    for (const status of ['A', 'D', 'T']) test(`WU20 reject ${status} ${path}`, () => assert.equal(accepted(fixture(status, path)), false));
+  }
+  for (const oldPath of ['src/pages/bitacora.astro', 'src/pages/en/log/[slug].astro', 'src/components/joyan/Hero.astro']) {
+    test(`WU20 allow D move ${oldPath}`, () => assert.equal(accepted(fixture('D', oldPath)), true));
+    test(`WU20 allow R move ${oldPath}`, () => assert.equal(accepted(fixture('R100', oldPath, oldPath.replace(/^src\//, 'archive/src/'))), true));
+    test(`WU20 reject M ${oldPath}`, () => assert.equal(accepted(fixture('M', oldPath)), false));
+    test(`WU20 reject R elsewhere ${oldPath}`, () => assert.equal(accepted(fixture('R100', oldPath, 'somewhere/else.astro')), false));
+  }
+  for (const dest of ['archive/src/pages/bitacora.astro', 'archive/src/components/joyan/Hero.astro']) {
+    test(`WU20 allow A archive copy ${dest}`, () => assert.equal(accepted(fixture('A', dest)), true));
+    test(`WU20 reject M archive copy ${dest}`, () => assert.equal(accepted(fixture('M', dest)), false));
+    test(`WU20 reject A unknown archive path ${dest.replace(/\.astro$/, '.bak')}`, () => assert.equal(accepted(fixture('A', dest.replace(/\.astro$/, '.bak'))), false));
+  }
+  test('WU20 reject lab pages outside the contract', () => {
+    assert.equal(accepted(fixture('M', 'src/pages/lab/ascii.astro')), false);
+    assert.equal(accepted(fixture('M', 'src/pages/lab/shapes.astro')), false);
+  });
   for (const path of [
     'src/components/joyan/DitherScene.astro',
     'scripts/motion-src/render-dither-scene.mjs',
@@ -161,14 +197,58 @@ const exactPaths = new Set([
   'scripts/generate-dither.mjs', 'scripts/check-iteration-2.mjs',
   'scripts/check-iteration-3.mjs', 'scripts/check-delivery-scope.mjs',
   'src/content.config.ts', 'src/assets/styles/tailwind.css',
-  ...['Hero', 'DitherScene', 'SectionFilm', 'MotionFigure', 'MagiParticleCanvas',
-    'AgentNetworkDiagram', 'Wordmark', 'JournalEntryRow']
+  // WU20: only DitherScene stays live; the other seven components moved to
+  // `archive/src/**` and are covered by WU20_MOVED below.
+  'src/components/joyan/DitherScene.astro',
+]);
+// WU20 — the single coming-soon page. The paths this unit is allowed to EDIT
+// (statuses listed per path) and the old routes it is allowed to MOVE into
+// `archive/`. Everything else keeps failing closed. The archive destinations
+// are enumerated one by one: a generic `archive/` prefix would let an unrelated
+// new file in through the back door.
+const WU20_EDITS = new Map([
+  ['src/pages/index.astro', ['M']],
+  ['src/pages/en/index.astro', ['M']],
+  ['src/pages/lab/image.astro', ['M']],
+  ['src/components/joyan/JoyanComingHero.astro', ['A', 'M']],
+  ['src/components/joyan/ImageLab.astro', ['M']],
+  ['src/lib/scene-runtime.ts', ['M']],
+]);
+const WU20_MOVED = new Set([
+  'src/pages/404.astro', 'src/pages/privacy.md', 'src/pages/terms.md',
+  'src/pages/rss.xml.ts',
+  'src/pages/bitacora.astro', 'src/pages/bitacora/[slug].astro',
+  'src/pages/en/log.astro', 'src/pages/en/log/[slug].astro',
+  ...['Hero', 'SiteHeader', 'SiteFooter', 'Wordmark', 'LanguageToggle',
+    'AgentsSection', 'MagiSection', 'HardwareSection', 'EcosystemSection',
+    'JournalSection', 'JournalEntryRow', 'JournalDetailPage',
+    'JournalDisclosureList', 'SectionHeader', 'SectionFilm', 'MotionFigure',
+    'MagiParticleCanvas', 'AgentNetworkDiagram', 'TerminalBlock']
     .map((name) => `src/components/joyan/${name}.astro`),
+]);
+const WU20_ARCHIVE_DEST = new Set([
+  ...[...WU20_MOVED].map((path) => path.replace(/^src\//, 'archive/src/')),
 ]);
 const prefixes = ['public/assets/dither/', 'public/assets/brand/', 'public/assets/motion/',
   'scripts/dither-src/', 'scripts/motion-src/', 'docs/', 'odd/tasks/'];
 
 function pathReason(path, status) {
+  if (WU20_EDITS.has(path)) {
+    const statuses = WU20_EDITS.get(path);
+    return statuses.includes(status) ? null : `wu20-status-${status}`;
+  }
+  if (WU20_MOVED.has(path)) {
+    // A moved route may be deleted, renamed away or (when git records it as a
+    // copy) copied out; any other change (an edit that pretends the old
+    // landing still exists) is out of contract.
+    return /^(?:D|[RC])/.test(status) ? null : `wu20-move-status-${status}`;
+  }
+  if (WU20_ARCHIVE_DEST.has(path)) {
+    // The archive copy arrives either as the new side of a rename/copy (R/C)
+    // or, when git does not detect the pair, as an add next to the deletion (A).
+    return status === 'A' || /^[RC]/.test(status) ? null : `wu20-archive-status-${status}`;
+  }
+  if (path.startsWith('archive/')) return 'unknown-path';
   const documentation = path.startsWith('docs/') || path.startsWith('odd/tasks/');
   if (path === 'src/config.yaml' || ['src/lib/i18n/', 'src/pages/', 'src/data/journal/']
     .some((prefix) => path.startsWith(prefix)) ||
