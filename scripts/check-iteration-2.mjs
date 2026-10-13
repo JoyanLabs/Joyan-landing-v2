@@ -1477,20 +1477,21 @@ const sceneMovie = resolve(ROOT, 'public/assets/motion/harness-tones-dither.mp4'
 //     The old five-chunk landing set died with the old landing: the
 //     framer-motion reveal/viewport chunks left the build. The recorded WU20
 //     set is client x2 (byte-identical to the WU12 recordings) + the hero
-//     entry + the shared scene-runtime chunk, 101339 B gzip total after the WU22
+//     entry + the shared scene-runtime chunk, 101912 B gzip total after the WU26
 //     re-measure (the engine chunk grew with the tone cap, the roll helper, the
-//     wash + shimmer sweeps and the page palette — re-measured loudly, never
-//     silently). The delta against the untouched committed fixture (91905 B) is
-//     9434 B and must stay <= 22528 B (22 KiB). Fail closed: any extra, missing
+//     wash + shimmer sweeps, the page palette and now the WU26 warp overlay —
+//     re-measured loudly, never silently). The delta against the untouched
+//     committed fixture (91905 B) is 10007 B and must stay <= 22528 B (22 KiB).
+//     Fail closed: any extra, missing
 //     or changed chunk fails here.
 // ---------------------------------------------------------------------------
 const WU20_LANDING_SET = {
   'client.BxDIQlYz.js': { gz: 60302, sha256: 'ed1f3e2228ec0a53328513096c375276d3aea8e4c8e2ded754af7b67a13d77f0' },
   'client.kF-MUc6b.js': { gz: 27057, sha256: 'c72b737a3f669a7845f10ec12cf2206a3d4f964c2aef13d4572c6b831b74937d' },
-  'JoyanComingHero.astro_astro_type_script_index_0_lang.DtHA3kec.js': { gz: 56, sha256: '547fede9a6d7d2d53cec4c1f896521112e28d6ccc1a622670bf011097089825b' },
-  'scene-runtime.DMQ3-fYM.js': { gz: 13924, sha256: '5f37fe38f9a51da3af45735517e687454120f2923b5b70147d6c3f0bc094febf' },
+  'JoyanComingHero.astro_astro_type_script_index_0_lang.BHdqzdMQ.js': { gz: 56, sha256: '0828263454d8c6844c4eb8ff0a4cd3b8e5eab6877c1628b290615a25efdf4315' },
+  'scene-runtime.DrvccjM6.js': { gz: 14497, sha256: '9d0baf6a434b354793d8ef2022fe6a3aa8ea90a4ce5a8d8dec08b33fe1f8c25a' },
 };
-const WU20_LANDING_GZIP = 101339;
+const WU20_LANDING_GZIP = 101912;
 const WU20_DELTA_LIMIT = 22 * 1024; // 22528 bytes, unchanged rule
 {
   const distJs = existsSync(cssDir) ? readdirSync(cssDir).filter((file) => file.endsWith('.js')) : [];

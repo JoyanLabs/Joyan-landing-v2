@@ -1022,3 +1022,20 @@ La página pública es una sola página (`/` y `/en`) y su hero es una escena de
 - Firefox/Safari: igual que el resto del motor, solo Chromium verificado.
 - LCP/CLS reales en campo; el póster data URI mide 47.442 B (46,3 KiB) en el HTML, unos 34.562 B gzip transferidos: se nota en el HTML transferido, no en JS ejecutable.
 - La animación en reproducción automática es una decisión del usuario para esta página; su coste de CPU por frame es el mismo que el medido para el laboratorio (12 fps).
+
+## 17. El overlay warp (WU26): light-speed en nuestro lenguaje de puntos
+
+El usuario confirmó que el efecto que quería es el de **velocidad luz** — estelas radiales desde un centro brillante, bordes que se distorsionan — pero construido con nuestro lenguaje de puntos, no líneas suaves. `warp` entra al catálogo en `overlays.mjs` como primer overlay de la composición (re-muestrea el campo base y los demás componen sobre lo desplazado).
+
+- **Estelas**: la celda se ilumina solo si (a) su spoke radial (48 spokes, ángulo cuantizado) fue elegido por hash (`spokeDensity` 0,5) y (b) ella misma pasa el hash de puntos (`dotFill` 0,55) — puntos discretos sobre trayectorias radiales, nunca líneas. El brillo es una gaussiana sobre la distancia radial envuelta hasta el frente de onda, que recorre **3 viajes completos por bucle** (`trips` 3, `fract` del avance): costura de campo medida **0** (idéntica a la de los otros seis overlays, verificada por el bucle genérico del checker).
+- **Bloom central**: racimo de puntos hacia el blanco hueso más claro de la paleta (`hotColour #fffdf8`), gaussiana radial `radius` 0,05.
+- **Desplazamiento de bordes**: cerca del marco (r > 0,7) el overlay re-muestrea el campo BASE hasta 2,5 celdas hacia dentro — el contenido del borde se estira hacia fuera sin mover una celda pintada; estático y determinista.
+- **Paleta**: todos los colores del warp son entradas de `joyan-page` (hueso `#f4f2ed`, ámbar `#ffb000` en spokes alternos, hot `#fffdf8`) — verificado por el checker contra `IMAGE_PALETTES`.
+- **Coste**: el chunk compartido `scene-runtime` crece de 37.252 → 38.647 B raw (13.924 → 14.497 B gzip); landing 101.912 B gzip en 4 chunks (delta 10.007 B sobre el baseline intacto, ≤ 22.528 B); lab 39.921 B (tope 41.969 B). Re-pinado en los tres checkers y en la copy de los labs, nunca en silencio.
+- **Integración**: CLI `--overlays warp`; `/lab/image` trata `page-wash` (stars,aurora,wash) y `page-warp` (stars,aurora,warp) sobre `joyan-page` a la misma rejilla — capturas en `dist-motion-verify/wu26/warp/`; el prototipo de secuencia (`dist-motion-verify/wu23/fonts/secuencia.html`) disuelve el terminal en una ráfaga warp al pasar del acto 1 al 2 (miniatura determinista del overlay; bajo reduced-motion es un fundido).
+
+Juicio honesto: en la captura estática el burst se lee — el bloom y las estelas punteadas salen del pecho del unicornio — pero las estelas compiten con el campo de estrellas (ambas son puntos hueso); con el frente de onda EN MOVIMIENTO se lee claramente como un pulso de velocidad-luz (capturas `unicorn-warp-motion-t2/t3.png`). En la página habría que valorar un pulso más lento y ancho; no se cambió sin el usuario.
+
+## 18. El prototipo de secuencia, arreglado (WU26)
+
+`dist-motion-verify/wu23/fonts/secuencia.html` estaba muerto desde la edición v2: los botones de demo (`#next`, `#replay`) se retiraron del HTML pero sus listeners quedaron en el script, y `document.getElementById('next')` devolvía `null` — el `TypeError` al cargar mataba el script entero (typewriter, toggle, teclado). Reescrito sin referencias muertas: autoplay del typewriter → ráfaga warp → acto 2 → acto 3; clic / ArrowRight avanza (el último acto reinicia); el toggle ES/EN intercambia las líneas literales; cero errores de consola verificados en navegador (`dist-motion-verify/wu26/sequence/`).

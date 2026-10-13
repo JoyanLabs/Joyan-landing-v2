@@ -33,8 +33,10 @@ import { hashNoise, layeredNoise } from './engine.mjs';
 /** The loop every overlay assumes. A converted scene must use the same one. */
 export const LOOP_SECONDS = 30;
 
-/** Every overlay id, in composition order. WU22 adds the sweep family. */
-export const OVERLAY_IDS = Object.freeze(['stars', 'aurora', 'grain', 'glimmer', 'wash', 'shimmer']);
+/** Every overlay id, in composition order. WU22 adds the sweep family; WU26
+ * adds warp FIRST, because its radial displacement re-samples the subject's
+ * own field and every later overlay must compose over the displaced cells. */
+export const OVERLAY_IDS = Object.freeze(['warp', 'stars', 'aurora', 'grain', 'glimmer', 'wash', 'shimmer']);
 
 /** Human labels, for the laboratory's controls and the docs. */
 export const OVERLAY_LABELS = Object.freeze({
@@ -44,6 +46,7 @@ export const OVERLAY_LABELS = Object.freeze({
   glimmer: 'glimmer sweep (soft subject-preserving band, whole sweeps per loop, WU22 tuned)',
   wash: 'colour wash (a wide tinted band crosses the whole scene and fades through two hues, WU22)',
   shimmer: 'shimmer band (a narrow bright band with hash sparkle travels whole sweeps per loop, WU22)',
+  warp: 'warp (light-speed in dots: discrete dot streaks on radial spokes leave a centre bloom, whole trips per loop, and the subject dots displace radially near the frame border, WU26)',
 });
 
 /**
@@ -74,6 +77,22 @@ export const OVERLAY_DEFAULTS = Object.freeze({
   // hash sparkle along the band, so it reads as glitter crossing the picture.
   shimmer: Object.freeze({ seed: 0x31d7, sweeps: 2, sigma: 0.035, intensity: 0.35, keep: 0.55,
     sparkle: 0.5, sparkleScale: 0.35, colour: Object.freeze([0.95, 0.96, 1]) }),
+  // WU26 — warp: light-speed in our dot language. The centre is declared in
+  // grid fractions; the streaks are DISCRETE dots: a cell lights up only if it
+  // sits on one of the hash-selected radial spokes (dotted, not lines) AND its
+  // wrapped radial distance to the travelling wavefront is inside the gaussian
+  // window. The wavefront completes a WHOLE number of trips per loop (fract of
+  // trips), so the seam is exact. The centre bloom is a dot cluster (a radial
+  // gaussian over the hot bone of the page palette). Near the frame border the
+  // subject's own dots displace radially: the overlay re-samples the BASE field
+  // up to `edge.amount` cells inward, so the border content stretches outward
+  // like the classic light-speed pull. Every colour is a joyan-page entry.
+  warp: Object.freeze({ seed: 0x5af1, centre: Object.freeze([0.5, 0.46]), spokes: 48,
+    spokeDensity: 0.5, dotFill: 0.55, rings: 24, trips: 3, sigma: 0.05, intensity: 0.6,
+    keep: 0.35, bloom: Object.freeze({ radius: 0.05, intensity: 0.9 }),
+    edge: Object.freeze({ start: 0.7, amount: 2.5 }),
+    colour: Object.freeze([0.957, 0.949, 0.929]), hotColour: Object.freeze([1, 0.993, 0.973]),
+    amberColour: Object.freeze([1, 0.69, 0]) }),
 });
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
@@ -237,7 +256,67 @@ function shimmerOverlay(overrides) {
   };
 }
 
-const BUILDERS = { stars: starsOverlay, aurora: auroraOverlay, grain: grainOverlay,
+/** WARP (WU26) — light-speed in dots. See OVERLAY_DEFAULTS.warp for the frozen
+ * constants and the construction notes; the short version: dotted radial
+ * streaks on hash spokes, a centre bloom, whole trips per loop, and an edge
+ * displacement that re-samples the base field (never moves a painted cell). */
+function warpOverlay(overrides) {
+  const p = { ...OVERLAY_DEFAULTS.warp, ...overrides };
+  return {
+    id: 'warp',
+    label: OVERLAY_LABELS.warp,
+    apply(x, y, t, base, ctx) {
+      const cx = p.centre[0] * (ctx.cols - 1);
+      const cy = p.centre[1] * (ctx.rows - 1);
+      const dx = x - cx;
+      const dy = y - cy;
+      const dist = Math.hypot(dx, dy);
+      const maxDist = Math.hypot(Math.max(cx, ctx.cols - 1 - cx), Math.max(cy, ctx.rows - 1 - cy)) || 1;
+      const r = dist / maxDist;
+      // Edge displacement: sample the base field INWARD along the radial
+      // direction, so the border content stretches outward. The displacement
+      // is static (time-free), quantised by the field's own integer cells, and
+      // bounded by `edge.amount` cells at the frame border.
+      let colour = base;
+      if (ctx.sample && r > p.edge.start) {
+        const pull = p.edge.amount * smoothstep(p.edge.start, 1, r);
+        if (pull > 0 && dist > 0) {
+          colour = ctx.sample(x - (dx / dist) * pull, y - (dy / dist) * pull);
+        }
+      }
+      // The travelling wavefront: a WHOLE number of radial trips per loop.
+      const front = fract((t / LOOP_SECONDS) * p.trips);
+      // Discrete dotted streaks: the cell must sit on a hash-selected spoke
+      // (radial path), be a dot on that spoke (dotted, not a line), and sit
+      // inside the gaussian window of the wavefront at its own radius.
+      const angle = Math.atan2(dy, dx);
+      const spoke = Math.floor(((angle + Math.PI) / (Math.PI * 2)) * p.spokes);
+      const onSpoke = hashNoise(spoke, 0, p.seed) < p.spokeDensity;
+      const isDot = hashNoise(x, y, p.seed + 1) < p.dotFill;
+      let glow = 0;
+      if (onSpoke && isDot) {
+        const d = fract(r - front + 1) - 0.5;
+        glow = Math.exp(-(d * d) / (2 * p.sigma * p.sigma)) * p.intensity;
+      }
+      // Centre bloom: a dot cluster of the hot bone, fading with radius.
+      const bloom = Math.exp(-(r * r) / (2 * p.bloom.radius * p.bloom.radius)) * p.bloom.intensity;
+      // Alternate spokes carry the amber so the burst stays in the page accent.
+      const streakColour = spoke % 2 === 0 ? p.colour : p.amberColour;
+      let out = colour;
+      if (glow > 0) {
+        const lum = LUMA_R * out[0] + LUMA_G * out[1] + LUMA_B * out[2];
+        const preserve = 1 - p.keep * clamp01((lum - 0.55) / 0.45);
+        out = mix(out, streakColour, clamp01(glow * preserve));
+      }
+      if (bloom > 0.02) {
+        out = mix(out, p.hotColour, clamp01(bloom));
+      }
+      return out;
+    },
+  };
+}
+
+const BUILDERS = { warp: warpOverlay, stars: starsOverlay, aurora: auroraOverlay, grain: grainOverlay,
   glimmer: glimmerOverlay, wash: washOverlay, shimmer: shimmerOverlay };
 
 /** Build one overlay by id. Throws on an unknown id rather than guessing. */
@@ -258,11 +337,15 @@ export function makeOverlay(id, overrides = {}) {
 export function withOverlays(scene, ids, overrides = {}) {
   const active = OVERLAY_IDS.filter((id) => ids.includes(id)).map((id) => makeOverlay(id, overrides));
   if (active.length === 0) return scene;
-  const ctx = { cols: scene.cols, rows: scene.rows, loopSeconds: scene.cycleFrames / scene.fps };
   const baseField = scene.field;
+  const ctx = { cols: scene.cols, rows: scene.rows, loopSeconds: scene.cycleFrames / scene.fps };
   const field = (x, y, t) => {
+    // `sample` lets a displacement overlay (warp) read the BASE field at a
+    // shifted coordinate; it is the raw base only — later overlays in the
+    // catalogue compose over the displaced result, in the fixed order.
+    const ctxWithSample = { ...ctx, sample: (sx, sy) => baseField(sx, sy, t) };
     let colour = baseField(x, y, t);
-    for (const overlay of active) colour = overlay.apply(x, y, t, colour, ctx);
+    for (const overlay of active) colour = overlay.apply(x, y, t, colour, ctxWithSample);
     return colour;
   };
   return {

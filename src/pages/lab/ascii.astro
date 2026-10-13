@@ -85,11 +85,11 @@ const metadata = {
         Measured cost of each pane, shipped bytes at gzip level 6. The library's own bundle carries all eight library mounts
         on this page (two pieces, the six gallery scenes and this pane): <span class="font-mono">25256 B</span> gzip in one
         chunk, so that is not a per-pane number. Our engine, our scene, the WU17 shape catalogue, the WU18 image
-        pipeline and overlays and its runtime come to <span class="font-mono">37252 B</span> of JavaScript, shipped as
+        pipeline and overlays and its runtime come to <span class="font-mono">38647 B</span> of JavaScript, shipped as
         one chunk shared by the three laboratory routes (<span class="font-mono">/lab/ascii</span>,
         <span class="font-mono">/lab/shapes</span> and <span class="font-mono">/lab/image</span>) and, since WU20,
         the public coming-hero, measured at
-        <span class="font-mono">13924 B</span> gzip (palette re-pin: the joyan-page palette replaced the aurora greens/violets
+        <span class="font-mono">14497 B</span> gzip (WU26: the warp overlay joins the shared chunk
         sweeps and the page palette joined the chunk); WU17 replaced the single-page inline module with that shared chunk.
         The baked still is <span class="font-mono">35270 B</span> of PNG at 1600 × 800 and ships no script at all.
       </p>
@@ -116,7 +116,7 @@ const metadata = {
             Static fallback · JavaScript unavailable
           </p>
         </article>
-        <SceneCanvas scene="joyan-night-coast" variant="live" index="02 · ours · live" cost="engine + scene + catalogue + image pipeline + overlays + runtime: 13924 B gzip in the /lab/** chunk shared with both other laboratories and, since WU20, with the public coming-hero (WU22 re-measured); 1600 × 800 backing store (8 px per cell)" />
+        <SceneCanvas scene="joyan-night-coast" variant="live" index="02 · ours · live" cost="engine + scene + catalogue + image pipeline + overlays + runtime: 14497 B gzip in the /lab/** chunk shared with both other laboratories and, since WU20, with the public coming-hero (WU22 re-measured); 1600 × 800 backing store (8 px per cell)" />
         <SceneCanvas scene="joyan-night-coast" variant="baked" index="03 · ours · baked" cost="the engine's own poster frame, 35270 B PNG, 1600 × 800, no JavaScript" />
       </div>
       <p class="mt-5 max-w-prose text-sm text-plomo-400">

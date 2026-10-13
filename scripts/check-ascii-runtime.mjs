@@ -149,8 +149,8 @@ const baselineBudget = await json('.artifacts/iteration-2-client-js.json');
 const LANDING_HASHES = {
   'client.BxDIQlYz.js': { gz: 60302, sha256: 'ed1f3e2228ec0a53328513096c375276d3aea8e4c8e2ded754af7b67a13d77f0' },
   'client.kF-MUc6b.js': { gz: 27057, sha256: 'c72b737a3f669a7845f10ec12cf2206a3d4f964c2aef13d4572c6b831b74937d' },
-  'JoyanComingHero.astro_astro_type_script_index_0_lang.DtHA3kec.js': { gz: 56, sha256: '547fede9a6d7d2d53cec4c1f896521112e28d6ccc1a622670bf011097089825b' },
-  'scene-runtime.DMQ3-fYM.js': { gz: 13924, sha256: '5f37fe38f9a51da3af45735517e687454120f2923b5b70147d6c3f0bc094febf' },
+  'JoyanComingHero.astro_astro_type_script_index_0_lang.BHdqzdMQ.js': { gz: 56, sha256: '0828263454d8c6844c4eb8ff0a4cd3b8e5eab6877c1628b290615a25efdf4315' },
+  'scene-runtime.DrvccjM6.js': { gz: 14497, sha256: '9d0baf6a434b354793d8ef2022fe6a3aa8ea90a4ce5a8d8dec08b33fe1f8c25a' },
 };
 const landingChunkNames = Object.keys(chunks).filter((name) => LANDING_HASHES[name]);
 for (const name of Object.keys(LANDING_HASHES)) {
@@ -174,7 +174,7 @@ const totalGzip = assetGzip + inlineGzip;
 // framer-motion reveal/viewport chunks left with the old landing). The lab
 // accounting below includes the shared chunk's real bytes: the laboratory
 // executes the same engine the coming-hero does.
-const LANDING_FIVE_GZIP = 101339; // WU22 re-measure (engine chunk grew with tone cap, roll, sweeps, page palette)
+const LANDING_FIVE_GZIP = 101912; // WU26 re-measure (the warp overlay joins the shared chunk)
 const landingGzip = landingChunkNames.reduce((sum, name) => sum + chunks[name].gzip, 0);
 check(landingChunkNames.length === 4 && landingGzip === LANDING_FIVE_GZIP,
   `WU20 landing four-chunk set changed: ${landingChunkNames.length} chunks / ${landingGzip} B gzip`);
@@ -182,7 +182,7 @@ const labChunkNames = Object.keys(chunks).filter((name) => !LANDING_HASHES[name]
 const labChunkGzip = labChunkNames.reduce((sum, name) => sum + chunks[name].gzip, 0);
 // The shared scene-runtime chunk is landing-attributed but the lab runs it
 // too; the honest lab total adds its bytes once.
-const sharedChunkGzip = 13924; // palette re-pin (joyan-page without aurora greens/violets)
+const sharedChunkGzip = 14497; // WU26 (warp overlay joins the shared chunk)
 const labTotalGzip = labChunkGzip + sharedChunkGzip + inlineGzip;
 // Cap prior (RED): the six scene modules at their own gzip level 9
 // (5318 + 7223 + 7317 + 7631 + 7724 + 7863 = 43076 B) plus the largest honest
@@ -236,8 +236,8 @@ const labTotalGzip = labChunkGzip + sharedChunkGzip + inlineGzip;
 // executable is the ascii runtime/library chunk 25,256 B + the shared chunk
 // 13,866 B + three 56 B entry chunks, 0 B inline. Cap re-measured as measured
 // + 2,048 B, the same documented margin, never a silent raise.
-const LAB_CAP_GZIP = 41396;
-const LAB_MEASURED_GZIP = 39348;
+const LAB_CAP_GZIP = 41969;
+const LAB_MEASURED_GZIP = 39921;
 const LAB_MARGIN_LIMIT = 4096;
 // What the lab page itself claims about its own cost. The copy must carry the
 // measured numbers, so a claim cannot drift away from the bundle it describes.
@@ -245,7 +245,7 @@ const LAB_MARGIN_LIMIT = 4096;
 // the lab engine chunk (engine + scene + shape catalogue + image pipeline +
 // overlays + runtime), found below by the scene id and the shape-laboratory
 // marker it contains.
-const LAB_CLAIMS = { libraryChunkGzip: 25256, ownModuleRaw: 37252, ownModuleGzip: 13924, bakedStillBytes: 35270 };
+const LAB_CLAIMS = { libraryChunkGzip: 25256, ownModuleRaw: 38647, ownModuleGzip: 14497, bakedStillBytes: 35270 };
 const withinLabCap = (total, cap) => total <= cap;
 assert.equal(withinLabCap(LAB_CAP_GZIP, LAB_CAP_GZIP), true);
 assert.equal(withinLabCap(LAB_CAP_GZIP + 1, LAB_CAP_GZIP), false);
@@ -637,7 +637,7 @@ try {
   // two coming-soon pages must not leak ANY laboratory runtime beyond the
   // coming-hero's own recorded set, and the archived routes must be OUT of the
   // build (the preview answers 404; the archive branch holds the old pages).
-  const WU20_LANDING_CHUNKS = ['JoyanComingHero.astro_astro_type_script_index_0_lang.DtHA3kec.js', 'scene-runtime.DMQ3-fYM.js'];
+  const WU20_LANDING_CHUNKS = ['JoyanComingHero.astro_astro_type_script_index_0_lang.BHdqzdMQ.js', 'scene-runtime.DrvccjM6.js'];
   for (const route of ['/', '/en']) {
     const page = await browser.newPage();
     const requests = [];

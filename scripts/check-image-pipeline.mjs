@@ -920,6 +920,44 @@ if (hasPipeline) {
   }
   wu22.sweeps = { ids: [...overlays.OVERLAY_IDS] };
 
+  // --- WU26 — the warp overlay: light-speed in our dot language. Radial dot
+  // streaks from a declared centre, a centre bloom of dots, and an optional
+  // radial displacement of the subject's dots near the frame border. All of
+  // it in the page palette, periodic by construction (whole trips per loop).
+  check(overlays.OVERLAY_IDS.includes('warp'), 'the WU26 catalogue must include the warp overlay');
+  check(overlays.OVERLAY_DEFAULTS.warp && typeof overlays.OVERLAY_DEFAULTS.warp === 'object',
+    'the warp overlay must declare its frozen defaults');
+  check(typeof overlays.OVERLAY_LABELS.warp === 'string' && overlays.OVERLAY_LABELS.warp.length > 10,
+    'the warp overlay must state what it does, for the laboratory controls');
+  let warpProbe = null;
+  try {
+    warpProbe = overlays.makeOverlay('warp');
+  } catch {
+    // The overlay does not exist yet: that is exactly what this assertion reports.
+  }
+  check(warpProbe && typeof warpProbe.apply === 'function', 'the warp overlay must build and apply');
+  if (overlays.OVERLAY_DEFAULTS.warp) {
+    const pageEntries = pipeline.IMAGE_PALETTES.find((entry) => entry.id === pipeline.PAGE_PALETTE_ID)?.palette ?? [];
+    const pageRgb = new Set(pageEntries.map((hex) => {
+      const r = parseInt(hex.slice(1, 3), 16) / 255, g = parseInt(hex.slice(3, 5), 16) / 255, b = parseInt(hex.slice(5, 7), 16) / 255;
+      return [r, g, b].map((v) => Math.round(v * 255));
+    }).map((v) => v.join(',')));
+    const toRgb = (v) => v.map((c) => Math.round(c * 255)).join(',');
+    const colours = ['colour', 'hotColour'].map((key) => overlays.OVERLAY_DEFAULTS.warp[key]).filter(Boolean);
+    for (const colour of colours) {
+      check(pageRgb.has(toRgb(colour)),
+        `the warp colour ${toRgb(colour)} must be a joyan-page palette entry (the effect stays in the page palette)`);
+    }
+    check(overlays.OVERLAY_DEFAULTS.warp.trips >= 1 && Number.isInteger(overlays.OVERLAY_DEFAULTS.warp.trips),
+      'the warp streaks must travel a whole number of trips per loop (periodic by construction)');
+    check(overlays.OVERLAY_DEFAULTS.warp.bloom && overlays.OVERLAY_DEFAULTS.warp.bloom.radius > 0,
+      'the warp must declare a centre bloom');
+  }
+  // The round-only ladder is untouched by WU26: the top rung stays the
+  // inscribed disc (coverage PI/4, radius 0.5) and nothing paints a square.
+  check(Math.abs(engine.COVERAGE[4] - Math.PI / 4) < 1e-9 && Math.abs(engine.DOT_RADIUS[4] - 0.5) < 1e-9,
+    'the no-square invariant must hold: the top rung stays the inscribed disc (PI/4, radius 0.5)');
+
   // 5. The page palette: built from the site tokens (ink-950 ground, bone-50
   //    ink, amber accent), with the aurora adapted and one combining accent;
   //    ground is index 0 and the palette stays within the engine's 32-entry bound.

@@ -95,6 +95,12 @@ export const LAB_TREATMENTS = Object.freeze([
   Object.freeze({ id: 'glimmer', label: 'glimmer sweep', overlays: Object.freeze(['glimmer']), palette: 'ink' }),
   Object.freeze({ id: 'all', label: 'every overlay', overlays: Object.freeze(['stars', 'aurora', 'grain', 'glimmer']),
     palette: 'aurora' }),
+  // WU26 — the light-speed comparison the user asked for: the same subject at
+  // the same grid, page palette, sweep family versus warp.
+  Object.freeze({ id: 'page-wash', label: 'page palette · wash sweep', overlays: Object.freeze(['stars', 'aurora', 'wash']),
+    palette: 'joyan-page' }),
+  Object.freeze({ id: 'page-warp', label: 'page palette · warp (light-speed)', overlays: Object.freeze(['stars', 'aurora', 'warp']),
+    palette: 'joyan-page' }),
 ]);
 
 export const LAB_INPUT_IDS = LOCAL_INPUTS.map((entry) => entry.id);
