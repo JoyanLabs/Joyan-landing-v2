@@ -953,6 +953,15 @@ if (hasPipeline) {
     check(overlays.OVERLAY_DEFAULTS.warp.bloom && overlays.OVERLAY_DEFAULTS.warp.bloom.radius > 0,
       'the warp must declare a centre bloom');
   }
+  // --- WU27 — the warp runs SLOWER AND WIDER (user direction after WU26):
+  // fewer trips per loop and a wider gaussian window, so it reads as light-speed
+  // without competing with the star field. The seam stays exactly 0 (the generic
+  // seam loop below re-measures it); scripts/check-sequence-lab.mjs pins the
+  // same constants from the sequence side.
+  check(overlays.OVERLAY_DEFAULTS.warp?.trips === 2,
+    `WU27: the warp must travel TWO whole trips per 30 s loop (slower, was 3), saw ${overlays.OVERLAY_DEFAULTS.warp?.trips}`);
+  check(overlays.OVERLAY_DEFAULTS.warp?.sigma === 0.09,
+    `WU27: the warp gaussian window must be sigma 0.09 (wider, was 0.05), saw ${overlays.OVERLAY_DEFAULTS.warp?.sigma}`);
   // The round-only ladder is untouched by WU26: the top rung stays the
   // inscribed disc (coverage PI/4, radius 0.5) and nothing paints a square.
   check(Math.abs(engine.COVERAGE[4] - Math.PI / 4) < 1e-9 && Math.abs(engine.DOT_RADIUS[4] - 0.5) < 1e-9,

@@ -13,7 +13,7 @@ const metadata = {
 };
 // The cost line is a prop so the page cannot claim a number nobody measured; the
 // numbers below are the WU17 build measurements.
-const cost = 'Measured cost, gzip level 6, the same engine chunk all three laboratory routes share (and, since WU20, the public coming-hero): 38647 B of JavaScript raw / 14497 B gzip for the engine, the scene, the shape catalogue, the image pipeline, the overlays and the runtime; the whole laboratory allowance is 39921 B gzip, capped at 41969 B (measured + 2048 B). The WU26 landing set (four chunks, 101912 B gzip) pins this shared chunk by hash; the scene gained the WU19 fifth ladder rung and was re-baked.';
+const cost = 'Measured cost, gzip level 6, the same engine chunks all laboratory routes share (and, since WU20, the public coming-hero): 21452 B raw / 8838 B gzip for the engine, the scene, the shape catalogue, the image pipeline and the overlays, plus 17363 B raw / 6358 B gzip for the runtime (WU27: the shared scene graph split when /lab/sequence joined); the whole laboratory allowance is 42889 B gzip, capped at 44937 B (measured + 2048 B). The WU27 landing set (five chunks, 102611 B gzip) pins these shared chunks by hash; the scene gained the WU19 fifth ladder rung and was re-baked.';
 ---
 
 <!doctype html>

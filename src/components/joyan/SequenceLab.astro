@@ -1,0 +1,239 @@
+---
+/**
+ * WU27 — the sequence laboratory. The real transition, not the rejected
+ * prototype: the scene shown here IS the scene the public page renders (the
+ * page embeds the same rolled serialised payload, the same grid, the same
+ * `joyan-page` palette and the same stars/aurora/wash overlays), and the
+ * act-1 → act-2 transition is the ENGINE's own `warp` overlay ramping up over
+ * it — the dots themselves accelerate. There is no second canvas and no
+ * particle effect: the only renderer is `scripts/scene-src/engine.mjs` through
+ * `~/lib/sequence-runtime` (lab-only), which quantises the warp ramp and
+ * starts it at bucket 0 — byte-identical to the public scene (checker-proven).
+ *
+ * Acts: 1 the VT323 terminal (page palette: bone text, amber prompt — never
+ * phosphor green), skippable by click/ArrowRight; 2 the literal Sarah Connor
+ * line over the live scene with its credit; 3 the watcher line, Joyan set in
+ * Michroma, and the contact row (mailto + the authored dot Discord mark). The
+ * ES/EN toggle is the ONLY control. Reduced motion skips to the final state
+ * over the static build-time poster; without JavaScript the server markup is
+ * that same final state.
+ */
+interface Props {
+  /** Build-time baked poster PNG of the scene's poster frame (data URI or asset path). */
+  poster: string;
+  /** The pipeline's own serialisation of the rolled scene, as JSON text. */
+  payload: string;
+  /** The honest subject note: which art this build shows, and why. */
+  subjectNote: string;
+}
+const { poster, payload, subjectNote } = Astro.props;
+
+/**
+ * The Discord mark, authored in OUR aesthetic — the same dot-grid Clyde
+ * silhouette the public hero's footer draws (the repo's authored mark, not a
+ * third-party asset). `#` is one dot; the eyes are the empty 2 × 2 gaps.
+ */
+const DISCORD_DOT_GRID = Object.freeze([
+  '....########....',
+  '..############..',
+  '.##############.',
+  '####..####..####',
+  '####..####..####',
+  '####..####..####',
+  '.##############.',
+  '..############..',
+  '...##########...',
+  '..###......###..',
+]);
+const dotRows = DISCORD_DOT_GRID.length;
+const dotCols = DISCORD_DOT_GRID[0].length;
+---
+
+<section
+  data-sequence-lab
+  class="relative min-h-[100dvh] w-full overflow-hidden"
+  aria-labelledby="sequence-lab-title"
+>
+  {/* The scene layer: the public page's scene, live. The baked poster is the
+      no-JS / reduced-motion still; the canvas takes over when the runtime
+      mounts. Both stretch cover over the viewport like the public hero. */}
+  <div class="scene-layer absolute inset-0" aria-hidden="true">
+    <img
+      src={poster}
+      alt=""
+      data-sequence-poster
+      width="1280"
+      height="640"
+      loading="eager"
+      decoding="async"
+      class="block h-full w-full object-cover"
+    />
+    <canvas class="block h-full w-full object-cover"></canvas>
+  </div>
+  {/* Measured scrim, as on the public hero: the copy region keeps contrast. */}
+  <div class="scrim absolute inset-0" aria-hidden="true"></div>
+
+  <div data-sequence-stage class="relative z-10 min-h-[100dvh] w-full cursor-pointer">
+    {/* Act 1 — the terminal. VT323 in the PAGE palette: bone text, amber
+        prompt, bone caret. No phosphor green anywhere. */}
+    <section
+      data-act="terminal"
+      class="sequence-act absolute inset-0 flex items-center justify-center px-6"
+    >
+      <div class="terminal w-full max-w-2xl text-left">
+        <p class="text-bone-50">
+          <span class="text-accent">&gt;</span>
+          <span data-sequence-typed data-sequence-terminal-text="Wake up, Neo…"> </span><span class="caret"></span>
+        </p>
+        <p data-sequence-hint class="mt-6 font-mono text-xs text-plomo-400">clic o → para avanzar</p>
+      </div>
+    </section>
+
+    {/* Act 2 — the literal fate line over the LIVE scene, with its credit. */}
+    <section
+      data-act="fate"
+      class="sequence-act absolute inset-0 flex flex-col items-center justify-center px-6 text-center"
+    >
+      <p
+        data-sequence-line
+        data-es="El futuro no está escrito. No hay destino, salvo el que hacemos nosotros."
+        data-en="The future is not set. There is no fate but what we make for ourselves."
+        class="max-w-3xl text-xl leading-relaxed text-bone-50 sm:text-3xl"
+      >El futuro no está escrito. No hay destino, salvo el que hacemos nosotros.</p>
+      <p class="mt-6 font-mono text-xs tracking-[0.24em] text-accent">TERMINATOR 2 · SARAH CONNOR</p>
+    </section>
+
+    {/* Act 3 — the watcher, Joyan in Michroma, the contact row. */}
+    <section
+      data-act="watcher"
+      class="sequence-act absolute inset-0 flex flex-col items-center justify-center px-6 text-center"
+    >
+      <p
+        data-sequence-line
+        data-es="Alguien tiene que mirar a las máquinas."
+        data-en="Someone has to watch the machines."
+        class="max-w-2xl text-lg leading-relaxed text-bone-100 sm:text-2xl"
+      >Alguien tiene que mirar a las máquinas.</p>
+      <p class="font-display mt-8 text-5xl uppercase text-bone-50 sm:text-7xl">Joyan</p>
+      <div class="mt-10 flex items-center justify-center gap-6">
+        <a
+          href="mailto:hello@joyan.dev"
+          class="font-mono text-sm text-bone-100 underline decoration-hairline underline-offset-4 transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
+        >hello@joyan.dev</a>
+        <span aria-label="Discord" title="Discord" data-discord-mark class="text-plomo-400">
+          <svg
+            viewBox={`0 0 ${dotCols} ${dotRows}`}
+            width="28"
+            height="18"
+            role="img"
+            aria-hidden="true"
+            class="block"
+          >
+            {DISCORD_DOT_GRID.map((row, y) =>
+              [...row].map((cellChar, x) =>
+                cellChar === '#' ? <circle cx={x + 0.5} cy={y + 0.5} r="0.44" fill="currentColor" /> : null
+              )
+            )}
+          </svg>
+        </span>
+      </div>
+    </section>
+  </div>
+
+  {/* The ES/EN toggle: the ONLY control on this route. */}
+  <button
+    type="button"
+    data-sequence-lang
+    class="fixed top-4 right-4 z-20 border border-hairline bg-ink-950/90 px-3 py-2 font-mono text-xs text-accent focus-visible:outline-2 focus-visible:outline-accent"
+  >EN</button>
+
+  <p data-sequence-status class="sr-only" role="status">
+    Final state · static poster
+  </p>
+  <p class="absolute bottom-3 left-4 z-10 max-w-md font-mono text-[11px] leading-snug text-plomo-500" data-subject-note>
+    {subjectNote}
+  </p>
+
+  <script is:inline type="application/json" data-sequence-scene set:html={payload} />
+</section>
+
+<script>
+  // The lab-only runtime. The engine (scripts/scene-src/engine.mjs) is the
+  // ONLY renderer: the transition is its own warp overlay ramping over the
+  // public scene — no parallel canvas, no particle effect.
+  import '~/lib/sequence-runtime';
+</script>
+
+<style>
+  .scene-layer {
+    display: grid;
+  }
+  /* The baked poster is the no-JS still; the canvas takes over on mount. */
+  [data-sequence-lab] canvas {
+    display: none;
+  }
+  [data-sequence-lab][data-playing] canvas {
+    display: block;
+  }
+  [data-sequence-lab][data-playing] [data-sequence-poster] {
+    display: none;
+  }
+  /* The acts crossfade on opacity only; the terminal departs (fades) while the
+     warp takes over. Without JS the final act is the server-rendered state. */
+  .sequence-act {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 900ms ease;
+  }
+  [data-sequence-lab]:not([data-ready]) [data-act='watcher'] {
+    opacity: 1;
+  }
+  .sequence-act-on {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .sequence-act-departed {
+    opacity: 0 !important;
+    pointer-events: none;
+  }
+  /* Act 1 — the VT323 terminal, coloured with the PAGE palette: bone text,
+     amber prompt. Explicitly no phosphor green. */
+  .terminal {
+    font-family: 'VT323', ui-monospace, monospace;
+    font-size: clamp(20px, 3.4vw, 30px);
+    line-height: 1.3;
+  }
+  .caret {
+    display: inline-block;
+    width: 0.6em;
+    height: 1.1em;
+    margin-left: 0.1em;
+    vertical-align: -0.15em;
+    background: var(--color-bone-50);
+    animation: sequence-caret-blink 900ms steps(1) infinite;
+  }
+  @keyframes sequence-caret-blink {
+    50% {
+      opacity: 0;
+    }
+  }
+  /* The scrim matches the public hero's measured gradient (contrast >= 4.5:1
+     behind the text over the brightest scene pixel). */
+  .scrim {
+    background: linear-gradient(
+      105deg,
+      rgb(11 11 12 / 0.92) 0%,
+      rgb(11 11 12 / 0.85) 34%,
+      rgb(11 11 12 / 0.4) 62%,
+      rgb(11 11 12 / 0.55) 100%
+    );
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .caret {
+      animation: none;
+    }
+    .sequence-act {
+      transition: none;
+    }
+  }
+</style>

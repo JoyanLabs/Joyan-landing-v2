@@ -1,0 +1,119 @@
+---
+/**
+ * WU27 — `/lab/sequence`: the sequence as a REAL laboratory route that mounts
+ * the engine, not the rejected standalone prototype. Noindex, self-canonical,
+ * like every other /lab route.
+ *
+ * The scene here is THE SCENE THE PUBLIC PAGE RENDERS: the same conversion of
+ * the gitignored unicorn fixture (or our authored Joyan mark when the fixture
+ * is absent — this page says so), the same HERO_ROLL placement, the same
+ * `joyan-page` palette, the same stars/aurora/wash overlays, and the same
+ * build-time poster bake. The act-1 → act-2 transition is the ENGINE's own
+ * `warp` overlay ramping up over that scene (scripts/scene-src/sequence-warp.mjs
+ * pins the ramp; scripts/check-sequence-lab.mjs proves bucket 0 rasterises
+ * byte-identical to the public composition). No external requests: fonts are
+ * self-hosted (public/fonts/, OFL).
+ */
+import '~/assets/styles/tailwind.css';
+import CommonMeta from '~/components/common/CommonMeta.astro';
+import Metadata from '~/components/common/Metadata.astro';
+import Favicons from '~/components/Favicons.astro';
+import { getCanonical } from '~/utils/permalinks';
+import SequenceLab from '~/components/joyan/SequenceLab.astro';
+import { convert } from '../../../scripts/scene-src/from-image.mjs';
+import { applyTreatment } from '../../../scripts/scene-src/overlays.mjs';
+import {
+  serializeScene, sceneFromSerialized, rollSerializedScene, PAGE_PALETTE_ID, IMAGE_PALETTES,
+} from '../../../scripts/scene-src/image-pipeline.mjs';
+import { LOCAL_INPUTS } from '../../../scripts/scene-src/local-inputs.mjs';
+import { renderFrame, rasterize, DELIVERY_CELL } from '../../../scripts/scene-src/engine.mjs';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+import sharp from 'sharp';
+
+const metadata = {
+  title: 'The sequence · real transition lab',
+  description: 'Laboratory: the engine warp transition over the scene the public page renders, with Michroma and the page palette.',
+  canonical: String(getCanonical('/lab/sequence')),
+  robots: { index: false, follow: false },
+};
+
+// The hero recipe — the SAME the public page runs (scripts/check-sequence-lab.mjs
+// asserts the roll, the palette and the overlay set agree with index.astro).
+const HERO_ROLL = 18;
+const HERO_OVERLAYS = ['stars', 'aurora', 'wash'];
+
+const HERO_FIXTURE = resolve('dist-motion-verify/wu18/input/blade-runner-unicorn-line-transparent.svg');
+const heroHasFixture = existsSync(HERO_FIXTURE);
+const heroConverted = await convert(
+  heroHasFixture ? HERO_FIXTURE : (LOCAL_INPUTS.find((entry) => entry.id === 'joyan-mark')?.svg ?? ''),
+  {
+    cols: 160, rows: 80, mode: 'ink', colorMode: 'levels', palette: 'ink',
+    id: 'joyan-coming-hero',
+    label: heroHasFixture
+      ? 'the sequence lab scene — the same conversion the public page renders (Blade Runner unicorn, design attributed to Tom Southwell, demonstration; attribution in docs/MOTOR-ESCENAS.md)'
+      : 'the Joyan mark — ring, two triangles, axis and dots',
+  },
+);
+// The rolled, treated serialisation is the ONE payload the runtime receives —
+// the exact contract the public page uses, so the lab scene IS the page scene.
+const heroRolledPayload = rollSerializedScene(serializeScene(heroConverted.scene), HERO_ROLL);
+const heroScene = applyTreatment(
+  sceneFromSerialized(heroRolledPayload),
+  { palette: PAGE_PALETTE_ID, overlays: HERO_OVERLAYS },
+  IMAGE_PALETTES,
+);
+const payload = JSON.stringify(serializeScene(heroScene));
+
+// The static poster for no-JS and reduced motion: the SAME engine raster the
+// public page bakes. With the fixture present it is embedded as a data URI
+// (never a committed derivative); the committed mark poster is the fallback.
+let poster: string;
+if (heroHasFixture) {
+  const frame = renderFrame(heroScene, heroScene.posterFrame, { dither: 'bayer4', density: 1 });
+  const rgba = rasterize(frame, heroScene, DELIVERY_CELL);
+  const png = await sharp(Buffer.from(rgba), { raw: { width: frame.cols * DELIVERY_CELL, height: frame.rows * DELIVERY_CELL, channels: 4 } })
+    .png({ compressionLevel: 9, adaptiveFiltering: false })
+    .toBuffer();
+  poster = `data:image/png;base64,${png.toString('base64')}`;
+} else {
+  poster = '/assets/dither/coming-hero.png';
+}
+
+// The honest subject note, visible on the route: the unicorn is a gitignored
+// fixture; when it is absent this build shows our authored mark instead, and
+// the page says so.
+const subjectNote = heroHasFixture
+  ? 'Subject: the same conversion the public page renders — based on the Blade Runner unicorn, design attributed to Tom Southwell (demonstration; the fixture is gitignored, attribution in docs/MOTOR-ESCENAS.md).'
+  : 'The unicorn fixture is absent on this machine — this build shows our authored Joyan mark with the same engine, palette and overlays.';
+---
+
+<!doctype html>
+<html lang="en" dir="ltr">
+  <head>
+    <CommonMeta />
+    <Favicons />
+    <Metadata {...metadata} lang="en" />
+    <meta name="theme-color" content="#0B0B0C" />
+  </head>
+  <body class="bg-ink-950 font-sans text-bone-100 antialiased">
+  <main id="main" tabindex="-1" class="mx-auto max-w-6xl px-0 py-0 sm:px-0">
+    <div class="px-4 pt-4 sm:px-6">
+      <a data-lab-return data-astro-reload href="/" class="font-mono text-sm text-bone-100 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-accent">← Return to landing</a>
+      <a href="/lab/ascii" class="ml-4 font-mono text-sm text-bone-100 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-accent">ASCII comparison →</a>
+      <a href="/lab/image" class="ml-4 font-mono text-sm text-bone-100 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-accent">Image laboratory →</a>
+      <p class="mt-4 font-mono text-xs uppercase tracking-widest text-plomo-400">Lab / WU27 / experimental only</p>
+      <h1 id="sequence-lab-title" class="font-display mt-2 text-xl text-bone-50 sm:text-2xl">The sequence, on the real engine.</h1>
+    </div>
+    <SequenceLab poster={poster} payload={payload} subjectNote={subjectNote} />
+    <div class="px-4 pb-10 sm:px-6">
+      <p class="max-w-prose font-mono text-xs leading-relaxed text-plomo-500">
+        The scene above is the same serialised payload, grid, palette and overlay set the public page renders; the
+        act-1 → act-2 transition is the engine's own warp overlay ramping up over it (no second renderer). Reduced
+        motion shows the final state over the static build-time poster. Without JavaScript the server markup is that
+        same final state. No external requests: Michroma and VT323 are self-hosted under the OFL (public/fonts/).
+      </p>
+    </div>
+  </main>
+  </body>
+</html>

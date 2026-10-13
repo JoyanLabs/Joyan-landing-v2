@@ -149,8 +149,12 @@ const baselineBudget = await json('.artifacts/iteration-2-client-js.json');
 const LANDING_HASHES = {
   'client.BxDIQlYz.js': { gz: 60302, sha256: 'ed1f3e2228ec0a53328513096c375276d3aea8e4c8e2ded754af7b67a13d77f0' },
   'client.kF-MUc6b.js': { gz: 27057, sha256: 'c72b737a3f669a7845f10ec12cf2206a3d4f964c2aef13d4572c6b831b74937d' },
-  'JoyanComingHero.astro_astro_type_script_index_0_lang.BHdqzdMQ.js': { gz: 56, sha256: '0828263454d8c6844c4eb8ff0a4cd3b8e5eab6877c1628b290615a25efdf4315' },
-  'scene-runtime.DrvccjM6.js': { gz: 14497, sha256: '9d0baf6a434b354793d8ef2022fe6a3aa8ea90a4ce5a8d8dec08b33fe1f8c25a' },
+  'JoyanComingHero.astro_astro_type_script_index_0_lang.Ce_NrdSI.js': { gz: 56, sha256: 'd48e9f80f8ca41eba0b5b0bae156a58fbe0d1d95fa126a00124bb92be3d15ced' },
+  // WU27 re-measure (never silently): the /lab/sequence entry split the shared
+  // scene graph — the engine/pipeline/overlays modules now travel in their own
+  // chunk alongside the runtime chunk. The landing set is FIVE chunks.
+  'scene-runtime.DF5VAA6M.js': { gz: 6358, sha256: 'b8c429a16684478326eb4c8225647c2e03e9bd0fc38be1f71dbfb43e51fbd2a6' },
+  'overlays.DmGxdxxu.js': { gz: 8838, sha256: '8594b3843117f990862c7482fab071efcdcefd03130913096375a85c47f37b28' },
 };
 const landingChunkNames = Object.keys(chunks).filter((name) => LANDING_HASHES[name]);
 for (const name of Object.keys(LANDING_HASHES)) {
@@ -174,15 +178,15 @@ const totalGzip = assetGzip + inlineGzip;
 // framer-motion reveal/viewport chunks left with the old landing). The lab
 // accounting below includes the shared chunk's real bytes: the laboratory
 // executes the same engine the coming-hero does.
-const LANDING_FIVE_GZIP = 101912; // WU26 re-measure (the warp overlay joins the shared chunk)
+const LANDING_FIVE_GZIP = 102611; // WU27 re-measure (the shared scene graph split into runtime + engine chunks; warp slower/wider)
 const landingGzip = landingChunkNames.reduce((sum, name) => sum + chunks[name].gzip, 0);
-check(landingChunkNames.length === 4 && landingGzip === LANDING_FIVE_GZIP,
-  `WU20 landing four-chunk set changed: ${landingChunkNames.length} chunks / ${landingGzip} B gzip`);
+check(landingChunkNames.length === 5 && landingGzip === LANDING_FIVE_GZIP,
+  `WU27 landing five-chunk set changed: ${landingChunkNames.length} chunks / ${landingGzip} B gzip`);
 const labChunkNames = Object.keys(chunks).filter((name) => !LANDING_HASHES[name]);
 const labChunkGzip = labChunkNames.reduce((sum, name) => sum + chunks[name].gzip, 0);
-// The shared scene-runtime chunk is landing-attributed but the lab runs it
-// too; the honest lab total adds its bytes once.
-const sharedChunkGzip = 14497; // WU26 (warp overlay joins the shared chunk)
+// The shared scene graph (runtime + engine chunks) is landing-attributed but
+// the lab runs it too; the honest lab total adds its bytes once.
+const sharedChunkGzip = 15196; // WU27 (6358 runtime + 8838 engine, both shared by the public hero and the labs)
 const labTotalGzip = labChunkGzip + sharedChunkGzip + inlineGzip;
 // Cap prior (RED): the six scene modules at their own gzip level 9
 // (5318 + 7223 + 7317 + 7631 + 7724 + 7863 = 43076 B) plus the largest honest
@@ -236,16 +240,19 @@ const labTotalGzip = labChunkGzip + sharedChunkGzip + inlineGzip;
 // executable is the ascii runtime/library chunk 25,256 B + the shared chunk
 // 13,866 B + three 56 B entry chunks, 0 B inline. Cap re-measured as measured
 // + 2,048 B, the same documented margin, never a silent raise.
-const LAB_CAP_GZIP = 41969;
-const LAB_MEASURED_GZIP = 39921;
+const LAB_CAP_GZIP = 44937;
+const LAB_MEASURED_GZIP = 42889;
 const LAB_MARGIN_LIMIT = 4096;
 // What the lab page itself claims about its own cost. The copy must carry the
 // measured numbers, so a claim cannot drift away from the bundle it describes.
-// `libraryChunkGzip` is the ascii.rest bundle; `ownModuleRaw`/`ownModuleGzip` are
-// the lab engine chunk (engine + scene + shape catalogue + image pipeline +
-// overlays + runtime), found below by the scene id and the shape-laboratory
-// marker it contains.
-const LAB_CLAIMS = { libraryChunkGzip: 25256, ownModuleRaw: 38647, ownModuleGzip: 14497, bakedStillBytes: 35270 };
+// `libraryChunkGzip` is the ascii.rest bundle (unchanged at 25,256 B gzip).
+// WU27 SPLIT the shared scene graph: `engineChunkRaw/Gzip` is the chunk that
+// now carries the engine + scene + shape catalogue + image pipeline + overlays
+// (found by the renderFrame/bayer4 markers), and `ownModuleRaw/Gzip` is the
+// runtime chunk (found by the shape-laboratory marker), both shared with the
+// public coming-hero.
+const LAB_CLAIMS = { libraryChunkGzip: 25256, engineChunkRaw: 21452, engineChunkGzip: 8838,
+  ownModuleRaw: 17363, ownModuleGzip: 6358, bakedStillBytes: 35270 };
 const withinLabCap = (total, cap) => total <= cap;
 assert.equal(withinLabCap(LAB_CAP_GZIP, LAB_CAP_GZIP), true);
 assert.equal(withinLabCap(LAB_CAP_GZIP + 1, LAB_CAP_GZIP), false);
@@ -311,15 +318,25 @@ const distChunk = async (name) => {
   return '';
 };
 let ownModule = null;
+let engineChunk = null;
 for (const name of Object.keys(chunks)) {
   const source = await distChunk(name);
+  // WU27: the shared scene graph is SPLIT — the runtime chunk (with the shape
+  // laboratory mount and the scene registry default) and the engine chunk
+  // (renderFrame/bayer4) are measured separately.
   if (source.includes(OWN_SCENE) && source.includes('data-shape-lab')) {
     ownModule = { name, bytes: Buffer.byteLength(source), gzip: gzipSync(source).length };
+  }
+  if (source.includes('renderFrame') && source.includes('bayer4')) {
+    engineChunk = { name, bytes: Buffer.byteLength(source), gzip: gzipSync(source).length };
   }
 }
 check(Boolean(ownModule) && ownModule.bytes === LAB_CLAIMS.ownModuleRaw
   && ownModule.gzip === LAB_CLAIMS.ownModuleGzip,
-`the lab's own engine chunk must measure ${LAB_CLAIMS.ownModuleRaw}/${LAB_CLAIMS.ownModuleGzip} B raw/gzip, saw ${JSON.stringify(ownModule ?? null)}`);
+`the lab's own runtime chunk must measure ${LAB_CLAIMS.ownModuleRaw}/${LAB_CLAIMS.ownModuleGzip} B raw/gzip, saw ${JSON.stringify(ownModule ?? null)}`);
+check(Boolean(engineChunk) && engineChunk.bytes === LAB_CLAIMS.engineChunkRaw
+  && engineChunk.gzip === LAB_CLAIMS.engineChunkGzip,
+`the lab's engine chunk must measure ${LAB_CLAIMS.engineChunkRaw}/${LAB_CLAIMS.engineChunkGzip} B raw/gzip, saw ${JSON.stringify(engineChunk ?? null)}`);
 for (const [label, value] of Object.entries(LAB_CLAIMS)) {
   check(html.includes(`${value} B`),
     `the comparison must state the measured ${label} (${value} B), not an invented number`);
@@ -637,7 +654,11 @@ try {
   // two coming-soon pages must not leak ANY laboratory runtime beyond the
   // coming-hero's own recorded set, and the archived routes must be OUT of the
   // build (the preview answers 404; the archive branch holds the old pages).
-  const WU20_LANDING_CHUNKS = ['JoyanComingHero.astro_astro_type_script_index_0_lang.BHdqzdMQ.js', 'scene-runtime.DrvccjM6.js'];
+  // WU27 — the shared scene graph SPLIT: the public hero now legitimately
+  // fetches the engine chunk (overlays.*) beside the runtime chunk; the client
+  // chunks and the entry chunk are part of the same recorded landing set.
+  const WU20_LANDING_CHUNKS = ['JoyanComingHero.astro_astro_type_script_index_0_lang.Ce_NrdSI.js',
+    'scene-runtime.DF5VAA6M.js', 'overlays.DmGxdxxu.js'];
   for (const route of ['/', '/en']) {
     const page = await browser.newPage();
     const requests = [];

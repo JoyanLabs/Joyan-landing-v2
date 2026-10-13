@@ -253,12 +253,16 @@ for (const dir of ['src/components', 'src/layouts']) {
 }
 // WU17 added `ShapeLab.astro` for `/lab/shapes`; WU18 added `ImageLab.astro` for
 // `/lab/image`; WU20 added `JoyanComingHero.astro` for the single coming-soon
-// page. No other component or layout may reference the runtime.
+// page; WU27 added `SequenceLab.astro` for `/lab/sequence` (the engine-driven
+// sequence: the same runtime path, the lab-only sequence runtime imports the
+// engine modules through the same shared chunks). No other component or layout
+// may reference the runtime.
 const allowedRuntimeImporters = ['src/components/joyan/SceneCanvas.astro', 'src/components/joyan/ShapeLab.astro',
-  'src/components/joyan/ImageLab.astro', 'src/components/joyan/JoyanComingHero.astro'];
+  'src/components/joyan/ImageLab.astro', 'src/components/joyan/JoyanComingHero.astro',
+  'src/components/joyan/SequenceLab.astro'];
 check(runtimeImporters.every((path) => allowedRuntimeImporters.includes(path))
   && allowedRuntimeImporters.every((path) => runtimeImporters.includes(path)),
-`only the laboratory's own SceneCanvas.astro, ShapeLab.astro and ImageLab.astro may reference the scene runtime: ${runtimeImporters.join(', ')}`);
+`only the laboratory's own SceneCanvas.astro, ShapeLab.astro, ImageLab.astro, JoyanComingHero.astro and SequenceLab.astro may reference the scene runtime: ${runtimeImporters.join(', ')}`);
 let bakedFile;
 try {
   bakedFile = await readFile(resolve(root, BAKED_SOURCE));

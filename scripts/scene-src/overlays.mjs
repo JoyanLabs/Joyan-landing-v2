@@ -46,7 +46,7 @@ export const OVERLAY_LABELS = Object.freeze({
   glimmer: 'glimmer sweep (soft subject-preserving band, whole sweeps per loop, WU22 tuned)',
   wash: 'colour wash (a wide tinted band crosses the whole scene and fades through two hues, WU22)',
   shimmer: 'shimmer band (a narrow bright band with hash sparkle travels whole sweeps per loop, WU22)',
-  warp: 'warp (light-speed in dots: discrete dot streaks on radial spokes leave a centre bloom, whole trips per loop, and the subject dots displace radially near the frame border, WU26)',
+  warp: 'warp (light-speed in dots: discrete dot streaks on radial spokes leave a centre bloom, two whole trips per loop with a wide gaussian window — WU27 slower/wider — and the subject dots displace radially near the frame border, WU26)',
 });
 
 /**
@@ -87,8 +87,13 @@ export const OVERLAY_DEFAULTS = Object.freeze({
   // subject's own dots displace radially: the overlay re-samples the BASE field
   // up to `edge.amount` cells inward, so the border content stretches outward
   // like the classic light-speed pull. Every colour is a joyan-page entry.
+  // WU27 (user direction, after the WU26 honest judgement): SLOWER and WIDER —
+  // two whole trips per 30 s loop instead of three, and the wavefront gaussian
+  // widens sigma 0.05 -> 0.09, so the pulse reads as light-speed in motion
+  // without competing with the star field. The seam stays exactly 0 (whole
+  // trips, fract advance); re-measured by both checkers.
   warp: Object.freeze({ seed: 0x5af1, centre: Object.freeze([0.5, 0.46]), spokes: 48,
-    spokeDensity: 0.5, dotFill: 0.55, rings: 24, trips: 3, sigma: 0.05, intensity: 0.6,
+    spokeDensity: 0.5, dotFill: 0.55, rings: 24, trips: 2, sigma: 0.09, intensity: 0.6,
     keep: 0.35, bloom: Object.freeze({ radius: 0.05, intensity: 0.9 }),
     edge: Object.freeze({ start: 0.7, amount: 2.5 }),
     colour: Object.freeze([0.957, 0.949, 0.929]), hotColour: Object.freeze([1, 0.993, 0.973]),

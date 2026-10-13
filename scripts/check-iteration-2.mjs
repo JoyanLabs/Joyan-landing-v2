@@ -1488,17 +1488,23 @@ const sceneMovie = resolve(ROOT, 'public/assets/motion/harness-tones-dither.mp4'
 const WU20_LANDING_SET = {
   'client.BxDIQlYz.js': { gz: 60302, sha256: 'ed1f3e2228ec0a53328513096c375276d3aea8e4c8e2ded754af7b67a13d77f0' },
   'client.kF-MUc6b.js': { gz: 27057, sha256: 'c72b737a3f669a7845f10ec12cf2206a3d4f964c2aef13d4572c6b831b74937d' },
-  'JoyanComingHero.astro_astro_type_script_index_0_lang.BHdqzdMQ.js': { gz: 56, sha256: '0828263454d8c6844c4eb8ff0a4cd3b8e5eab6877c1628b290615a25efdf4315' },
-  'scene-runtime.DrvccjM6.js': { gz: 14497, sha256: '9d0baf6a434b354793d8ef2022fe6a3aa8ea90a4ce5a8d8dec08b33fe1f8c25a' },
+  'JoyanComingHero.astro_astro_type_script_index_0_lang.Ce_NrdSI.js': { gz: 56, sha256: 'd48e9f80f8ca41eba0b5b0bae156a58fbe0d1d95fa126a00124bb92be3d15ced' },
+  // WU27 re-measure (never silently): adding the /lab/sequence entry split the
+  // shared scene graph — the engine/pipeline/overlays modules moved to their
+  // own chunk, so the landing set is now FIVE chunks (the two client chunks
+  // byte-identical, the coming-hero entry, the runtime chunk and the new
+  // engine chunk), pinned by hash.
+  'scene-runtime.DF5VAA6M.js': { gz: 6358, sha256: 'b8c429a16684478326eb4c8225647c2e03e9bd0fc38be1f71dbfb43e51fbd2a6' },
+  'overlays.DmGxdxxu.js': { gz: 8838, sha256: '8594b3843117f990862c7482fab071efcdcefd03130913096375a85c47f37b28' },
 };
-const WU20_LANDING_GZIP = 101912;
+const WU20_LANDING_GZIP = 102611;
 const WU20_DELTA_LIMIT = 22 * 1024; // 22528 bytes, unchanged rule
 {
   const distJs = existsSync(cssDir) ? readdirSync(cssDir).filter((file) => file.endsWith('.js')) : [];
   const gzOf = (file) => gzipSync(readFileSync(resolve(cssDir, file))).length;
   const shaOf = (file) => createHash('sha256').update(readFileSync(resolve(cssDir, file))).digest('hex');
   const landingFiles = distJs.filter((file) => WU20_LANDING_SET[file]);
-  const extraFiles = distJs.filter((file) => !WU20_LANDING_SET[file] && !/^(?:AsciiRuntime|SceneCanvas|ShapeLab|ImageLab)\.astro_/.test(file));
+  const extraFiles = distJs.filter((file) => !WU20_LANDING_SET[file] && !/^(?:AsciiRuntime|SceneCanvas|ShapeLab|ImageLab|SequenceLab)\.astro_/.test(file));
   const changed = landingFiles.filter((file) => shaOf(file) !== WU20_LANDING_SET[file].sha256);
   if (landingFiles.length === Object.keys(WU20_LANDING_SET).length && changed.length === 0) {
     pass(`budget: the WU20 landing set is present and byte-identical (${landingFiles.length} chunk(s))`);
@@ -1529,7 +1535,7 @@ const WU20_DELTA_LIMIT = 22 * 1024; // 22528 bytes, unchanged rule
     fail('budget: baseline fixture missing (.artifacts/iteration-2-client-js.json)');
   }
   // Deterministic negative controls for the set rules.
-  const labEntry = (file) => /^(?:AsciiRuntime|SceneCanvas|ShapeLab|ImageLab)\.astro_/.test(file);
+  const labEntry = (file) => /^(?:AsciiRuntime|SceneCanvas|ShapeLab|ImageLab|SequenceLab)\.astro_/.test(file);
   const setProbe = (files) => {
     const hit = files.filter((file) => WU20_LANDING_SET[file]);
     const changed2 = hit.filter((file) => WU20_LANDING_SET[file].gz !== gzOf(file));

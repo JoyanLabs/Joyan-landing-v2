@@ -2,6 +2,27 @@
 @import '@fontsource-variable/archivo';
 @import '@fontsource-variable/jetbrains-mono';
 
+/* WU27 — self-hosted display faces (public/fonts/, OFL — see
+   public/fonts/OFL-NOTICE.txt). Michroma is the chosen display face (user
+   decision); VT323 serves only the /lab/sequence terminal in the page palette.
+   Both are static single-weight 400 files; a @font-face declaration alone
+   downloads nothing — a face is fetched only by rendered text that names it. */
+@font-face {
+  font-family: 'Michroma';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/michroma-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'VT323';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/vt323-400.woff2') format('woff2');
+}
+
 @plugin '@tailwindcss/typography';
 
 /*
@@ -57,9 +78,12 @@
   --radius-3xl: 0px;
   --radius-4xl: 0px;
 
+  /* WU27 — the display role is Michroma (user choice): the name and headings
+     on both public pages and the sequence lab. JetBrains Mono keeps the mono
+     roles and Archivo Variable keeps body text — unchanged. */
   --font-display:
-    'Archivo Variable', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
-    'Noto Color Emoji';
+    'Michroma', 'Archivo Variable', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    'Segoe UI Symbol', 'Noto Color Emoji';
   --font-sans:
     'Archivo Variable', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
     'Noto Color Emoji';
@@ -222,13 +246,19 @@
   @apply btn border-none shadow-none text-muted hover:text-gray-900 dark:text-gray-400 dark:hover:text-white;
 }
 
-/* Joyan display type: Archivo Variable at max width/weight, uppercase */
+/* Joyan display type (WU27): Michroma. Choice stated, not silent: Michroma is
+   a single-weight (400), naturally wide face — it has NO weight or width axis,
+   so the old Archivo display treatment (font-weight 850, font-stretch 125%)
+   would be a lie here: a 850 would synthesize a faux bold and a 125% stretch
+   does nothing on a face without a width axis. The utility therefore keeps the
+   uppercase (the display convention) and drops the axis fakes; the face's own
+   width carries the scale. Body text stays Archivo Variable, mono stays
+   JetBrains Mono Variable. */
 @utility text-display {
   font-family: var(--font-display);
-  font-stretch: 125%;
-  font-weight: 850;
+  font-weight: 400;
   text-transform: uppercase;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.01em;
 }
 
 @layer utilities {
