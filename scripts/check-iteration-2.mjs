@@ -1477,20 +1477,20 @@ const sceneMovie = resolve(ROOT, 'public/assets/motion/harness-tones-dither.mp4'
 //     The old five-chunk landing set died with the old landing: the
 //     framer-motion reveal/viewport chunks left the build. The recorded WU20
 //     set is client x2 (byte-identical to the WU12 recordings) + the hero
-//     entry + the shared scene-runtime chunk, 101281 B gzip total after the WU22
+//     entry + the shared scene-runtime chunk, 101339 B gzip total after the WU22
 //     re-measure (the engine chunk grew with the tone cap, the roll helper, the
 //     wash + shimmer sweeps and the page palette — re-measured loudly, never
 //     silently). The delta against the untouched committed fixture (91905 B) is
-//     9376 B and must stay <= 22528 B (22 KiB). Fail closed: any extra, missing
+//     9434 B and must stay <= 22528 B (22 KiB). Fail closed: any extra, missing
 //     or changed chunk fails here.
 // ---------------------------------------------------------------------------
 const WU20_LANDING_SET = {
   'client.BxDIQlYz.js': { gz: 60302, sha256: 'ed1f3e2228ec0a53328513096c375276d3aea8e4c8e2ded754af7b67a13d77f0' },
   'client.kF-MUc6b.js': { gz: 27057, sha256: 'c72b737a3f669a7845f10ec12cf2206a3d4f964c2aef13d4572c6b831b74937d' },
-  'JoyanComingHero.astro_astro_type_script_index_0_lang.TQG2gabZ.js': { gz: 56, sha256: 'b3cd477a3515e31640fd479c7031bb77dc84495e804734ffbc1586d23ee8e214' },
-  'scene-runtime.BYq3d7Le.js': { gz: 13866, sha256: '741a0145ecd439856b53d372258da6d4ece5ac61fbadfc1012615c94c9777451' },
+  'JoyanComingHero.astro_astro_type_script_index_0_lang.DtHA3kec.js': { gz: 56, sha256: '547fede9a6d7d2d53cec4c1f896521112e28d6ccc1a622670bf011097089825b' },
+  'scene-runtime.DMQ3-fYM.js': { gz: 13924, sha256: '5f37fe38f9a51da3af45735517e687454120f2923b5b70147d6c3f0bc094febf' },
 };
-const WU20_LANDING_GZIP = 101281;
+const WU20_LANDING_GZIP = 101339;
 const WU20_DELTA_LIMIT = 22 * 1024; // 22528 bytes, unchanged rule
 {
   const distJs = existsSync(cssDir) ? readdirSync(cssDir).filter((file) => file.endsWith('.js')) : [];

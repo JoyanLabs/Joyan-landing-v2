@@ -661,10 +661,10 @@ const candidate = gzipSum();
 // WU22 re-measure (never silently): the engine chunk grew with the tone cap,
 // the roll helper, the wash + shimmer overlays and the page palette, so the
 // scene-runtime chunk is now 13,866 B gzip under a new hash, and the landing
-// set totals 101,281 B gzip. The delta against the UNCHANGED WU12-era baseline
-// fixture (91,905 B) is 9,376 B — still far inside the untouched 22,528 B limit.
-const LANDING_FROZEN_GZIP = 101281;
-const LANDING_FROZEN_DELTA = 9376; // 101281 - 91905, baseline fixture untouched
+// set totals 101,339 B gzip. The delta against the UNCHANGED WU12-era baseline
+// fixture (91,905 B) is 9,434 B — still far inside the untouched 22,528 B limit.
+const LANDING_FROZEN_GZIP = 101339;
+const LANDING_FROZEN_DELTA = 9434; // 101339 - 91905, baseline fixture untouched
 // WU18 (38,211 B): the image→dot-scene pipeline, its browser-safe core, the
 // composable overlays and the `/lab/image` route were added to the SAME engine
 // chunk, now shared by THREE laboratory routes. The chunk measures 33,296 B raw
@@ -673,14 +673,14 @@ const LANDING_FROZEN_DELTA = 9376; // 101281 - 91905, baseline fixture untouched
 // re-measured as measured + 2,048 B, the same documented margin, never a silent
 // raise.
 //
-// WU19 (38,421 B -> WU20 38,904 B -> WU22 39,290 B): the scene-runtime chunk is
+// WU19 (38,421 B -> WU20 38,904 B -> WU22 39,290 B -> palette re-pin 39,348 B): the scene-runtime chunk is
 // shared by the THREE laboratory routes AND the two coming-soon pages, and WU22
 // grew it with the tone cap, the roll helper, the wash + shimmer sweeps and the
 // page palette. The lab executable is AsciiRuntime 25,256 B + engine chunk
 // 13,866 B + three 56 B entry chunks, with 0 B of executable inline on any lab
 // page. Cap re-measured as measured + 2,048 B, the same documented margin.
-const LAB_MEASURED_GZIP = 39290;
-const LAB_CAP_GZIP = 41338; // measured total + 2048 B honest margin (<= 4096 B)
+const LAB_MEASURED_GZIP = 39348;
+const LAB_CAP_GZIP = 41396; // measured total + 2048 B honest margin (<= 4096 B)
 const LAB_MARGIN_LIMIT = 4096;
 const LANDING_ROUTE_PAGES = ['index.html', 'en/index.html'];
 /** Every `/lab/**` page is a laboratory page; nothing else is. */
@@ -691,11 +691,11 @@ const isLabPage = (name) => name.startsWith('lab/') && name.endsWith('.html');
 // in this set: the coming-hero is the one runtime path on the public page, and
 // the laboratories share the same engine code.
 const LANDING_FROZEN_HASHES = {
-  '_astro/JoyanComingHero.astro_astro_type_script_index_0_lang.TQG2gabZ.js':
-    'b3cd477a3515e31640fd479c7031bb77dc84495e804734ffbc1586d23ee8e214',
+  '_astro/JoyanComingHero.astro_astro_type_script_index_0_lang.DtHA3kec.js':
+    '547fede9a6d7d2d53cec4c1f896521112e28d6ccc1a622670bf011097089825b',
   '_astro/client.BxDIQlYz.js': 'ed1f3e2228ec0a53328513096c375276d3aea8e4c8e2ded754af7b67a13d77f0',
   '_astro/client.kF-MUc6b.js': 'c72b737a3f669a7845f10ec12cf2206a3d4f964c2aef13d4572c6b831b74937d',
-  '_astro/scene-runtime.BYq3d7Le.js': '741a0145ecd439856b53d372258da6d4ece5ac61fbadfc1012615c94c9777451',
+  '_astro/scene-runtime.DMQ3-fYM.js': '5f37fe38f9a51da3af45735517e687454120f2923b5b70147d6c3f0bc094febf',
 };
 
 const isClientChunk = (file) => typeof file === 'string' && /\.js$/i.test(file);
