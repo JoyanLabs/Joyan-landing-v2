@@ -89,8 +89,13 @@ const subjectNote = heroHasFixture
 ---
 
 <!doctype html>
-<html lang="en" dir="ltr">
+<!-- WU28 — the honest initial state: `no-js` ships in the markup and the
+     inline script below replaces it BEFORE first paint when scripting runs,
+     so the SSR'd final state (for readers without JavaScript) is never
+     painted for visitors who have it. -->
+<html lang="en" dir="ltr" class="no-js">
   <head>
+    <script is:inline>document.documentElement.classList.replace('no-js', 'js');</script>
     <CommonMeta />
     <Favicons />
     <Metadata {...metadata} lang="en" />

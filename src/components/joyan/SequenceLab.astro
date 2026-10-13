@@ -179,13 +179,24 @@ const dotCols = DISCORD_DOT_GRID[0].length;
     display: none;
   }
   /* The acts crossfade on opacity only; the terminal departs (fades) while the
-     warp takes over. Without JS the final act is the server-rendered state. */
+     warp takes over. WU28 — the initial state is honest by construction, so
+     the pre-mount flash of the final act is impossible no matter when the
+     deferred module arrives:
+       - with scripting (html.js, set by the route's inline head script BEFORE
+         first paint) the terminal act is the initial state and the watcher
+         act is hidden — the runtime's showAct('typing') changes nothing, so
+         no 1→0 transition ever runs on the watcher;
+       - without scripting (html.no-js) the final state IS the initial state:
+         the watcher act over the static poster, exactly as before. */
   .sequence-act {
     opacity: 0;
     pointer-events: none;
     transition: opacity 900ms ease;
   }
-  [data-sequence-lab]:not([data-ready]) [data-act='watcher'] {
+  :global(html.js) [data-sequence-lab]:not([data-ready]) [data-act='terminal'] {
+    opacity: 1;
+  }
+  :global(html.no-js) [data-sequence-lab]:not([data-ready]) [data-act='watcher'] {
     opacity: 1;
   }
   .sequence-act-on {

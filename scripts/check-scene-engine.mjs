@@ -252,17 +252,24 @@ for (const dir of ['src/components', 'src/layouts']) {
   }
 }
 // WU17 added `ShapeLab.astro` for `/lab/shapes`; WU18 added `ImageLab.astro` for
-// `/lab/image`; WU20 added `JoyanComingHero.astro` for the single coming-soon
-// page; WU27 added `SequenceLab.astro` for `/lab/sequence` (the engine-driven
+// `/lab/image`; WU27 added `SequenceLab.astro` for `/lab/sequence` (the engine-driven
 // sequence: the same runtime path, the lab-only sequence runtime imports the
-// engine modules through the same shared chunks). No other component or layout
-// may reference the runtime.
+// engine modules through the same shared chunks). WU29 moved the public hero
+// to its own runtime (`~/lib/public-sequence`), so components referencing the
+// LAB runtime are laboratory-only. No other component or layout may reference
+// the runtime.
 const allowedRuntimeImporters = ['src/components/joyan/SceneCanvas.astro', 'src/components/joyan/ShapeLab.astro',
-  'src/components/joyan/ImageLab.astro', 'src/components/joyan/JoyanComingHero.astro',
-  'src/components/joyan/SequenceLab.astro'];
+  'src/components/joyan/ImageLab.astro', 'src/components/joyan/SequenceLab.astro'];
 check(runtimeImporters.every((path) => allowedRuntimeImporters.includes(path))
   && allowedRuntimeImporters.every((path) => runtimeImporters.includes(path)),
-`only the laboratory's own SceneCanvas.astro, ShapeLab.astro, ImageLab.astro, JoyanComingHero.astro and SequenceLab.astro may reference the scene runtime: ${runtimeImporters.join(', ')}`);
+`only the laboratory's own SceneCanvas.astro, ShapeLab.astro, ImageLab.astro and SequenceLab.astro may reference the lab runtime: ${runtimeImporters.join(', ')}`);
+// WU29 — the public hero's own runtime path, checked where it lives.
+const heroRuntimeSource = await readFile(resolve(root, 'src/components/joyan/JoyanComingHero.astro'), 'utf8');
+check(heroRuntimeSource.includes("import '~/lib/public-sequence'") && !heroRuntimeSource.includes('scene-runtime'),
+  'WU29: the coming-hero must import ~/lib/public-sequence and never the lab runtime');
+const publicSequenceSource = await readFile(resolve(root, 'src/lib/public-sequence.ts'), 'utf8');
+check(publicSequenceSource.includes('scene-src/engine.mjs') && publicSequenceSource.includes('sequence-warp.mjs'),
+  'WU29: public-sequence.ts must render through the engine and the shared warp ramp');
 let bakedFile;
 try {
   bakedFile = await readFile(resolve(root, BAKED_SOURCE));
@@ -303,11 +310,13 @@ const heroHasFixture = existsSync(HERO_FIXTURE);
 let heroPipeline = null;
 let heroOverlays = null;
 let heroBake = null;
+let heroRamp = null;
 let heroFromImage = null;
 let heroInputs = null;
 try {
   heroPipeline = await import(new URL('./scene-src/image-pipeline.mjs', import.meta.url));
   heroOverlays = await import(new URL('./scene-src/overlays.mjs', import.meta.url));
+  heroRamp = await import(new URL('./scene-src/sequence-warp.mjs', import.meta.url));
   heroBake = await import(new URL('./scene-src/bake.mjs', import.meta.url));
   heroFromImage = await import(new URL('./scene-src/from-image.mjs', import.meta.url));
   heroInputs = await import(new URL('./scene-src/local-inputs.mjs', import.meta.url));
@@ -1510,12 +1519,19 @@ if (hero.runtimeScene) {
     const frameProbe = await page.locator('[data-coming-hero]').evaluate(async (host) => {
       const canvas = host.querySelector('canvas');
       const frame = Number(host.dataset.heroFrame ?? -1);
+      const bucket = Number(host.dataset.heroBucket ?? 0);
       const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
       const digest = await crypto.subtle.digest('SHA-256', data);
-      return { frame, hash: [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('') };
+      return { frame, bucket, hash: [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('') };
     });
-    const frameN = engine.renderFrame(hero.runtimeScene, frameProbe.frame, { dither: 'bayer4', density: 1 });
-    const rasterN = engine.rasterize(frameN, hero.runtimeScene, engine.DELIVERY_CELL);
+    // WU29 — the intro paints the RAMP state (data-hero-bucket); state 0 is the
+    // base scene, states > 0 carry the warp. Build the scene the runtime drew.
+    const probeBucket = Number(frameProbe.bucket ?? 0);
+    const probeScene = probeBucket > 0
+      ? heroRamp.sequenceWarpScene(JSON.parse(hero.payload), probeBucket / heroRamp.WARP_RAMP.steps)
+      : hero.runtimeScene;
+    const frameN = engine.renderFrame(probeScene, frameProbe.frame, { dither: 'bayer4', density: 1 });
+    const rasterN = engine.rasterize(frameN, probeScene, engine.DELIVERY_CELL);
     check(frameProbe.hash === hash(Buffer.from(rasterN)),
       `WU20: the live canvas must hash against the Node raster of the SAME frame (${frameProbe.frame})`);
     // Offscreen and hidden must pause the loop. WU22's full-bleed hero changes

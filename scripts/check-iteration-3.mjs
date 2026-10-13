@@ -363,10 +363,18 @@ const WU20_PAGE_CONTRACT = (page, source) => {
 WU20_PAGE_CONTRACT('ES', read(resolve(ROOT, 'src/pages/index.astro')));
 WU20_PAGE_CONTRACT('EN', read(resolve(ROOT, 'src/pages/en/index.astro')));
 const heroSource = read(resolve(ROOT, 'src/components/joyan/JoyanComingHero.astro'));
-if (/import\s+'~\/lib\/scene-runtime'/.test(heroSource)) {
-  pass('imports: JoyanComingHero.astro imports the shared scene runtime for the coming-hero');
+// WU29 — the public hero's runtime is `~/lib/public-sequence` (the black
+// start, the engine reveal and the corrupted text arc); the lab runtime no
+// longer reaches a real page.
+if (/import\s+'~\/lib\/public-sequence'/.test(heroSource)) {
+  pass('imports: JoyanComingHero.astro imports the public sequence runtime for the coming-hero');
 } else {
-  fail('imports: JoyanComingHero.astro must import ~/lib/scene-runtime (the one runtime path on the public page)');
+  fail('imports: JoyanComingHero.astro must import ~/lib/public-sequence (the one runtime path on the public page)');
+}
+if (!/scene-runtime/.test(heroSource)) {
+  pass('imports: JoyanComingHero.astro no longer imports the lab runtime (WU29)');
+} else {
+  fail('imports: JoyanComingHero.astro must not import ~/lib/scene-runtime (the lab runtime, WU29)');
 }
 
 // The archive keeps the old landing honest: the moved components keep their
@@ -665,8 +673,8 @@ const candidate = gzipSum();
 // scene-runtime chunk is now 13,866 B gzip under a new hash, and the landing
 // set totals 101,339 B gzip. The delta against the UNCHANGED WU12-era baseline
 // fixture (91,905 B) is 9,434 B — still far inside the untouched 22,528 B limit.
-const LANDING_FROZEN_GZIP = 102611;
-const LANDING_FROZEN_DELTA = 10706; // 102611 - 91905, baseline fixture untouched (WU27: the shared scene graph split into runtime + engine chunks; the warp runs slower/wider)
+const LANDING_FROZEN_GZIP = 98917;
+const LANDING_FROZEN_DELTA = 7012; // 98912 - 91905, baseline fixture untouched (WU29: the hero's own runtime; the lab runtime left the public page)
 // WU18 (38,211 B): the image→dot-scene pipeline, its browser-safe core, the
 // composable overlays and the `/lab/image` route were added to the SAME engine
 // chunk, now shared by THREE laboratory routes. The chunk measures 33,296 B raw
@@ -681,16 +689,15 @@ const LANDING_FROZEN_DELTA = 10706; // 102611 - 91905, baseline fixture untouche
 // page palette. The lab executable is AsciiRuntime 25,256 B + engine chunk
 // 13,866 B + three 56 B entry chunks, with 0 B of executable inline on any lab
 // page. Cap re-measured as measured + 2,048 B, the same documented margin.
-// WU27 (42,889 B): the /lab/sequence route joins with its own runtime
-// (sequence-runtime + the sequence-warp ramp), and the bundler SPLIT the shared
-// scene graph: the engine/pipeline/overlays modules now live in their own chunk
-// (21,452 B raw / 8,838 B gzip) shared by the runtime chunk (17,363 B raw /
-// 6,358 B gzip), the public hero and all four lab entries. The lab executable
-// is AsciiRuntime 25,256 B + SequenceLab 2,269 B + three 56 B entry chunks +
-// both shared chunks 15,196 B, with 0 B of executable inline on any lab page.
+// WU29 (42,722 B): the hero runs public-sequence (inlined in its entry,
+// 5,093 B raw / 2,275 B gzip) and the LAB runtime left the landing graph —
+// scene-runtime (15,710 B raw / 5,956 B gzip) is now lab-only. The lab
+// executable is AsciiRuntime 25,256 B + scene-runtime 5,956 B + SequenceLab
+// 1,995 B + three 56 B entry chunks + the shared engine chunk 8,848 B + the
+// shared ramp module 430 B + the sequence route's 69 B no-js bootstrap inline.
 // Cap re-measured as measured + 2,048 B, the same documented margin.
-const LAB_MEASURED_GZIP = 42889;
-const LAB_CAP_GZIP = 44937; // measured total + 2048 B honest margin (<= 4096 B)
+const LAB_MEASURED_GZIP = 42722;
+const LAB_CAP_GZIP = 44770; // measured total + 2048 B honest margin (<= 4096 B)
 const LAB_MARGIN_LIMIT = 4096;
 const LANDING_ROUTE_PAGES = ['index.html', 'en/index.html'];
 /** Every `/lab/**` page is a laboratory page; nothing else is. */
@@ -701,16 +708,17 @@ const isLabPage = (name) => name.startsWith('lab/') && name.endsWith('.html');
 // in this set: the coming-hero is the one runtime path on the public page, and
 // the laboratories share the same engine code.
 const LANDING_FROZEN_HASHES = {
-  '_astro/JoyanComingHero.astro_astro_type_script_index_0_lang.Ce_NrdSI.js':
-    'd48e9f80f8ca41eba0b5b0bae156a58fbe0d1d95fa126a00124bb92be3d15ced',
+  '_astro/JoyanComingHero.astro_astro_type_script_index_0_lang.CiDMY-cN.js':
+    '029f5e79a36d972909b4c4f7ed2ae94a2ffcc413d933fea164c861cedc1b3597',
   '_astro/client.BxDIQlYz.js': 'ed1f3e2228ec0a53328513096c375276d3aea8e4c8e2ded754af7b67a13d77f0',
   '_astro/client.kF-MUc6b.js': 'c72b737a3f669a7845f10ec12cf2206a3d4f964c2aef13d4572c6b831b74937d',
-  // WU27 re-measure (never silently): the /lab/sequence entry split the shared
-  // scene graph; the landing set is now FIVE chunks — the two client chunks
-  // byte-identical, the coming-hero entry, the runtime chunk and the engine
-  // chunk the bundler shares between the public hero and the new lab route.
-  '_astro/scene-runtime.DF5VAA6M.js': 'b8c429a16684478326eb4c8225647c2e03e9bd0fc38be1f71dbfb43e51fbd2a6',
-  '_astro/overlays.DmGxdxxu.js': '8594b3843117f990862c7482fab071efcdcefd03130913096375a85c47f37b28',
+  // WU29 re-measure (never silently): the hero runs its own runtime
+  // (public-sequence, inlined in the entry) and the LAB runtime left the
+  // landing graph — the shared scene graph is now the engine chunk + the ramp
+  // module. The landing total DROPPED (the lab study code left the public
+  // page); the set stays five chunks pinned by hash.
+  '_astro/overlays.DJ6pB0e_.js': '2aa440aeb2dc6bc38145acd369474695b3a42df40fc1274149a1afa4d4ebb04b',
+  '_astro/sequence-warp.BVB1YAFd.js': 'a29cec5084ef72231c4860c07a0088cbaf7d503f3205e27700100adcb0be9504',
 };
 
 const isClientChunk = (file) => typeof file === 'string' && /\.js$/i.test(file);

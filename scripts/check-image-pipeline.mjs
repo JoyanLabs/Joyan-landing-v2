@@ -943,7 +943,7 @@ if (hasPipeline) {
       return [r, g, b].map((v) => Math.round(v * 255));
     }).map((v) => v.join(',')));
     const toRgb = (v) => v.map((c) => Math.round(c * 255)).join(',');
-    const colours = ['colour', 'hotColour'].map((key) => overlays.OVERLAY_DEFAULTS.warp[key]).filter(Boolean);
+    const colours = ['colour', 'hotColour', 'amberColour'].map((key) => overlays.OVERLAY_DEFAULTS.warp[key]).filter(Boolean);
     for (const colour of colours) {
       check(pageRgb.has(toRgb(colour)),
         `the warp colour ${toRgb(colour)} must be a joyan-page palette entry (the effect stays in the page palette)`);
@@ -962,6 +962,12 @@ if (hasPipeline) {
     `WU27: the warp must travel TWO whole trips per 30 s loop (slower, was 3), saw ${overlays.OVERLAY_DEFAULTS.warp?.trips}`);
   check(overlays.OVERLAY_DEFAULTS.warp?.sigma === 0.09,
     `WU27: the warp gaussian window must be sigma 0.09 (wider, was 0.05), saw ${overlays.OVERLAY_DEFAULTS.warp?.sigma}`);
+  // WU28 — the streaks are ALL amber (still-frame legibility: the WU27 bone
+  // alternation measured only 12.8% accent-signed changed cells; all-amber
+  // doubles it to 26% — scripts/check-sequence-lab.mjs measures the metric).
+  const warpAmber = overlays.OVERLAY_DEFAULTS.warp?.amberColour;
+  check(Array.isArray(warpAmber) && warpAmber[0] === 1 && warpAmber[1] === 0.69 && warpAmber[2] === 0,
+    'WU28: the warp streak colour must be the amber joyan-page entry #ffb000');
   // The round-only ladder is untouched by WU26: the top rung stays the
   // inscribed disc (coverage PI/4, radius 0.5) and nothing paints a square.
   check(Math.abs(engine.COVERAGE[4] - Math.PI / 4) < 1e-9 && Math.abs(engine.DOT_RADIUS[4] - 0.5) < 1e-9,

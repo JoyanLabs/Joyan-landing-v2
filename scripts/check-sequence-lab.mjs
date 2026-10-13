@@ -146,6 +146,12 @@ try {
     typeof ramp.warpRampOverrides === 'function' && typeof ramp.sequenceWarpScene === 'function');
   check('engine: warp tuned slower and wider — trips 2 (was 3), sigma 0.09 (was 0.05)',
     warp?.trips === 2 && warp?.sigma === 0.09, `trips=${warp?.trips} sigma=${warp?.sigma}`);
+  // WU28 — the ramp constant is named for what it is: STEPS, with states 0..steps
+  // (12 steps = 13 discrete scene strengths). The old `buckets` name read against
+  // the docs and is gone.
+  check('engine: the ramp constant is WARP_RAMP.steps (states 0..steps) and buckets is gone',
+    ramp.WARP_RAMP && ramp.WARP_RAMP.steps === 12 && ramp.WARP_RAMP.buckets === undefined,
+    JSON.stringify(ramp.WARP_RAMP ?? null));
 
   // One authored mark conversion stands in for the payload when the third-party
   // fixture is absent: the seam and the ramp-start equality are properties of
@@ -191,6 +197,49 @@ try {
   let equal = rgbaBase.length === rgbaZero.length;
   for (let i = 0; equal && i < rgbaBase.length; i++) equal = rgbaBase[i] === rgbaZero[i];
   check('engine: bucket-0 warp scene raster is byte-identical to the base scene (the ramp starts on the public scene)', equal);
+
+  // WU28 — STILL-FRAME LEGIBILITY. The WU27 honest judgement was that in stills
+  // the bone streaks are indistinguishable from the star field. Metric, measured
+  // here over the same probe scene at one mid-trip instant: of the cells the
+  // warp actually changes (base vs full warp, > 0.02 per channel), the fraction
+  // whose NEW colour is accent-signed — (r - b) > 0.25, which in joyan-page only
+  // the amber (#ffb000) and rose (#ff5d73) entries reach; every bone/plomo/ink
+  // entry has r ≈ b. WU27's alternating bone/amber spokes measured 0.128 (the
+  // streaks are half bone — invisible against the stars). The shipped tuning
+  // must at least double that. A structural companion: the fraction of changed
+  // cells that sit on a hash-active spoke inside the wavefront window.
+  const p = overlays.OVERLAY_DEFAULTS.warp;
+  const cx = p.centre[0] * (base.cols - 1);
+  const cy = p.centre[1] * (base.rows - 1);
+  const maxDist = Math.hypot(Math.max(cx, base.cols - 1 - cx), Math.max(cy, base.rows - 1 - cy)) || 1;
+  const front = ((warpFull.cycleFrames / warpFull.fps * 0.12) / 30) * p.trips % 1;
+  let changed = 0;
+  let accent = 0;
+  let spokeAligned = 0;
+  const probeT = warpFull.cycleFrames / warpFull.fps * 0.12;
+  for (let y = 0; y < base.rows; y++) {
+    for (let x = 0; x < base.cols; x++) {
+      const a = base.field(x, y, probeT);
+      const b = warpFull.field(x, y, probeT);
+      if (Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]), Math.abs(a[2] - b[2])) <= 0.02) continue;
+      changed += 1;
+      if (b[0] - b[2] > 0.25) accent += 1;
+      const dx = x - cx;
+      const dy = y - cy;
+      const r = Math.hypot(dx, dy) / maxDist;
+      const spoke = Math.floor(((Math.atan2(dy, dx) + Math.PI) / (Math.PI * 2)) * p.spokes);
+      const onSpoke = engine.hashNoise(spoke, 0, p.seed) < p.spokeDensity;
+      const d = ((r - front) % 1 + 1) % 1 - 0.5;
+      if (onSpoke && Math.exp(-(d * d) / (2 * p.sigma * p.sigma)) > 0.05) spokeAligned += 1;
+    }
+  }
+  const accentFraction = accent / Math.max(1, changed);
+  const spokeAlignedFraction = spokeAligned / Math.max(1, changed);
+  check('engine: warp still-legibility — accent-signed changed cells ≥ 0.20 (WU27 alternation measured 0.128)',
+    accentFraction >= 0.2, `accentFraction=${accentFraction.toFixed(4)} changed=${changed}`);
+  check('engine: warp structural coherence — spoke-aligned changed cells ≥ 0.7',
+    spokeAlignedFraction >= 0.7, `spokeAlignedFraction=${spokeAlignedFraction.toFixed(4)}`);
+  Object.assign(engineEvidence, { changedCells: changed, accentFraction, spokeAlignedFraction });
 } catch (error) {
   check('engine: sequence-warp module + seam + ramp-start measurement', false, error.message);
 }
@@ -234,6 +283,25 @@ check('gate: the WU27 contract covers the route, component, runtime and fonts',
   && gateSrc.includes('src/components/joyan/SequenceLab.astro')
   && gateSrc.includes('src/lib/sequence-runtime.ts')
   && gateSrc.includes('public/fonts/'));
+
+// --- WU28: the honest initial state (no flash of the final act) -------------
+check('route: html ships class="no-js" and an inline script replaces it before first paint',
+  Boolean(routeSrc) && /class="no-js"/.test(routeSrc)
+  && /classList\.replace\(['"]no-js['"],\s*['"]js['"]\)/.test(routeSrc));
+check('component: the no-JS final state is gated on html.no-js (never the JS initial state)',
+  Boolean(componentSrc) && /:global\(html\.no-js\)/.test(componentSrc));
+check('component: with scripting the terminal act is the initial state and the watcher starts hidden',
+  Boolean(componentSrc)
+  // The terminal initial state is gated on html.js (the inline head script's
+  // replacement class), never on the bare :not([data-ready]) form, so the
+  // no-JS experience keeps ONLY the final state.
+  && /:global\(html\.js\)\s+\[data-sequence-lab\]:not\(\[data-ready\]\)\s+\[data-act='terminal'\]/.test(componentSrc)
+  && !componentSrc.replace(/:global\(html\.js\)\s+\[data-sequence-lab\]:not\(\[data-ready\]\)\s+\[data-act='terminal'\]/g, '')
+    .match(/\[data-sequence-lab\]:not\(\[data-ready\]\)\s+\[data-act='terminal'\]/)
+  // The watcher may appear in the :not form ONLY behind the html.no-js gate:
+  // strip the gated form and no ungated occurrence may remain.
+  && !componentSrc.replace(/:global\(html\.no-js\)\s+\[data-sequence-lab\]:not\(\[data-ready\]\)\s+\[data-act='watcher'\]/g, '')
+    .match(/\[data-sequence-lab\]:not\(\[data-ready\]\)\s+\[data-act='watcher'\]/));
 
 // --- Report -----------------------------------------------------------------
 const mode = failures.length ? 'RED' : 'GREEN';

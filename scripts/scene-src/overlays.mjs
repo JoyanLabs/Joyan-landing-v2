@@ -46,7 +46,7 @@ export const OVERLAY_LABELS = Object.freeze({
   glimmer: 'glimmer sweep (soft subject-preserving band, whole sweeps per loop, WU22 tuned)',
   wash: 'colour wash (a wide tinted band crosses the whole scene and fades through two hues, WU22)',
   shimmer: 'shimmer band (a narrow bright band with hash sparkle travels whole sweeps per loop, WU22)',
-  warp: 'warp (light-speed in dots: discrete dot streaks on radial spokes leave a centre bloom, two whole trips per loop with a wide gaussian window — WU27 slower/wider — and the subject dots displace radially near the frame border, WU26)',
+  warp: 'warp (light-speed in dots: discrete amber dot streaks on radial spokes leave a hot centre bloom, two whole trips per loop with a wide gaussian window — WU27 slower/wider, WU28 all-amber trails — and the subject dots displace radially near the frame border, WU26)',
 });
 
 /**
@@ -305,8 +305,15 @@ function warpOverlay(overrides) {
       }
       // Centre bloom: a dot cluster of the hot bone, fading with radius.
       const bloom = Math.exp(-(r * r) / (2 * p.bloom.radius * p.bloom.radius)) * p.bloom.intensity;
-      // Alternate spokes carry the amber so the burst stays in the page accent.
-      const streakColour = spoke % 2 === 0 ? p.colour : p.amberColour;
+      // WU28 — EVERY spoke carries the amber. WU27 alternated bone/amber, and
+      // the measured still-frame legibility was poor: of the cells the warp
+      // changes, only 12.8% were accent-signed ((r-b) > 0.25) — the bone half
+      // of the streaks is indistinguishable from the star field in a still
+      // (the WU26/WU27 honest judgement). With every spoke amber the accent
+      // fraction doubles to 0.26 (checker-measured); the bloom stays the hot
+      // bone so the centre still reads as the light source. Both colours are
+      // joyan-page entries; the seam is untouched (whole trips, fract advance).
+      const streakColour = p.amberColour;
       let out = colour;
       if (glow > 0) {
         const lum = LUMA_R * out[0] + LUMA_G * out[1] + LUMA_B * out[2];

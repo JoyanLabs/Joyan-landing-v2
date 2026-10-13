@@ -41,10 +41,12 @@ export const SEQUENCE_ROLL = 18;
 /** The public page's overlay set — the transition only ADDS warp on top. */
 export const BASE_OVERLAYS = Object.freeze(['stars', 'aurora', 'wash']);
 
-/** The quantised ramp: 13 discrete strengths over 3.6 s (the engine renders at
- * the scene's own 12 fps cadence; the buckets keep the number of scene objects
- * — and therefore of solved mask/sprite sets — small and bounded). */
-export const WARP_RAMP = Object.freeze({ buckets: 12, durationMs: 3600 });
+/** The quantised ramp: STEPS + 1 discrete strengths (0..STEPS — twelve steps
+ * yield thirteen scene states, the WU27 record correction) over 3.6 s (the
+ * engine renders at the scene's own 12 fps cadence; the discrete steps keep
+ * the number of scene objects — and therefore of solved mask/sprite sets —
+ * small and bounded). */
+export const WARP_RAMP = Object.freeze({ steps: 12, durationMs: 3600 });
 
 /** The warp's frozen constants, read once so the ramp cannot drift from them. */
 const WARP_DEFAULTS = { intensity: 0.6, bloomRadius: 0.05, bloomIntensity: 0.9, edgeStart: 0.7, edgeAmount: 2.5 };

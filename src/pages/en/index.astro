@@ -64,6 +64,10 @@ if (heroHasFixture) {
   poster = '/assets/dither/coming-hero.png';
 }
 
+// WU29 — the shipped eyebrow is "TRANSMISSION" (the user rejected the generic
+// "Coming soon"). Alternatives recorded for the user to pick from:
+//   EN: TRANSMISSION (shipped) · SIGNAL · OPEN FREQUENCY · RESISTANCE MODE
+//   ES: TRANSMISIÓN (shipped) · SEÑAL · FRECUENCIA ABIERTA · MODO RESISTENCIA
 // Placeholder copy pending branding review (recorded in the tracking document).
 const content = en;
 ---
@@ -72,7 +76,7 @@ const content = en;
   lang={LOCALES.EN}
   metadata={{
     title: content.meta.title,
-    description: 'Joyan. Something precise is taking shape.',
+    description: 'Joyan. Someone has to watch the machines.',
     robots: { index: true, follow: true },
   }}
   pathname={pathname}
@@ -84,8 +88,12 @@ const content = en;
       palette={PAGE_PALETTE_ID}
       overlays={HERO_OVERLAYS.join(',')}
       name="Joyan"
-      tagline="Something precise is taking shape."
-      comingSoon="Coming soon"
+      eyebrow="TRANSMISSION"
+      fateLine="The future is not set. There is no fate but what we make for ourselves."
+      watcherLine="Someone has to watch the machines."
+      credit="TERMINATOR 2 · SARAH CONNOR"
+      localeHref="/"
+      localeLabel="ES"
       footerNote="© Joyan — no fate."
       contactEmail="hello@joyan.dev"
       discordLabel="Discord — the invite is coming soon"

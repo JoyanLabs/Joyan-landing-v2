@@ -52,10 +52,16 @@ function selfTest() {
   // type change (T) on a file this unit created fails closed. The self-hosted
   // font files under public/fonts/ are add-only too. An unknown lab route still
   // fails, and the fonts folder is not a general asset dumping ground.
+  for (const path of ['src/lib/public-sequence.ts', 'scripts/check-public-sequence.mjs']) {
+    // WU29: add-or-edit; D/T stay blocked.
+    for (const status of ['A', 'M']) test(`WU29 allow ${status} ${path}`, () => assert.equal(accepted(fixture(status, path)), true));
+    for (const status of ['D', 'T']) test(`WU29 reject ${status} ${path}`, () => assert.equal(accepted(fixture(status, path)), false));
+  }
   for (const path of ['src/pages/lab/sequence.astro', 'src/components/joyan/SequenceLab.astro',
     'src/lib/sequence-runtime.ts']) {
-    test(`WU27 allow A ${path}`, () => assert.equal(accepted(fixture('A', path)), true));
-    for (const status of ['M', 'D', 'T']) test(`WU27 reject ${status} ${path}`, () => assert.equal(accepted(fixture(status, path)), false));
+    // WU28: the committed WU27 files are now add-or-edit; D/T stay blocked.
+    for (const status of ['A', 'M']) test(`WU27 allow ${status} ${path}`, () => assert.equal(accepted(fixture(status, path)), true));
+    for (const status of ['D', 'T']) test(`WU27 reject ${status} ${path}`, () => assert.equal(accepted(fixture(status, path)), false));
   }
   for (const path of ['public/fonts/michroma-400.woff2', 'public/fonts/vt323-400.woff2', 'public/fonts/OFL-NOTICE.txt']) {
     test(`WU27 allow A ${path}`, () => assert.equal(accepted(fixture('A', path)), true));
@@ -241,14 +247,22 @@ const exactPaths = new Set([
   'scripts/check-scene-engine.mjs', 'scripts/check-image-pipeline.mjs',
   'scripts/check-ascii-runtime.mjs', 'scripts/check-sequence-lab.mjs',
 ]);
-// WU27 — the real sequence, Michroma and a slower warp. New files are
-// ADD-ONLY (statuses listed per path); the budget re-pin may also touch the
-// three existing lab pages' measured cost numbers (M via WU22/WU20 above) and
-// the global stylesheet (M, in exactPaths above as the unique global CSS).
+// WU29 — the public sequence: the hero's own runtime and its checker are new
+// files (add-or-edit; D/T fail closed), like the WU27 set before them.
+const WU29_ADDS = new Map([
+  ['src/lib/public-sequence.ts', ['A', 'M']],
+  ['scripts/check-public-sequence.mjs', ['A', 'M']],
+]);
+// WU27 — the real sequence, Michroma and a slower warp. New files were
+// ADD-ONLY when created; WU28 committed them (b3320be) and now edits them, so
+// the statuses grow to A+M — deletion (D) and type change (T) still fail
+// closed. The budget re-pin may also touch the three existing lab pages'
+// measured cost numbers (M via WU22/WU20 above) and the global stylesheet
+// (M, in exactPaths above as the unique global CSS).
 const WU27_ADDS = new Map([
-  ['src/pages/lab/sequence.astro', ['A']],
-  ['src/components/joyan/SequenceLab.astro', ['A']],
-  ['src/lib/sequence-runtime.ts', ['A']],
+  ['src/pages/lab/sequence.astro', ['A', 'M']],
+  ['src/components/joyan/SequenceLab.astro', ['A', 'M']],
+  ['src/lib/sequence-runtime.ts', ['A', 'M']],
 ]);
 // WU27 — self-hosted fonts. Only the two OFL faces this unit ships and its
 // licence notice may be ADDED; every other path under the folder (and every
@@ -296,6 +310,10 @@ const prefixes = ['public/assets/dither/', 'public/assets/brand/', 'public/asset
   'scripts/dither-src/', 'scripts/motion-src/', 'scripts/scene-src/', 'docs/', 'odd/tasks/'];
 
 function pathReason(path, status) {
+  if (WU29_ADDS.has(path)) {
+    const statuses = WU29_ADDS.get(path);
+    return statuses.includes(status) ? null : `wu29-status-${status}`;
+  }
   if (WU27_ADDS.has(path)) {
     const statuses = WU27_ADDS.get(path);
     return statuses.includes(status) ? null : `wu27-status-${status}`;

@@ -75,11 +75,8 @@ const HOST = '[data-own-scene]';
 const STUDY = '[data-shape-lab]';
 const BOARD = '[data-shape-board]';
 const IMAGE = '[data-image-lab]';
-// WU20: the coming-hero on the single public page. This is the ONE runtime
-// path allowed outside `/lab/**`: the same engine, the same raster and the
-// same serialised-payload contract as the image laboratory, wired to the
-// hybrid still→live pattern the laboratory surfaces already proved.
-const COMING_HERO = '[data-coming-hero]';
+// WU29 — the coming-hero runtime left this module for `~/lib/public-sequence`
+// (the public hero's own act machine); this file is now LAB-ONLY.
 let release: (() => void) | undefined;
 
 /** Structural check for a scene module. Every field the runtime reads is tested. */
@@ -110,7 +107,7 @@ function sceneFor(id: string): Scene | undefined {
 
 function initialize(): void {
   release?.();
-  const cleanups = [...initializeScenes(), ...initializeStudy(), ...initializeImage(), ...initializeComingHero()];
+  const cleanups = [...initializeScenes(), ...initializeStudy(), ...initializeImage()];
   release = () => {
     for (const cleanup of cleanups) cleanup();
     release = undefined;
@@ -733,113 +730,12 @@ function initializeImage(): Array<() => void> {
 }
 
 // ---------------------------------------------------------------------------
-// `[data-coming-hero]` — WU20 (correction round): the public page's hero
-// AUTOPLAYS. The user directed that the effects always play — no Play control
-// exists on the public page; the still-until-Play pattern stays on the lab
-// routes. The loop starts on load when the host is on screen, pauses
-// offscreen and in hidden tabs, resumes on return, and pagehide releases
-// everything. `prefers-reduced-motion` keeps the real static poster (the
-// build-time bake) with truthful wording and never animates.
+// WU29 — the coming-hero section RETIRED from this file: the public hero's
+// sequence (black start, engine reveal, corrupted text arc) moved to
+// `src/lib/public-sequence.ts`, which `JoyanComingHero.astro` imports directly.
+// This module now serves only the laboratory routes; nothing on a real page
+// imports it any more (the budget attribution enforces that).
 // ---------------------------------------------------------------------------
-function initializeComingHero(): Array<() => void> {
-  const host = document.querySelector<HTMLElement>(COMING_HERO);
-  if (!host) return [];
-  const payloadNode = host.querySelector<HTMLScriptElement>('script[type="application/json"][data-coming-hero-scene]');
-  const canvas = host.querySelector<HTMLCanvasElement>('canvas');
-  const status = host.querySelector<HTMLElement>('[data-hero-status]');
-  const poster = host.querySelector<HTMLImageElement>('img');
-  if (!payloadNode || !canvas || !status || !poster) return [];
-  let payload: unknown;
-  try {
-    payload = JSON.parse(payloadNode.textContent ?? '') as unknown;
-  } catch {
-    return [];
-  }
-  if (!isSerializedScene(payload)) return [];
-  const overlays = (host.dataset.heroOverlays ?? 'stars,aurora').split(/[+,\s]+/).filter(Boolean);
-  const treatment = { id: host.dataset.heroPalette ?? 'aurora', palette: host.dataset.heroPalette ?? 'aurora', overlays };
-  const scene = applyTreatment(sceneFromSerialized(payload), treatment, IMAGE_PALETTES);
-  const cell = DELIVERY_CELL;
-  const width = scene.cols * cell;
-  const height = scene.rows * cell;
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext('2d');
-  if (!context) return [];
-  const image = context.createImageData(width, height);
-  const preference = matchMedia(REDUCED);
-  let frame = 0;
-  let raf = 0;
-  let last = 0;
-  let visible = true;
-  const playing = (): boolean => host.hasAttribute('data-playing');
-
-  const paint = (index: number): void => {
-    const rendered = renderFrame(scene, index, { dither: 'bayer4', density: 1 });
-    // The same engine raster the Node bake ran — no second implementation.
-    rasterize(rendered, scene, cell, image.data);
-    context.putImageData(image, 0, 0);
-    host.dataset.heroFrame = String(rendered.frame);
-  };
-  const updateStatus = (): void => {
-    status.textContent = preference.matches ? 'Static poster · reduced motion'
-      : playing() && (!visible || document.hidden) ? 'Paused · outside viewport or hidden'
-        : `Our engine · ${scene.fps} fps · stars and aurora`;
-  };
-  const tick = (now: number): void => {
-    raf = requestAnimationFrame(tick);
-    if (now - last < 1000 / scene.fps - 1) return;
-    last = now;
-    paint(frame);
-    frame = (frame + 1) % scene.cycleFrames;
-  };
-  const stop = (): void => {
-    if (raf) cancelAnimationFrame(raf);
-    raf = 0;
-  };
-  const sync = (): void => {
-    if (preference.matches) {
-      stop();
-    } else if (visible && !document.hidden) {
-      if (!raf) {
-        // The phase starts NOW: the loop continues from the synchronously
-        // painted frame 0 on the engine's own cadence.
-        last = performance.now();
-        raf = requestAnimationFrame(tick);
-      }
-    } else {
-      stop();
-    }
-    updateStatus();
-  };
-  const observer = new IntersectionObserver((entries) => {
-    visible = entries[entries.length - 1].isIntersecting;
-    sync();
-  });
-  preference.addEventListener('change', sync);
-  document.addEventListener('visibilitychange', sync);
-  if (preference.matches) {
-    // Reduced motion: the baked poster (a real still of the same scene) stays;
-    // the canvas is never painted and nothing animates.
-    updateStatus();
-  } else {
-    // Autoplay (user-directed): paint frame 0 synchronously — the exact Node
-    // raster — then start the loop from it.
-    host.setAttribute('data-playing', '');
-    poster.hidden = true;
-    paint(0);
-    frame = 1;
-  }
-  host.setAttribute('data-ready', '');
-  observer.observe(canvas);
-  sync();
-  return [() => {
-    stop();
-    observer.disconnect();
-    preference.removeEventListener('change', sync);
-    document.removeEventListener('visibilitychange', sync);
-  }];
-}
 
 // The lab page has no ClientRouter, so this fires once per document; the
 // pagehide/pageshow pair covers bfcache restores, where the loops were stopped.

@@ -9,8 +9,8 @@
  * SAME rolled serialised payload with the SAME joyan-page palette and the SAME
  * stars/aurora/wash overlays, and the act-1 → act-2 transition is the ENGINE's
  * own `warp` overlay ramping up over it (scripts/scene-src/overlays.mjs, tuned
- * slower and wider in WU27). The ramp is quantised into WARP_RAMP.buckets
- * discrete strengths (scripts/scene-src/sequence-warp.mjs — the ONE ramp
+ * slower and wider in WU27). The ramp is quantised into WARP_RAMP.steps + 1
+ * discrete strengths (states 0..steps; scripts/scene-src/sequence-warp.mjs — the ONE ramp
  * source the Node checkers read too); at bucket 0 the raster is BYTE-IDENTICAL
  * to the base scene, so the sequence starts ON the public scene. There is no
  * second canvas, no particle effect, no parallel renderer — every painted
@@ -142,7 +142,7 @@ function initializeSequence(): (() => void) | undefined {
     if (cached) return cached;
     const built = bucket <= 0
       ? sequenceScene(payload)
-      : sequenceWarpScene(payload, Math.min(1, bucket / WARP_RAMP.buckets));
+      : sequenceWarpScene(payload, Math.min(1, bucket / WARP_RAMP.steps));
     rampScenes.set(bucket, built);
     return built;
   };
@@ -209,8 +209,8 @@ function initializeSequence(): (() => void) | undefined {
   const paint = (): void => {
     const bucket = phase === 'typing' ? 0
       : phase === 'ramp'
-        ? Math.min(WARP_RAMP.buckets, Math.round((Math.min(1, phaseMs / WARP_RAMP.durationMs)) * WARP_RAMP.buckets))
-        : WARP_RAMP.buckets;
+        ? Math.min(WARP_RAMP.steps, Math.round((Math.min(1, phaseMs / WARP_RAMP.durationMs)) * WARP_RAMP.steps))
+        : WARP_RAMP.steps;
     const scene = sceneForBucket(bucket);
     const rendered = renderFrame(scene, frame, { dither: 'bayer4', density: 1 });
     rasterize(rendered, scene, cell, image.data);
