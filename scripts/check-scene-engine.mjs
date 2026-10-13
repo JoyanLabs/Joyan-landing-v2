@@ -1525,10 +1525,12 @@ if (hero.runtimeScene) {
       return { frame, bucket, hash: [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('') };
     });
     // WU29 — the intro paints the RAMP state (data-hero-bucket); state 0 is the
-    // base scene, states > 0 carry the warp. Build the scene the runtime drew.
+    // base scene, states > 0 carry the warp — and since WU31 the burst is a
+    // property of the STATE (rampBurst), so the probe derives the same scene
+    // the runtime drew from the bucket number alone.
     const probeBucket = Number(frameProbe.bucket ?? 0);
     const probeScene = probeBucket > 0
-      ? heroRamp.sequenceWarpScene(JSON.parse(hero.payload), probeBucket / heroRamp.WARP_RAMP.steps)
+      ? heroRamp.sequenceWarpScene(JSON.parse(hero.payload), probeBucket / heroRamp.WARP_RAMP.steps, heroRamp.rampBurst(probeBucket))
       : hero.runtimeScene;
     const frameN = engine.renderFrame(probeScene, frameProbe.frame, { dither: 'bayer4', density: 1 });
     const rasterN = engine.rasterize(frameN, probeScene, engine.DELIVERY_CELL);

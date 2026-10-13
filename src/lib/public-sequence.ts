@@ -37,7 +37,7 @@
  * pagehide releases everything; reduced motion never animates.
  */
 import { DELIVERY_CELL, rasterize, renderFrame } from '../../scripts/scene-src/engine.mjs';
-import { WARP_RAMP, sequenceScene, sequenceWarpScene } from '../../scripts/scene-src/sequence-warp.mjs';
+import { WARP_RAMP, rampBurst, sequenceScene, sequenceWarpScene } from '../../scripts/scene-src/sequence-warp.mjs';
 
 /** The serialised converted scene the page embeds as data. */
 interface SequencePayload {
@@ -70,18 +70,20 @@ const REDUCED = '(prefers-reduced-motion: reduce)';
 const HOST = '[data-coming-hero]';
 /** The terminal's typed line — server-rendered attribute, not a runtime literal. */
 const TERMINAL_FALLBACK = 'Wake up, Neo\u2026';
-/** Hold after the typing completes before the reveal takes over. */
-const TYPE_HOLD_MS = 1200;
+/** Hold after the typing completes before the reveal takes over. WU31: the
+ * whole arc must sit inside 7–9 s (the user measured ~16 s and called the
+ * pacing wrong); every constant below is summed by the checker. */
+const TYPE_HOLD_MS = 600;
 /** Full-warp hold at the top of the reveal before the ramp settles back. */
-const FULL_HOLD_MS = 500;
+const FULL_HOLD_MS = 350;
 /** The settle: the ramp returns to 0 so the final scene is exactly today's. */
-const SETTLE_MS = 2400;
+const SETTLE_MS = 1200;
 /** How long the fate line holds before the corruption begins. */
-const FATE_HOLD_MS = 6000;
+const FATE_HOLD_MS = 1900;
 /** The corruption duration. */
-const SCRAMBLE_MS = 1100;
+const SCRAMBLE_MS = 860;
 /** Typewriter cadence (ms per character of played time). */
-const TYPE_STEP_MS = 140;
+const TYPE_STEP_MS = 110;
 /** OUR glyph language for the corruption: the dot ramp, never unicode noise. */
 const SCRAMBLE_GLYPHS = '·•●';
 /** The page's own tones for the scramble, in the corruption rhythm. */
@@ -132,9 +134,10 @@ function initializePublicSequence(): (() => void) | undefined {
   const sceneLayer = host.querySelector<HTMLElement>('.scene-layer');
   const typed = host.querySelector<HTMLElement>('[data-hero-typed]');
   const terminal = host.querySelector<HTMLElement>('[data-hero-terminal]');
+  const nameEl = host.querySelector<HTMLElement>('[data-hero-name]');
   const tagline = host.querySelector<HTMLElement>('[data-hero-tagline]');
   const credit = host.querySelector<HTMLElement>('[data-hero-credit]');
-  if (!payloadNode || !canvas || !poster || !status || !sceneLayer || !typed || !terminal || !tagline || !credit) {
+  if (!payloadNode || !canvas || !poster || !status || !sceneLayer || !typed || !terminal || !nameEl || !tagline || !credit) {
     return undefined;
   }
   let payload: unknown;
@@ -147,17 +150,24 @@ function initializePublicSequence(): (() => void) | undefined {
 
   // The typed line is server-rendered content (data attribute), like the lab.
   const terminalText = typed.dataset.heroTerminalText ?? TERMINAL_FALLBACK;
+  // WU31 — the name is captured BEFORE any assembly touches it; the h1 keeps
+  // a stable accessible name through aria-label, so the screen reader never
+  // sees the dot-ramp glyphs.
+  const nameText = (nameEl.textContent ?? '').trim();
   const fateText = tagline.dataset.heroFate ?? tagline.textContent ?? '';
   const watcherText = tagline.dataset.heroWatcher ?? tagline.textContent ?? '';
 
   // One scene object per ramp state (0..steps); state 0 IS the base scene.
+  // WU31 — the burst is a property of the STATE (rampBurst), so the cache key
+  // stays the state number and the live canvas derives the same scene the
+  // Node checkers do.
   const rampScenes = new Map<number, Scene>();
   const sceneForState = (state: number): Scene => {
     const cached = rampScenes.get(state);
     if (cached) return cached;
     const built = state <= 0
       ? sequenceScene(payload)
-      : sequenceWarpScene(payload, Math.min(1, state / WARP_RAMP.steps));
+      : sequenceWarpScene(payload, Math.min(1, state / WARP_RAMP.steps), rampBurst(state));
     rampScenes.set(state, built);
     return built;
   };
@@ -199,7 +209,7 @@ function initializePublicSequence(): (() => void) | undefined {
   const updateStatus = (): void => {
     status.textContent = reduced() ? 'Static poster · reduced motion'
       : !visible || document.hidden ? 'Paused · outside viewport or hidden'
-        : phase === 'typing' ? 'Act 1 · the terminal on black'
+        : phase === 'typing' ? 'Act 1 · the terminal on black · click, tap or press any key to skip'
           : phase === 'revealUp' || phase === 'full' ? 'The reveal · the engine warp bringing the scene in'
             : phase === 'revealDown' ? 'The reveal settling · the scene you know'
               : phase === 'fate' ? 'The fate line · TERMINATOR 2 · SARAH CONNOR'
@@ -241,6 +251,29 @@ function initializePublicSequence(): (() => void) | undefined {
     tagline.innerHTML = html;
   };
 
+  /** WU31 — the name ASSEMBLES through the same corruption: the h1's glyphs
+   * scramble through the dot ramp and resolve left to right as the reveal
+   * rises. Same language as the tagline (· • ● in the page's tones), never a
+   * plain fade; the accessible name is the aria-label, untouched. */
+  const renderNameAssembly = (progress: number): void => {
+    const step = Math.floor(progress * 24);
+    if (step === scrambleStep && nameEl.dataset.assembled === '1') return;
+    nameEl.dataset.assembled = '1';
+    const reveal = progress * (nameText.length + 4) - 2;
+    let html = '';
+    for (let i = 0; i < nameText.length; i++) {
+      const ch = nameText[i];
+      if (i < reveal) {
+        html += ch;
+        continue;
+      }
+      const glyph = SCRAMBLE_GLYPHS[Math.floor(scrambleHash(i + 31, step) * SCRAMBLE_GLYPHS.length)];
+      const tone = SCRAMBLE_TONES[Math.floor(scrambleHash(i + 57, step) * SCRAMBLE_TONES.length)];
+      html += `<span style="color:${tone}">${glyph}</span>`;
+    }
+    nameEl.innerHTML = html;
+  };
+
   const tick = (now: number): void => {
     raf = requestAnimationFrame(tick);
     const dt = last ? Math.min(250, now - last) : 0;
@@ -257,7 +290,13 @@ function initializePublicSequence(): (() => void) | undefined {
       const bucket = Math.round(p * WARP_RAMP.steps);
       sceneLayer.style.opacity = String(bucket / WARP_RAMP.steps);
       paint(bucket);
-      if (p >= 1) setPhase('full');
+      if (p >= 1) {
+        nameEl.dataset.assembled = '';
+        nameEl.textContent = nameText;
+        setPhase('full');
+      } else {
+        renderNameAssembly(p);
+      }
     } else if (phase === 'full') {
       sceneLayer.style.opacity = '1';
       paint(WARP_RAMP.steps);
@@ -325,10 +364,23 @@ function initializePublicSequence(): (() => void) | undefined {
     tagline.dataset.scrambled = '';
     tagline.textContent = watcherText;
     typed.textContent = terminalText;
+    nameEl.dataset.assembled = '';
+    nameEl.textContent = nameText;
     phase = 'final';
     host.dataset.sequencePhase = 'final';
     updateStatus();
   };
+  // WU31 — the invisible skip: click, tap or keypress jumps to the final
+  // state. No visible control is added (the language pair stays the only
+  // visible control); Tab and modifier chords are left to the browser.
+  const onSkip = (event: Event): void => {
+    if (reduced() || phase === 'final') return;
+    if (event instanceof KeyboardEvent
+      && (event.key === 'Tab' || event.ctrlKey || event.metaKey || event.altKey)) return;
+    skipToFinal();
+  };
+  host.addEventListener('pointerdown', onSkip);
+  window.addEventListener('keydown', onSkip);
   const onVisibility = (): void => sync();
 
   preference.addEventListener('change', onPreference);
@@ -350,6 +402,8 @@ function initializePublicSequence(): (() => void) | undefined {
   return () => {
     stop();
     observer.disconnect();
+    host.removeEventListener('pointerdown', onSkip);
+    window.removeEventListener('keydown', onSkip);
     preference.removeEventListener('change', onPreference);
     document.removeEventListener('visibilitychange', onVisibility);
   };

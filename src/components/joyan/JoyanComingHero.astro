@@ -121,7 +121,11 @@ const dotCols = DISCORD_DOT_GRID[0].length;
   <div class="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 sm:px-6">
     <div class="mt-[14dvh] max-w-xl">
       <p data-hero-eyebrow class="font-mono text-xs uppercase tracking-[0.3em] text-accent">{eyebrow}</p>
-      <h1 id="coming-hero-name" class="font-display mt-4 text-5xl tracking-tight text-bone-50 sm:text-7xl">{name}</h1>
+      {/* WU31 — the name arrives WITH the reveal, assembled out of the dot
+          ramp glyphs by the runtime. During act 1 it is fully hidden (the
+          boot CSS empties it); the aria-label keeps the accessible name
+          stable so screen readers never read the scramble. */}
+      <h1 id="coming-hero-name" data-hero-name class="font-display mt-4 text-5xl tracking-tight text-bone-50 sm:text-7xl" aria-label={name}>{name}</h1>
       {/* The tagline slot: the terminal types here on black; after the reveal
           the fate line takes it, corrupts through our dot-ramp glyphs and
           re-forms into the watcher line (the SSR content = the final phrase,
@@ -274,6 +278,11 @@ const dotCols = DISCORD_DOT_GRID[0].length;
   [data-coming-hero][data-sequence-boot='js']:not([data-ready]) [data-hero-credit] {
     opacity: 0;
   }
+  /* WU31 — act 1 contains NOTHING but the terminal: the name h1 is emptied
+     too (pixel-proven at 100/400/800 ms). */
+  [data-coming-hero][data-sequence-boot='js']:not([data-ready]) [data-hero-name] {
+    opacity: 0;
+  }
   [data-coming-hero][data-sequence-boot='js']:not([data-ready]) [data-hero-terminal] {
     opacity: 1;
   }
@@ -293,6 +302,47 @@ const dotCols = DISCORD_DOT_GRID[0].length;
   [data-coming-hero][data-sequence-phase='typing'] [data-hero-tagline],
   [data-coming-hero][data-sequence-phase='typing'] [data-hero-credit] {
     opacity: 0;
+  }
+  /* ---- WU31 phase-gated copy --------------------------------------------
+     With scripting, the copy is hidden by DEFAULT and every rule that shows
+     it names its phase: the name and eyebrow arrive at the reveal (the name
+     assembles through the dot-ramp glyphs), the watcher line exists ONLY
+     from the fate phase on — it can never surface while the terminal types
+     or during the reveal. The credit rides with the fate line and leaves
+     with it (gone at final). Reduced motion: the pre-mount boot rules below
+     still show the final state. */
+  [data-coming-hero][data-sequence-boot='js'] [data-hero-name],
+  [data-coming-hero][data-sequence-boot='js'] [data-hero-eyebrow],
+  [data-coming-hero][data-sequence-boot='js'] [data-hero-tagline],
+  [data-coming-hero][data-sequence-boot='js'] [data-hero-credit] {
+    opacity: 0;
+  }
+  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='revealUp'] [data-hero-name],
+  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='revealUp'] [data-hero-eyebrow],
+  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='full'] [data-hero-name],
+  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='full'] [data-hero-eyebrow],
+  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='revealDown'] [data-hero-name],
+  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='revealDown'] [data-hero-eyebrow],
+  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='fate'] [data-hero-name],
+  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='fate'] [data-hero-eyebrow],
+  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='fate'] [data-hero-tagline],
+  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='fate'] [data-hero-credit],
+  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='scramble'] [data-hero-name],
+  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='scramble'] [data-hero-eyebrow],
+  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='scramble'] [data-hero-tagline],
+  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='scramble'] [data-hero-credit],
+  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='final'] [data-hero-name],
+  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='final'] [data-hero-eyebrow],
+  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='final'] [data-hero-tagline] {
+    opacity: 1;
+  }
+  /* WU31 — the fate line is a QUOTE, not the headline: 15 px against the
+     watcher line's 18 px (text-lg), with the credit smaller still (text-xs,
+     12 px). It grows into the watcher size as the corruption resolves. */
+  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='fate'] [data-hero-tagline],
+  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='scramble'] [data-hero-tagline] {
+    font-size: 0.9375rem;
+    transition: font-size 400ms ease;
   }
   [data-coming-hero] [data-hero-eyebrow],
   [data-coming-hero] [data-hero-tagline],
@@ -322,6 +372,9 @@ const dotCols = DISCORD_DOT_GRID[0].length;
       opacity: 1;
     }
     [data-coming-hero][data-sequence-boot='js']:not([data-ready]) [data-hero-tagline] {
+      opacity: 1;
+    }
+    [data-coming-hero][data-sequence-boot='js']:not([data-ready]) [data-hero-name] {
       opacity: 1;
     }
     [data-coming-hero][data-sequence-boot='js']:not([data-ready]) [data-hero-terminal] {

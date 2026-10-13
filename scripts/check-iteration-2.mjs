@@ -1488,7 +1488,10 @@ const sceneMovie = resolve(ROOT, 'public/assets/motion/harness-tones-dither.mp4'
 const WU20_LANDING_SET = {
   'client.BxDIQlYz.js': { gz: 60302, sha256: 'ed1f3e2228ec0a53328513096c375276d3aea8e4c8e2ded754af7b67a13d77f0' },
   'client.kF-MUc6b.js': { gz: 27057, sha256: 'c72b737a3f669a7845f10ec12cf2206a3d4f964c2aef13d4572c6b831b74937d' },
-  'JoyanComingHero.astro_astro_type_script_index_0_lang.CiDMY-cN.js': { gz: 2280, sha256: '029f5e79a36d972909b4c4f7ed2ae94a2ffcc413d933fea164c861cedc1b3597' },
+  // WU31 re-measure (never silently): the hero entry grows with the name
+  // assembly (the dot-ramp corruption for the h1), the skip affordance and
+  // the shorter arc.
+  'JoyanComingHero.astro_astro_type_script_index_0_lang.250tTKzt.js': { gz: 2503, sha256: '7b13e3733857ac6d74bfe83cf0a0f6f93b366d2ccd22c740ace956a24f5f4b43' },
   // WU29 re-measure (never silently): the public hero moved to its own runtime
   // (public-sequence, inlined in the entry) and the LAB runtime left the
   // landing graph entirely — the landing set is the two client chunks (bytes
@@ -1496,9 +1499,14 @@ const WU20_LANDING_SET = {
   // module. The landing TOTAL DROPPED: the lab study code no longer ships to
   // the public page.
   'overlays.DJ6pB0e_.js': { gz: 8848, sha256: '2aa440aeb2dc6bc38145acd369474695b3a42df40fc1274149a1afa4d4ebb04b' },
-  'sequence-warp.BVB1YAFd.js': { gz: 430, sha256: 'a29cec5084ef72231c4860c07a0088cbaf7d503f3205e27700100adcb0be9504' },
+  // WU31 re-measure (never silently): the hero entry grows with the name
+  // assembly (the dot-ramp corruption for the h1), the skip affordance and the
+  // shorter arc; the shared ramp module grows with the burst profile
+  // (WARP_BURST + rampBurst + the sigma override). The two client chunks and
+  // the engine chunk are BYTE-IDENTICAL.
+  'sequence-warp.4nW7m8Nf.js': { gz: 547, sha256: 'd6564f820960fd4e5378a88edd0be212ce4d4e8c1296c22b7f91b4445d690f47' },
 };
-const WU20_LANDING_GZIP = 98917;
+const WU20_LANDING_GZIP = 99257;
 const WU20_DELTA_LIMIT = 22 * 1024; // 22528 bytes, unchanged rule
 {
   const distJs = existsSync(cssDir) ? readdirSync(cssDir).filter((file) => file.endsWith('.js')) : [];

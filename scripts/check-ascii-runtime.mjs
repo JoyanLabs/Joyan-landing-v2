@@ -149,13 +149,16 @@ const baselineBudget = await json('.artifacts/iteration-2-client-js.json');
 const LANDING_HASHES = {
   'client.BxDIQlYz.js': { gz: 60302, sha256: 'ed1f3e2228ec0a53328513096c375276d3aea8e4c8e2ded754af7b67a13d77f0' },
   'client.kF-MUc6b.js': { gz: 27057, sha256: 'c72b737a3f669a7845f10ec12cf2206a3d4f964c2aef13d4572c6b831b74937d' },
-  'JoyanComingHero.astro_astro_type_script_index_0_lang.CiDMY-cN.js': { gz: 2280, sha256: '029f5e79a36d972909b4c4f7ed2ae94a2ffcc413d933fea164c861cedc1b3597' },
+  'JoyanComingHero.astro_astro_type_script_index_0_lang.250tTKzt.js': { gz: 2503, sha256: '7b13e3733857ac6d74bfe83cf0a0f6f93b366d2ccd22c740ace956a24f5f4b43' },
   // WU29 re-measure (never silently): the hero runs public-sequence (inlined
   // in its entry) and the LAB runtime left the landing graph — the shared
   // scene graph is the engine chunk + the ramp module. The landing total
   // DROPPED: the lab study code no longer ships to the public page.
+  // WU31 re-measure (never silently): the hero entry grows with the name
+  // assembly and the skip affordance; the ramp module grows with the WU31
+  // burst profile. Client x2 and the engine chunk stay BYTE-IDENTICAL.
   'overlays.DJ6pB0e_.js': { gz: 8848, sha256: '2aa440aeb2dc6bc38145acd369474695b3a42df40fc1274149a1afa4d4ebb04b' },
-  'sequence-warp.BVB1YAFd.js': { gz: 430, sha256: 'a29cec5084ef72231c4860c07a0088cbaf7d503f3205e27700100adcb0be9504' },
+  'sequence-warp.4nW7m8Nf.js': { gz: 547, sha256: 'd6564f820960fd4e5378a88edd0be212ce4d4e8c1296c22b7f91b4445d690f47' },
 };
 const landingChunkNames = Object.keys(chunks).filter((name) => LANDING_HASHES[name]);
 for (const name of Object.keys(LANDING_HASHES)) {
@@ -190,7 +193,7 @@ const totalGzip = assetGzip + inlineGzip;
 // framer-motion reveal/viewport chunks left with the old landing). The lab
 // accounting below includes the shared chunk's real bytes: the laboratory
 // executes the same engine the coming-hero does.
-const LANDING_FIVE_GZIP = 98917; // WU29 re-measure (the hero's own runtime; the lab runtime left the public page)
+const LANDING_FIVE_GZIP = 99257; // WU31 re-measure (the name assembly, the skip affordance and the burst profile; client x2 + engine byte-identical)
 const landingGzip = landingChunkNames.reduce((sum, name) => sum + chunks[name].gzip, 0);
 check(landingChunkNames.length === 5 && landingGzip === LANDING_FIVE_GZIP,
   `WU29 landing five-chunk set changed: ${landingChunkNames.length} chunks / ${landingGzip} B gzip`);
@@ -198,7 +201,7 @@ const labChunkNames = Object.keys(chunks).filter((name) => !LANDING_HASHES[name]
 const labChunkGzip = labChunkNames.reduce((sum, name) => sum + chunks[name].gzip, 0);
 // The shared scene graph (runtime + engine chunks) is landing-attributed but
 // the lab runs it too; the honest lab total adds its bytes once.
-const sharedChunkGzip = 9278; // WU29 (8848 engine + 430 ramp module, both shared by the public hero and the labs)
+const sharedChunkGzip = 9395; // WU31 (8848 engine + 547 ramp module — the ramp grew with the burst profile; both shared by the public hero and the labs)
 // WU28: the lab total includes EVERY lab route's executable inline (the ascii
 // page has none; the sequence route carries the ~60 B no-js bootstrap).
 const labTotalGzip = labChunkGzip + sharedChunkGzip + labInlineAll;
@@ -254,8 +257,8 @@ const labTotalGzip = labChunkGzip + sharedChunkGzip + labInlineAll;
 // executable is the ascii runtime/library chunk 25,256 B + the shared chunk
 // 13,866 B + three 56 B entry chunks, 0 B inline. Cap re-measured as measured
 // + 2,048 B, the same documented margin, never a silent raise.
-const LAB_CAP_GZIP = 44770;
-const LAB_MEASURED_GZIP = 42722; // WU29: scene-runtime is lab-only now; includes the 69 B sequence bootstrap inline // WU28: includes the sequence route's 69 B no-js bootstrap inline
+const LAB_CAP_GZIP = 44890; // measured 42842 + 2048 B honest margin (WU31 re-measure, never a silent raise)
+const LAB_MEASURED_GZIP = 42842; // WU31 re-measure: ramp module 430 -> 547 (the burst profile); includes the 69 B sequence bootstrap inline
 const LAB_MARGIN_LIMIT = 4096;
 // What the lab page itself claims about its own cost. The copy must carry the
 // measured numbers, so a claim cannot drift away from the bundle it describes.
@@ -671,8 +674,10 @@ try {
   // WU27 — the shared scene graph SPLIT: the public hero now legitimately
   // fetches the engine chunk (overlays.*) beside the runtime chunk; the client
   // chunks and the entry chunk are part of the same recorded landing set.
-  const WU20_LANDING_CHUNKS = ['JoyanComingHero.astro_astro_type_script_index_0_lang.CiDMY-cN.js',
-    'overlays.DJ6pB0e_.js', 'sequence-warp.BVB1YAFd.js'];
+  // WU31 — re-pinned to the rebuilt names (name assembly + skip affordance in
+  // the entry; the burst profile in the ramp module).
+  const WU20_LANDING_CHUNKS = ['JoyanComingHero.astro_astro_type_script_index_0_lang.250tTKzt.js',
+    'overlays.DJ6pB0e_.js', 'sequence-warp.4nW7m8Nf.js'];
   for (const route of ['/', '/en']) {
     const page = await browser.newPage();
     const requests = [];

@@ -15,18 +15,21 @@
  *                         DURATION_MS, so a scene object is built once per
  *                         bucket (the engine caches masks/sprites per scene
  *                         object) and never rebuilt per frame;
- *   - `warpRampOverrides(s)`  the frozen warp constants scaled by s in [0,1]:
- *                         intensity, bloom intensity and edge amount. At s = 0
- *                         every warp contribution is exactly zero, so bucket 0
- *                         rasterises BYTE-IDENTICAL to the base scene (the
- *                         checker measures this) — the ramp starts ON the
+ *   - `rampBurst(s)`      the WU31 burst strength of a ramp state (0 at both
+ *                         ends, 1 mid-ramp) — see the constant block below;
+ *   - `warpRampOverrides(s, b)`  the frozen warp constants scaled by s in
+ *                         [0,1] and amplified by the burst b in [0,1]. At
+ *                         s = 0 every warp contribution is exactly zero, so
+ *                         bucket 0 rasterises BYTE-IDENTICAL to the base scene
+ *                         (the checker measures this) — the ramp starts ON the
  *                         public scene, not on a lookalike;
  *   - `sequenceScene(payload)`         the public scene, exactly (palette +
  *                         overlays through `applyTreatment`, the ONE function
  *                         the checker and the runtime both call);
- *   - `sequenceWarpScene(payload, s)`  the same scene with the engine's warp
+ *   - `sequenceWarpScene(payload, s, b)`  the same scene with the engine's warp
  *                         overlay composed IN on top (warp first, per the
- *                         catalogue order), scaled to the bucket. The only
+ *                         catalogue order), scaled to the bucket and amplified
+ *                         by the burst. The only
  *                         renderer downstream is `scripts/scene-src/engine.mjs`.
  *
  * Nothing here touches the DOM or a clock: pure functions over the payload, so
@@ -42,27 +45,55 @@ export const SEQUENCE_ROLL = 18;
 export const BASE_OVERLAYS = Object.freeze(['stars', 'aurora', 'wash']);
 
 /** The quantised ramp: STEPS + 1 discrete strengths (0..STEPS — twelve steps
- * yield thirteen scene states, the WU27 record correction) over 3.6 s (the
- * engine renders at the scene's own 12 fps cadence; the discrete steps keep
- * the number of scene objects — and therefore of solved mask/sprite sets —
- * small and bounded). */
-export const WARP_RAMP = Object.freeze({ steps: 12, durationMs: 3600 });
+ * yield thirteen scene states, the WU27 record correction) over 2.4 s (WU31:
+ * the user judged the 3.6 s ramp too slow to read as an event — the whole arc
+ * had to sit inside 7–9 s; the engine renders at the scene's own 12 fps
+ * cadence; the discrete steps keep the number of scene objects — and therefore
+ * of solved mask/sprite sets — small and bounded). */
+export const WARP_RAMP = Object.freeze({ steps: 12, durationMs: 2400 });
 
 /** The warp's frozen constants, read once so the ramp cannot drift from them. */
-const WARP_DEFAULTS = { intensity: 0.6, bloomRadius: 0.05, bloomIntensity: 0.9, edgeStart: 0.7, edgeAmount: 2.5 };
+const WARP_DEFAULTS = { intensity: 0.6, bloomRadius: 0.05, bloomIntensity: 0.9, edgeStart: 0.7, edgeAmount: 2.5, sigma: 0.09 };
+
+/** WU31 BURST — the user's correction: the WU29 reveal "ni se notó". The
+ * reveal must be unmistakable IN MOTION and legible in a SINGLE frame, so the
+ * ramp states near the arrival carry a burst profile: stronger streaks (the
+ * frozen intensity plus a burst increment), a longer trail (the wavefront
+ * gaussian widens from sigma 0.09 toward 0.16, so each spoke lights a wider
+ * band of dots), a bigger, hotter centre bloom and a harder edge pull. The
+ * burst is a property of the RAMP STATE (`rampBurst`), not of a phase flag,
+ * so the live canvas, the Node checkers and the engine probe all derive the
+ * same scene from the state number alone. It is exactly 0 at both ends — the
+ * settled page is byte-identical to today's (checker-proven) — and peaks
+ * mid-ramp where the arrival happens; the settle mirrors it on the way down. */
+const WARP_BURST = Object.freeze({ intensity: 0.85, bloomRadius: 0.06, bloomIntensity: 1.6, edgeAmount: 3.5, sigma: 0.16 });
+
+/** The burst strength at ramp state `s` in [0, steps]: a half sine over the
+ * ramp, 0 at both ends and exactly 1 at the middle state. Pure, deterministic. */
+export function rampBurst(state) {
+  if (state <= 0 || state >= WARP_RAMP.steps) return 0;
+  return Math.sin((Math.PI * state) / WARP_RAMP.steps);
+}
 
 /**
- * The warp overrides for ramp position `s` in [0, 1]. Every contribution is
- * scaled by s, so s = 0 is the base scene and s = 1 is exactly the engine's
- * frozen warp. Pure and deterministic.
- * @param {number} s
+ * The warp overrides for ramp position `s` in [0, 1] and burst strength `b`
+ * in [0, 1]. Every amplitude contribution is scaled by s, so s = 0 is the base
+ * scene regardless of the burst (the burst only ever amplifies states the
+ * ramp actually visits); the burst then adds to intensity, bloom and edge and
+ * widens the trail window. Pure and deterministic.
+ * @param {number} s @param {number} [burst]
  */
-export function warpRampOverrides(s) {
+export function warpRampOverrides(s, burst = 0) {
   const k = s < 0 ? 0 : s > 1 ? 1 : s;
+  const b = burst < 0 ? 0 : burst > 1 ? 1 : burst;
   return {
-    intensity: WARP_DEFAULTS.intensity * k,
-    bloom: { radius: WARP_DEFAULTS.bloomRadius, intensity: WARP_DEFAULTS.bloomIntensity * k },
-    edge: { start: WARP_DEFAULTS.edgeStart, amount: WARP_DEFAULTS.edgeAmount * k },
+    intensity: (WARP_DEFAULTS.intensity + WARP_BURST.intensity * b) * k,
+    bloom: {
+      radius: WARP_DEFAULTS.bloomRadius + WARP_BURST.bloomRadius * b,
+      intensity: (WARP_DEFAULTS.bloomIntensity + WARP_BURST.bloomIntensity * b) * k,
+    },
+    edge: { start: WARP_DEFAULTS.edgeStart, amount: (WARP_DEFAULTS.edgeAmount + WARP_BURST.edgeAmount * b) * k },
+    sigma: WARP_DEFAULTS.sigma + (WARP_BURST.sigma - WARP_DEFAULTS.sigma) * b,
   };
 }
 
@@ -98,9 +129,9 @@ export function sequenceScene(payload) {
  * palette swap is composed with the base overlays PLUS warp (warp first, per
  * the catalogue order), so the ramp adds the engine overlay and nothing else.
  * The warp's colours are joyan-page entries by default.
- * @param {object} payload @param {number} s ramp position in [0, 1]
+ * @param {object} payload @param {number} s ramp position in [0, 1] @param {number} [burst] burst strength in [0, 1]
  */
-export function sequenceWarpScene(payload, s) {
+export function sequenceWarpScene(payload, s, burst = 0) {
   if (!(s > 0)) return sequenceScene(payload);
-  return withOverlays(paletteApplied(payload), [...BASE_OVERLAYS, 'warp'], { warp: warpRampOverrides(s) });
+  return withOverlays(paletteApplied(payload), [...BASE_OVERLAYS, 'warp'], { warp: warpRampOverrides(s, burst) });
 }

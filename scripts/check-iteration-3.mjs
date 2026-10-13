@@ -673,8 +673,8 @@ const candidate = gzipSum();
 // scene-runtime chunk is now 13,866 B gzip under a new hash, and the landing
 // set totals 101,339 B gzip. The delta against the UNCHANGED WU12-era baseline
 // fixture (91,905 B) is 9,434 B — still far inside the untouched 22,528 B limit.
-const LANDING_FROZEN_GZIP = 98917;
-const LANDING_FROZEN_DELTA = 7012; // 98912 - 91905, baseline fixture untouched (WU29: the hero's own runtime; the lab runtime left the public page)
+const LANDING_FROZEN_GZIP = 99257;
+const LANDING_FROZEN_DELTA = 7352; // 99257 - 91905, baseline fixture untouched (WU31: the name assembly, the skip affordance and the burst profile; client x2 + engine byte-identical)
 // WU18 (38,211 B): the image→dot-scene pipeline, its browser-safe core, the
 // composable overlays and the `/lab/image` route were added to the SAME engine
 // chunk, now shared by THREE laboratory routes. The chunk measures 33,296 B raw
@@ -694,10 +694,11 @@ const LANDING_FROZEN_DELTA = 7012; // 98912 - 91905, baseline fixture untouched 
 // scene-runtime (15,710 B raw / 5,956 B gzip) is now lab-only. The lab
 // executable is AsciiRuntime 25,256 B + scene-runtime 5,956 B + SequenceLab
 // 1,995 B + three 56 B entry chunks + the shared engine chunk 8,848 B + the
-// shared ramp module 430 B + the sequence route's 69 B no-js bootstrap inline.
+// shared ramp module 547 B (WU31: the burst profile grew it 430 -> 547) + the
+// sequence route's 69 B no-js bootstrap inline.
 // Cap re-measured as measured + 2,048 B, the same documented margin.
-const LAB_MEASURED_GZIP = 42722;
-const LAB_CAP_GZIP = 44770; // measured total + 2048 B honest margin (<= 4096 B)
+const LAB_MEASURED_GZIP = 42842;
+const LAB_CAP_GZIP = 44890; // measured total + 2048 B honest margin (<= 4096 B)
 const LAB_MARGIN_LIMIT = 4096;
 const LANDING_ROUTE_PAGES = ['index.html', 'en/index.html'];
 /** Every `/lab/**` page is a laboratory page; nothing else is. */
@@ -708,8 +709,10 @@ const isLabPage = (name) => name.startsWith('lab/') && name.endsWith('.html');
 // in this set: the coming-hero is the one runtime path on the public page, and
 // the laboratories share the same engine code.
 const LANDING_FROZEN_HASHES = {
-  '_astro/JoyanComingHero.astro_astro_type_script_index_0_lang.CiDMY-cN.js':
-    '029f5e79a36d972909b4c4f7ed2ae94a2ffcc413d933fea164c861cedc1b3597',
+  // WU31 re-measure (never silently): the hero entry grew with the name
+  // assembly and the skip affordance.
+  '_astro/JoyanComingHero.astro_astro_type_script_index_0_lang.250tTKzt.js':
+    '7b13e3733857ac6d74bfe83cf0a0f6f93b366d2ccd22c740ace956a24f5f4b43',
   '_astro/client.BxDIQlYz.js': 'ed1f3e2228ec0a53328513096c375276d3aea8e4c8e2ded754af7b67a13d77f0',
   '_astro/client.kF-MUc6b.js': 'c72b737a3f669a7845f10ec12cf2206a3d4f964c2aef13d4572c6b831b74937d',
   // WU29 re-measure (never silently): the hero runs its own runtime
@@ -718,7 +721,10 @@ const LANDING_FROZEN_HASHES = {
   // module. The landing total DROPPED (the lab study code left the public
   // page); the set stays five chunks pinned by hash.
   '_astro/overlays.DJ6pB0e_.js': '2aa440aeb2dc6bc38145acd369474695b3a42df40fc1274149a1afa4d4ebb04b',
-  '_astro/sequence-warp.BVB1YAFd.js': 'a29cec5084ef72231c4860c07a0088cbaf7d503f3205e27700100adcb0be9504',
+  // WU31 re-measure (never silently): the entry grows with the name assembly
+  // and the skip affordance; the ramp module grows with the burst profile.
+  '_astro/JoyanComingHero.astro_astro_type_script_index_0_lang.250tTKzt.js': '7b13e3733857ac6d74bfe83cf0a0f6f93b366d2ccd22c740ace956a24f5f4b43',
+  '_astro/sequence-warp.4nW7m8Nf.js': 'd6564f820960fd4e5378a88edd0be212ce4d4e8c1296c22b7f91b4445d690f47',
 };
 
 const isClientChunk = (file) => typeof file === 'string' && /\.js$/i.test(file);
