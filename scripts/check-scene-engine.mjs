@@ -303,7 +303,8 @@ const HERO_FALLBACK_ASSET = 'public/assets/dither/coming-hero.png';
 // WU22 — the page recipe: the PAGE palette (site tokens) and the sweep family
 // (stars + aurora + colour wash), with the subject rolled +18 columns so the
 // top-left stays dark for the full-bleed copy. The tone cap is on by default.
-const HERO_TREATMENT = { id: 'coming-hero', palette: 'joyan-page', overlays: ['stars', 'aurora', 'wash'] };
+// WU32: the vignette joins the public composition (measured in docs/AUDITORIA-ESCENAS.md).
+const HERO_TREATMENT = { id: 'coming-hero', palette: 'joyan-page', overlays: ['stars', 'aurora', 'wash', 'vignette'] };
 const HERO_ROLL = 18;
 const HERO_FIXTURE = resolve(root, 'dist-motion-verify/wu18/input/blade-runner-unicorn-line-transparent.svg');
 const heroHasFixture = existsSync(HERO_FIXTURE);

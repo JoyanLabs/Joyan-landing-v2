@@ -1488,25 +1488,19 @@ const sceneMovie = resolve(ROOT, 'public/assets/motion/harness-tones-dither.mp4'
 const WU20_LANDING_SET = {
   'client.BxDIQlYz.js': { gz: 60302, sha256: 'ed1f3e2228ec0a53328513096c375276d3aea8e4c8e2ded754af7b67a13d77f0' },
   'client.kF-MUc6b.js': { gz: 27057, sha256: 'c72b737a3f669a7845f10ec12cf2206a3d4f964c2aef13d4572c6b831b74937d' },
-  // WU31 re-measure (never silently): the hero entry grows with the name
-  // assembly (the dot-ramp corruption for the h1), the skip affordance and
-  // the shorter arc.
-  'JoyanComingHero.astro_astro_type_script_index_0_lang.250tTKzt.js': { gz: 2503, sha256: '7b13e3733857ac6d74bfe83cf0a0f6f93b366d2ccd22c740ace956a24f5f4b43' },
-  // WU29 re-measure (never silently): the public hero moved to its own runtime
-  // (public-sequence, inlined in the entry) and the LAB runtime left the
-  // landing graph entirely — the landing set is the two client chunks (bytes
-  // unchanged), the hero entry, the shared engine chunk and the shared ramp
-  // module. The landing TOTAL DROPPED: the lab study code no longer ships to
-  // the public page.
-  'overlays.DJ6pB0e_.js': { gz: 8848, sha256: '2aa440aeb2dc6bc38145acd369474695b3a42df40fc1274149a1afa4d4ebb04b' },
-  // WU31 re-measure (never silently): the hero entry grows with the name
-  // assembly (the dot-ramp corruption for the h1), the skip affordance and the
-  // shorter arc; the shared ramp module grows with the burst profile
-  // (WARP_BURST + rampBurst + the sigma override). The two client chunks and
-  // the engine chunk are BYTE-IDENTICAL.
-  'sequence-warp.4nW7m8Nf.js': { gz: 547, sha256: 'd6564f820960fd4e5378a88edd0be212ce4d4e8c1296c22b7f91b4445d690f47' },
+  // WU32 re-measure (never silently): the entry grows with the per-character
+  // decode (charDeadline/reserveBox/releaseBox).
+  'JoyanComingHero.astro_astro_type_script_index_0_lang.Cm5taz_x.js': { gz: 2690, sha256: 'eda1b5bbc2ef3951fe3050feeed03a983c6682df781bf8b1fb6d04cf7100d61f' },
+  // WU32 re-measure (never silently): the overlays chunk grows with the
+  // rebuilt warp (displacement + trails), the vignette overlay, the memoised
+  // bilinear sampler and the subject-preserving star gate.
+  'overlays.CneIXZqO.js': { gz: 9478, sha256: 'ada09817145cbdbb024bec56346a96bf41594e758e4760fe49bada7ab06b680f' },
+  // WU32 re-measure (never silently): the ramp module grows with the pull
+  // profile (WARP_BURST.pullAmount + the eased onset) and the vignette in
+  // BASE_OVERLAYS. The two client chunks stay BYTE-IDENTICAL.
+  'sequence-warp.B4xQQrBk.js': { gz: 556, sha256: '447aca2f700f5d2d6660d9d6afef6a294b7dc3022782509cf59c1d3e70eb7698' },
 };
-const WU20_LANDING_GZIP = 99257;
+const WU20_LANDING_GZIP = 100083;
 const WU20_DELTA_LIMIT = 22 * 1024; // 22528 bytes, unchanged rule
 {
   const distJs = existsSync(cssDir) ? readdirSync(cssDir).filter((file) => file.endsWith('.js')) : [];

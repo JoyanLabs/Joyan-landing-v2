@@ -163,6 +163,13 @@ unicornio con la paleta de página (30 tiempos del bucle, 160 × 80):
 | `wash` | 28,67 % | **0,176** | 0,0517 | 0,0762 | **0,679** |
 | `shimmer` | 8,15 % | 0,336 | 0,0190 | 0,0221 | 0,860 |
 
+Re-medido en WU32 (la aurora y el wash se re-afinan para que el sujeto se lea,
+§WU32): la aurora afinada mide ahora lavado **0,0418** de la rejilla (antes
+0,0930), mayor mancha **42** celdas (antes 117) y retención del sujeto
+**0,9700** (antes 0,9643). La textura plana se re-mide con la puerta de
+escasez del auto-ganancia: **0,9331** de pares planos a ganancia 1 (el gain
+1,5 de WU19 ya no se aplica a un input denso, §WU32).
+
 **`wash` va a la página**: cubre más escena (el efecto "pasa sobre toda la
 imagen cambiando el color" que pidió el usuario), su empuje máximo es el más
 suave y es el que más respeta el sujeto. La costura de campo de los seis
@@ -281,3 +288,127 @@ Evidencia: `dist-motion-verify/wu19/audit/` (clave `pitch`), tablas del §12 de
    correo y marca de Discord en nuestra estética (invitación pendiente de
    configurar por el usuario). Pendiente: Firefox/Safari y métricas de campo
    (LCP/CLS), que siguen sin medirse.
+
+## WU32 — el warp como desplazamiento con estelas, el sujeto legible y el arco de texto (2026-10-10)
+
+El usuario rechazó los fotogramas de WU31 (`dist-motion-verify/wu32/frames/`,
+fotogramas 01–11): la ráfaga se leía como una **mancha gris**, no como
+velocidad-luz; los acentos ámbar/rosa se dispersaban como ruido en los bordes
+del marco; el crédito `TERMINATOR 2 · SARAH CONNOR` competía con el eyebrow
+ámbar; la fila de puntos del pie no se quería; y el unicornio se perdía contra
+un campo ruidoso. Cada defecto, medido con los métodos que ya teníamos.
+
+### 1. La mancha gris: el warp re-construido como DESPLAZAMIENTO con ESTELAS
+
+El hallazgo aplicado: un hypersalto funciona porque los puntos se **proyectan
+con perspectiva y se dibujan como estelas desde su posición previa**, no
+porque brillen más. En nuestro lenguaje de puntos (`scripts/scene-src/overlays.mjs`,
+`warpOverlay`):
+
+- **Remuestreo radial**: durante la rampa, la celda lee el campo base AL LO LARGO
+  DEL RADIO hacia el centro con un tirón cuadrático en el radio (aceleración
+  estilo 1/z): los propios puntos del sujeto se estiran hacia fuera desde el
+  centro. El tirón es propiedad de la rampa (`warpRampOverrides`: 20 celdas en
+  el radio de esquina al pico de la ráfaga, con inicio suave por smoothstep) y
+  es nulo en bucket 0.
+- **Estelas**: cada celda muestrea el campo base en varias paradas a lo largo
+  de su radio (6 toques) con pesos que crecen hacia la cabeza y una puerta de
+  brillo (solo viaja LUZ: el suelo oscuro no se emborrona). Máximo entre toques:
+  la estructura se conserva y la energía nunca se acumula.
+- **Ritmo dentro de la rampa**: inicio suave (el tirón sigue un smoothstep de
+  s), destello en el pico (la ráfaga), convergencia (el settle vuelve a 0; el
+  bucket 0 sigue siendo byte-idéntico a la composición pública, medido por
+  `check-public-sequence` y `check-scene-engine`).
+- **Disciplina de acento**: el ámbar de la onda viajera va montado SOBRE las
+  estelas encendidas (la glow se multiplica por el brillo del contenido
+  desplazado). Medido sobre la sonda determinista, a nivel RÁSTER:
+  **antes** 913 celdas de acento nuevas en los bordes, **647 dispersas**
+  (perpendicular > 1,5 celdas de todo radio activo — **70,87 %**); **después**
+  **0** celdas de acento nuevas fuera de los radios y del núcleo. El núcleo
+  caliente del bloom se encoge (radio gaussiano 0,11 → 0,05 del radio máximo:
+  el disco blanco lleno de WU31 era la mancha).
+
+| Métrica de la ráfaga (sonda del checker, 160 × 80) | WU31 | WU32 |
+| --- | --- | --- |
+| Celdas de estela interiores cambiadas (fuera de radios y bloom) | 2–3 | **912** (re-medido por la verificación independiente; el 390 del registro era de un ajuste intermedio) |
+| Acento nuevo en bordes disperso (fracción) | 0,7087 | **0** (0 celdas) |
+| Celdas ámbar de la ráfaga (absoluto) | ~1.979 sin puerta | **377**, todas en radios con luz |
+| Costura de campo a fin de bucle | ~1e−15 | **1,9e−15** |
+| Bucket 0 byte-idéntico a la composición pública | sí | **sí** |
+| Coste por fotograma (Node, ráfaga) | — | 37,6 ms (presupuesto 12 fps: 83 ms) |
+
+### 2. El sujeto debe leerse
+
+Método del §5 (celdas del sujeto = cobertura de tinta > 0,4 del campo crudo;
+suelo = ≤ 0,1), ahora sobre la geometría RODADA (+18 columnas — la máscara sin
+rodar medía un dibujo que no está donde lo puso el render):
+
+| Métrica | WU31 | WU32 |
+| --- | --- | --- |
+| Contraste sujeto/suelo (fracción de celdas del sujeto que pintan un punto menos las del suelo) | 0,2545 (registro WU31; en `b523efa` reproduce 0,7826 — el valor de referencia era de una iteración anterior) | **0,9170** (sujeto 100 % encendido) |
+| Fracción de suelo ruidoso (tono > 0,15 en celdas vacías) | 0,2472 (en `b523efa` reproduce 0,1734) | **0,0392** |
+
+Los cambios, medidos uno a uno: auto-ganancia con objetivo **0,75 → 0,9** y
+techo **3,5 → 4,5**, más una **puerta de escasez** (cobertura entintada ≤ 0,25 —
+la regla siempre fue «solo arte escaso y claro»; el gradiente de rango completo
+vuelve a gain 1, medido), el unicornio queda a **gain 3,882** (antes 3,235).
+Estrellas: densidad 0,055 → **0,045**, centelleo 0,9 → **0,8**, y preservación
+del sujeto (celda con estructura se conserva). Aurora: mezcla 0,55 → **0,32**,
+keep 0,55 → **0,75**, rodilla de preservación 0,55 → **0,08** (los trazos DÉBILES
+del unicornio, tono ~0,16, estaban por debajo de la rodilla vieja y se hundían
+en el color de la cortina: contraste medido −0,0786 antes del arreglo). Wash:
+intensidad 0,4 → **0,24**, keep 0,5 → **0,7**. **Viñeta** radial nueva (última
+capa del catálogo): empieza en 0,7 del radio del centro, profundidad 0,55 — una
+viñeta por distancia al borde se probó y se rechazó medida: comía las líneas
+exteriores del sujeto (contraste 0,0237 → 0,0165). El **tope de tono se queda
+en 0,86**: subirlo a 0,92 se midió y se rechazó — debilitaba la guarda WU22 del
+núcleo blanco por debajo de su propio corte del 25 % (122 → 102 celdas, 16 %).
+
+Recortes y fotogramas: `dist-motion-verify/wu32/frames/` (04-burst, 05-full,
+09-final a 1440; 10-mobile-final a 390), `dist-motion-verify/wu32/poster-after.png`
+y `burst-after.png` (Node, render puro). Lo que sigue siendo subjetivo: la
+densidad del cuerpo del unicornio es la densidad del trazo del dibujo (§3c) —
+el núcleo sigue siendo denso; lo que cambió es que el suelo ya no compite.
+
+### 3. El arco de texto: relojes por carácter, sin salto de caja
+
+- **Un reloj por carácter** (`charDeadline`): cada carácter resuelve en su
+  propio instante — franjas de 0,7/len con jitter determinista ±45 % de la
+  franja, monótono estricto (bloqueo izquierda→derecha, desigual). Medido en
+  vivo: glifos ciclando 27→23→19→14→11→6 mientras la línea se cierra.
+- **Los glifos ciclan en el ACENTO** (`DECODE_ACCENT #ffb000`); el texto
+  resuelto conserva el tono base (se elimina la ruleta de tres tonos de WU29,
+  que leía como ruido).
+- **Un solo nodo de texto real** por elemento (los spans son hijos del propio
+  elemento; sin duplicados aria-hidden — no hay capas de glitch).
+- **Sin salto de caja** (`reserveBox`/`releaseBox`): antes del primer span se
+  tiende el texto FINAL y se fija su caja (min-width/min-height); el ancho de
+  la caja medido a través del scramble es **constante** (448 px ES/EN a 1440,
+  delta **0,00 px**; nombre 576, delta **0,00**). Antes (WU31): la extensión
+  del texto saltaba **58 px** al resolverse (`dist-motion-verify/wu32/before-text-extent.json`).
+  CLS total 0,0002 (sin cambio). Movimiento reducido: texto final sin scramble
+  (medido: 0 spans ciclando).
+
+### 4. Los arreglos de gusto que nombró el usuario
+
+- **Crédito**: 12 px ámbar 0,24em → **10 px plomo-400 (`#8a8a90`) 0,12em**
+  (medido en vivo contra el eyebrow: 12 px ámbar 0,3em — la jerarquía queda
+  clara). Escala tipográfica final: eyebrow **12 px / ámbar / 0,3em** · nombre
+  **Michroma 48 px (72 px ≥ sm)** · línea del destino **15 px** (fase fate,
+  crece a 18 px) · línea del vigilante **18 px / bone-100** · crédito **10 px /
+  plomo-400 / 0,12em** · nota del pie **12 px / plomo-400** · contacto
+  **14 px mono**.
+- **La fila de puntos del pie** (svg 104×8 junto a «© Joyan — no fate.») está
+  ELIMINADA (el texto del pie y la fila de contacto se quedan; medido en el
+  DOM sin JS: `dotRule: false`).
+
+### 5. Presupuestos y límites re-pinados (WU32, nunca en silencio)
+
+Landing **100.083 B gzip en 5 chunks** (delta **8.178** ≤ 22.528 frente al
+fixture intacto de 91.905 — margen restante **14.350 B**; los dos chunks client
+BYTE-IDÉNTICOS). Lab **43.481 B** bajo tope **45.529 B** (medido + 2.048).
+`.artifacts/iteration-2-client-js.json` intacto. **LCP/CLS (método WU28,
+Chromium local): LCP 2.340 ms (el h1 `Joyan` en la revelación), CLS 0.0002**.
+Sin errores de consola, sin peticiones externas, sin desbordamiento a 390.
+Queda abierto: Firefox/Safari, CPU real, y el juicio del usuario sobre la
+nueva ráfaga (los fotogramas están en `dist-motion-verify/wu32/frames/`).

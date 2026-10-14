@@ -35,8 +35,10 @@ export const LOOP_SECONDS = 30;
 
 /** Every overlay id, in composition order. WU22 adds the sweep family; WU26
  * adds warp FIRST, because its radial displacement re-samples the subject's
- * own field and every later overlay must compose over the displaced cells. */
-export const OVERLAY_IDS = Object.freeze(['warp', 'stars', 'aurora', 'grain', 'glimmer', 'wash', 'shimmer']);
+ * own field and every later overlay must compose over the displaced cells.
+ * WU32 adds the vignette LAST, so the field falls off at the frame edges over
+ * everything else (the user rejected the scattered edge noise). */
+export const OVERLAY_IDS = Object.freeze(['warp', 'stars', 'aurora', 'grain', 'glimmer', 'wash', 'shimmer', 'vignette']);
 
 /** Human labels, for the laboratory's controls and the docs. */
 export const OVERLAY_LABELS = Object.freeze({
@@ -46,7 +48,8 @@ export const OVERLAY_LABELS = Object.freeze({
   glimmer: 'glimmer sweep (soft subject-preserving band, whole sweeps per loop, WU22 tuned)',
   wash: 'colour wash (a wide tinted band crosses the whole scene and fades through two hues, WU22)',
   shimmer: 'shimmer band (a narrow bright band with hash sparkle travels whole sweeps per loop, WU22)',
-  warp: 'warp (light-speed in dots: discrete amber dot streaks on radial spokes leave a hot centre bloom, two whole trips per loop with a wide gaussian window — WU27 slower/wider, WU28 all-amber trails — and the subject dots displace radially near the frame border, WU26)',
+  warp: 'warp (light-speed in dots, WU32: the subject\'s own dots DISPLACE radially — a 1/z-style pull samples the base field along the ray toward the centre — and each cell keeps the recent path of its ray as a TRAIL, so a still frame shows streaks, not a blob; the amber wavefront rides ON the lit streaks and a hot centre bloom stays the light source; two whole trips per loop)',
+  vignette: 'vignette (WU32: the field falls off toward the frame edges over the composed result, so the ground quiets down and the subject reads)',
 });
 
 /**
@@ -54,15 +57,22 @@ export const OVERLAY_LABELS = Object.freeze({
  * and the checker both read, so "the overlay" is one thing and not two.
  */
 export const OVERLAY_DEFAULTS = Object.freeze({
-  stars: Object.freeze({ seed: 20261010, density: 0.055, twinkle: 0.9, period: 6,
+  // WU32 — the star field was half of the "noisy field" the user rejected:
+  // density 0.055 -> 0.045, twinkle 0.9 -> 0.8, and the stars are now
+  // subject-preserving too (`keep`: a cell already carrying structure keeps
+  // itself, like the aurora's WU19 blend — stars no longer punch mid-grey
+  // holes into the ground around the drawing).
+  stars: Object.freeze({ seed: 20261010, density: 0.045, twinkle: 0.8, period: 6, keep: 0.7,
     colour: Object.freeze([0.95, 0.97, 1]) }),
   // WU19 tuning, measured in docs/AUDITORIA-ESCENAS.md: the WU18 aurora read as
   // one ~1200-cell connected wash on a 200x100 grid (28.9% of cells shifted by
   // more than 0.12 of tone) and could submerge the subject. Finer octaves, a
   // finer lattice, a lower amplitude and subject-preserving blending bring the
-  // wash down without losing the look the user praised.
+  // wash down without losing the look the user praised. WU32 (the user rejected
+  // the frames: the subject drowned in the field): the blend drops 0.55 -> 0.32
+  // and the subject keep rises 0.55 -> 0.75 — measured in docs/AUDITORIA-ESCENAS.md.
   aurora: Object.freeze({ seed: 0x7a1, scaleX: 0.13, scaleY: 0.16, wrapsX: 9, wrapsY: 5,
-    hueScale: 0.05, hueWraps: 4, octaves: 3, blend: 0.55, keep: 0.55 }),
+    hueScale: 0.05, hueWraps: 4, octaves: 3, blend: 0.32, keep: 0.75 }),
   grain: Object.freeze({ seed: 0x6a1, scale: 0.34, wrapsY: 21, amount: 0.14 }),
   glimmer: Object.freeze({ seed: 0x9117, sweeps: 1, sigma: 0.09, intensity: 0.32,
     keep: 0.45, colour: Object.freeze([0.92, 0.95, 1]) }),
@@ -71,33 +81,40 @@ export const OVERLAY_DEFAULTS = Object.freeze({
   // wash: a WIDE diagonal band (sigma 0.18 of the diagonal) tints the scene
   // toward one of two colours chosen by a slow hue noise with whole wraps, at a
   // strength that fades on bright structure (keep) so the subject survives.
-  wash: Object.freeze({ seed: 0x21f2, sweeps: 1, sigma: 0.18, intensity: 0.4, keep: 0.5,
+  // WU32 (the user rejected the frames: the subject drowned): intensity
+  // 0.4 -> 0.24 and keep 0.5 -> 0.7 — the band stays, the ground quiets.
+  wash: Object.freeze({ seed: 0x21f2, sweeps: 1, sigma: 0.18, intensity: 0.24, keep: 0.7,
     colourA: Object.freeze([0.07, 0.55, 0.47]), colourB: Object.freeze([0.42, 0.36, 0.85]) }),
   // shimmer: a NARROW bright band (sigma 0.035) whose strength is modulated by
   // hash sparkle along the band, so it reads as glitter crossing the picture.
   shimmer: Object.freeze({ seed: 0x31d7, sweeps: 2, sigma: 0.035, intensity: 0.35, keep: 0.55,
     sparkle: 0.5, sparkleScale: 0.35, colour: Object.freeze([0.95, 0.96, 1]) }),
-  // WU26 — warp: light-speed in our dot language. The centre is declared in
-  // grid fractions; the streaks are DISCRETE dots: a cell lights up only if it
-  // sits on one of the hash-selected radial spokes (dotted, not lines) AND its
-  // wrapped radial distance to the travelling wavefront is inside the gaussian
-  // window. The wavefront completes a WHOLE number of trips per loop (fract of
-  // trips), so the seam is exact. The centre bloom is a dot cluster (a radial
-  // gaussian over the hot bone of the page palette). Near the frame border the
-  // subject's own dots displace radially: the overlay re-samples the BASE field
-  // up to `edge.amount` cells inward, so the border content stretches outward
-  // like the classic light-speed pull. Every colour is a joyan-page entry.
-  // WU27 (user direction, after the WU26 honest judgement): SLOWER and WIDER —
-  // two whole trips per 30 s loop instead of three, and the wavefront gaussian
-  // widens sigma 0.05 -> 0.09, so the pulse reads as light-speed in motion
-  // without competing with the star field. The seam stays exactly 0 (whole
-  // trips, fract advance); re-measured by both checkers.
+  // WU26 — warp: light-speed in our dot language. WU32 REBUILDS the mechanism
+  // (the user rejected the WU31 frames: the burst read as a grey smudge and the
+  // accents scattered at the frame edges). The working hyperspace grammar, in
+  // our dot language: the subject's own dots are PROJECTED with perspective —
+  // the overlay re-samples the base field along the ray toward the centre with
+  // a 1/z-style acceleration (the pull grows with the square of the radius), so
+  // the subject stretches outward instead of glowing in place — and each cell
+  // keeps the recent path of its ray as a TRAIL (multi-tap sampling along the
+  // ray, weights growing toward the head), so a still frame shows radial
+  // streaks, not a blob. The amber wavefront stays, but it rides ON the lit
+  // streaks (gated by the displaced content's brightness — accent discipline:
+  // amber only where there is light to carry), and the centre bloom stays the
+  // hot light source. The wavefront completes a WHOLE number of trips per loop
+  // and the pull is time-free, so the seam is exact by construction.
   warp: Object.freeze({ seed: 0x5af1, centre: Object.freeze([0.5, 0.46]), spokes: 48,
     spokeDensity: 0.5, dotFill: 0.55, rings: 24, trips: 2, sigma: 0.09, intensity: 0.6,
-    keep: 0.35, bloom: Object.freeze({ radius: 0.05, intensity: 0.9 }),
-    edge: Object.freeze({ start: 0.7, amount: 2.5 }),
+    keep: 0.35, bloom: Object.freeze({ radius: 0.028, intensity: 0.7 }),
+    pull: Object.freeze({ amount: 0, taps: 6 }),
     colour: Object.freeze([0.957, 0.949, 0.929]), hotColour: Object.freeze([1, 0.993, 0.973]),
     amberColour: Object.freeze([1, 0.69, 0]) }),
+  // WU32 — the vignette: the field falls off toward the frame edges over the
+  // composed result, RADIAL from the frame centre (the subject sits
+  // centre-right: a border-distance vignette would eat its outer lines —
+  // measured: contrast fell 0.0237 -> 0.0165 — so the falloff starts at 0.7
+  // of the centre radius and only the frame's own edges quiet down).
+  vignette: Object.freeze({ start: 0.7, depth: 0.55 }),
 });
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
@@ -134,10 +151,15 @@ function starsOverlay(overrides) {
     apply(x, y, t, base, ctx) {
       const pick = hashNoise(x, y, p.seed);
       if (pick > p.density) return base;
+      // WU32 — subject-preserving stars (the aurora's WU19 blend, applied to
+      // the star field): a cell already carrying structure keeps itself, so
+      // the stars texture the GROUND, not the drawing.
+      const lum = LUMA_R * base[0] + LUMA_G * base[1] + LUMA_B * base[2];
+      const preserve = 1 - (p.keep ?? 0) * clamp01((lum - 0.18) / 0.3);
       const phase = hashNoise(x, y, p.seed + 1) * Math.PI * 2;
       // 30 / period whole cycles: the sine returns to the same value at the seam.
       const wave = 0.5 + 0.5 * Math.sin((Math.PI * 2 * t) / p.period + phase);
-      const gain = p.twinkle * wave;
+      const gain = p.twinkle * wave * preserve;
       const alpha = gain * (0.35 + 0.65 * hashNoise(x, y, p.seed + 2));
       return mix(base, colour, clamp01(alpha));
     },
@@ -164,12 +186,14 @@ function auroraOverlay(overrides) {
       const colour = mix(AURORA_COLOURS[i], AURORA_COLOURS[j], at - i);
       // Vertical banding: the curtain hangs from the top and fades downward.
       const vertical = 1 - 0.55 * (ctx.rows > 1 ? y / (ctx.rows - 1) : 0);
-      // Subject-preserving blending (WU19, measured): a cell that already carries
-      // a bright structure keeps `keep` more of itself per unit of brightness, so
-      // the curtain washes the ground, not the drawing. The 0.55 knee is the tone
-      // above which a cell reads as subject on our dark grounds.
+      // Subject-preserving blending (WU19, measured; WU32 re-kneed). A cell
+      // that already carries structure keeps `keep` more of itself per unit of
+      // brightness, so the curtain washes the ground, not the drawing. WU32:
+      // the knee drops 0.55 -> 0.08 — the unicorn's FAINT strokes (composed
+      // tone ~0.16, measured) sat below the old knee and drowned in the
+      // curtain colour; any cell carrying drawn ink now keeps itself.
       const lum = LUMA_R * base[0] + LUMA_G * base[1] + LUMA_B * base[2];
-      const preserve = 1 - (p.keep ?? 0.5) * clamp01((lum - 0.55) / 0.45);
+      const preserve = 1 - (p.keep ?? 0.5) * clamp01((lum - 0.08) / 0.15);
       const strength = smoothstep(0.52, 0.94, curtain) * vertical * p.blend * preserve;
       return mix(base, colour, clamp01(strength));
     },
@@ -206,9 +230,10 @@ function glimmerOverlay(overrides) {
       // The wrapped distance to the band, so the seam is not a jump.
       let d = fract(u - position + 0.5) - 0.5;
       const band = Math.exp(-(d * d) / (2 * p.sigma * p.sigma));
-      // Subject-preserving (WU22): bright structure keeps itself, as the aurora does.
+      // Subject-preserving (WU22; WU32 re-kneed like the aurora: the knee
+      // drops 0.55 -> 0.12 so faint drawn strokes keep themselves too).
       const lum = LUMA_R * base[0] + LUMA_G * base[1] + LUMA_B * base[2];
-      const preserve = 1 - (p.keep ?? 0) * clamp01((lum - 0.55) / 0.45);
+      const preserve = 1 - (p.keep ?? 0) * clamp01((lum - 0.08) / 0.15);
       return mix(base, p.colour, clamp01(band * p.intensity * preserve));
     },
   };
@@ -232,7 +257,7 @@ function washOverlay(overrides) {
         { octaves: 2, wrapY: 2 });
       const colour = mix(p.colourA, p.colourB, hue);
       const lum = LUMA_R * base[0] + LUMA_G * base[1] + LUMA_B * base[2];
-      const preserve = 1 - (p.keep ?? 0) * clamp01((lum - 0.55) / 0.45);
+      const preserve = 1 - (p.keep ?? 0) * clamp01((lum - 0.08) / 0.15);
       return mix(base, colour, clamp01(band * p.intensity * preserve));
     },
   };
@@ -255,16 +280,19 @@ function shimmerOverlay(overrides) {
       const phase = hashNoise(x, y, p.seed) * Math.PI * 2;
       const sparkle = 1 - p.sparkle * (0.5 + 0.5 * Math.sin((Math.PI * 2 * 15 * t) / LOOP_SECONDS + phase));
       const lum = LUMA_R * base[0] + LUMA_G * base[1] + LUMA_B * base[2];
-      const preserve = 1 - (p.keep ?? 0) * clamp01((lum - 0.55) / 0.45);
+      const preserve = 1 - (p.keep ?? 0) * clamp01((lum - 0.08) / 0.15);
       return mix(base, p.colour, clamp01(band * p.intensity * sparkle * preserve));
     },
   };
 }
 
-/** WARP (WU26) — light-speed in dots. See OVERLAY_DEFAULTS.warp for the frozen
- * constants and the construction notes; the short version: dotted radial
- * streaks on hash spokes, a centre bloom, whole trips per loop, and an edge
- * displacement that re-samples the base field (never moves a painted cell). */
+/** WARP (WU26, rebuilt WU32) — light-speed as DISPLACEMENT WITH TRAILS. See
+ * OVERLAY_DEFAULTS.warp for the frozen constants and the construction notes.
+ * Short version: the cell's colour comes from the base field sampled ALONG THE
+ * RAY toward the centre (a 1/z-style pull, quadratic in the radius) and the
+ * trail is the max over several taps along that ray with weights that grow
+ * toward the head, gated by brightness so only LIGHT travels. The amber
+ * wavefront rides on the lit streaks; the bloom stays the hot centre. */
 function warpOverlay(overrides) {
   const p = { ...OVERLAY_DEFAULTS.warp, ...overrides };
   return {
@@ -278,22 +306,53 @@ function warpOverlay(overrides) {
       const dist = Math.hypot(dx, dy);
       const maxDist = Math.hypot(Math.max(cx, ctx.cols - 1 - cx), Math.max(cy, ctx.rows - 1 - cy)) || 1;
       const r = dist / maxDist;
-      // Edge displacement: sample the base field INWARD along the radial
-      // direction, so the border content stretches outward. The displacement
-      // is static (time-free), quantised by the field's own integer cells, and
-      // bounded by `edge.amount` cells at the frame border.
+      // WU32 DISPLACEMENT — the 1/z-style pull: quadratic in the radius, so
+      // dots far from the centre accelerate outward and the subject stretches
+      // from the centre out. Time-free, so the seam stays exact.
+      const pullAmount = p.pull?.amount ?? 0;
+      const pull = pullAmount * r * r;
+      // WU32 TRAILS — multi-tap sampling along the ray toward the centre. Tap
+      // j reads the base field at pull * j / taps cells inward; the weight
+      // grows toward the deepest tap (the head of the streak leads outward);
+      // the brightness gate keeps dark ground from smearing (only LIGHT
+      // travels). Max over taps: structure stays, energy never accumulates.
       let colour = base;
-      if (ctx.sample && r > p.edge.start) {
-        const pull = p.edge.amount * smoothstep(p.edge.start, 1, r);
-        if (pull > 0 && dist > 0) {
-          colour = ctx.sample(x - (dx / dist) * pull, y - (dy / dist) * pull);
+      let trailAlpha = 0;
+      let trailLuma = 0;
+      if (ctx.sample && pull > 0.05 && dist > 0) {
+        const ux = dx / dist;
+        const uy = dy / dist;
+        const taps = p.pull?.taps ?? 6;
+        for (let j = 1; j <= taps; j++) {
+          const sx = x - ux * pull * (j / taps);
+          const sy = y - uy * pull * (j / taps);
+          const got = ctx.sample(sx, sy);
+          const l = LUMA_R * got[0] + LUMA_G * got[1] + LUMA_B * got[2];
+          // Only light travels: dark ground is not smeared outward.
+          const gate = smoothstep(0.1, 0.32, l);
+          const alpha = (j / taps) * gate;
+          if (alpha > trailAlpha) {
+            trailAlpha = alpha;
+            trailLuma = l;
+            colour = got;
+          }
+        }
+        if (trailAlpha > 0.02) {
+          // The trail composites the sampled light over the cell; the alpha is
+          // the tap's own gated weight, so faint far taps stay faint.
+          colour = mix(base, colour, clamp01(trailAlpha));
+        } else {
+          colour = base;
         }
       }
       // The travelling wavefront: a WHOLE number of radial trips per loop.
       const front = fract((t / LOOP_SECONDS) * p.trips);
       // Discrete dotted streaks: the cell must sit on a hash-selected spoke
       // (radial path), be a dot on that spoke (dotted, not a line), and sit
-      // inside the gaussian window of the wavefront at its own radius.
+      // inside the gaussian window of the wavefront at its own radius. WU32
+      // accent discipline: the amber rides ON the lit streaks — the glow is
+      // gated by the displaced content's brightness, so an empty spoke at the
+      // frame edge no longer scatters isolated amber dots.
       const angle = Math.atan2(dy, dx);
       const spoke = Math.floor(((angle + Math.PI) / (Math.PI * 2)) * p.spokes);
       const onSpoke = hashNoise(spoke, 0, p.seed) < p.spokeDensity;
@@ -302,16 +361,18 @@ function warpOverlay(overrides) {
       if (onSpoke && isDot) {
         const d = fract(r - front + 1) - 0.5;
         glow = Math.exp(-(d * d) / (2 * p.sigma * p.sigma)) * p.intensity;
+        // WU32: amber only where there is light to carry — the trail's own
+        // gated brightness (the streak the cell sits on) or the cell's own
+        // content near the centre. An empty spoke at the frame edge no longer
+        // scatters isolated amber dots.
+        const carrier = Math.max(trailAlpha, smoothstep(0.08, 0.3,
+          Math.max(trailLuma, LUMA_R * base[0] + LUMA_G * base[1] + LUMA_B * base[2])));
+        glow *= 0.2 + 0.8 * carrier;
       }
       // Centre bloom: a dot cluster of the hot bone, fading with radius.
       const bloom = Math.exp(-(r * r) / (2 * p.bloom.radius * p.bloom.radius)) * p.bloom.intensity;
-      // WU28 — EVERY spoke carries the amber. WU27 alternated bone/amber, and
-      // the measured still-frame legibility was poor: of the cells the warp
-      // changes, only 12.8% were accent-signed ((r-b) > 0.25) — the bone half
-      // of the streaks is indistinguishable from the star field in a still
-      // (the WU26/WU27 honest judgement). With every spoke amber the accent
-      // fraction doubles to 0.26 (checker-measured); the bloom stays the hot
-      // bone so the centre still reads as the light source. Both colours are
+      // WU28 — EVERY spoke carries the amber; the bloom stays the hot bone so
+      // the centre still reads as the light source. Both colours are
       // joyan-page entries; the seam is untouched (whole trips, fract advance).
       const streakColour = p.amberColour;
       let out = colour;
@@ -328,8 +389,27 @@ function warpOverlay(overrides) {
   };
 }
 
+/** VIGNETTE (WU32) — the field falls off toward the frame borders over the
+ * composed result, so the ground quiets down at the edges and the subject
+ * reads. Static (time-free): the seam is trivially exact. */
+function vignetteOverlay(overrides) {
+  const p = { ...OVERLAY_DEFAULTS.vignette, ...overrides };
+  return {
+    id: 'vignette',
+    label: OVERLAY_LABELS.vignette,
+    apply(x, y, t, base, ctx) {
+      const cx = 0.5 * (ctx.cols - 1);
+      const cy = 0.5 * (ctx.rows - 1);
+      const maxDist = Math.hypot(Math.max(cx, ctx.cols - 1 - cx), Math.max(cy, ctx.rows - 1 - cy)) || 1;
+      const r = Math.hypot(x - cx, y - cy) / maxDist;
+      const factor = 1 - p.depth * smoothstep(p.start, 1, r);
+      return [clamp01(base[0] * factor), clamp01(base[1] * factor), clamp01(base[2] * factor)];
+    },
+  };
+}
+
 const BUILDERS = { warp: warpOverlay, stars: starsOverlay, aurora: auroraOverlay, grain: grainOverlay,
-  glimmer: glimmerOverlay, wash: washOverlay, shimmer: shimmerOverlay };
+  glimmer: glimmerOverlay, wash: washOverlay, shimmer: shimmerOverlay, vignette: vignetteOverlay };
 
 /** Build one overlay by id. Throws on an unknown id rather than guessing. */
 export function makeOverlay(id, overrides = {}) {
@@ -350,12 +430,66 @@ export function withOverlays(scene, ids, overrides = {}) {
   const active = OVERLAY_IDS.filter((id) => ids.includes(id)).map((id) => makeOverlay(id, overrides));
   if (active.length === 0) return scene;
   const baseField = scene.field;
-  const ctx = { cols: scene.cols, rows: scene.rows, loopSeconds: scene.cycleFrames / scene.fps };
+  const cols = scene.cols;
+  const rows = scene.rows;
+  const ctx = { cols, rows, loopSeconds: scene.cycleFrames / scene.fps };
+  // WU32 — a memoised BILINEAR SAMPLER over the base field's own integer
+  // grid. The warp's trail taps read the base field up to a dozen times per
+  // cell; evaluating the full composed base field per tap would be an order
+  // of magnitude too slow. Instead the base field is evaluated once per
+  // integer cell (lazily, per frame time) and the taps interpolate. Pure: the
+  // cache is keyed by the exact time and every value in it is the base
+  // field's own output, so a frame is reproducible byte for byte in Node and
+  // in the browser alike.
+  let sampleTime = null;
+  let sampleGrid = null;
+  let sampleFilled = null;
+  let sampleGeneration = 0;
+  const sampleBase = (sx, sy, t) => {
+    if (t !== sampleTime) {
+      sampleTime = t;
+      sampleGeneration += 1;
+      if (!sampleGrid || sampleGrid.length !== cols * rows * 3) {
+        sampleGrid = new Float64Array(cols * rows * 3);
+        sampleFilled = new Uint32Array(cols * rows);
+      }
+    }
+    const cx = Math.min(cols - 1, Math.max(0, sx));
+    const cy = Math.min(rows - 1, Math.max(0, sy));
+    const x0 = Math.floor(cx);
+    const y0 = Math.floor(cy);
+    const x1 = Math.min(cols - 1, x0 + 1);
+    const y1 = Math.min(rows - 1, y0 + 1);
+    const fx = cx - x0;
+    const fy = cy - y0;
+    const at = (ix, iy) => {
+      const idx = iy * cols + ix;
+      if (sampleFilled[idx] !== sampleGeneration) {
+        const got = baseField(ix, iy, t);
+        sampleGrid[idx * 3] = got[0];
+        sampleGrid[idx * 3 + 1] = got[1];
+        sampleGrid[idx * 3 + 2] = got[2];
+        sampleFilled[idx] = sampleGeneration;
+      }
+      return idx * 3;
+    };
+    const i00 = at(x0, y0);
+    const i10 = at(x1, y0);
+    const i01 = at(x0, y1);
+    const i11 = at(x1, y1);
+    const out = [0, 0, 0];
+    for (let c = 0; c < 3; c++) {
+      const a = sampleGrid[i00 + c] + (sampleGrid[i10 + c] - sampleGrid[i00 + c]) * fx;
+      const b = sampleGrid[i01 + c] + (sampleGrid[i11 + c] - sampleGrid[i01 + c]) * fx;
+      out[c] = a + (b - a) * fy;
+    }
+    return out;
+  };
   const field = (x, y, t) => {
     // `sample` lets a displacement overlay (warp) read the BASE field at a
     // shifted coordinate; it is the raw base only — later overlays in the
     // catalogue compose over the displaced result, in the fixed order.
-    const ctxWithSample = { ...ctx, sample: (sx, sy) => baseField(sx, sy, t) };
+    const ctxWithSample = { ...ctx, sample: (sx, sy) => sampleBase(sx, sy, t) };
     let colour = baseField(x, y, t);
     for (const overlay of active) colour = overlay.apply(x, y, t, colour, ctxWithSample);
     return colour;

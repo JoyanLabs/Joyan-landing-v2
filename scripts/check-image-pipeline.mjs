@@ -374,9 +374,15 @@ if (fixture.exists) {
     for (let i = 0; i < a.steps.length; i++) if (a.steps[i] !== b.steps[i] || a.indices[i] !== b.indices[i]) changed += 1;
     return changed;
   };
-  const baseHash = hash(Buffer.from(renderFrame(baseScene, 0).steps));
+  // WU32 — the vignette multiplies the field toward black at the frame edges,
+  // so on a fixture whose edge cells are pure black ground it cannot change
+  // the raster BY CONSTRUCTION. Its liveness probe composes over the STAR
+  // field instead (deterministic, lit at frame 0, spread over the whole grid
+  // including the edges), which is the composition the page actually ships.
   for (const id of OVERLAY_IDS) {
-    const scene = withOverlays(baseScene, [id]);
+    const livenessBase = id === 'vignette' ? withOverlays(baseScene, ['stars']) : baseScene;
+    const baseHash = hash(Buffer.from(renderFrame(livenessBase, 0).steps));
+    const scene = withOverlays(livenessBase, [id]);
     const adjacent = [0, 7, 17].map((frame) => fieldDelta(scene, frame / scene.fps, (frame + 1) / scene.fps));
     const baseline = { max: Math.max(...adjacent.map((d) => d.max)), mean: Math.max(...adjacent.map((d) => d.mean)) };
     const seam = fieldDelta(scene, 0, loop);

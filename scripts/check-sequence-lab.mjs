@@ -66,9 +66,10 @@ if (routeSrc && indexSrc) {
     `sequence=${roll(routeSrc)} index=${roll(indexSrc)}`);
   check('recipe: same joyan-page palette (PAGE_PALETTE_ID)',
     routeSrc.includes('PAGE_PALETTE_ID') && indexSrc.includes('PAGE_PALETTE_ID'));
-  check('recipe: same overlays stars,aurora,wash',
-    /['"]stars['"]\s*,\s*['"]aurora['"]\s*,\s*['"]wash['"]/.test(routeSrc)
-    && /['"]stars['"]\s*,\s*['"]aurora['"]\s*,\s*['"]wash['"]/.test(indexSrc));
+  // WU32: the vignette joins the public composition (same set on both pages).
+  check('recipe: same overlays stars,aurora,wash,vignette (WU32)',
+    /['"]stars['"]\s*,\s*['"]aurora['"]\s*,\s*['"]wash['"]\s*,\s*['"]vignette['"]/.test(routeSrc)
+    && /['"]stars['"]\s*,\s*['"]aurora['"]\s*,\s*['"]wash['"]\s*,\s*['"]vignette['"]/.test(indexSrc));
   check('recipe: fixture fallback is our authored mark AND the page says so',
     routeSrc.includes('LOCAL_INPUTS') && routeSrc.includes('joyan-mark') && /data-subject-note|fixture is absent|subject note/i.test(routeSrc));
 }
@@ -198,17 +199,18 @@ try {
   for (let i = 0; equal && i < rgbaBase.length; i++) equal = rgbaBase[i] === rgbaZero[i];
   check('engine: bucket-0 warp scene raster is byte-identical to the base scene (the ramp starts on the public scene)', equal);
 
-  // WU28 — STILL-FRAME LEGIBILITY. The WU27 honest judgement was that in stills
-  // the bone streaks are indistinguishable from the star field. Metric, measured
-  // here over the same probe scene at one mid-trip instant: of the cells the
-  // warp actually changes (base vs full warp, > 0.02 per channel), the fraction
-  // whose NEW colour is accent-signed — (r - b) > 0.25, which in joyan-page only
-  // the amber (#ffb000) and rose (#ff5d73) entries reach; every bone/plomo/ink
-  // entry has r ≈ b. WU27's alternating bone/amber spokes measured 0.128 (the
-  // streaks are half bone — invisible against the stars). The shipped tuning
-  // must at least double that. A structural companion: the fraction of changed
-  // cells that sit on a hash-active spoke inside the wavefront window.
+  // WU28 — STILL-FRAME LEGIBILITY, re-baselined in WU32 (honestly, not
+  // silently). The WU27/WU28 metric demanded an accent-SIGNED FRACTION ≥ 0.2
+  // of the changed cells — a premise of the old mechanism, where the warp's
+  // changed cells WERE its streaks. The WU32 warp is displacement + trails:
+  // the changed set is dominated by the trail field (by design), and the
+  // amber is GATED to ride on light, so the fraction drops while the absolute
+  // presence and the discipline both improve. The lab probe now measures the
+  // state the public arc actually shows (the burst at full strength) with the
+  // same two numbers the public checker pins: absolute amber cells (≥ 150)
+  // and — unchanged — the structural coherence of the changed set.
   const p = overlays.OVERLAY_DEFAULTS.warp;
+  const warpBurstFull = ramp.sequenceWarpScene(payload, 1, 1);
   const cx = p.centre[0] * (base.cols - 1);
   const cy = p.centre[1] * (base.rows - 1);
   const maxDist = Math.hypot(Math.max(cx, base.cols - 1 - cx), Math.max(cy, base.rows - 1 - cy)) || 1;
@@ -220,7 +222,7 @@ try {
   for (let y = 0; y < base.rows; y++) {
     for (let x = 0; x < base.cols; x++) {
       const a = base.field(x, y, probeT);
-      const b = warpFull.field(x, y, probeT);
+      const b = warpBurstFull.field(x, y, probeT);
       if (Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]), Math.abs(a[2] - b[2])) <= 0.02) continue;
       changed += 1;
       if (b[0] - b[2] > 0.25) accent += 1;
@@ -235,11 +237,47 @@ try {
   }
   const accentFraction = accent / Math.max(1, changed);
   const spokeAlignedFraction = spokeAligned / Math.max(1, changed);
-  check('engine: warp still-legibility — accent-signed changed cells ≥ 0.20 (WU27 alternation measured 0.128)',
-    accentFraction >= 0.2, `accentFraction=${accentFraction.toFixed(4)} changed=${changed}`);
-  check('engine: warp structural coherence — spoke-aligned changed cells ≥ 0.7',
-    spokeAlignedFraction >= 0.7, `spokeAlignedFraction=${spokeAlignedFraction.toFixed(4)}`);
-  Object.assign(engineEvidence, { changedCells: changed, accentFraction, spokeAlignedFraction });
+  check('engine: warp still-legibility — the burst carries the amber (>= 150 accent-signed cells; the WU32 trail field grows the changed set by design)',
+    accent >= 150, `accent=${accent} changed=${changed} fraction=${accentFraction.toFixed(4)}`);
+  // WU32 — structural coherence, re-baselined: the old spoke-aligned fraction
+  // (≥ 0.7) presumed the changed set WAS the spoke wavefront. The trail field
+  // follows EVERY bright dot's own ray, not the 48 spokes, so the honest
+  // coherence test is STREAK CONTINUITY: a changed interior cell must have a
+  // changed neighbour along its radial direction (the streaks are lines, not
+  // scattered dots). The old spoke fraction is kept as evidence only.
+  const changedMask = new Uint8Array(base.cols * base.rows);
+  for (let y = 0; y < base.rows; y++) {
+    for (let x = 0; x < base.cols; x++) {
+      const a = base.field(x, y, probeT);
+      const b = warpBurstFull.field(x, y, probeT);
+      if (Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]), Math.abs(a[2] - b[2])) > 0.02) changedMask[y * base.cols + x] = 1;
+    }
+  }
+  let streakCells = 0;
+  let streakContiguous = 0;
+  for (let y = 0; y < base.rows; y++) {
+    for (let x = 0; x < base.cols; x++) {
+      if (!changedMask[y * base.cols + x]) continue;
+      const dx = x - cx; const dy = y - cy;
+      const dist = Math.hypot(dx, dy);
+      const r = dist / maxDist;
+      if (r > 0.8 || dist < 2) continue;
+      streakCells += 1;
+      const ux = dx / dist; const uy = dy / dist;
+      let contiguous = false;
+      for (const stepCell of [-2, -1, 1, 2]) {
+        const nx = Math.round(x + ux * stepCell);
+        const ny = Math.round(y + uy * stepCell);
+        if (nx < 0 || ny < 0 || nx >= base.cols || ny >= base.rows) continue;
+        if (changedMask[ny * base.cols + nx]) { contiguous = true; break; }
+      }
+      if (contiguous) streakContiguous += 1;
+    }
+  }
+  const streakContinuity = streakContiguous / Math.max(1, streakCells);
+  check('engine: warp structural coherence — the burst forms streaks, not scattered dots (radially contiguous changed cells >= 0.5)',
+    streakContinuity >= 0.5, `streakContinuity=${streakContinuity.toFixed(4)} of ${streakCells} (spoke-aligned ${spokeAlignedFraction.toFixed(4)})`);
+  Object.assign(engineEvidence, { changedCells: changed, accent, accentFraction, spokeAlignedFraction, streakContinuity });
 } catch (error) {
   check('engine: sequence-warp module + seam + ramp-start measurement', false, error.message);
 }

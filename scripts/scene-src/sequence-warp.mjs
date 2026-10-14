@@ -41,8 +41,11 @@ import { applyTreatment, withOverlays } from './overlays.mjs';
 /** Same placement as the public page's HERO_ROLL (checker asserts equality). */
 export const SEQUENCE_ROLL = 18;
 
-/** The public page's overlay set — the transition only ADDS warp on top. */
-export const BASE_OVERLAYS = Object.freeze(['stars', 'aurora', 'wash']);
+/** The public page's overlay set — the transition only ADDS warp on top.
+ * WU32: the vignette joins the composition (the field falls off at the frame
+ * edges; the settled composition changes with it, by the user's rejection of
+ * the WU31 frames). */
+export const BASE_OVERLAYS = Object.freeze(['stars', 'aurora', 'wash', 'vignette']);
 
 /** The quantised ramp: STEPS + 1 discrete strengths (0..STEPS — twelve steps
  * yield thirteen scene states, the WU27 record correction) over 2.4 s (WU31:
@@ -52,21 +55,23 @@ export const BASE_OVERLAYS = Object.freeze(['stars', 'aurora', 'wash']);
  * of solved mask/sprite sets — small and bounded). */
 export const WARP_RAMP = Object.freeze({ steps: 12, durationMs: 2400 });
 
-/** The warp's frozen constants, read once so the ramp cannot drift from them. */
-const WARP_DEFAULTS = { intensity: 0.6, bloomRadius: 0.05, bloomIntensity: 0.9, edgeStart: 0.7, edgeAmount: 2.5, sigma: 0.09 };
+/** The warp's frozen constants, read once so the ramp cannot drift from them.
+ * WU32 — `edge` is gone: the pull is now GLOBAL (quadratic in the radius) and
+ * the trails are its multi-tap shadow. `pullAmount` is the burst displacement
+ * in cells at the frame corner radius; the base pull is 0 (no displacement
+ * without the burst — the plain warp stays a wavefront on the scene). */
+const WARP_DEFAULTS = { intensity: 0.6, bloomRadius: 0.028, bloomIntensity: 0.7, sigma: 0.09, pullAmount: 0 };
 
 /** WU31 BURST — the user's correction: the WU29 reveal "ni se notó". The
  * reveal must be unmistakable IN MOTION and legible in a SINGLE frame, so the
- * ramp states near the arrival carry a burst profile: stronger streaks (the
- * frozen intensity plus a burst increment), a longer trail (the wavefront
- * gaussian widens from sigma 0.09 toward 0.16, so each spoke lights a wider
- * band of dots), a bigger, hotter centre bloom and a harder edge pull. The
- * burst is a property of the RAMP STATE (`rampBurst`), not of a phase flag,
- * so the live canvas, the Node checkers and the engine probe all derive the
- * same scene from the state number alone. It is exactly 0 at both ends — the
- * settled page is byte-identical to today's (checker-proven) — and peaks
+ * ramp states near the arrival carry a burst profile. WU32 (the user rejected
+ * the WU31 frames: the burst read as a grey smudge): the burst now drives the
+ * DISPLACEMENT itself — at the peak the pull reaches ~14 cells at the frame
+ * corner radius, so the subject's dots leave real radial streaks — and the
+ * amber wavefront rides on those streaks. It is exactly 0 at both ends — the
+ * settled page is the public composition (checker-proven) — and peaks
  * mid-ramp where the arrival happens; the settle mirrors it on the way down. */
-const WARP_BURST = Object.freeze({ intensity: 0.85, bloomRadius: 0.06, bloomIntensity: 1.6, edgeAmount: 3.5, sigma: 0.16 });
+const WARP_BURST = Object.freeze({ intensity: 0.85, bloomRadius: 0.022, bloomIntensity: 1.4, sigma: 0.16, pullAmount: 20 });
 
 /** The burst strength at ramp state `s` in [0, steps]: a half sine over the
  * ramp, 0 at both ends and exactly 1 at the middle state. Pure, deterministic. */
@@ -79,20 +84,29 @@ export function rampBurst(state) {
  * The warp overrides for ramp position `s` in [0, 1] and burst strength `b`
  * in [0, 1]. Every amplitude contribution is scaled by s, so s = 0 is the base
  * scene regardless of the burst (the burst only ever amplifies states the
- * ramp actually visits); the burst then adds to intensity, bloom and edge and
- * widens the trail window. Pure and deterministic.
+ * ramp actually visits); the burst then adds to intensity, bloom and pull and
+ * widens the trail window. WU32 — the pull gets a gentle onset (a smoothstep
+ * on s: the displacement starts slow, then accelerates into the flash) and
+ * the burst carries the displacement, so the arrival IS the streak event;
+ * convergence is the settle back to 0. Pure and deterministic.
  * @param {number} s @param {number} [burst]
  */
 export function warpRampOverrides(s, burst = 0) {
   const k = s < 0 ? 0 : s > 1 ? 1 : s;
   const b = burst < 0 ? 0 : burst > 1 ? 1 : burst;
+  // Gentle onset: the smoothstep rises slowly, then accelerates — the ramp's
+  // first third barely moves, the arrival third carries the event.
+  const eased = k * k * (3 - 2 * k);
   return {
     intensity: (WARP_DEFAULTS.intensity + WARP_BURST.intensity * b) * k,
     bloom: {
       radius: WARP_DEFAULTS.bloomRadius + WARP_BURST.bloomRadius * b,
       intensity: (WARP_DEFAULTS.bloomIntensity + WARP_BURST.bloomIntensity * b) * k,
     },
-    edge: { start: WARP_DEFAULTS.edgeStart, amount: (WARP_DEFAULTS.edgeAmount + WARP_BURST.edgeAmount * b) * k },
+    pull: {
+      amount: (WARP_DEFAULTS.pullAmount + WARP_BURST.pullAmount * b) * eased,
+      taps: 6,
+    },
     sigma: WARP_DEFAULTS.sigma + (WARP_BURST.sigma - WARP_DEFAULTS.sigma) * b,
   };
 }

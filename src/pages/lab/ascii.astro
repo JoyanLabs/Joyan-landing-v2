@@ -85,12 +85,12 @@ const metadata = {
         Measured cost of each pane, shipped bytes at gzip level 6. The library's own bundle carries all eight library mounts
         on this page (two pieces, the six gallery scenes and this pane): <span class="font-mono">25256 B</span> gzip in one
         chunk, so that is not a per-pane number. Our engine, our scene, the WU17 shape catalogue, the WU18 image
-        pipeline and overlays come to <span class="font-mono">21463 B</span> raw (<span class="font-mono">8848 B</span> gzip)
-        and the lab runtime to <span class="font-mono">15710 B</span> raw (<span class="font-mono">5956 B</span> gzip), shipped as
+        pipeline and overlays come to <span class="font-mono">22890 B</span> raw (<span class="font-mono">9478 B</span> gzip)
+        and the lab runtime to <span class="font-mono">15710 B</span> raw (<span class="font-mono">5957 B</span> gzip), shipped as
         two chunks shared by the three laboratory routes (<span class="font-mono">/lab/ascii</span>,
         <span class="font-mono">/lab/shapes</span> and <span class="font-mono">/lab/image</span>) and, since WU20,
         the public coming-hero, measured at
-        <span class="font-mono">8848 B</span> + <span class="font-mono">5956 B</span> gzip (WU27: the shared scene graph split
+        <span class="font-mono">9478 B</span> + <span class="font-mono">5957 B</span> gzip (WU27: the shared scene graph split; WU32: the rebuilt warp, the vignette and the sampler)
         into a runtime chunk and an engine chunk when the /lab/sequence route joined, and the warp overlay runs slower
         and wider); WU17 replaced the single-page inline module with those shared chunks.
         The baked still is <span class="font-mono">35270 B</span> of PNG at 1600 × 800 and ships no script at all.
@@ -118,7 +118,7 @@ const metadata = {
             Static fallback · JavaScript unavailable
           </p>
         </article>
-        <SceneCanvas scene="joyan-night-coast" variant="live" index="02 · ours · live" cost="engine + scene + catalogue + image pipeline + overlays: 8848 B gzip, plus the lab runtime at 5956 B gzip (WU29: lab-only — the public hero runs its own runtime), in the /lab/** chunks shared with the other laboratories and the /lab/sequence route; 1600 × 800 backing store (8 px per cell)" />
+        <SceneCanvas scene="joyan-night-coast" variant="live" index="02 · ours · live" cost="engine + scene + catalogue + image pipeline + overlays: 9478 B gzip (WU32: the rebuilt warp, the vignette and the sampler), plus the lab runtime at 5957 B gzip (WU29: lab-only — the public hero runs its own runtime), in the /lab/** chunks shared with the other laboratories and the /lab/sequence route; 1600 × 800 backing store (8 px per cell)" />
         <SceneCanvas scene="joyan-night-coast" variant="baked" index="03 · ours · baked" cost="the engine's own poster frame, 35270 B PNG, 1600 × 800, no JavaScript" />
       </div>
       <p class="mt-5 max-w-prose text-sm text-plomo-400">

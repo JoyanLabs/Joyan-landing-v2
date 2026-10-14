@@ -142,7 +142,11 @@ const dotCols = DISCORD_DOT_GRID[0].length;
         data-hero-watcher={watcherLine}
         class="mt-6 max-w-md text-lg leading-relaxed text-bone-100"
       >{watcherLine}</p>
-      <p data-hero-credit class="hero-credit mt-4 font-mono text-xs uppercase tracking-[0.24em] text-accent">{credit}</p>
+      {/* WU32 — the credit sits clearly BELOW the eyebrow in hierarchy:
+          10 px plomo with reduced tracking, against the eyebrow's 12 px amber
+          0.3em (the user rejected the 12 px amber credit competing with the
+          eyebrow). It rides with the fate line and leaves with it. */}
+      <p data-hero-credit class="hero-credit mt-4 font-mono text-[10px] uppercase tracking-[0.12em] text-plomo-400">{credit}</p>
     </div>
     <p data-hero-status class="sr-only" role="status">
       Static poster
@@ -166,18 +170,8 @@ const dotCols = DISCORD_DOT_GRID[0].length;
     class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-6"
   >
     <div class="flex items-center gap-4">
-      {/* The dot rule: the page's own aesthetic carried into the footer. */}
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 104 8"
-        width="104"
-        height="8"
-        class="shrink-0 text-plomo-500"
-      >
-        {[0, 1, 2, 3, 4, 5, 6].map((index) => (
-          <circle cx={4 + index * 16} cy="4" r={index % 2 === 0 ? 3 : 2} fill="currentColor" />
-        ))}
-      </svg>
+      {/* WU32 — the dot rule is GONE (the user rejected it): the footer note
+          stands on its own; the contact row is unchanged. */}
       <p class="text-xs text-plomo-400">{footerNote}</p>
     </div>
     <div class="flex items-center gap-6">

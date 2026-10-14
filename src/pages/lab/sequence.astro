@@ -41,7 +41,8 @@ const metadata = {
 // The hero recipe — the SAME the public page runs (scripts/check-sequence-lab.mjs
 // asserts the roll, the palette and the overlay set agree with index.astro).
 const HERO_ROLL = 18;
-const HERO_OVERLAYS = ['stars', 'aurora', 'wash'];
+// WU32: the vignette joins the public composition (sequence-warp's BASE_OVERLAYS).
+const HERO_OVERLAYS = ['stars', 'aurora', 'wash', 'vignette'];
 
 const HERO_FIXTURE = resolve('dist-motion-verify/wu18/input/blade-runner-unicorn-line-transparent.svg');
 const heroHasFixture = existsSync(HERO_FIXTURE);

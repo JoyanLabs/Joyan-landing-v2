@@ -157,11 +157,20 @@ export function prefilterRgba(rgba, width, height, pitchPx) {
  * lifts the measured tone so the drawing's own p90 reaches the ladder, without
  * touching art that is already dark or full-range.
  */
-export const AUTO_GAIN_TARGET = 0.75;
-export const AUTO_GAIN_MAX = 3.5;
-export const AUTO_GAIN_RULE = 'per-image normalisation: gain = clamp(0.75 / p90, 1, 3.5) where p90 is the '
+export const AUTO_GAIN_TARGET = 0.9;
+export const AUTO_GAIN_MAX = 4.5;
+// WU32 — the SPARSE gate: the gain applies only to sparse art (fewer than 25 %
+// of the cells carrying ink). The documented rule was always
+// "sparse-light-only", but the implementation gated on tone alone, so with the
+// raised 0.9 target a full-range gradient (p90 0.78) gained +1.155. The gate
+// makes the implementation match the rule: dense or full-range art (the
+// gradient fixture, ~50 % inked) stays at gain 1; the sparse unicorn (~6 %
+// inked) is lifted. Measured in docs/AUDITORIA-ESCENAS.md §WU32.
+export const AUTO_GAIN_MAX_COVERAGE = 0.25;
+export const AUTO_GAIN_RULE = 'per-image normalisation, SPARSE art only (inked coverage <= 0.25): '
+  + 'gain = clamp(0.9 / p90, 1, 4.5) where p90 is the '
   + '90th percentile of the cells that carry ink (level > 0.05), so sparse light art reaches the ladder '
-  + 'and dark or full-range art stays at gain 1; the gain is recorded in the scene params and the serialisation';
+  + 'and dense, dark or full-range art stays at gain 1; the gain is recorded in the scene params and the serialisation';
 
 /** The p90 of the inked cells of a measurement. */
 export function inkedPercentile(levels, fraction = 0.9) {
@@ -200,6 +209,11 @@ export function applyAutoGain(measure, groundRgb, gain) {
  * to 35, and the inked p90 stays at 0.698 (sparse art still reaches the ladder).
  */
 export const TONE_CAP_KNEE = 0.6;
+// WU32 — the ceiling STAYS at 0.86: raising it to 0.92 was measured and
+// rejected — it weakened the WU22 white-core guard below its own 25 % cut
+// (122 -> 102 top-rung cells) for almost no legibility gain (the subject lift
+// comes from the WU32 auto-gain target, not from the cap). Measured and
+// recorded in docs/AUDITORIA-ESCENAS.md §WU32.
 export const TONE_CAP_CEILING = 0.86;
 export const TONE_CAP_RULE = 'soft-knee per-image tone cap: levels above the knee 0.6 are compressed '
   + 'linearly toward the ceiling 0.86 (applied to the gained level, so it only ever touches the top of '
@@ -577,8 +591,11 @@ export function convertRgba(rgba, width, height, options = {}) {
   const toneCap = options.toneCap === undefined ? 'auto' : options.toneCap;
   if (toneCap !== 'auto' && toneCap !== 'none') throw new Error(`unknown toneCap: ${toneCap}`);
   const p90 = inkedPercentile(measure.levels);
+  const inkedCount = measure.levels.reduce((sum, value) => sum + (value > 0.05 ? 1 : 0), 0);
+  const inkedFraction = inkedCount / Math.max(1, measure.levels.length);
   const gain = autoGain === 'none' ? 1
-    : Math.min(AUTO_GAIN_MAX, Math.max(1, AUTO_GAIN_TARGET / Math.max(1e-6, p90)));
+    : inkedFraction > AUTO_GAIN_MAX_COVERAGE ? 1
+      : Math.min(AUTO_GAIN_MAX, Math.max(1, AUTO_GAIN_TARGET / Math.max(1e-6, p90)));
   const stats = { ...measure.stats, gain, autoGain: AUTO_GAIN_RULE,
     toneCap: toneCap === 'none' ? 'none' : TONE_CAP_RULE };
   const measured = { ...measure, stats };

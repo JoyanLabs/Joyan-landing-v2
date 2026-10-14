@@ -41,7 +41,8 @@ const pathname = Astro.url.pathname;
 // The hero recipe. The subject is composed centre-right (roll +18 columns) so
 // the text region of the full-bleed layout stays over dark ground.
 const HERO_ROLL = 18;
-const HERO_OVERLAYS = ['stars', 'aurora', 'wash'];
+// WU32: the vignette joins the public composition (sequence-warp's BASE_OVERLAYS).
+const HERO_OVERLAYS = ['stars', 'aurora', 'wash', 'vignette'];
 
 const HERO_FIXTURE = resolve('dist-motion-verify/wu18/input/blade-runner-unicorn-line-transparent.svg');
 const heroHasFixture = existsSync(HERO_FIXTURE);

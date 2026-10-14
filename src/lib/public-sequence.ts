@@ -86,8 +86,57 @@ const SCRAMBLE_MS = 860;
 const TYPE_STEP_MS = 110;
 /** OUR glyph language for the corruption: the dot ramp, never unicode noise. */
 const SCRAMBLE_GLYPHS = '·•●';
-/** The page's own tones for the scramble, in the corruption rhythm. */
-const SCRAMBLE_TONES = ['#6e6e73', '#e8e6e1', '#ffb000'];
+/** WU32 DECODE — the cycling glyphs carry the ACCENT colour; a character that
+ * has resolved keeps the element's own base tone (no per-character random
+ * tones: the WU29 three-tone roulette read as noise). One real text node: the
+ * spans are children of the element, no aria-hidden duplicate layers. */
+const DECODE_ACCENT = '#ffb000';
+/** WU32 — per-character clocks. Each character resolves on its OWN deadline;
+ * the lock is left-to-right (a deadline is always inside its own slot, so
+ * deadlines stay strictly increasing) but UNEVEN (each deadline is offset
+ * within its slot by a deterministic hash), so the string locks like a
+ * decipherment, not a sweep. All characters resolve inside the first 70 % of
+ * the phase; the rest is hold. */
+const DECODE_WINDOW = 0.7;
+const DECODE_JITTER = 0.9;
+
+/** The resolution instant of character `i`, in [0, 1] of the phase duration.
+ * Pure and deterministic. */
+function charDeadline(i: number, len: number): number {
+  if (len <= 1) return 0;
+  const slot = DECODE_WINDOW / len;
+  const jitter = (scrambleHash(i + 13, 991) - 0.5) * DECODE_JITTER;
+  return Math.min(0.95, Math.max(0, (i + 0.5 + jitter) * slot));
+}
+
+/** Escape the resolved text for innerHTML (the copy is plain, but the decoder
+ * is generic). */
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>]/g, (c) => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : '&gt;'));
+}
+
+/** WU32 — no layout shift: before the first scramble span replaces the text,
+ * the element's FINAL text is laid out and its box pinned (min-width /
+ * min-height), so the narrower dot-ramp glyphs cannot reflow the line and the
+ * resolved line fits its own reserved box exactly; the pin is released when
+ * the decode completes. */
+function reserveBox(el: HTMLElement, finalText: string): void {
+  if (el.dataset.boxReserved === '1') return;
+  const previous = el.textContent;
+  el.textContent = finalText;
+  const rect = el.getBoundingClientRect();
+  el.textContent = previous;
+  el.style.minWidth = `${Math.ceil(rect.width)}px`;
+  el.style.minHeight = `${Math.ceil(rect.height)}px`;
+  el.dataset.boxReserved = '1';
+}
+
+function releaseBox(el: HTMLElement): void {
+  if (el.dataset.boxReserved !== '1') return;
+  delete el.dataset.boxReserved;
+  el.style.minWidth = '';
+  el.style.minHeight = '';
+}
 
 /** Structural check for the embedded payload, mirroring the other runtimes. */
 function isSequencePayload(value: unknown): value is SequencePayload {
@@ -190,7 +239,6 @@ function initializePublicSequence(): (() => void) | undefined {
   let raf = 0;
   let last = 0;
   let visible = true;
-  let scrambleStep = 0;
 
   const setPhase = (next: Phase): void => {
     phase = next;
@@ -226,52 +274,38 @@ function initializePublicSequence(): (() => void) | undefined {
     host.dataset.heroBucket = String(bucket);
   };
 
-  /** The corruption: OUR dot-ramp glyphs in the page's tones, resolving left to right. */
-  const renderScramble = (progress: number): void => {
+  /** WU32 — the DECODE: one function for the tagline arc AND the name
+   * assembly, so the name and the lines share one language. Each character
+   * resolves on its own clock (charDeadline); unresolved characters cycle
+   * through the dot-ramp glyphs in the accent colour; resolved characters
+   * keep the base tone. The box is pinned before the first span, released on
+   * completion — the line never jumps. */
+  const renderDecode = (el: HTMLElement, text: string, progress: number, salt: number): void => {
+    reserveBox(el, text);
     const step = Math.floor(progress * 24);
-    if (step === scrambleStep && tagline.dataset.scrambled === '1') return;
-    scrambleStep = step;
-    tagline.dataset.scrambled = '1';
-    const reveal = progress * (fateText.length + 6) - 3; // sweep with a small margin
+    if (Number(el.dataset.decodeStep ?? -1) === step && el.dataset.decoded === '1') return;
+    el.dataset.decodeStep = String(step);
+    el.dataset.decoded = '1';
     let html = '';
-    for (let i = 0; i < watcherText.length; i++) {
-      const ch = watcherText[i];
-      if (i < reveal) {
-        html += ch === ' ' ? ' ' : ch;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (progress >= charDeadline(i, text.length)) {
+        html += ch === ' ' ? ' ' : escapeHtml(ch);
         continue;
       }
       if (ch === ' ') {
         html += ' ';
         continue;
       }
-      const glyph = SCRAMBLE_GLYPHS[Math.floor(scrambleHash(i, step) * SCRAMBLE_GLYPHS.length)];
-      const tone = SCRAMBLE_TONES[Math.floor(scrambleHash(i + 7, step) * SCRAMBLE_TONES.length)];
-      html += `<span style="color:${tone}">${glyph}</span>`;
+      const glyph = SCRAMBLE_GLYPHS[Math.floor(scrambleHash(i + salt, step) * SCRAMBLE_GLYPHS.length)];
+      html += `<span style="color:${DECODE_ACCENT}">${glyph}</span>`;
     }
-    tagline.innerHTML = html;
+    el.innerHTML = html;
   };
 
-  /** WU31 — the name ASSEMBLES through the same corruption: the h1's glyphs
-   * scramble through the dot ramp and resolve left to right as the reveal
-   * rises. Same language as the tagline (· • ● in the page's tones), never a
-   * plain fade; the accessible name is the aria-label, untouched. */
-  const renderNameAssembly = (progress: number): void => {
-    const step = Math.floor(progress * 24);
-    if (step === scrambleStep && nameEl.dataset.assembled === '1') return;
-    nameEl.dataset.assembled = '1';
-    const reveal = progress * (nameText.length + 4) - 2;
-    let html = '';
-    for (let i = 0; i < nameText.length; i++) {
-      const ch = nameText[i];
-      if (i < reveal) {
-        html += ch;
-        continue;
-      }
-      const glyph = SCRAMBLE_GLYPHS[Math.floor(scrambleHash(i + 31, step) * SCRAMBLE_GLYPHS.length)];
-      const tone = SCRAMBLE_TONES[Math.floor(scrambleHash(i + 57, step) * SCRAMBLE_TONES.length)];
-      html += `<span style="color:${tone}">${glyph}</span>`;
-    }
-    nameEl.innerHTML = html;
+  /** The corruption phase: the watcher line decodes into place. */
+  const renderScramble = (progress: number): void => {
+    renderDecode(tagline, watcherText, progress, 7);
   };
 
   const tick = (now: number): void => {
@@ -291,11 +325,12 @@ function initializePublicSequence(): (() => void) | undefined {
       sceneLayer.style.opacity = String(bucket / WARP_RAMP.steps);
       paint(bucket);
       if (p >= 1) {
-        nameEl.dataset.assembled = '';
+        releaseBox(nameEl);
+        nameEl.dataset.decoded = '';
         nameEl.textContent = nameText;
         setPhase('full');
       } else {
-        renderNameAssembly(p);
+        renderDecode(nameEl, nameText, p, 31);
       }
     } else if (phase === 'full') {
       sceneLayer.style.opacity = '1';
@@ -308,7 +343,7 @@ function initializePublicSequence(): (() => void) | undefined {
       if (p >= 1) {
         sceneLayer.style.opacity = '1';
         // The fate line takes the tagline slot with its credit.
-        tagline.dataset.scrambled = '';
+        tagline.dataset.decoded = '';
         tagline.textContent = fateText;
         setPhase('fate');
       }
@@ -319,7 +354,8 @@ function initializePublicSequence(): (() => void) | undefined {
       renderScramble(Math.min(1, phaseMs / SCRAMBLE_MS));
       paint(0);
       if (phaseMs >= SCRAMBLE_MS) {
-        tagline.dataset.scrambled = '';
+        releaseBox(tagline);
+        tagline.dataset.decoded = '';
         tagline.textContent = watcherText;
         setPhase('final');
       }
@@ -361,10 +397,12 @@ function initializePublicSequence(): (() => void) | undefined {
     sceneLayer.style.opacity = '1';
     terminal.classList.add('hero-terminal-departed');
     credit.classList.remove('hero-credit-on');
-    tagline.dataset.scrambled = '';
+    releaseBox(tagline);
+    releaseBox(nameEl);
+    tagline.dataset.decoded = '';
     tagline.textContent = watcherText;
     typed.textContent = terminalText;
-    nameEl.dataset.assembled = '';
+    nameEl.dataset.decoded = '';
     nameEl.textContent = nameText;
     phase = 'final';
     host.dataset.sequencePhase = 'final';
