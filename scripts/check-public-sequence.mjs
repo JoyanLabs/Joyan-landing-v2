@@ -34,6 +34,7 @@ const heroSrc = await read('src/components/joyan/JoyanComingHero.astro');
 const esSrc = await read('src/pages/index.astro');
 const enSrc = await read('src/pages/en/index.astro');
 const pubSrc = await read('src/lib/public-sequence.ts');
+const labRuntimeSrc = await read('src/lib/sequence-runtime.ts');
 const sceneRuntimeSrc = await read('src/lib/scene-runtime.ts');
 const warpSrc = await read('scripts/scene-src/sequence-warp.mjs');
 
@@ -42,8 +43,13 @@ check('runtime: src/lib/public-sequence.ts exists', Boolean(pubSrc));
 if (pubSrc) {
   check('runtime: renders ONLY through the engine (renderFrame/rasterize from scripts/scene-src/engine.mjs)',
     /from\s+'[^']*scripts\/scene-src\/engine\.mjs'/.test(pubSrc) && /renderFrame/.test(pubSrc) && /rasterize/.test(pubSrc));
-  check('runtime: the reveal is the shared warp ramp (sequence-warp: sequenceWarpScene + WARP_RAMP.steps)',
-    /sequence-warp/.test(pubSrc) && /sequenceWarpScene/.test(pubSrc) && /WARP_RAMP\.steps/.test(pubSrc));
+  // WU33 — the reveal is the HALFTONE MASK ramp (the warp burst is retired
+  // from the public page); the shared ramp module is still the one source.
+  check('runtime WU33: the reveal is the shared halftone mask ramp (sequence-warp: sequenceMaskScene + MASK_RAMP.steps)',
+    /sequence-warp/.test(pubSrc) && /sequenceMaskScene/.test(pubSrc) && /MASK_RAMP\.steps/.test(pubSrc));
+  check('runtime WU33: the WARP BURST is retired from the public path (no rampBurst/sequenceWarpScene in the public runtime)',
+    !/rampBurst/.test(pubSrc) && !/sequenceWarpScene/.test(pubSrc),
+    'the public runtime still references the retired warp burst');
   check('runtime: the corruption scrambles through OUR ramp glyphs ( ·•● ) — no random unicode noise',
     /['"`] ·•●['"`]/.test(pubSrc) || /['"`]·•●['"`]/.test(pubSrc), 'ramp-glyph alphabet missing');
   check('runtime WU32: the decode resolves per character on its own clock (charDeadline + jitter, left-to-right lock)',
@@ -55,9 +61,10 @@ if (pubSrc) {
   check('runtime WU32: the decode reserves the final box before scrambling (no layout shift: the box is pinned, then released)',
     /reserveBox/.test(pubSrc) && /releaseBox/.test(pubSrc),
     'the decode does not pin the text box');
-  check('runtime: the intro settles at bucket 0 (the final scene is exactly today\'s composition)',
-    /bucket[\s\S]*0[\s\S]*revealDown|sequenceWarpScene\([\s\S]*?state <= 0/.test(pubSrc)
-      && /revealDown/i.test(pubSrc));
+  // WU33 — the settled state IS today's composition: the mask ramp's top state
+  // paints the base scene (the checker measures the bytes further below).
+  check('runtime WU33: the arc settles on the base scene (the runtime paints the top mask state / base after the reveal)',
+    /MASK_RAMP\.steps/.test(pubSrc) && /sceneForState|sequenceMaskScene/.test(pubSrc));
   check('runtime: pauses offscreen/hidden (IntersectionObserver, visibilitychange) and cleans up on pagehide',
     /IntersectionObserver/.test(pubSrc) && /visibilitychange/.test(pubSrc) && /pagehide/.test(pubSrc));
   check('runtime: reduced motion skips the intro and the scramble to the final state',
@@ -65,15 +72,14 @@ if (pubSrc) {
   check('runtime: the payload is checked at the boundary, not cast',
     /isSequencePayload|isSerializedScene/.test(pubSrc));
 
-  // --- WU31: the user's correction round ------------------------------------
-  // The name arrives WITH the effect: it assembles through the same dot-ramp
-  // glyph corruption the tagline uses, never a plain fade.
-  // WU32: the name assembles through the SAME decode as the lines —
-  // renderDecode over the ramp glyphs, its own salt, released with the arc.
-  check('runtime WU31/WU32: the name assembles through OUR dot-ramp glyphs (renderDecode on the h1, own salt, box released)',
-    /renderDecode\(nameEl, nameText, p, 31\)/.test(pubSrc) && /data-hero-name/.test(pubSrc)
-      && /SCRAMBLE_GLYPHS/.test(pubSrc) && /releaseBox\(nameEl\)/.test(pubSrc),
-    'the name has no assembly path of its own');
+  // --- WU33: the name is first-paint content --------------------------------
+  // The user REMOVED the content gate: the name is never decoded and never
+  // hidden — it is visible from first paint, and the sequence only ever adds
+  // motion on top. The WU31/WU32 name assembly (renderDecode on the h1) is
+  // retired from the public runtime.
+  check('runtime WU33: the name is NEVER decoded (no renderDecode on the h1, no name box pin) — first-paint content',
+    !/renderDecode\(nameEl/.test(pubSrc) && !/releaseBox\(nameEl\)/.test(pubSrc) && !/reserveBox\(nameEl/.test(pubSrc),
+    'the name still has an assembly/decode path');
   // The watcher line may only ever be assigned at the arc's final phase (the
   // scramble completes) or by the skip affordance — never during the reveal.
   check('runtime WU31: the watcher line is assigned ONLY at the final phase and by the skip',
@@ -86,66 +92,89 @@ if (pubSrc) {
     /addEventListener\(\s*['"]pointerdown['"]/ .test(pubSrc)
       && /addEventListener\(\s*['"]keydown['"]/.test(pubSrc)
       && /skipToFinal\(\)/.test(pubSrc));
-  // The arc must sit inside 7–9 s: typing (server-rendered terminal text ×
-  // step) + hold + the shared ramp + full hold + settle + fate hold + scramble.
+  // The arc constants. WU33 supersedes WU31's 7–9 s window ON THE RECORD (the
+  // user re-paced the text to ~5 s per phrase): the arc is now typing + hold
+  // + mask reveal + full hold + fate-in decode + fate hold + watcher decode.
+  // The checker pins a window around the constant sum; the LIVE duration is
+  // measured by the browser evidence (WU32's live arc ran ~400 ms over its
+  // constant sum — the sum alone is not proof).
   const ms = (re) => Number(re.exec(pubSrc)?.[1] ?? NaN);
   const rampMs = Number(/durationMs:\s*(\d+)/.exec(warpSrc ?? '')?.[1] ?? NaN);
   const terminalLine = /data-hero-terminal-text="([^"]*)"/.exec(heroSrc ?? '')?.[1] ?? '';
   const arcMs = terminalLine.length * ms(/TYPE_STEP_MS = (\d+)/) + ms(/TYPE_HOLD_MS = (\d+)/)
-    + rampMs + ms(/FULL_HOLD_MS = (\d+)/) + ms(/SETTLE_MS = (\d+)/) + ms(/FATE_HOLD_MS = (\d+)/) + ms(/SCRAMBLE_MS = (\d+)/);
-  check('runtime WU31: the whole arc (typing + reveal + settle + fate + scramble) sits inside 7–9 s',
-    Number.isFinite(arcMs) && arcMs >= 7000 && arcMs <= 9000, `arcMs=${arcMs} (rampMs=${rampMs})`);
+    + rampMs + ms(/FULL_HOLD_MS = (\d+)/) + ms(/FATE_IN_MS = (\d+)/)
+    + ms(/FATE_HOLD_MS = (\d+)/) + ms(/SCRAMBLE_MS = (\d+)/);
+  check('runtime WU33: the whole arc (typing + reveal + fate-in + fate + decode) sits inside 10–15 s (WU33 pacing, supersedes WU31 7–9 s)',
+    Number.isFinite(arcMs) && arcMs >= 10000 && arcMs <= 15000, `arcMs=${arcMs} (rampMs=${rampMs})`);
+  // WU33 — the pacing defect: the WU32 fate hold of 1,900 ms was the defect.
+  // The fate line must hold ~5 s (readable before it decodes into the next
+  // phrase), and the decode itself must run SLOWER than WU32's 860 ms.
+  check('runtime WU33: the fate line holds ~5 s (4500–5500 ms; the WU32 hold of 1900 ms was the defect)',
+    ms(/FATE_HOLD_MS = (\d+)/) >= 4500 && ms(/FATE_HOLD_MS = (\d+)/) <= 5500,
+    `FATE_HOLD_MS=${ms(/FATE_HOLD_MS = (\d+)/)}`);
+  check('runtime WU33: the decode runs slower than WU32 (SCRAMBLE_MS > 860; per-character clocks kept)',
+    ms(/SCRAMBLE_MS = (\d+)/) > 860, `SCRAMBLE_MS=${ms(/SCRAMBLE_MS = (\d+)/)}`);
+  check('runtime WU33: the fate line decodes IN (a FATE_IN phase with its own decode before the ~5 s hold)',
+    ms(/FATE_IN_MS = (\d+)/) >= 800, `FATE_IN_MS=${ms(/FATE_IN_MS = (\d+)/)}`);
+  // WU33 — the invisible skip must not swallow the locale link.
+  check('runtime WU33: the invisible skip excludes the locale link (targets inside [data-hero-locale] are ignored)',
+    /data-hero-locale/.test(pubSrc) && /closest\([^)]*data-hero-locale/.test(pubSrc),
+    'the skip can swallow the locale link');
 }
 
 // --- The hero component ------------------------------------------------------
-check('hero: the boot marker gates the black start on scripting (inline script sets data-sequence-boot before first paint)',
-  Boolean(heroSrc) && /data-sequence-boot/.test(heroSrc) && /<script is:inline>/.test(heroSrc));
+// WU33 — the content gate is REMOVED. The h1, the eyebrow, the scene layer and
+// the final watcher line exist and are visible with zero JavaScript, with
+// reduced motion, and at first paint with scripting on; the sequence only ever
+// ADDS motion on top. No rule may ever hide the name, the eyebrow or the
+// tagline; the only hidden-by-default elements are the terminal (it fades in
+// when its typing phase starts) and the credit (it rides with the fate line).
 check('hero: imports the public sequence runtime (~/lib/public-sequence), not the lab runtime',
   Boolean(heroSrc) && /~\/lib\/public-sequence/.test(heroSrc) && !/~\/lib\/scene-runtime/.test(heroSrc));
-check('hero: act 1 hides the scene layer, eyebrow and tagline (black start, JS-gated)',
-  Boolean(heroSrc)
-    && /data-sequence-boot='js'\]:not\(\[data-ready\]\)[\s\S]*scene-layer[\s\S]*opacity:\s*0/.test(heroSrc)
-    && /data-sequence-boot='js'\]:not\(\[data-ready\]\)[\s\S]*data-hero-eyebrow[\s\S]*opacity:\s*0/.test(heroSrc));
-// WU31 — act 1 contains NOTHING but the terminal: the name h1 is emptied too.
-check('hero WU31: act 1 hides the name as well — no Joyan h1 while the terminal types (boot-gated, aria-label keeps the SR name)',
-  Boolean(heroSrc)
-    && /data-sequence-boot='js'\]:not\(\[data-ready\]\)\s+\[data-hero-name\]\s*\{[^}]*opacity:\s*0/.test(heroSrc)
-    && /data-hero-name/.test(heroSrc) && /aria-label=\{name\}/.test(heroSrc));
-// WU31 — the watcher-line guarantee: under scripting the tagline (and the
-// credit) are phase-gated; every rule that shows them must name one of the
-// late phases. The pre-mount reduced-motion boot rules (:not([data-ready]))
-// are the documented exception — reduced motion shows the final state.
 {
   const heroStyle = heroSrc ? (/<style>[\s\S]*<\/style>/.exec(heroSrc)?.[0] ?? '') : '';
   const blocks = [...heroStyle.matchAll(/([^{}]+)\{([^{}]*)\}/g)];
-  const showSelectors = (token) => blocks
-    .filter((m) => m[1].includes(token) && /opacity:\s*1/.test(m[2]))
-    .map((m) => m[1])
-    .filter((sel) => !sel.includes(':not([data-ready])'));
-  const phaseGated = (token, phases) => {
-    const rules = showSelectors(token);
-    return rules.length > 0 && rules.every((sel) => phases.some((ph) => sel.includes(`data-sequence-phase='${ph}'`)));
-  };
-  const LATE = ['fate', 'scramble', 'final'];
-  check('hero WU31: the watcher line is phase-gated — every show rule names fate, scramble or final',
-    phaseGated('[data-hero-tagline]', LATE),
-    showSelectors('[data-hero-tagline]').join(' | ') || 'no show rule');
-  check('hero WU31: the credit rides with the fate line only (fate/scramble; gone at final)',
-    phaseGated('[data-hero-credit]', ['fate', 'scramble']),
-    showSelectors('[data-hero-credit]').join(' | ') || 'no show rule');
-  check('hero WU31: the name and eyebrow arrive at the reveal (visible from revealUp on, never before)',
-    phaseGated('[data-hero-name]', ['revealUp', 'full', 'revealDown', ...LATE])
-      && phaseGated('[data-hero-eyebrow]', ['revealUp', 'full', 'revealDown', ...LATE]),
-    showSelectors('[data-hero-name]').join(' | ') || 'no show rule');
-  check('hero WU31: the fate line renders SMALLER than the watcher line (a quote, not the headline: fate 15px, watcher 18px; WU32: the credit 10px plomo)',
-    /data-sequence-phase='fate'\]\s*\[data-hero-tagline\][\s\S]{0,200}font-size:\s*0\.9375rem/.test(heroSrc)
-      && /data-hero-tagline[^>]*class="[^"]*\btext-lg\b/.test(heroSrc)
-      && /data-hero-credit[^>]*class="[^"]*text-\[10px\]/.test(heroSrc));
+  const zeroRules = (token) => blocks
+    .filter((m) => m[1].includes(token) && /opacity:\s*0/.test(m[2]))
+    .map((m) => m[1].replace(/\s+/g, ' ').trim());
+  // Content is never hidden: not at boot, not per phase, not under reduced
+  // motion — no opacity:0 rule may name the name, the eyebrow or the tagline.
+  for (const token of ['[data-hero-name]', '[data-hero-eyebrow]', '[data-hero-tagline]']) {
+    check(`hero WU33: ${token} is never hidden by any rule (first-paint content, all states)`,
+      zeroRules(token).length === 0, zeroRules(token).join(' | ') || 'clean');
+  }
+  // The scene layer is visible from first paint; the ONLY dimming allowed is
+  // the poster's reveal-time crossfade (gated on [data-playing], which the
+  // runtime sets when the mask reveal starts — never before, never without JS).
+  const sceneZero = zeroRules('.scene-layer').concat(zeroRules('[data-hero-poster]'));
+  check('hero WU33: the scene layer is visible from first paint — the only dimming is the poster crossfade gated on [data-playing] (the reveal)',
+    sceneZero.length > 0 && sceneZero.every((sel) => sel.includes('data-playing')),
+    sceneZero.join(' | ') || 'no scene rule');
+  // The terminal is the beat, not a door: hidden by default, shown when its
+  // typing phase runs (a phase attribute only scripting can set).
+  const termZero = zeroRules('[data-hero-terminal]');
+  const termShow = blocks.filter((m) => m[1].includes('[data-hero-terminal]') && /opacity:\s*1/.test(m[2]))
+    .map((m) => m[1].replace(/\s+/g, ' ').trim());
+  check('hero WU33: the terminal is the only pre-reveal-hidden element (default hidden, shown only under the typing phase)',
+    termZero.length > 0 && termShow.length > 0 && termShow.every((sel) => sel.includes("data-sequence-phase='typing'")),
+    `${termShow.join(' | ') || 'no show rule'}`);
+  // The credit still rides with the fate line only.
+  const creditShow = blocks.filter((m) => m[1].includes('hero-credit') && /opacity:\s*1/.test(m[2]))
+    .map((m) => m[1].replace(/\s+/g, ' ').trim());
+  check('hero WU33: the credit rides with the fate line only (fateIn/fate/scramble; gone at final)',
+    creditShow.length > 0 && creditShow.every((sel) => sel.includes('hero-credit-on')),
+    creditShow.join(' | ') || 'no show rule');
+  // The old content gate machinery must be GONE: no boot-state hiding of
+  // content, no [data-ready]-gated scene blackout.
+  check('hero WU33: the boot content gate is removed (no data-sequence-boot hiding rules, no :not([data-ready]) blackout of the scene)',
+    !/data-sequence-boot[^{]*\{[^}]*opacity:\s*0/.test(heroStyle)
+      && !/:not\(\[data-ready\]\)[^{]*\.scene-layer[^{]*\{[^}]*opacity:\s*0/.test(heroStyle));
 }
-check('hero: no-JS (no boot marker) shows the final state — scene and copy visible, never black',
-  Boolean(heroSrc) && /data-hero-tagline/.test(heroSrc) && !/data-sequence-boot='no-js'/.test(heroSrc));
-check('hero: reduced motion skips straight to the final state (media query on the boot state too)',
-  Boolean(heroSrc) && /prefers-reduced-motion[\s\S]*data-sequence-boot/.test(heroSrc));
+check('hero WU33: the server markup IS the final state (watcher line in the tagline slot, poster in the scene layer, no-JS complete)',
+  Boolean(heroSrc) && /data-hero-tagline[^>]*>\s*\{watcherLine\}/.test(heroSrc.replace(/\n/g, ' '))
+    && /data-hero-poster/.test(heroSrc));
+check('hero: reduced motion needs no boot override (no content to un-hide); the terminal stays hidden and the caret stops',
+  Boolean(heroSrc) && /prefers-reduced-motion/.test(heroSrc) && !/data-sequence-boot/.test(heroSrc));
 check('hero: the terminal lives in the tagline slot (VT323, bone text, amber prompt, caret)',
   Boolean(heroSrc) && /data-hero-terminal/.test(heroSrc) && /VT323/.test(heroSrc)
     && /text-accent|#ffb000/i.test(heroSrc) && /caret/i.test(heroSrc));
@@ -209,184 +238,154 @@ try {
   });
   const payload = pipeline.rollSerializedScene(pipeline.serializeScene(converted.scene), ramp.SEQUENCE_ROLL);
   const base = ramp.sequenceScene(payload);
-  const settled = ramp.sequenceWarpScene(payload, 0);
   const frameBase = engine.renderFrame(base, base.posterFrame, { dither: 'bayer4', density: 1 });
-  const frameSettled = engine.renderFrame(settled, settled.posterFrame, { dither: 'bayer4', density: 1 });
   const rgbaBase = engine.rasterize(frameBase, base, engine.DELIVERY_CELL);
+
+  // --- WU33: the halftone mask reveal ---------------------------------------
+  // The user retired the WU31/WU32 warp burst from the PUBLIC page and chose a
+  // HALFTONE reveal: a mask that drives dot coverage so the scene assembles
+  // from the ramp upward — crisp, graphic, our own dot language. The mask
+  // function (docs/MOTOR-ESCENAS.md): per cell, a normalized metric m(x,y)
+  // (radial from the SUBJECT centroid, or a diagonal wipe), dithered by one
+  // Bayer cell (m' = m + (bayer - 0.5)·edgeN) so the front is crisp but never
+  // jagged; the resolve amount a = clamp01((s - m')/growthN) climbs the RAMP
+  // ladder behind the front (dots bloom ground → rungs → full); still-
+  // resolving cells carry a small amber front (k ∝ a·(1−a), exactly 0 at
+  // a = 1, so the settled state is untouched). The front position is
+  // s = maskFront(p)·sMax with sMax = 1 + growthN + edgeN/2, so at the top of
+  // the ramp every cell is fully resolved and the settled raster is the base
+  // composition BYTE FOR BYTE.
+  const overlaysMod = await import(resolve(root, 'scripts/scene-src/overlays.mjs'));
+  check('scene WU33: the halftone mask overlay is the LAST catalogue entry (it masks the whole composed field, vignette included)',
+    overlaysMod.OVERLAY_IDS[overlaysMod.OVERLAY_IDS.length - 1] === 'halftone');
+  check('scene WU33: the warp overlay stays in the catalogue and in the lab runtime (retired from the public page, not deleted)',
+    overlaysMod.OVERLAY_IDS.includes('warp') && /sequenceWarpScene|WARP_RAMP/.test(labRuntimeSrc ?? ''));
+  check('scene WU33: MASK_RAMP is the public reveal ramp (steps 12, a finite durationMs)',
+    ramp.MASK_RAMP && ramp.MASK_RAMP.steps === 12 && Number.isFinite(ramp.MASK_RAMP.durationMs)
+      && ramp.MASK_RAMP.durationMs > 0);
+  const settled = ramp.sequenceMaskScene(payload, ramp.MASK_RAMP.steps);
+  const frameSettled = engine.renderFrame(settled, settled.posterFrame, { dither: 'bayer4', density: 1 });
   const rgbaSettled = engine.rasterize(frameSettled, settled, engine.DELIVERY_CELL);
   let equal = rgbaBase.length === rgbaSettled.length;
   for (let i = 0; equal && i < rgbaBase.length; i++) equal = rgbaBase[i] === rgbaSettled[i];
-  check('scene: the settled reveal state (ramp back to 0) rasterises byte-identical to the base composition', equal);
+  check('scene WU33: the settled mask state (top of the ramp) rasterises byte-identical to the base composition', equal);
 
-  // --- WU31: the burst profile — a reveal that actually reads ---------------
-  // The burst is a property of the RAMP STATE (`rampBurst(state)`), so the
-  // live canvas, the Node checkers and the engine probe agree without a
-  // second channel. It is exactly 0 at both ends (the settled page is today's
-  // page, byte for byte) and peaks mid-ramp, where the arrival happens.
-  check('scene WU31: the burst is a property of the ramp state (rampBurst exported, used by the runtime, zero at both ends, peak >= 0.99 mid-ramp)',
-    typeof ramp.rampBurst === 'function' && /rampBurst/.test(pubSrc)
-      && ramp.rampBurst(0) === 0 && ramp.rampBurst(ramp.WARP_RAMP.steps) === 0
-      && ramp.rampBurst(Math.round(ramp.WARP_RAMP.steps / 2)) >= 0.99);
-  check('scene WU31: the burst overrides differ from the plain warp (warpRampOverrides takes the burst argument)',
-    JSON.stringify(ramp.warpRampOverrides(1, 1)) !== JSON.stringify(ramp.warpRampOverrides(1, 0)));
-  // Bucket 0 with the burst switched on must STILL be the base composition:
-  // the burst only ever amplifies states the ramp actually visits.
-  const burstZero = ramp.sequenceWarpScene(payload, 0, 1);
-  const frameB0 = engine.renderFrame(burstZero, burstZero.posterFrame, { dither: 'bayer4', density: 1 });
-  const rgbaB0 = engine.rasterize(frameB0, burstZero, engine.DELIVERY_CELL);
-  let b0equal = rgbaB0.length === rgbaBase.length;
-  for (let i = 0; b0equal && i < rgbaB0.length; i++) b0equal = rgbaB0[i] === rgbaBase[i];
-  check('scene WU31: burst-0 (bucket 0 with the burst on) raster is byte-identical to the base composition', b0equal);
+  const masked0 = ramp.sequenceMaskScene(payload, 0);
+  const frame0 = engine.renderFrame(masked0, masked0.posterFrame, { dither: 'bayer4', density: 1 });
+  check('scene WU33: mask state 0 resolves nothing (every cell at ground — the scene assembles from the ramp upward)',
+    [...frame0.steps].every((s) => s === 0), `lit at state 0: ${[...frame0.steps].filter((s) => s > 0).length}`);
 
-  // Measured legibility of the burst against the plain full warp, over the
-  // same probe scene the lab checker uses (the metrics are properties of the
-  // OVERLAY + RAMP, not of the subject): changed cells, accent-signed
-  // fraction ((r-b) > 0.25 — only amber/rose joyan-page entries reach it) and
-  // peak brightness. WU32 — the radial-coherence metric is REPLACED by the
-  // trail/streak metrics further below: the rebuilt warp lights a trail field
-  // everywhere the subject's light reaches, so counting only spoke-window,
-  // bloom-core and edge-zone cells would call the new streaks "incoherent".
-  const overlaysMod = await import(resolve(root, 'scripts/scene-src/overlays.mjs'));
-  const wp = overlaysMod.OVERLAY_DEFAULTS.warp;
-  const pcx = wp.centre[0] * (base.cols - 1);
-  const pcy = wp.centre[1] * (base.rows - 1);
-  const pMaxDist = Math.hypot(Math.max(pcx, base.cols - 1 - pcx), Math.max(pcy, base.rows - 1 - pcy)) || 1;
-  const probeT = base.cycleFrames / base.fps * 0.12;
-  const front = ((probeT / 30) * wp.trips) % 1;
-  const measureBurst = (scene, overrides) => {
-    const sigma = overrides.sigma ?? wp.sigma;
-    // The bloom core extends to where the gaussian drops under 0.02, as the
-    // overlay itself applies it.
-    const br = overrides.bloom?.radius ?? wp.bloom.radius;
-    const bi = overrides.bloom?.intensity ?? wp.bloom.intensity;
-    const bloomExtent = bi > 0.02 ? br * Math.sqrt(2 * Math.log(bi / 0.02)) : 0;
-    let changed = 0; let accent = 0; let radial = 0; let peak = 0;
-    for (let y = 0; y < base.rows; y++) {
-      for (let x = 0; x < base.cols; x++) {
-        const a = base.field(x, y, probeT);
-        const b = scene.field(x, y, probeT);
-        const luma = 0.2126 * b[0] + 0.7152 * b[1] + 0.0722 * b[2];
-        if (luma > peak) peak = luma;
-        if (Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]), Math.abs(a[2] - b[2])) <= 0.02) continue;
-        changed += 1;
-        if (b[0] - b[2] > 0.25) accent += 1;
-        const dx = x - pcx; const dy = y - pcy;
-        const r = Math.hypot(dx, dy) / pMaxDist;
-        const spoke = Math.floor(((Math.atan2(dy, dx) + Math.PI) / (Math.PI * 2)) * wp.spokes);
-        const onSpoke = engine.hashNoise(spoke, 0, wp.seed) < wp.spokeDensity;
-        const d = ((r - front) % 1 + 1) % 1 - 0.5;
-        if ((onSpoke && Math.exp(-(d * d) / (2 * sigma * sigma)) > 0.05) || r <= bloomExtent) radial += 1;
-      }
-    }
-    return { changed, accent, accentFraction: accent / Math.max(1, changed), spokeFraction: radial / Math.max(1, changed), peak, bloomExtent };
-  };
-  const plainFull = ramp.sequenceWarpScene(payload, 1);
-  const burstFull = ramp.sequenceWarpScene(payload, 1, 1);
-  const mPlain = measureBurst(plainFull, ramp.warpRampOverrides(1, 0));
-  const mBurst = measureBurst(burstFull, ramp.warpRampOverrides(1, 1));
-  check('scene WU31: the burst changes MORE cells than the plain full warp',
-    mBurst.changed > mPlain.changed, `burst=${mBurst.changed} plain=${mPlain.changed}`);
-  // WU32 re-baseline (honest, not silent): the WU31 check demanded an
-  // accent-SIGNED FRACTION >= 0.35 of the changed cells — but the rebuilt warp
-  // lights a trail field of thousands of cells, so the amber wavefront (now
-  // gated to ride ON light) is a minority of the changed set BY DESIGN. The
-  // discipline itself is the WU32 scatter check (0 amber cells off-spoke);
-  // what must stay is an absolute amber presence on the streaks and above the
-  // plain warp.
-  check('scene WU31: the burst carries the amber on the streaks (>= 150 accent-signed cells, above the plain warp)',
-    mBurst.accent >= 150 && mBurst.accent > mPlain.accent,
-    `burst=${mBurst.accent} plain=${mPlain.accent} (changed ${mBurst.changed})`);
-  check('scene WU31: the burst peak brightness is above the plain warp (the bloom reads as a light source)',
-    mBurst.peak > mPlain.peak, `burst=${mBurst.peak.toFixed(4)} plain=${mPlain.peak.toFixed(4)}`);
-  var burstEvidence = { plain: mPlain, burst: mBurst, probeT, front };
+  // Determinism: the same state renders byte-identical, twice in a row and
+  // interleaved with another state (the memoised sampler must survive it).
+  const detScene = ramp.sequenceMaskScene(payload, 5);
+  const detA = engine.rasterize(engine.renderFrame(detScene, 3, { dither: 'bayer4', density: 1 }), detScene, engine.DELIVERY_CELL);
+  const detB = engine.rasterize(engine.renderFrame(detScene, 3, { dither: 'bayer4', density: 1 }), detScene, engine.DELIVERY_CELL);
+  let detEqual = detA.length === detB.length;
+  for (let i = 0; detEqual && i < detA.length; i++) detEqual = detA[i] === detB[i];
+  const detOther = engine.rasterize(engine.renderFrame(masked0, 3, { dither: 'bayer4', density: 1 }), masked0, engine.DELIVERY_CELL);
+  const detC = engine.rasterize(engine.renderFrame(detScene, 3, { dither: 'bayer4', density: 1 }), detScene, engine.DELIVERY_CELL);
+  let detInterleaved = detC.length === detA.length;
+  for (let i = 0; detInterleaved && i < detA.length; i++) detInterleaved = detC[i] === detA[i];
+  check('scene WU33: the mask is deterministic (repeat render byte-identical, interleaved state sampling equals fresh evaluation)',
+    detEqual && detInterleaved && (detOther.length !== 0));
 
-  // --- WU32: the warp rebuilt as DISPLACEMENT WITH TRAILS -------------------
-  // The user rejected the WU31 frames: the burst read as a grey smudge, the
-  // accents scattered at the frame edges and the subject drowned. The fix is
-  // mechanical: radial resampling (a 1/z-style pull that samples the base
-  // field along the ray toward the centre) plus TRAILS (a cell keeps the
-  // recent path of its ray at reduced coverage), so a still frame shows
-  // radial streaks instead of a blob. Measured here, RASTER level (the
-  // scattered accents live in the palette selection, not the field):
-  //   - trail field: interior (r <= 0.6) cells the burst changes OUTSIDE the
-  //     spoke windows and the bloom core. The WU31 warp produced 2-3; the
-  //     rebuilt warp must light a real field (>= 300).
-  //   - accent discipline: NEW accent cells ((r-b) > 0.2 — the amber/rose
-  //     joyan-page entries) at r > 0.6 whose perpendicular distance to every
-  //     hash-active spoke ray exceeds 1.5 cells are SCATTERED noise. The WU31
-  //     warp scattered 70.87 % of them; the rebuilt warp must hold <= 0.15.
-  const probeFrameW32 = Math.round(probeT * base.fps);
-  const rasterCellsW32 = (scene) => {
-    const rendered = engine.renderFrame(scene, probeFrameW32, { dither: 'bayer4', density: 1 });
-    const rgba = engine.rasterize(rendered, scene, engine.DELIVERY_CELL);
-    const out = new Float64Array(base.cols * base.rows * 3);
-    for (let y = 0; y < base.rows; y++) {
-      for (let x = 0; x < base.cols; x++) {
-        let rr = 0; let gg = 0; let bb = 0;
-        for (let py = 0; py < engine.DELIVERY_CELL; py++) {
-          for (let px = 0; px < engine.DELIVERY_CELL; px++) {
-            const i = (((y * engine.DELIVERY_CELL + py) * (base.cols * engine.DELIVERY_CELL)) + x * engine.DELIVERY_CELL + px) * 4;
-            rr += rgba[i]; gg += rgba[i + 1]; bb += rgba[i + 2];
-          }
-        }
-        const n = engine.DELIVERY_CELL * engine.DELIVERY_CELL;
-        out[(y * base.cols + x) * 3] = rr / n / 255;
-        out[(y * base.cols + x) * 3 + 1] = gg / n / 255;
-        out[(y * base.cols + x) * 3 + 2] = bb / n / 255;
-      }
-    }
-    return out;
-  };
-  const baseCellsW32 = rasterCellsW32(base);
-  const burstCellsW32 = rasterCellsW32(ramp.sequenceWarpScene(payload, 1, 1));
-  const wcx = wp.centre[0] * (base.cols - 1);
-  const wcy = wp.centre[1] * (base.rows - 1);
-  const wMax = Math.hypot(Math.max(wcx, base.cols - 1 - wcx), Math.max(wcy, base.rows - 1 - wcy)) || 1;
-  const bloomRadiusW32 = ramp.warpRampOverrides(1, 1).bloom?.radius ?? wp.bloom.radius;
-  const bloomIntensityW32 = ramp.warpRampOverrides(1, 1).bloom?.intensity ?? wp.bloom.intensity;
-  const bloomExtentW32 = bloomIntensityW32 > 0.02
-    ? bloomRadiusW32 * Math.sqrt(2 * Math.log(bloomIntensityW32 / 0.02)) : 0;
-  const spokePerpW32 = (x, y) => {
-    const dx = x - wcx; const dy = y - wcy;
-    let perp = Infinity;
-    for (let s = 0; s < wp.spokes; s++) {
-      if (engine.hashNoise(s, 0, wp.seed) >= wp.spokeDensity) continue;
-      const rayAngle = (s / wp.spokes) * Math.PI * 2 - Math.PI;
-      const pd = Math.abs(dx * Math.sin(rayAngle) - dy * Math.cos(rayAngle));
-      if (pd < perp) perp = pd;
-    }
-    return perp;
-  };
-  let trailFieldW32 = 0; let accentEdgeW32 = 0; let accentScatteredW32 = 0;
-  const sigmaW32 = ramp.warpRampOverrides(1, 1).sigma;
-  const frontW32 = ((probeT / 30) * wp.trips) % 1;
+  // The mask centre IS the subject: radial-from-subject, measured against the
+  // inked centroid of the ROLLED scene (the same geometry the render uses).
+  const geo = ramp.maskCentreFromPayload(payload);
+  const rawFieldProbe = pipeline.sceneFromSerialized(payload).field;
+  let inkW = 0; let inkX = 0; let inkY = 0;
+  const rawProbe = new Float64Array(base.cols * base.rows);
+  const subjectProbe = new Uint8Array(base.cols * base.rows);
   for (let y = 0; y < base.rows; y++) {
     for (let x = 0; x < base.cols; x++) {
-      const at = (y * base.cols + x) * 3;
-      const moved = Math.max(
-        Math.abs(baseCellsW32[at] - burstCellsW32[at]),
-        Math.abs(baseCellsW32[at + 1] - burstCellsW32[at + 1]),
-        Math.abs(baseCellsW32[at + 2] - burstCellsW32[at + 2])) > 0.02;
-      if (!moved) continue;
-      const dx = x - wcx; const dy = y - wcy;
-      const r = Math.hypot(dx, dy) / wMax;
-      const spokeIdxW32 = Math.floor(((Math.atan2(dy, dx) + Math.PI) / (Math.PI * 2)) * wp.spokes);
-      const onSpokeW32 = engine.hashNoise(spokeIdxW32, 0, wp.seed) < wp.spokeDensity;
-      const dW32 = ((r - frontW32) % 1 + 1) % 1 - 0.5;
-      const inWindowW32 = onSpokeW32 && Math.exp(-(dW32 * dW32) / (2 * sigmaW32 * sigmaW32)) > 0.05;
-      if (r <= 0.6 && r > bloomExtentW32 && !inWindowW32) trailFieldW32 += 1;
-      const baseAccent = baseCellsW32[at] - baseCellsW32[at + 2] > 0.2;
-      if (!baseAccent && burstCellsW32[at] - burstCellsW32[at + 2] > 0.2 && r > 0.6) {
-        accentEdgeW32 += 1;
-        if (r > bloomExtentW32 && spokePerpW32(x, y) > 1.5) accentScatteredW32 += 1;
-      }
+      const got = rawFieldProbe(x, y, 0);
+      const v = typeof got === 'number' ? got : 0.2126 * got[0] + 0.7152 * got[1] + 0.0722 * got[2];
+      rawProbe[y * base.cols + x] = v;
+      if (v > 0.4) { subjectProbe[y * base.cols + x] = 1; inkW += v; inkX += x * v; inkY += y * v; }
     }
   }
-  const scatterFractionW32 = accentScatteredW32 / Math.max(1, accentEdgeW32);
-  check('scene WU32: the burst lights a TRAIL FIELD (interior off-spoke changed cells >= 300; the WU31 warp produced 2-3)',
-    trailFieldW32 >= 300, `trailField=${trailFieldW32}`);
-  check('scene WU32: accent discipline — new edge accents sit on the spokes (scattered fraction <= 0.15; the WU31 warp scattered 0.7087)',
-    scatterFractionW32 <= 0.15, `scatter=${scatterFractionW32.toFixed(4)} of ${accentEdgeW32}`);
+  const inkCentroid = inkW > 0 ? [inkX / inkW / (base.cols - 1), inkY / inkW / (base.rows - 1)] : [0.5, 0.46];
+  check('scene WU33: the mask centre IS the subject (within 0.12 of the inked centroid of the rolled scene — radial from the subject)',
+    Math.abs(geo.centre[0] - inkCentroid[0]) <= 0.12 && Math.abs(geo.centre[1] - inkCentroid[1]) <= 0.12,
+    `mask=${JSON.stringify(geo.centre)} ink=${JSON.stringify(inkCentroid)}`);
+
+  // MEASURED mask metrics for BOTH variants (the parent asked for the sweep
+  // direction to be measured, not assumed):
+  //   - cells resolving per frame at mid-ramp (motion, not a flicker);
+  //   - edge sharpness: the fraction of changed cells inside the mask's own
+  //     transition band (a scattered resolve would fail this);
+  //   - subject recognition: the ramp fraction at which >= 50 % of the
+  //     subject's cells render a dot (recognizable BEFORE the reveal ends).
+  const HT = overlaysMod.OVERLAY_DEFAULTS.halftone;
+  const g = ramp.maskGeometry(payload);
+  const metricOf = (mode) => (x, y) => mode === 'wipe'
+    ? (x + y) / Math.max(1, base.cols + base.rows - 2)
+    : Math.hypot(x - geo.centre[0] * (base.cols - 1), y - geo.centre[1] * (base.rows - 1)) / geo.maxDist;
+  const renderState = (state, mode) => engine.renderFrame(
+    ramp.sequenceMaskScene(payload, state, mode), base.posterFrame, { dither: 'bayer4', density: 1 });
+  const measureMode = (mode) => {
+    const metric = metricOf(mode);
+    const framesPerState = (ramp.MASK_RAMP.durationMs / ramp.MASK_RAMP.steps) / 1000 * base.fps;
+    const k = Math.round(ramp.MASK_RAMP.steps / 2);
+    const sLo = ramp.maskFront(k / ramp.MASK_RAMP.steps) * g.sMax;
+    const sHi = ramp.maskFront((k + 1) / ramp.MASK_RAMP.steps) * g.sMax;
+    const fa = renderState(k, mode);
+    const fb = renderState(k + 1, mode);
+    let changed = 0; let inBand = 0;
+    for (let y = 0; y < base.rows; y++) {
+      for (let x = 0; x < base.cols; x++) {
+        const i = y * base.cols + x;
+        if (fa.steps[i] === fb.steps[i] && fa.indices[i] === fb.indices[i]) continue;
+        changed += 1;
+        const m = metric(x, y);
+        if (m > sLo - g.growthN - g.edgeN / 2 - g.cellMetric && m <= sHi + g.edgeN / 2 + g.cellMetric) inBand += 1;
+      }
+    }
+    let s50 = null;
+    let s90 = null;
+    for (let st = 0; st <= ramp.MASK_RAMP.steps && (s50 === null || s90 === null); st++) {
+      const f = renderState(st, mode);
+      let lit = 0; let n = 0;
+      for (let i = 0; i < subjectProbe.length; i++) {
+        if (!subjectProbe[i]) continue;
+        n += 1;
+        if (f.steps[i] > 0) lit += 1;
+      }
+      const fraction = lit / Math.max(1, n);
+      if (s50 === null && fraction >= 0.5) s50 = st / ramp.MASK_RAMP.steps;
+      if (s90 === null && fraction >= 0.9) s90 = st / ramp.MASK_RAMP.steps;
+    }
+    return { mode, changed, cellsPerFrame: +(changed / framesPerState).toFixed(1),
+      edgeSharpness: +(inBand / Math.max(1, changed)).toFixed(4), s50, s90 };
+  };
+  const mRadial = measureMode('radial');
+  const mWipe = measureMode('wipe');
+  check('scene WU33: the mask sweeps as MOTION (shipped mode resolves 10..4000 cells per frame at mid-ramp)',
+    mRadial.cellsPerFrame >= 10 && mRadial.cellsPerFrame <= 4000, `cells/frame=${mRadial.cellsPerFrame}`);
+  check('scene WU33: the resolve edge is SHARP (>= 0.9 of changed cells sit inside the mask transition band; the rest would be scattered noise)',
+    mRadial.edgeSharpness >= 0.9, `edgeSharpness=${mRadial.edgeSharpness}`);
+  check('scene WU33: the subject is recognizable before the reveal completes (>= 50 % of subject cells lit by 35 % of the ramp)',
+    mRadial.s50 !== null && mRadial.s50 <= 0.35, `s50=${mRadial.s50}`);
+  check('scene WU33: radial-from-subject WINS the measurement (subject half-lit earlier than the wipe) and is the shipped mode',
+    HT.mode === 'radial' && mRadial.s50 !== null && mWipe.s50 !== null && mRadial.s50 <= mWipe.s50,
+    `radial s50=${mRadial.s50} wipe s50=${mWipe.s50}`);
+
+  // Seam: the mask is TIME-FREE (a function of the ramp state, never of t),
+  // so the composed field closes over the loop exactly like the base's own
+  // periodic overlays (float round-off only).
+  const maskSeamScene = ramp.sequenceMaskScene(payload, 6);
+  const loopT = base.cycleFrames / base.fps;
+  let seamMask = 0;
+  for (let y = 0; y < base.rows; y++) {
+    for (let x = 0; x < base.cols; x++) {
+      const a = maskSeamScene.field(x, y, 0);
+      const b = maskSeamScene.field(x, y, loopT);
+      for (let ch = 0; ch < 3; ch++) seamMask = Math.max(seamMask, Math.abs(a[ch] - b[ch]));
+    }
+  }
+  check('scene WU33: the mask field seam stays ~0 over the loop (time-free mask; measured against the same grid)',
+    seamMask <= 1e-9, `seamMask=${seamMask.toExponential(2)}`);
+  var maskEvidence = { radial: mRadial, wipe: mWipe, centre: geo.centre, seamMask, sMax: g.sMax };
 
   // --- WU32: the settled composition keeps the subject legible --------------
   // Two metrics, both honest about sparse line art:
@@ -435,18 +434,43 @@ try {
     litContrastW32 >= 0.55, `litContrast=${litContrastW32.toFixed(4)}`);
   check('scene WU32: the ground behind the subject stays quiet (noisy ground fraction <= 0.15; the WU31 composition measured 0.2472)',
     groundNoiseW32 <= 0.15, `groundNoise=${groundNoiseW32.toFixed(4)}`);
-  var wu32Evidence = { trailField: trailFieldW32, accentEdge: accentEdgeW32, accentScattered: accentScatteredW32,
-    scatterFraction: scatterFractionW32, litContrast: litContrastW32,
+  var wu32Evidence = { litContrast: litContrastW32,
     subjectLitFraction: +(subjectLitW32 / Math.max(1, subjectNW32)).toFixed(4), groundNoise: groundNoiseW32 };
 } catch (error) {
   check('scene: settled-state byte equality', false, error.message);
 }
 
+check('hero WU33: the footer mark is the 88-cell pipeline rendering (an <img> under /assets/brand/, data-discord-mark kept; the 16×10 svg grid is gone from the hero)',
+  Boolean(heroSrc) && /data-discord-mark/.test(heroSrc)
+    && /\/assets\/brand\/discord-mark-88\.png/.test(heroSrc)
+    && !/DISCORD_DOT_GRID/.test(heroSrc),
+  'the footer still carries the 16×10 hand grid');
+{
+  // The committed asset: the pipeline's own 88-cell conversion (the user's
+  // pick), baked from the serialised scene through the engine's raster path —
+  // never a third-party bitmap.
+  const { existsSync, statSync } = await import('node:fs');
+  const markPath = resolve(root, 'public/assets/brand/discord-mark-88.png');
+  check('asset WU33: public/assets/brand/discord-mark-88.png exists (the 88-cell rendering committed as an asset, not an inline blob)',
+    existsSync(markPath));
+  if (existsSync(markPath)) {
+    const buf = await (await import('node:fs/promises')).readFile(markPath);
+    const isPng = buf.toString('ascii', 1, 4) === 'PNG';
+    const w = isPng ? buf.readUInt32BE(16) : 0;
+    const h = isPng ? buf.readUInt32BE(20) : 0;
+    check('asset WU33: the mark asset is a 176×176 PNG (88 cells at 2 px per cell — dots stay round at the footer size)',
+      isPng && w === 176 && h === 176, `${w}x${h}`);
+    check('asset WU33: the mark asset stays within 20 KiB (a footer dot mark, not a poster)',
+      buf.length <= 20 * 1024, `${buf.length} B`);
+  }
+}
+
 // --- DIST --------------------------------------------------------------------
 const esHtml = await read('dist/index.html');
 const enHtml = await read('dist/en/index.html');
-check('dist: the built ES page mounts the hero with the boot marker, terminal and locale link',
-  Boolean(esHtml) && esHtml.includes('data-sequence-boot') && esHtml.includes('data-hero-terminal')
+check('dist: the built ES page mounts the hero with the terminal, the mark asset and the locale link (no boot gate in the markup)',
+  Boolean(esHtml) && esHtml.includes('data-hero-terminal') && esHtml.includes('discord-mark-88.png')
+    && !esHtml.includes('data-sequence-boot')
     && /href="\/en"/.test(esHtml));
 check('dist: the built EN page links back to /',
   Boolean(enHtml) && /href="\/"/.test(enHtml) && enHtml.includes('data-hero-terminal'));
@@ -454,7 +478,7 @@ check('dist: the built EN page links back to /',
 // --- Report ------------------------------------------------------------------
 const mode = failures.length ? 'RED' : 'GREEN';
 const report = { mode: failures.length ? 'RED' : 'GREEN', checker: 'check-public-sequence', passed, failed: failures.length, failures };
-if (typeof burstEvidence !== 'undefined') report.burstEvidence = burstEvidence;
+if (typeof maskEvidence !== 'undefined') report.maskEvidence = maskEvidence;
 if (typeof wu32Evidence !== 'undefined') report.wu32Evidence = wu32Evidence;
 console.log(JSON.stringify(report, null, 2));
 const outIndex = process.argv.indexOf('--out');

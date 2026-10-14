@@ -1,43 +1,43 @@
 /**
- * PUBLIC SEQUENCE RUNTIME (WU29) — the hero's own act machine.
+ * PUBLIC SEQUENCE RUNTIME (WU33) — the hero's own act machine.
  * Never imported by a laboratory route: this is the ONE runtime path on the
  * public pages, imported only by `JoyanComingHero.astro`.
  *
- * The user's direction: the public page STARTS ON PURE BLACK — no scene, no
- * poster, no eyebrow — with only the terminal typing "Wake up, Neo…" (VT323,
- * bone text, amber prompt). The engine's own warp ramp then TRANSFORMS the
- * black into the unicorn scene (the same payload, grid, joyan-page palette and
- * stars/aurora/wash overlays the page always rendered), the terminal fades,
- * the literal fate line takes the tagline slot with its TERMINATOR 2 · SARAH
- * CONNOR credit, CORRUPTS through our dot-ramp glyphs and re-forms into the
- * watcher line, which is where it stays.
+ * WU33 — THE CONTENT GATE IS REMOVED (the user's decision, reversing WU31):
+ * the page's content — the Joyan name, the eyebrow, the scene, the final
+ * watcher line — is VISIBLE FROM FIRST PAINT, with zero JavaScript, with
+ * reduced motion, and at first paint with scripting on. The sequence only
+ * ever ADDS motion on top; it is never a door that hides content. The
+ * terminal beat now types OVER the already-visible page instead of replacing
+ * it, and the text arc decodes IN PLACE.
  *
- * THE ONLY RENDERER IS THE ENGINE. Every painted pixel comes from
- * `renderFrame`/`rasterize` in `scripts/scene-src/engine.mjs`; the reveal is
- * the shared warp ramp (`scripts/scene-src/sequence-warp.mjs`, states 0..steps)
- * — the SAME module the laboratory and the checkers read. The ramp goes UP to
- * bring the scene in and back DOWN to 0, so the settled state rasterises
- * byte-identical to the composition the page has always shown (checker-proven).
+ * The reveal is the HALFTONE MASK (the user retired the WU31/WU32 warp burst
+ * from the public page): a threshold mask in our dot language drives DOT
+ * COVERAGE, so the scene assembles from the ramp upward — radial from the
+ * subject, Bayer-dithered front, dots blooming through the ladder behind it.
+ * The ONE renderer is still the engine (`renderFrame`/`rasterize` in
+ * `scripts/scene-src/engine.mjs`); the mask ramp is
+ * `scripts/scene-src/sequence-warp.mjs` (`MASK_RAMP`, `sequenceMaskScene`) —
+ * the SAME module the Node checkers read, so the live canvas derives the same
+ * scene the checkers measure. The mask is time-free and at the top state the
+ * runtime paints the base scene: the settled state is byte-identical to the
+ * composition the page has always shown (checker-proven). The warp overlay
+ * stays in the engine catalogue and in the laboratory; nothing on this path
+ * references it any more.
  *
- * The black start is a JS-GATED STATE, the WU28 lesson applied at section
- * level: an inline script in the hero sets `data-sequence-boot="js"` BEFORE
- * first paint, and the scoped CSS shows the black act-1 state only under that
- * attribute. Without scripting the attribute never appears and the server
- * markup IS the final state (poster, eyebrow, name, watcher line) — never
- * black. Reduced motion skips the intro and the scramble entirely (and the
- * boot CSS shows the final state under `prefers-reduced-motion` too, so even
- * the pre-mount frame is truthful).
- *
- * The corruption uses OUR glyph language: characters scramble through the dot
- * ramp (`·`, `•`, `●`) in the page's own tones (plomo, bone, amber) — never
- * random unicode noise.
+ * The text arc: the fate line decodes IN after the reveal (per-character
+ * clocks, accent only on cycling glyphs, one real text node, the box pinned
+ * so nothing shifts), holds ~5 s — the WU32 hold of 1,900 ms was the defect —
+ * then decodes into the watcher line, which is where it stays. The name is
+ * NEVER decoded and never hidden: it is first-paint content.
  *
  * Behaviour, all observable: one rAF loop at the engine's own fps cadence
  * drives the phases AND the scene; pauses offscreen and in hidden tabs;
- * pagehide releases everything; reduced motion never animates.
+ * pagehide releases everything; reduced motion never animates; the invisible
+ * skip (click/tap/key) ignores the locale link.
  */
 import { DELIVERY_CELL, rasterize, renderFrame } from '../../scripts/scene-src/engine.mjs';
-import { WARP_RAMP, rampBurst, sequenceScene, sequenceWarpScene } from '../../scripts/scene-src/sequence-warp.mjs';
+import { MASK_RAMP, sequenceMaskScene, sequenceScene } from '../../scripts/scene-src/sequence-warp.mjs';
 
 /** The serialised converted scene the page embeds as data. */
 interface SequencePayload {
@@ -70,18 +70,20 @@ const REDUCED = '(prefers-reduced-motion: reduce)';
 const HOST = '[data-coming-hero]';
 /** The terminal's typed line — server-rendered attribute, not a runtime literal. */
 const TERMINAL_FALLBACK = 'Wake up, Neo\u2026';
-/** Hold after the typing completes before the reveal takes over. WU31: the
- * whole arc must sit inside 7–9 s (the user measured ~16 s and called the
- * pacing wrong); every constant below is summed by the checker. */
-const TYPE_HOLD_MS = 600;
-/** Full-warp hold at the top of the reveal before the ramp settles back. */
-const FULL_HOLD_MS = 350;
-/** The settle: the ramp returns to 0 so the final scene is exactly today's. */
-const SETTLE_MS = 1200;
-/** How long the fate line holds before the corruption begins. */
-const FATE_HOLD_MS = 1900;
-/** The corruption duration. */
-const SCRAMBLE_MS = 860;
+/** Hold after the typing completes before the reveal takes over. The terminal
+ * types OVER the visible page (WU33), so this hold is a beat, not a gate. */
+const TYPE_HOLD_MS = 900;
+/** Brief hold at the top of the mask ramp before the fate line decodes in. */
+const FULL_HOLD_MS = 300;
+/** WU33 — the fate line decodes IN (per-character clocks, in place) before
+ * its hold. */
+const FATE_IN_MS = 1100;
+/** WU33 — how long the fate line holds before the corruption begins. The
+ * WU32 hold of 1,900 ms was the defect being fixed: ~5 s per phrase, readable
+ * before it decodes into the next. */
+const FATE_HOLD_MS = 5000;
+/** WU33 — the corruption duration: SLOWER than WU32's 860 ms decode. */
+const SCRAMBLE_MS = 1600;
 /** Typewriter cadence (ms per character of played time). */
 const TYPE_STEP_MS = 110;
 /** OUR glyph language for the corruption: the dot ramp, never unicode noise. */
@@ -157,7 +159,7 @@ function isSequencePayload(value: unknown): value is SequencePayload {
     && typeof v.colorMode === 'string' && typeof v.levels === 'string';
 }
 
-type Phase = 'typing' | 'revealUp' | 'full' | 'revealDown' | 'fate' | 'scramble' | 'final';
+type Phase = 'typing' | 'reveal' | 'full' | 'fateIn' | 'fate' | 'scramble' | 'final';
 
 /** Deterministic hash for the scramble: a pure function of (i, step). */
 function scrambleHash(i: number, step: number): number {
@@ -199,25 +201,22 @@ function initializePublicSequence(): (() => void) | undefined {
 
   // The typed line is server-rendered content (data attribute), like the lab.
   const terminalText = typed.dataset.heroTerminalText ?? TERMINAL_FALLBACK;
-  // WU31 — the name is captured BEFORE any assembly touches it; the h1 keeps
-  // a stable accessible name through aria-label, so the screen reader never
-  // sees the dot-ramp glyphs.
-  const nameText = (nameEl.textContent ?? '').trim();
+  // WU33 — the name is first-paint content and is NEVER touched: no decode,
+  // no box pin, no phase gate. It sits over the scene the whole time.
   const fateText = tagline.dataset.heroFate ?? tagline.textContent ?? '';
   const watcherText = tagline.dataset.heroWatcher ?? tagline.textContent ?? '';
 
-  // One scene object per ramp state (0..steps); state 0 IS the base scene.
-  // WU31 — the burst is a property of the STATE (rampBurst), so the cache key
-  // stays the state number and the live canvas derives the same scene the
-  // Node checkers do.
-  const rampScenes = new Map<number, Scene>();
+  // One scene object per mask state (0..steps); the TOP state IS the base
+  // scene (the settled page, byte-identical by construction), state 0
+  // resolves nothing — the reveal assembles from the ramp upward.
+  const maskScenes = new Map<number, Scene>();
   const sceneForState = (state: number): Scene => {
-    const cached = rampScenes.get(state);
+    const cached = maskScenes.get(state);
     if (cached) return cached;
-    const built = state <= 0
+    const built = state >= MASK_RAMP.steps
       ? sequenceScene(payload)
-      : sequenceWarpScene(payload, Math.min(1, state / WARP_RAMP.steps), rampBurst(state));
-    rampScenes.set(state, built);
+      : sequenceMaskScene(payload, Math.max(0, state));
+    maskScenes.set(state, built);
     return built;
   };
 
@@ -244,42 +243,43 @@ function initializePublicSequence(): (() => void) | undefined {
     phase = next;
     phaseMs = 0;
     host.dataset.sequencePhase = next;
-    if (next === 'final' || next === 'revealDown' || next === 'fate' || next === 'scramble') {
-      terminal.classList.add('hero-terminal-departed');
-    } else {
+    // The terminal is the beat: it fades out when the reveal takes over.
+    if (next === 'typing') {
       terminal.classList.remove('hero-terminal-departed');
+    } else {
+      terminal.classList.add('hero-terminal-departed');
     }
     // The credit rides with the fate line and leaves with it.
-    credit.classList.toggle('hero-credit-on', next === 'fate' || next === 'scramble');
+    credit.classList.toggle('hero-credit-on', next === 'fateIn' || next === 'fate' || next === 'scramble');
     updateStatus();
   };
 
   const updateStatus = (): void => {
     status.textContent = reduced() ? 'Static poster · reduced motion'
       : !visible || document.hidden ? 'Paused · outside viewport or hidden'
-        : phase === 'typing' ? 'Act 1 · the terminal on black · click, tap or press any key to skip'
-          : phase === 'revealUp' || phase === 'full' ? 'The reveal · the engine warp bringing the scene in'
-            : phase === 'revealDown' ? 'The reveal settling · the scene you know'
-              : phase === 'fate' ? 'The fate line · TERMINATOR 2 · SARAH CONNOR'
-                : phase === 'scramble' ? 'The corruption · the line re-forms'
-                  : 'Our engine · the scene, at rest';
+        : phase === 'typing' ? 'Act 1 · the terminal over the page · click, tap or press any key to skip'
+          : phase === 'reveal' ? 'The reveal · the halftone mask resolving the scene from the ramp upward'
+            : phase === 'full' ? 'The scene, resolved'
+              : phase === 'fateIn' ? 'The fate line decoding in · TERMINATOR 2 · SARAH CONNOR'
+                : phase === 'fate' ? 'The fate line · TERMINATOR 2 · SARAH CONNOR'
+                  : phase === 'scramble' ? 'The corruption · the line re-forms'
+                    : 'Our engine · the scene, at rest';
   };
 
-  const paint = (bucket: number): void => {
-    const scene = sceneForState(bucket);
+  const paint = (state: number): void => {
+    const scene = sceneForState(state);
     const rendered = renderFrame(scene, frame, { dither: 'bayer4', density: 1 });
     rasterize(rendered, scene, cell, image.data);
     context.putImageData(image, 0, 0);
     host.dataset.heroFrame = String(rendered.frame);
-    host.dataset.heroBucket = String(bucket);
+    host.dataset.heroBucket = String(state);
   };
 
-  /** WU32 — the DECODE: one function for the tagline arc AND the name
-   * assembly, so the name and the lines share one language. Each character
-   * resolves on its own clock (charDeadline); unresolved characters cycle
-   * through the dot-ramp glyphs in the accent colour; resolved characters
-   * keep the base tone. The box is pinned before the first span, released on
-   * completion — the line never jumps. */
+  /** WU32 — the DECODE: each character resolves on its own clock
+   * (charDeadline); unresolved characters cycle through the dot-ramp glyphs
+   * in the accent colour; resolved characters keep the base tone. The box is
+   * pinned before the first span, released on completion — the line never
+   * jumps. WU33: the fate line decodes IN with this too. */
   const renderDecode = (el: HTMLElement, text: string, progress: number, salt: number): void => {
     reserveBox(el, text);
     const step = Math.floor(progress * 24);
@@ -317,42 +317,35 @@ function initializePublicSequence(): (() => void) | undefined {
     if (phase === 'typing') {
       const shown = Math.min(terminalText.length, Math.floor(phaseMs / TYPE_STEP_MS));
       typed.textContent = terminalText.slice(0, shown);
-      if (phaseMs > terminalText.length * TYPE_STEP_MS + TYPE_HOLD_MS) setPhase('revealUp');
-      paint(0);
-    } else if (phase === 'revealUp') {
-      const p = Math.min(1, phaseMs / WARP_RAMP.durationMs);
-      const bucket = Math.round(p * WARP_RAMP.steps);
-      sceneLayer.style.opacity = String(bucket / WARP_RAMP.steps);
-      paint(bucket);
-      if (p >= 1) {
-        releaseBox(nameEl);
-        nameEl.dataset.decoded = '';
-        nameEl.textContent = nameText;
-        setPhase('full');
-      } else {
-        renderDecode(nameEl, nameText, p, 31);
+      if (phaseMs > terminalText.length * TYPE_STEP_MS + TYPE_HOLD_MS) setPhase('reveal');
+    } else if (phase === 'reveal') {
+      // WU33 — the halftone mask reveal: the FIRST reveal frame flips
+      // data-playing (the canvas takes over; the poster crossfades out under
+      // it, CSS), then the mask assembles the scene from the ramp upward,
+      // radial from the subject.
+      if (!host.hasAttribute('data-playing')) {
+        host.setAttribute('data-playing', '');
       }
+      const p = Math.min(1, phaseMs / MASK_RAMP.durationMs);
+      paint(Math.round(p * MASK_RAMP.steps));
+      if (p >= 1) setPhase('full');
     } else if (phase === 'full') {
-      sceneLayer.style.opacity = '1';
-      paint(WARP_RAMP.steps);
-      if (phaseMs >= FULL_HOLD_MS) setPhase('revealDown');
-    } else if (phase === 'revealDown') {
-      const p = Math.min(1, phaseMs / SETTLE_MS);
-      const bucket = Math.round((1 - p) * WARP_RAMP.steps);
-      paint(bucket);
-      if (p >= 1) {
-        sceneLayer.style.opacity = '1';
-        // The fate line takes the tagline slot with its credit.
+      paint(MASK_RAMP.steps);
+      if (phaseMs >= FULL_HOLD_MS) setPhase('fateIn');
+    } else if (phase === 'fateIn') {
+      renderDecode(tagline, fateText, Math.min(1, phaseMs / FATE_IN_MS), 31);
+      paint(MASK_RAMP.steps);
+      if (phaseMs >= FATE_IN_MS) {
         tagline.dataset.decoded = '';
         tagline.textContent = fateText;
         setPhase('fate');
       }
     } else if (phase === 'fate') {
-      paint(0);
+      paint(MASK_RAMP.steps);
       if (phaseMs >= FATE_HOLD_MS) setPhase('scramble');
     } else if (phase === 'scramble') {
       renderScramble(Math.min(1, phaseMs / SCRAMBLE_MS));
-      paint(0);
+      paint(MASK_RAMP.steps);
       if (phaseMs >= SCRAMBLE_MS) {
         releaseBox(tagline);
         tagline.dataset.decoded = '';
@@ -360,7 +353,7 @@ function initializePublicSequence(): (() => void) | undefined {
         setPhase('final');
       }
     } else {
-      paint(0);
+      paint(MASK_RAMP.steps);
     }
     frame = (frame + 1) % payload.cycleFrames;
   };
@@ -398,12 +391,9 @@ function initializePublicSequence(): (() => void) | undefined {
     terminal.classList.add('hero-terminal-departed');
     credit.classList.remove('hero-credit-on');
     releaseBox(tagline);
-    releaseBox(nameEl);
     tagline.dataset.decoded = '';
     tagline.textContent = watcherText;
     typed.textContent = terminalText;
-    nameEl.dataset.decoded = '';
-    nameEl.textContent = nameText;
     phase = 'final';
     host.dataset.sequencePhase = 'final';
     updateStatus();
@@ -411,8 +401,11 @@ function initializePublicSequence(): (() => void) | undefined {
   // WU31 — the invisible skip: click, tap or keypress jumps to the final
   // state. No visible control is added (the language pair stays the only
   // visible control); Tab and modifier chords are left to the browser.
+  // WU33 — the skip must not swallow the locale link: targets inside the
+  // language nav navigate instead of skipping.
   const onSkip = (event: Event): void => {
     if (reduced() || phase === 'final') return;
+    if (event.target instanceof Element && event.target.closest('[data-hero-locale]')) return;
     if (event instanceof KeyboardEvent
       && (event.key === 'Tab' || event.ctrlKey || event.metaKey || event.altKey)) return;
     skipToFinal();
@@ -428,13 +421,19 @@ function initializePublicSequence(): (() => void) | undefined {
   if (reduced()) {
     skipToFinal();
   } else {
-    host.setAttribute('data-playing', '');
-    poster.hidden = true;
-    paint(0);
-    frame = 1;
+    // WU33 — the scene layer is visible from first paint (the poster IS the
+    // scene) and NOTHING is painted over it while the terminal types: no
+    // data-playing, no canvas paint. The canvas takes over only when the
+    // reveal phase starts (the tick's first reveal frame flips data-playing):
+    // the mask begins at state 0 and the poster crossfades out while the
+    // subject resolves — radial from the subject, so the eye keeps the
+    // unicorn the whole time.
   }
   host.setAttribute('data-ready', '');
-  observer.observe(canvas);
+  // WU33 — observe the SCENE LAYER, not the canvas: the canvas is display:none
+  // until the reveal (the poster is the first-paint scene), and an observer on
+  // a display:none element would report the hero permanently offscreen.
+  observer.observe(sceneLayer);
   sync();
 
   return () => {

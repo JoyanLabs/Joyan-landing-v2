@@ -28,7 +28,7 @@
  * composed function is deterministic; the composition order is fixed here so
  * the runtime and the checker cannot apply a different order.
  */
-import { hashNoise, layeredNoise } from './engine.mjs';
+import { bayerThreshold, hashNoise, layeredNoise } from './engine.mjs';
 
 /** The loop every overlay assumes. A converted scene must use the same one. */
 export const LOOP_SECONDS = 30;
@@ -37,8 +37,10 @@ export const LOOP_SECONDS = 30;
  * adds warp FIRST, because its radial displacement re-samples the subject's
  * own field and every later overlay must compose over the displaced cells.
  * WU32 adds the vignette LAST, so the field falls off at the frame edges over
- * everything else (the user rejected the scattered edge noise). */
-export const OVERLAY_IDS = Object.freeze(['warp', 'stars', 'aurora', 'grain', 'glimmer', 'wash', 'shimmer', 'vignette']);
+ * everything else (the user rejected the scattered edge noise). WU33 adds the
+ * halftone mask AFTER the vignette: it is the public reveal's resolve mask, and
+ * it must drive the coverage of the WHOLE composed field (vignette included). */
+export const OVERLAY_IDS = Object.freeze(['warp', 'stars', 'aurora', 'grain', 'glimmer', 'wash', 'shimmer', 'vignette', 'halftone']);
 
 /** Human labels, for the laboratory's controls and the docs. */
 export const OVERLAY_LABELS = Object.freeze({
@@ -50,6 +52,7 @@ export const OVERLAY_LABELS = Object.freeze({
   shimmer: 'shimmer band (a narrow bright band with hash sparkle travels whole sweeps per loop, WU22)',
   warp: 'warp (light-speed in dots, WU32: the subject\'s own dots DISPLACE radially — a 1/z-style pull samples the base field along the ray toward the centre — and each cell keeps the recent path of its ray as a TRAIL, so a still frame shows streaks, not a blob; the amber wavefront rides ON the lit streaks and a hot centre bloom stays the light source; two whole trips per loop)',
   vignette: 'vignette (WU32: the field falls off toward the frame edges over the composed result, so the ground quiets down and the subject reads)',
+  halftone: 'halftone mask (WU33: the public reveal — a threshold mask in OUR dot language drives dot coverage, so the scene assembles from the ramp upward; the front is a Bayer-dithered radial from the subject, dots bloom through the ladder behind it, a small amber front rides the resolving band; time-free, seam exact)',
 });
 
 /**
@@ -115,6 +118,23 @@ export const OVERLAY_DEFAULTS = Object.freeze({
   // measured: contrast fell 0.0237 -> 0.0165 — so the falloff starts at 0.7
   // of the centre radius and only the frame's own edges quiet down).
   vignette: Object.freeze({ start: 0.7, depth: 0.55 }),
+  // WU33 — the HALFTONE MASK: the public reveal. A mask that drives DOT
+  // COVERAGE (not a bitmap filter, not particles): per cell a normalized
+  // metric m(x,y) — radial from the SUBJECT's centroid (the shipped mode,
+  // measured against the wipe variant) or a diagonal wipe — is dithered by one
+  // Bayer cell (m' = m + (bayer − 0.5)·edge·cellMetric) so the resolve front is
+  // CRISP but never jagged, and the resolve amount a = clamp01((s − m')/growthN)
+  // climbs OUR ramp ladder behind the front: a cell still resolving renders a
+  // smaller dot of its own colour (ground → rungs → full — the scene literally
+  // assembles from the ramp upward), and a cell still resolving carries a small
+  // amber front (k ∝ a·(1−a), exactly 0 at a = 0 and a = 1, so empty ground and
+  // the settled state are untouched by it). The ramp position `s` is driven by
+  // `scripts/scene-src/sequence-warp.mjs` (MASK_RAMP); time-free — the seam is
+  // exact by construction and the mask is a pure function of (x, y, s).
+  // Defaults resolve EVERYTHING to ground (s = 0); the settled state (s ≥ sMax)
+  // returns the base colour unchanged, byte for byte.
+  halftone: Object.freeze({ s: 0, mode: 'radial', centre: Object.freeze([0.5, 0.46]),
+    growth: 2, edge: 1, accentIntensity: 0.55, accentColour: Object.freeze([1, 0.69, 0]) }),
 });
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
@@ -408,8 +428,61 @@ function vignetteOverlay(overrides) {
   };
 }
 
+/** HALFTONE MASK (WU33) — the public reveal. See OVERLAY_DEFAULTS.halftone for
+ * the frozen constants and the construction notes. Short version: a threshold
+ * mask over a per-cell metric (radial from the subject, or a wipe) decides, in
+ * OUR dot language, how much of the scene each cell carries: ahead of the
+ * front the cell is GROUND, behind it the dot climbs the ladder to its full
+ * size, and the narrow band in between blooms through the rungs with a small
+ * amber edge. Not a CSS filter over a bitmap and not a particle system — the
+ * effect is the coverage ladder itself, resolved by a sweeping threshold. */
+function halftoneOverlay(overrides) {
+  const p = { ...OVERLAY_DEFAULTS.halftone, ...overrides };
+  const mode = p.mode === 'wipe' ? 'wipe' : 'radial';
+  return {
+    id: 'halftone',
+    label: OVERLAY_LABELS.halftone,
+    apply(x, y, t, base, ctx) {
+      const s = p.s ?? 0;
+      let metric;
+      let maxDist;
+      if (mode === 'wipe') {
+        // Diagonal wipe: the same normalized (x+y) axis the sweep family uses.
+        metric = (x + y) / Math.max(1, ctx.cols + ctx.rows - 2);
+        maxDist = 1;
+      } else {
+        const cx = p.centre[0] * (ctx.cols - 1);
+        const cy = p.centre[1] * (ctx.rows - 1);
+        maxDist = Math.hypot(Math.max(cx, ctx.cols - 1 - cx), Math.max(cy, ctx.rows - 1 - cy)) || 1;
+        metric = Math.hypot(x - cx, y - cy) / maxDist;
+      }
+      const cellMetric = mode === 'wipe' ? 1 / Math.max(1, ctx.cols + ctx.rows - 2) : 1 / maxDist;
+      const growthN = p.growth * cellMetric;
+      const edgeN = p.edge * cellMetric;
+      // The crisp-but-never-jagged front: one Bayer cell of dither on the
+      // threshold, in the engine's own ordered-dither language.
+      const m = metric + (bayerThreshold(x, y) - 0.5) * edgeN;
+      const a = clamp01((s - m) / growthN);
+      if (a >= 1) return base;
+      const ground = ctx.ground ?? [0, 0, 0];
+      let out = [
+        ground[0] + (base[0] - ground[0]) * a,
+        ground[1] + (base[1] - ground[1]) * a,
+        ground[2] + (base[2] - ground[2]) * a,
+      ];
+      // The amber front: only on cells still resolving (a in (0, 1)), peaking
+      // mid-bloom and exactly 0 at both ends — empty ground never carries it
+      // and the settled state (a = 1 everywhere) is byte-identical without it.
+      const k = clamp01(p.accentIntensity * a * (1 - a) * 4);
+      if (k > 0) out = mix(out, p.accentColour, k);
+      return out;
+    },
+  };
+}
+
 const BUILDERS = { warp: warpOverlay, stars: starsOverlay, aurora: auroraOverlay, grain: grainOverlay,
-  glimmer: glimmerOverlay, wash: washOverlay, shimmer: shimmerOverlay, vignette: vignetteOverlay };
+  glimmer: glimmerOverlay, wash: washOverlay, shimmer: shimmerOverlay, vignette: vignetteOverlay,
+  halftone: halftoneOverlay };
 
 /** Build one overlay by id. Throws on an unknown id rather than guessing. */
 export function makeOverlay(id, overrides = {}) {
@@ -432,7 +505,12 @@ export function withOverlays(scene, ids, overrides = {}) {
   const baseField = scene.field;
   const cols = scene.cols;
   const rows = scene.rows;
-  const ctx = { cols, rows, loopSeconds: scene.cycleFrames / scene.fps };
+  const ctx = { cols, rows, loopSeconds: scene.cycleFrames / scene.fps,
+    // WU33 — the halftone mask resolves cells to the scene's OWN ground, so
+    // the reveal assembles out of the same colour the scene rests on.
+    ground: scene.groundHex
+      ? [1, 3, 5].map((i) => parseInt(scene.groundHex.slice(i, i + 2), 16) / 255)
+      : [1, 3, 5].map((i) => parseInt(scene.palette[scene.ground].slice(i, i + 2), 16) / 255) };
   // WU32 — a memoised BILINEAR SAMPLER over the base field's own integer
   // grid. The warp's trail taps read the base field up to a dozen times per
   // cell; evaluating the full composed base field per tap would be an order

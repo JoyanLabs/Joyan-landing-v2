@@ -1,29 +1,27 @@
 ---
 /**
- * WU29 — the public sequence hero. The user's direction: the page STARTS ON
- * PURE BLACK — no scene, no poster, no eyebrow — with only the terminal typing
- * "Wake up, Neo…" (VT323, bone text, amber prompt, no green); the engine's own
- * warp ramp then transforms the black into the unicorn scene (the SAME
- * payload, grid, joyan-page palette and stars/aurora/wash overlays, driven by
- * `~/lib/public-sequence` — the ONE runtime path on the public pages — so the
- * dots the visitor ends up watching are the same dots this page always
- * rendered, and the settled state is byte-identical to it). The fate line then
- * takes the tagline slot with its TERMINATOR 2 · SARAH CONNOR credit, corrupts
- * through our dot-ramp glyphs (· • ●, plomo/bone/amber — never unicode noise)
- * and re-forms into the watcher line, which stays.
- *
- * The black start is a JS-GATED STATE (the WU28 lesson at section level): the
- * inline script below sets `data-sequence-boot="js"` BEFORE first paint, and
- * the scoped CSS shows the black state only under that attribute. Without
- * scripting the attribute never appears — the server markup IS the final
- * state (poster, eyebrow, name, watcher line), never black. Reduced motion
- * skips the intro and the scramble (and the boot CSS shows the final state
- * under prefers-reduced-motion too, so even the pre-mount frame is truthful).
+ * WU33 — the public sequence hero. THE CONTENT GATE IS REMOVED (the user's
+ * decision, reversing WU29/WU31's black start): everything — the Joyan name,
+ * the eyebrow, the scene and the final watcher line — is VISIBLE FROM FIRST
+ * PAINT, with zero JavaScript, with reduced motion, and at first paint with
+ * scripting on. The sequence only ever ADDS motion on top, never a door that
+ * hides content: the terminal beat types OVER the already-visible page
+ * (VT323, bone text, amber prompt, no green), the reveal is the ENGINE's own
+ * HALFTONE MASK (the WU31/WU32 warp burst is retired from the public page) —
+ * a threshold in our dot language assembling the scene from the ramp upward,
+ * radial from the subject, over the SAME payload, grid, joyan-page palette
+ * and stars/aurora/wash/vignette overlays, driven by `~/lib/public-sequence`
+ * (the ONE runtime path on the public pages), settling byte-identical to the
+ * composition this page always showed. The fate line then decodes IN to the
+ * tagline slot with its TERMINATOR 2 · SARAH CONNOR credit, holds ~5 s (the
+ * WU32 pacing defect), corrupts through our dot-ramp glyphs (· • ● — never
+ * unicode noise) and re-forms into the watcher line, which stays.
  *
  * The ES/EN switch is a real link pair in the top corner (each page links to
- * the other locale; no JS). No other controls: the hero autoplays (WU20).
- * The eyebrow is the shipped choice "TRANSMISIÓN"/"TRANSMISSION" (alternatives
- * recorded in odd/tasks/dither-iteration.md and docs/DESIGN.md).
+ * the other locale; no JS, and the invisible skip ignores it). No other
+ * controls: the hero autoplays (WU20). The eyebrow is the shipped choice
+ * "TRANSMISIÓN"/"TRANSMISSION" (alternatives recorded in
+ * odd/tasks/dither-iteration.md and docs/DESIGN.md).
  */
 interface Props {
   /** Build-time baked poster PNG of the scene's poster frame (data URI or asset path). */
@@ -63,24 +61,13 @@ const DISCORD_INVITE_URL = '';
 const discordHref = discordUrl || DISCORD_INVITE_URL;
 
 /**
- * The Discord mark, authored in OUR aesthetic: the Clyde silhouette laid out on
- * a 16 × 10 dot grid and drawn as round dots — the same dot language as the
- * scene. `#` is one dot; the eyes are the empty 2 × 2 gaps.
+ * WU33 — the Discord mark is the 88-CELL rendering the user picked (the
+ * pipeline's own conversion, baked through the engine's raster path and
+ * committed under `public/assets/brand/`). The old 16 × 10 hand grid is gone
+ * from the footer; the attribute contract (`data-discord-mark`) stays.
  */
-const DISCORD_DOT_GRID = Object.freeze([
-  '....########....',
-  '..############..',
-  '.##############.',
-  '####..####..####',
-  '####..####..####',
-  '####..####..####',
-  '.##############.',
-  '..############..',
-  '...##########...',
-  '..###......###..',
-]);
-const dotRows = DISCORD_DOT_GRID.length;
-const dotCols = DISCORD_DOT_GRID[0].length;
+const DISCORD_MARK_SRC = '/assets/brand/discord-mark-88.png';
+const DISCORD_MARK_PX = 88;
 ---
 
 <section
@@ -91,17 +78,11 @@ const dotCols = DISCORD_DOT_GRID[0].length;
   class="relative flex min-h-[88dvh] w-full flex-col overflow-hidden bg-ink-950"
   aria-labelledby="coming-hero-name"
 >
-  {/* WU29 — the scripting marker: set BEFORE first paint, so the black act-1
-      state is only ever reachable when scripting actually runs. Without it the
-      server markup is the final state (never black). */}
-  <script is:inline>
-    (function () {
-      const section = document.currentScript && document.currentScript.parentElement;
-      if (section) section.setAttribute('data-sequence-boot', 'js');
-    })();
-  </script>
-  {/* The scene layer: hidden (black) under the JS boot state, revealed by the
-      engine's own warp ramp. The no-JS still is the build-time poster. */}
+  {/* WU33 — NO boot marker, NO content gate: the server markup is the live
+      state (poster, eyebrow, name, watcher line) and the sequence only ever
+      adds motion on top. The scene layer is visible from first paint; the
+      canvas takes over at the reveal (data-playing) and the poster
+      crossfades out while the halftone mask resolves the scene. */}
   <div class="scene-layer absolute inset-0" aria-hidden="true">
     <img
       src={poster}
@@ -121,15 +102,15 @@ const dotCols = DISCORD_DOT_GRID[0].length;
   <div class="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 sm:px-6">
     <div class="mt-[14dvh] max-w-xl">
       <p data-hero-eyebrow class="font-mono text-xs uppercase tracking-[0.3em] text-accent">{eyebrow}</p>
-      {/* WU31 — the name arrives WITH the reveal, assembled out of the dot
-          ramp glyphs by the runtime. During act 1 it is fully hidden (the
-          boot CSS empties it); the aria-label keeps the accessible name
-          stable so screen readers never read the scramble. */}
+      {/* WU33 — the name is FIRST-PAINT CONTENT: it is never decoded, never
+          hidden, never phase-gated. The sequence only ever adds motion around
+          it; aria-label keeps the accessible name stable regardless. */}
       <h1 id="coming-hero-name" data-hero-name class="font-display mt-4 text-5xl tracking-tight text-bone-50 sm:text-7xl" aria-label={name}>{name}</h1>
-      {/* The tagline slot: the terminal types here on black; after the reveal
-          the fate line takes it, corrupts through our dot-ramp glyphs and
-          re-forms into the watcher line (the SSR content = the final phrase,
-          which is what no-JS and reduced motion show). */}
+      {/* The tagline slot: the SERVER content is the final watcher line (what
+          no-JS, reduced motion and first paint all show). The arc decodes IN
+          PLACE on top of it: after the reveal the fate line decodes in,
+          holds ~5 s (WU33 pacing), corrupts through our dot-ramp glyphs and
+          re-forms into the watcher line, which stays. */}
       <div data-hero-terminal class="terminal mt-6" aria-hidden="true">
         <p class="text-bone-50">
           <span class="text-accent">&gt;</span>
@@ -189,20 +170,15 @@ const dotCols = DISCORD_DOT_GRID[0].length;
           title={discordLabel}
           class="text-bone-100 transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
         >
-          <svg
-            viewBox={`0 0 ${dotCols} ${dotRows}`}
-            width="28"
-            height="18"
-            role="img"
-            aria-hidden="true"
-            class="block"
-          >
-            {DISCORD_DOT_GRID.map((row, y) =>
-              [...row].map((cell, x) =>
-                cell === '#' ? <circle cx={x + 0.5} cy={y + 0.5} r="0.44" fill="currentColor" /> : null
-              )
-            )}
-          </svg>
+          <img
+            src={DISCORD_MARK_SRC}
+            alt=""
+            width={DISCORD_MARK_PX * 2}
+            height={DISCORD_MARK_PX * 2}
+            loading="lazy"
+            decoding="async"
+            class="block h-[88px] w-[88px]"
+          />
         </a>
       ) : (
         <span
@@ -211,20 +187,15 @@ const dotCols = DISCORD_DOT_GRID[0].length;
           class="text-plomo-400"
           data-discord-mark
         >
-          <svg
-            viewBox={`0 0 ${dotCols} ${dotRows}`}
-            width="28"
-            height="18"
-            role="img"
-            aria-hidden="true"
-            class="block"
-          >
-            {DISCORD_DOT_GRID.map((row, y) =>
-              [...row].map((cell, x) =>
-                cell === '#' ? <circle cx={x + 0.5} cy={y + 0.5} r="0.44" fill="currentColor" /> : null
-              )
-            )}
-          </svg>
+          <img
+            src={DISCORD_MARK_SRC}
+            alt=""
+            width={DISCORD_MARK_PX * 2}
+            height={DISCORD_MARK_PX * 2}
+            loading="lazy"
+            decoding="async"
+            class="block h-[88px] w-[88px]"
+          />
         </span>
       )}
     </div>
@@ -238,13 +209,30 @@ const dotCols = DISCORD_DOT_GRID[0].length;
 </script>
 
 <style>
+  /* ---- WU33 states ---------------------------------------------------------
+     The content gate is REMOVED: nothing here ever hides the name, the
+     eyebrow or the tagline — they are first-paint content in every state
+     (no-JS, reduced motion, scripting). The scene layer is visible from
+     first paint; the ONLY dimming is the poster's crossfade, gated on
+     [data-playing], which the runtime sets when the halftone reveal starts
+     (never before, never without scripting). The terminal is the one
+     pre-reveal-hidden element: the beat fades in when its typing phase runs. */
   .scene-layer {
     display: grid;
-    /* The layer's opacity is driven by the runtime's ramp (style.opacity);
-       the boot state starts it at black. */
-    transition: none;
   }
-  /* The baked poster is the no-JS still; the canvas takes over on load. */
+  /* WU33 — the poster and the canvas share ONE grid cell: the crossfade keeps
+     the poster in the layout (opacity, not display), so without this the
+     canvas would drop to a second grid row and paint in the lower half. */
+  .scene-layer > img,
+  .scene-layer > canvas {
+    grid-area: 1 / 1;
+  }
+  /* The baked poster is the no-JS still and the first-paint scene; the canvas
+     takes over at the reveal and the poster crossfades out beneath it. */
+  [data-coming-hero] [data-hero-poster] {
+    opacity: 1;
+    transition: opacity 600ms ease;
+  }
   [data-coming-hero] canvas {
     display: none;
   }
@@ -252,133 +240,56 @@ const dotCols = DISCORD_DOT_GRID[0].length;
     display: block;
   }
   [data-coming-hero][data-playing] [data-hero-poster] {
-    display: none;
+    opacity: 0;
   }
 
-  /* ---- WU29 boot states ---------------------------------------------------
-     data-sequence-boot="js" is set by the inline script BEFORE first paint, so
-     the black act-1 state exists only when scripting actually runs. Without
-     the attribute (no JS) nothing here applies: the server markup IS the
-     final state — poster, eyebrow, name, watcher line — never black. */
-  [data-coming-hero][data-sequence-boot='js']:not([data-ready]) .scene-layer {
-    opacity: 0;
-  }
-  [data-coming-hero][data-sequence-boot='js']:not([data-ready]) [data-hero-eyebrow] {
-    opacity: 0;
-  }
-  [data-coming-hero][data-sequence-boot='js']:not([data-ready]) [data-hero-tagline] {
-    opacity: 0;
-  }
-  [data-coming-hero][data-sequence-boot='js']:not([data-ready]) [data-hero-credit] {
-    opacity: 0;
-  }
-  /* WU31 — act 1 contains NOTHING but the terminal: the name h1 is emptied
-     too (pixel-proven at 100/400/800 ms). */
-  [data-coming-hero][data-sequence-boot='js']:not([data-ready]) [data-hero-name] {
-    opacity: 0;
-  }
-  [data-coming-hero][data-sequence-boot='js']:not([data-ready]) [data-hero-terminal] {
-    opacity: 1;
-  }
+  /* The terminal beat: hidden until its typing phase (a phase attribute only
+     scripting can set), gone once the reveal takes over. */
   [data-coming-hero] [data-hero-terminal] {
     opacity: 0;
-  }
-  /* During the typing phase the runtime mounts and the boot rule stops; the
-     phase attribute keeps the black-act composition (terminal on, copy off,
-     SCENE LAYER OFF — the page sits on pure black until the reveal). */
-  [data-coming-hero][data-sequence-phase='typing'] .scene-layer {
-    opacity: 0;
+    transition: opacity 900ms ease;
   }
   [data-coming-hero][data-sequence-phase='typing'] [data-hero-terminal] {
     opacity: 1;
-  }
-  [data-coming-hero][data-sequence-phase='typing'] [data-hero-eyebrow],
-  [data-coming-hero][data-sequence-phase='typing'] [data-hero-tagline],
-  [data-coming-hero][data-sequence-phase='typing'] [data-hero-credit] {
-    opacity: 0;
-  }
-  /* ---- WU31 phase-gated copy --------------------------------------------
-     With scripting, the copy is hidden by DEFAULT and every rule that shows
-     it names its phase: the name and eyebrow arrive at the reveal (the name
-     assembles through the dot-ramp glyphs), the watcher line exists ONLY
-     from the fate phase on — it can never surface while the terminal types
-     or during the reveal. The credit rides with the fate line and leaves
-     with it (gone at final). Reduced motion: the pre-mount boot rules below
-     still show the final state. */
-  [data-coming-hero][data-sequence-boot='js'] [data-hero-name],
-  [data-coming-hero][data-sequence-boot='js'] [data-hero-eyebrow],
-  [data-coming-hero][data-sequence-boot='js'] [data-hero-tagline],
-  [data-coming-hero][data-sequence-boot='js'] [data-hero-credit] {
-    opacity: 0;
-  }
-  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='revealUp'] [data-hero-name],
-  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='revealUp'] [data-hero-eyebrow],
-  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='full'] [data-hero-name],
-  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='full'] [data-hero-eyebrow],
-  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='revealDown'] [data-hero-name],
-  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='revealDown'] [data-hero-eyebrow],
-  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='fate'] [data-hero-name],
-  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='fate'] [data-hero-eyebrow],
-  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='fate'] [data-hero-tagline],
-  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='fate'] [data-hero-credit],
-  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='scramble'] [data-hero-name],
-  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='scramble'] [data-hero-eyebrow],
-  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='scramble'] [data-hero-tagline],
-  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='scramble'] [data-hero-credit],
-  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='final'] [data-hero-name],
-  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='final'] [data-hero-eyebrow],
-  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='final'] [data-hero-tagline] {
-    opacity: 1;
-  }
-  /* WU31 — the fate line is a QUOTE, not the headline: 15 px against the
-     watcher line's 18 px (text-lg), with the credit smaller still (text-xs,
-     12 px). It grows into the watcher size as the corruption resolves. */
-  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='fate'] [data-hero-tagline],
-  [data-coming-hero][data-sequence-boot='js'][data-sequence-phase='scramble'] [data-hero-tagline] {
-    font-size: 0.9375rem;
-    transition: font-size 400ms ease;
-  }
-  [data-coming-hero] [data-hero-eyebrow],
-  [data-coming-hero] [data-hero-tagline],
-  [data-coming-hero] [data-hero-credit] {
-    transition: opacity 900ms ease;
-  }
-  [data-coming-hero] [data-hero-terminal] {
-    transition: opacity 900ms ease;
   }
   .hero-terminal-departed {
     opacity: 0 !important;
     pointer-events: none;
   }
+
+  /* The credit rides with the fate line and leaves with it. */
   .hero-credit {
     opacity: 0;
   }
   .hero-credit-on {
     opacity: 1;
   }
-  /* Reduced motion: even the PRE-MOUNT boot frame is truthful — the final
-     state shows (scene layer visible, terminal hidden). */
+  [data-coming-hero] [data-hero-credit] {
+    transition: opacity 900ms ease;
+  }
+
+  /* WU32/WU33 — the fate line is a QUOTE, not the headline: 15 px against the
+     watcher line's 18 px (text-lg), with the credit smaller still (10 px). It
+     grows into the watcher size as the corruption resolves. The box is pinned
+     by the runtime during every decode, so the size change never shifts
+     layout. */
+  [data-coming-hero][data-sequence-phase='fateIn'] [data-hero-tagline],
+  [data-coming-hero][data-sequence-phase='fate'] [data-hero-tagline],
+  [data-coming-hero][data-sequence-phase='scramble'] [data-hero-tagline] {
+    font-size: 0.9375rem;
+    transition: font-size 400ms ease;
+  }
+
+  /* Reduced motion: the sequence never runs (the runtime skips to the final
+     state), so there is nothing to un-hide — the server markup IS the final
+     state. Only the motion ornaments stop. */
   @media (prefers-reduced-motion: reduce) {
-    [data-coming-hero][data-sequence-boot='js']:not([data-ready]) .scene-layer {
-      opacity: 1;
-    }
-    [data-coming-hero][data-sequence-boot='js']:not([data-ready]) [data-hero-eyebrow] {
-      opacity: 1;
-    }
-    [data-coming-hero][data-sequence-boot='js']:not([data-ready]) [data-hero-tagline] {
-      opacity: 1;
-    }
-    [data-coming-hero][data-sequence-boot='js']:not([data-ready]) [data-hero-name] {
-      opacity: 1;
-    }
-    [data-coming-hero][data-sequence-boot='js']:not([data-ready]) [data-hero-terminal] {
-      opacity: 0;
+    [data-coming-hero] [data-hero-poster] {
+      transition: none;
     }
     [data-coming-hero] [data-hero-terminal] {
       transition: none;
     }
-    [data-coming-hero] [data-hero-eyebrow],
-    [data-coming-hero] [data-hero-tagline],
     [data-coming-hero] [data-hero-credit] {
       transition: none;
     }

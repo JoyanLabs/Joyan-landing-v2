@@ -1505,8 +1505,11 @@ if (hero.runtimeScene) {
         width: canvas.width, height: canvas.height, frame: Number(host.dataset.heroFrame ?? -1),
         playing: host.hasAttribute('data-playing') };
     });
-    // Autoplay on load: with no interaction at all the canvas is live.
-    await page.waitForTimeout(700);
+    // Autoplay on load: with no interaction at all the hero reaches the reveal
+    // (the canvas takes over) — WU33 moved the reveal AFTER the terminal beat
+    // over the visible page, so the canvas goes live ~2.4 s after mount.
+    await page.waitForSelector('[data-coming-hero][data-playing]', { timeout: 15000 });
+    await page.waitForTimeout(400);
     const live1 = await heroRead();
     check(live1.playing === true, 'WU20: the coming-hero must autoplay on load (no interaction)');
     check(live1.width === hero.width && live1.height === hero.height,
@@ -1525,14 +1528,14 @@ if (hero.runtimeScene) {
       const digest = await crypto.subtle.digest('SHA-256', data);
       return { frame, bucket, hash: [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('') };
     });
-    // WU29 — the intro paints the RAMP state (data-hero-bucket); state 0 is the
-    // base scene, states > 0 carry the warp — and since WU31 the burst is a
-    // property of the STATE (rampBurst), so the probe derives the same scene
-    // the runtime drew from the bucket number alone.
+    // WU33 — the intro paints the MASK state (data-hero-bucket, 0..steps); the
+    // top state IS the base scene, states below carry the halftone mask — the
+    // probe derives the same scene the runtime drew from the bucket number
+    // alone (the same one-source rule as the retired warp ramp).
     const probeBucket = Number(frameProbe.bucket ?? 0);
-    const probeScene = probeBucket > 0
-      ? heroRamp.sequenceWarpScene(JSON.parse(hero.payload), probeBucket / heroRamp.WARP_RAMP.steps, heroRamp.rampBurst(probeBucket))
-      : hero.runtimeScene;
+    const probeScene = probeBucket >= heroRamp.MASK_RAMP.steps
+      ? hero.runtimeScene
+      : heroRamp.sequenceMaskScene(JSON.parse(hero.payload), probeBucket);
     const frameN = engine.renderFrame(probeScene, frameProbe.frame, { dither: 'bayer4', density: 1 });
     const rasterN = engine.rasterize(frameN, probeScene, engine.DELIVERY_CELL);
     check(frameProbe.hash === hash(Buffer.from(rasterN)),

@@ -1101,3 +1101,78 @@ El usuario rechazó los fotogramas de WU31: la ráfaga era una **mancha gris**, 
 - **Gusto**: crédito 12 px ámbar 0,24em → **10 px plomo-400 0,12em** (por debajo del eyebrow 12 px ámbar 0,3em en la jerarquía); la fila de puntos del pie está eliminada. Escala tipográfica completa en `docs/AUDITORIA-ESCENAS.md` §WU32.4.
 - **Presupuestos (WU32, re-pinados)**: landing **100.083 B gzip en 5 chunks** (delta **8.178** ≤ 22.528 — margen **14.350 B**; los dos chunks client BYTE-IDÉNTICOS; hero entry 2.690 B; overlays 9.478 B; rampa 556 B). Lab **43.481 B** bajo tope **45.529 B** (medido + 2.048). `.artifacts/iteration-2-client-js.json` intacto. Re-pinado en `check-iteration-2.mjs`, `check-ascii-runtime.mjs` y `check-iteration-3.mjs`.
 - **LCP/CLS**: LCP 2.340 ms (el h1 «Joyan» al llegar el reveal), CLS 0,0002 — sin cambio de forma frente a WU31.
+
+## 24. La compuerta de contenido retirada y el reveal de semitono (WU33)
+
+Corrección del usuario (2026-10-10): **todo el contenido es visible desde el primer pintado** — el nombre
+«Joyan», el eyebrow, la escena y la línea final del vigilante — con cero JavaScript, con movimiento
+reducido y con scripting activado. La secuencia solo AÑADE movimiento encima; nunca es una puerta que
+esconde contenido. Esto REVIERTE el requisito de WU31 (el nombre ausente durante la intro): el usuario
+eligió la legibilidad y el LCP se recupera como consecuencia. La ráfaga warp de WU31/WU32 se retira de
+la página pública; el reveal ahora es **el semitono**.
+
+- **La máscara de semitono** (overlay `halftone` en `overlays.mjs`, ÚLTIMO del catálogo — enmascara el
+  campo compuesto entero, viñeta incluida): una métrica normalizada por celda `m(x,y)` — **radial desde
+  el CENTRO DEL SUJETO** (el centroide entintado del payload serializado, `maskCentreFromPayload`,
+  determinista; el runtime y los checkers derivan el mismo centro del mismo payload) — se trocea con un
+  dither Bayer de una celda (`m' = m + (bayer − 0,5)·edgeN`) para que el frente sea NÍTIDO pero nunca
+  dentado, y la cantidad resuelta `a = clamp01((s − m')/growthN)` sube por la escalera de rampa DETRÁS
+  del frente: una celda resolviéndose pinta un punto más pequeño de su propio color (suelo → peldaños →
+  lleno — la escena se ensambla literalmente desde la rampa hacia arriba) y lleva un frente ámbar
+  pequeño (`k ∝ a·(1−a)`, exactamente 0 en `a = 0` y `a = 1`: el suelo vacío y el estado asentado no lo
+  llevan). No es un filtro CSS sobre un bitmap ni un sistema de partículas: el efecto es la propia
+  escalera de cobertura, resuelta por un umbral que barre. Constantes congeladas (`OVERLAY_DEFAULTS.halftone`):
+  `growth` 2 celdas (banda de florecimiento), `edge` 1 celda (dither del frente), `accentIntensity` 0,55,
+  ámbar `#ffb000`. La posición del frente es `s = maskFront(p)·sMax` con `maskFront` ease-out cuadrático
+  (el sujeto resuelve de inmediato, el borde lejano termina suave) y `sMax = 1 + growthN + edgeN`
+  (`maskGeometry`) — en el tope de la rampa cada celda clampa a `a = 1` y el runtime pinta la escena base
+  directamente (`sequenceMaskScene(payload, MASK_RAMP.steps)` ES `sequenceScene(payload)`), así que el
+  estado asentado es BYTE-IDÉNTICO a la composición de siempre (verificado; y el último estado de máscara
+  difiere de la base en 0 celdas — sin salto visible). **Métrica medida (check-public-sequence, sonda
+  160×80, rodillo 18)**: radial — celdas resolviéndose **142,5 por frame** al centro de la rampa
+  (2.400 ms / 12 fps), nitidez de borde **1,0** (cero celdas dispersas fuera de la banda), el sujeto
+  medio-encendido en el **16,7 %** de la rampa; wipe (variante rechazada) — 119,6 celdas/frame, nitidez
+  1,0, sujeto al **41,7 %**. El radial gana porque reconoce al sujeto mucho antes; es el modo enviado.
+  Costura de campo ≈ 0 (2,9e−15 — la máscara es tiempo-libre). Determinismo verificado (render repetido
+  e intercalado byte-idéntico).
+- **La ráfaga warp retirada de la página pública**: el runtime público ya no referencia
+  `rampBurst`/`sequenceWarpScene`/`WARP_RAMP` (y el código retirado sale del grafo: el chunk de rampa
+  cambió de forma). El overlay `warp` SIGUE en el catálogo y en el laboratorio: `/lab/sequence` sigue
+  transicionando con él y `/lab/image` conserva el tratamiento `page-warp` — el efecto no se borró, dejó
+  de estar en la página pública.
+- **El terminal escribe SOBRE la página** (ya no reemplaza nada): el servidor sirve el estado vivo
+  (póster, eyebrow, nombre, línea del vigilante) y ningún CSS esconde jamás al nombre, al eyebrow o al
+  tagline — el único elemento oculto por defecto es el terminal (aparece con su fase `typing`) y el
+  crédito (viaja con la línea del destino). El marcador de arranque `data-sequence-boot` y sus reglas de
+  opacidad se eliminaron por completo. En el reveal la capa de escena hace un crossfade: el canvas toma
+  el relevo (`data-playing`) y el póster se funde a 0 en 600 ms mientras el sujeto resuelve — radial
+  desde el sujeto, así que el ojo conserva al unicornio todo el tiempo. Los dos hijos de la capa comparten
+  UNA celda de grid (`grid-area: 1/1`): con el crossfade por opacidad el póster sigue en el layout y sin
+  esto el canvas caía a una segunda fila (defecto capturado y corregido en la propia ronda).
+- **El nombre NUNCA se decodifica** (reverso del ensamblado WU31/WU32): es contenido de primer pintado;
+  el decodificador queda para las líneas.
+- **El ritmo**: la línea del destino se decodifica EN SU SITIO tras el reveal (`FATE_IN_MS` 1.100),
+  aguanta **~5 s** (`FATE_HOLD_MS` 5.000 — el aguante de WU32 de 1.900 ms era el defecto) y se
+  decodifica hacia la línea del vigilante en **1.600 ms** (más lento que los 860 ms de WU32). Arco vivo
+  MEDIDO (MutationObserver sobre `data-sequence-phase`, Chromium local): typing 2.358 · reveal 2.446 ·
+  full 333 · fateIn 1.160 · **fate 5.082** · scramble 1.668 — **arco total 13.047 ms** contra 12.840 ms
+  de suma de constantes (+207 ms; el desvío vivo de WU32 fue ~400 ms). El skip invisible se queda y
+  ahora IGNORA explícitamente el enlace de idioma (`closest('[data-hero-locale]')`).
+- **La marca de Discord**: el pie (y la fila de contacto del laboratorio) muestran la conversión de
+  **88 celdas** que eligió el usuario (la salida del pipeline de `dist-motion-verify/wu23/`), horneada
+  por la ruta de raster del motor a 2 px/celda (176×176) y enviada como
+  `public/assets/brand/discord-mark-88.png` — **1.588 B**, en lugar de incrustar un blob mayor en el
+  markup; la rejilla manual de 16×10 y su svg desaparecen del componente público, y
+  `data-discord-mark` se conserva.
+- **Presupuestos (WU33, re-pinados)**: landing **100.882 B gzip en 5 chunks** (delta **8.977** ≤ 22.528
+  frente al fixture intacto de 91.905 — margen restante **13.551 B**; los dos chunks client
+  BYTE-IDÉNTICOS; hero entry 2.690 → 2.635 B — el ensamblado del nombre retirado; overlays 9.478 →
+  9.967 B — la máscara de semitono; rampa 556 → 921 B — la rampa de máscara entra y el código de la
+  ráfaga retirada sale del grafo). Lab **44.344 B** bajo tope **46.392 B** (medido + 2.048).
+  `.artifacts/iteration-2-client-js.json` intacto. Re-pinado en `check-iteration-2.mjs`,
+  `check-ascii-runtime.mjs` y `check-iteration-3.mjs`.
+- **LCP/CLS (método WU28, Chromium local, 1440×900, preview local)**: **LCP 72 ms — la imagen del
+  póster, visible desde el primer pintado** (era 2.340 ms en WU32: el h1 llegaba con el reveal) —
+  recuperación de **2.268 ms**; **CLS 0,0036 en el arco completo** (la corrida del ejecutor midió 0,0001 con una ventana más corta; el número verificado de forma independiente es el del arco entero, y sigue 28 veces bajo el umbral "good" de 0,1). Sin errores de consola, sin peticiones externas, sin
+  desbordamiento a 390. Evidencia: `dist-motion-verify/wu33/` (RED de primer pintado, hojas de contactos
+  ancladas por fase a 1440/390, métricas del mask, pacing vivo).

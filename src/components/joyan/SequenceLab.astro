@@ -29,24 +29,11 @@ interface Props {
 const { poster, payload, subjectNote } = Astro.props;
 
 /**
- * The Discord mark, authored in OUR aesthetic — the same dot-grid Clyde
- * silhouette the public hero's footer draws (the repo's authored mark, not a
- * third-party asset). `#` is one dot; the eyes are the empty 2 × 2 gaps.
+ * WU33 — the Discord mark is the SAME 88-cell rendering the public footer
+ * shows (the user's pick), served from the committed asset. The old 16 × 10
+ * hand grid is gone; the attribute contract (`data-discord-mark`) stays.
  */
-const DISCORD_DOT_GRID = Object.freeze([
-  '....########....',
-  '..############..',
-  '.##############.',
-  '####..####..####',
-  '####..####..####',
-  '####..####..####',
-  '.##############.',
-  '..############..',
-  '...##########...',
-  '..###......###..',
-]);
-const dotRows = DISCORD_DOT_GRID.length;
-const dotCols = DISCORD_DOT_GRID[0].length;
+const DISCORD_MARK_SRC = '/assets/brand/discord-mark-88.png';
 ---
 
 <section
@@ -121,20 +108,15 @@ const dotCols = DISCORD_DOT_GRID[0].length;
           class="font-mono text-sm text-bone-100 underline decoration-hairline underline-offset-4 transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
         >hello@joyan.dev</a>
         <span aria-label="Discord" title="Discord" data-discord-mark class="text-plomo-400">
-          <svg
-            viewBox={`0 0 ${dotCols} ${dotRows}`}
-            width="28"
-            height="18"
-            role="img"
-            aria-hidden="true"
-            class="block"
-          >
-            {DISCORD_DOT_GRID.map((row, y) =>
-              [...row].map((cellChar, x) =>
-                cellChar === '#' ? <circle cx={x + 0.5} cy={y + 0.5} r="0.44" fill="currentColor" /> : null
-              )
-            )}
-          </svg>
+          <img
+            src={DISCORD_MARK_SRC}
+            alt=""
+            width="176"
+            height="176"
+            loading="lazy"
+            decoding="async"
+            class="block h-[88px] w-[88px]"
+          />
         </span>
       </div>
     </section>

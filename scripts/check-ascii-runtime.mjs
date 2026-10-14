@@ -149,19 +149,20 @@ const baselineBudget = await json('.artifacts/iteration-2-client-js.json');
 const LANDING_HASHES = {
   'client.BxDIQlYz.js': { gz: 60302, sha256: 'ed1f3e2228ec0a53328513096c375276d3aea8e4c8e2ded754af7b67a13d77f0' },
   'client.kF-MUc6b.js': { gz: 27057, sha256: 'c72b737a3f669a7845f10ec12cf2206a3d4f964c2aef13d4572c6b831b74937d' },
-  // WU32 re-measure (never silently): the entry grows with the per-character
-  // decode (charDeadline + reserveBox/releaseBox).
-  'JoyanComingHero.astro_astro_type_script_index_0_lang.Cm5taz_x.js': { gz: 2690, sha256: 'eda1b5bbc2ef3951fe3050feeed03a983c6682df781bf8b1fb6d04cf7100d61f' },
+  // WU33 re-measure (never silently): the entry sheds the retired name
+  // assembly and carries the fateIn phase (the content gate is gone).
+  'JoyanComingHero.astro_astro_type_script_index_0_lang.BHVP9SnZ.js': { gz: 2635, sha256: 'e1502e0ca40d7ef031c52cfe716b7984289093cad7558e3612dcc0fa97ffe417' },
   // WU29 re-measure (never silently): the hero runs public-sequence (inlined
   // in its entry) and the LAB runtime left the landing graph — the shared
   // scene graph is the engine chunk + the ramp module. The landing total
   // DROPPED: the lab study code no longer ships to the public page.
-  // WU32 re-measure (never silently): the overlays chunk grows with the
-  // rebuilt warp (displacement + trails), the vignette overlay, the memoised
-  // bilinear sampler and the subject-preserving star gate; the ramp module
-  // grows with the pull profile. Client x2 stay BYTE-IDENTICAL.
-  'overlays.CneIXZqO.js': { gz: 9478, sha256: 'ada09817145cbdbb024bec56346a96bf41594e758e4760fe49bada7ab06b680f' },
-  'sequence-warp.B4xQQrBk.js': { gz: 556, sha256: '447aca2f700f5d2d6660d9d6afef6a294b7dc3022782509cf59c1d3e70eb7698' },
+  // WU33 re-measure (never silently): the overlays chunk grows with the
+  // halftone mask overlay (the public reveal); the ramp module grows with the
+  // mask ramp (MASK_RAMP, maskCentreFromPayload, sequenceMaskScene) and
+  // SHRINKS overall because the public runtime no longer pulls the retired
+  // warp-burst code into the graph. Client x2 stay BYTE-IDENTICAL.
+  'overlays.3d7PqE95.js': { gz: 9967, sha256: '36cdc12726e0cba12f311e51fb1df99cc846921a0b9a67741e432b62e5e34f8e' },
+  'sequence-warp.BilRXtOo.js': { gz: 921, sha256: '4ec84718a0fc8ea3b205c42c84686949eca2e8090ee907438609f0c66b3803db' },
 };
 const landingChunkNames = Object.keys(chunks).filter((name) => LANDING_HASHES[name]);
 for (const name of Object.keys(LANDING_HASHES)) {
@@ -196,7 +197,7 @@ const totalGzip = assetGzip + inlineGzip;
 // framer-motion reveal/viewport chunks left with the old landing). The lab
 // accounting below includes the shared chunk's real bytes: the laboratory
 // executes the same engine the coming-hero does.
-const LANDING_FIVE_GZIP = 100083; // WU32 re-measure (the per-character decode; the rebuilt warp + vignette + sampler; the pull profile; client x2 byte-identical)
+const LANDING_FIVE_GZIP = 100882; // WU33 re-measure (the content gate removed, the halftone mask overlay, the mask ramp; the retired burst code shakes out of the graph; client x2 byte-identical)
 const landingGzip = landingChunkNames.reduce((sum, name) => sum + chunks[name].gzip, 0);
 check(landingChunkNames.length === 5 && landingGzip === LANDING_FIVE_GZIP,
   `WU29 landing five-chunk set changed: ${landingChunkNames.length} chunks / ${landingGzip} B gzip`);
@@ -204,7 +205,7 @@ const labChunkNames = Object.keys(chunks).filter((name) => !LANDING_HASHES[name]
 const labChunkGzip = labChunkNames.reduce((sum, name) => sum + chunks[name].gzip, 0);
 // The shared scene graph (runtime + engine chunks) is landing-attributed but
 // the lab runs it too; the honest lab total adds its bytes once.
-const sharedChunkGzip = 10034; // WU32 (9478 overlays + 556 ramp module — the rebuilt warp, the vignette and the sampler; both shared by the public hero and the labs)
+const sharedChunkGzip = 10888; // WU33 (9967 overlays + 921 ramp module — the halftone mask overlay and the mask ramp; both shared by the public hero and the labs)
 // WU28: the lab total includes EVERY lab route's executable inline (the ascii
 // page has none; the sequence route carries the ~60 B no-js bootstrap).
 const labTotalGzip = labChunkGzip + sharedChunkGzip + labInlineAll;
@@ -260,8 +261,8 @@ const labTotalGzip = labChunkGzip + sharedChunkGzip + labInlineAll;
 // executable is the ascii runtime/library chunk 25,256 B + the shared chunk
 // 13,866 B + three 56 B entry chunks, 0 B inline. Cap re-measured as measured
 // + 2,048 B, the same documented margin, never a silent raise.
-const LAB_CAP_GZIP = 45529; // measured 43481 + 2048 B honest margin (WU32 re-measure, never a silent raise)
-const LAB_MEASURED_GZIP = 43481; // WU32 re-measure: overlays 8848 -> 9478 + ramp 547 -> 556 (the rebuilt warp, the vignette, the sampler, the pull profile); includes the 69 B sequence bootstrap inline
+const LAB_CAP_GZIP = 46392; // measured 44344 + 2048 B honest margin (WU33 re-measure, never a silent raise)
+const LAB_MEASURED_GZIP = 44344; // WU33 re-measure: overlays 9478 -> 9967 (the halftone mask overlay) + ramp 556 -> 921 (the mask ramp), the retired burst code shakes out; includes the 69 B sequence bootstrap inline
 const LAB_MARGIN_LIMIT = 4096;
 // What the lab page itself claims about its own cost. The copy must carry the
 // measured numbers, so a claim cannot drift away from the bundle it describes.
@@ -271,12 +272,12 @@ const LAB_MARGIN_LIMIT = 4096;
 // (found by the renderFrame/bayer4 markers), and `ownModuleRaw/Gzip` is the
 // runtime chunk (found by the shape-laboratory marker), both shared with the
 // public coming-hero.
-// WU32 re-measure (never silently): the overlays chunk grows with the rebuilt
-// warp (displacement + trails), the vignette overlay, the memoised bilinear
-// sampler and the subject-preserving star gate (21463/8848 -> 22890/9478);
-// the lab runtime chunk's gzip re-measures 5956 -> 5957 on the same raw bytes.
-const LAB_CLAIMS = { libraryChunkGzip: 25256, engineChunkRaw: 22890, engineChunkGzip: 9478,
-  ownModuleRaw: 15710, ownModuleGzip: 5957, bakedStillBytes: 35270 };
+// WU33 re-measure (never silently): the overlays chunk grows with the
+// halftone mask overlay (the public reveal) and the ramp module with the mask
+// ramp (22890/9478 -> 24205/9967; the retired burst code shakes out of the
+// ramp chunk); the lab runtime chunk's gzip re-measures 5957 -> 5963.
+const LAB_CLAIMS = { libraryChunkGzip: 25256, engineChunkRaw: 24205, engineChunkGzip: 9967,
+  ownModuleRaw: 15710, ownModuleGzip: 5963, bakedStillBytes: 35270 };
 const withinLabCap = (total, cap) => total <= cap;
 assert.equal(withinLabCap(LAB_CAP_GZIP, LAB_CAP_GZIP), true);
 assert.equal(withinLabCap(LAB_CAP_GZIP + 1, LAB_CAP_GZIP), false);
@@ -684,8 +685,7 @@ try {
   // WU32 — re-pinned to the rebuilt names (the per-character decode in the
   // entry; the rebuilt warp + vignette + sampler in the overlays chunk; the
   // pull profile in the ramp module).
-  const WU20_LANDING_CHUNKS = ['JoyanComingHero.astro_astro_type_script_index_0_lang.Cm5taz_x.js',
-    'overlays.CneIXZqO.js', 'sequence-warp.B4xQQrBk.js'];
+  const WU20_LANDING_CHUNKS = ['JoyanComingHero.astro_astro_type_script_index_0_lang.BHVP9SnZ.js', 'overlays.3d7PqE95.js', 'sequence-warp.BilRXtOo.js'];
   for (const route of ['/', '/en']) {
     const page = await browser.newPage();
     const requests = [];

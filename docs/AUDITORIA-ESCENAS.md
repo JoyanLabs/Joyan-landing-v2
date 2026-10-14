@@ -412,3 +412,77 @@ Chromium local): LCP 2.340 ms (el h1 `Joyan` en la revelación), CLS 0.0002**.
 Sin errores de consola, sin peticiones externas, sin desbordamiento a 390.
 Queda abierto: Firefox/Safari, CPU real, y el juicio del usuario sobre la
 nueva ráfaga (los fotogramas están en `dist-motion-verify/wu32/frames/`).
+
+## WU33 — la compuerta de contenido retirada; el reveal de semitono medido
+
+Método: cada afirmación con un número, sobre la sonda del checker (conversión de la marca 160 × 80,
+rodillo 18, la misma geometría que el render) y sobre el navegador (método WU28, Chromium local).
+
+### 1. El primer pintado (la compuerta retirada)
+
+En el árbol previo (RED preservado en `dist-motion-verify/wu33/first-paint-red.json` + fotogramas), a
+~100/400/800 ms el nombre, el eyebrow, el tagline y la escena medían **opacity 0** — la compuerta WU31.
+Tras WU33, en las mismas marcas: **opacity 1 en los cuatro** con scripting, sin JavaScript y con
+movimiento reducido (muestreo vivo en `dist-motion-verify/wu33/browser-evidence.json`, firstPaint).
+**LCP 72 ms** (la imagen del póster, primer pintado) contra **2.340 ms** en WU32 (el h1 al llegar el
+reveal): recuperación **2.268 ms**. CLS **0,0036 en el arco completo** (0,0001 con ventana corta en la corrida del ejecutor; se registra el número verificado, que sigue muy bajo el umbral de 0,1). El LCP era el coste de la compuerta; al retirarla se
+recupera solo.
+
+### 2. Las dos variantes de la máscara, medidas (el wipe se rechaza con números)
+
+| métrica (mitad de rampa, sonda 160×80) | radial (enviado) | wipe (rechazado) |
+| --- | --- | --- |
+| celdas resolviéndose por frame | **142,5** | 119,6 |
+| nitidez de borde (celdas cambiadas dentro de la banda) | **1,0** | 1,0 |
+| sujeto medio-encendido (s50) | **0,167** | 0,417 |
+| sujeto al 90 % (s90) | **0,167** | 0,5 |
+
+El radial desde el sujeto gana en la métrica que importa: **el sujeto es reconocible antes de que el
+reveal termine** (medio-encendido en el 16,7 % de la rampa; el wipe lo deja a oscuras hasta el 41,7 %).
+Ambos son igual de nítidos (el dither Bayer de una celda del frente no deja ruido disperso en ninguna
+variante). El centro de la máscara es el centroide entintado del payload: verificado a ≤ 0,12 del
+recomputado de forma independiente (coincide a 4 decimales). La costura de campo del estado de máscara
+es **2,9e−15** (máscara tiempo-libre); determinismo por render repetido e intercalado byte-idéntico;
+estado 0 = todo suelo (0 celdas encendidas); el último estado de máscara difiere del estado asentado en
+**0 celdas** (sin salto en la entrega) y el estado asentado es byte-idéntico a la composición base.
+
+### 3. El ritmo medido en vivo (no sumado de constantes)
+
+MutationObserver sobre `data-sequence-phase`, Chromium local, página pública ES:
+typing **2.358 ms** · reveal **2.446** · full **333** · fateIn **1.160** · **fate 5.082** ·
+scramble **1.668** · **arco total 13.047 ms** (suma de constantes 12.840; desvío vivo +207 ms — el
+desvío de WU32 fue ~400 ms). El aguante del destino cumple el «~5 s por frase» del usuario (el defecto
+WU32 era 1.900 ms) y el decode es 1,94× más lento que el de WU32 (860 ms). Caja fijada durante cada
+decode (sin salto de ancho; CLS 0,0036 en el arco completo, atribuible a los decodificados en el lugar), relojes por carácter, acento solo en glifos ciclando, un solo
+nodo de texto — sin cambios de forma frente a WU32.
+
+### 4. La marca de 88 celdas
+
+El pie muestra la conversión de 88 celdas que eligió el usuario (salida del pipeline, `wu23`),
+horneada a 2 px/celda (176×176) por la ruta de raster del motor: **1.588 B** comprometidos en
+`public/assets/brand/discord-mark-88.png` frente a ~150–200 kB de incrustar 3.360 puntos como markup
+(svg inline) o el PNG de 13.353 B a 8 px/celda. Mostrada a 88 px: los puntos leen como textura fina,
+la silueta y los ojos inconfundibles (recorte del pie en `dist-motion-verify/wu33/frames/13-footer-mark.png`).
+La misma marca en la fila de contacto de `/lab/sequence`.
+
+### 5. Presupuestos re-pinados (nunca en silencio)
+
+Landing **100.882 B gzip en 5 chunks** (delta **8.977** ≤ 22.528 frente al fixture intacto de 91.905 —
+margen restante **13.551 B**; los dos chunks client BYTE-IDÉNTICOS; hero entry 2.690 → 2.635 B;
+overlays 9.478 → 9.967 B; rampa 556 → 921 B — la máscara entra, la ráfaga retirada sale del grafo).
+Lab **44.344 B** bajo tope **46.392 B** (medido + 2.048). `.artifacts/iteration-2-client-js.json`
+intacto. Verificaciones: `pnpm build` 6 páginas; `pnpm check` 0 errores (153 + 286 assertions); los
+siete checkers verdes con `--out` propio en `dist-motion-verify/wu33/`, salvo `check-ascii-runtime`,
+que queda en ROJO por tres afirmaciones de coste medido que viven en `src/pages/lab/ascii.astro` —
+fuera de la superficie autorizada de esta unidad (escalado, no silenciado).
+
+### 6. Juicio honesto sobre los fotogramas
+
+La hoja de contactos anclada por fase (`dist-motion-verify/wu33/frames/20..29, 11..13`) muestra: primer
+pintado completo (todo el contenido sobre la escena), el reveal con el frente de puntos nítido barriendo
+desde el unicornio (bucket 4 ya lo deja medio-encendido con la banda ámbar en el frente), el decode del
+destino con los glifos ámbar ciclando, el estado final idéntico al de siempre. El coste visible de
+«nunca esconder contenido»: en el primer tramo del reveal el póster se funde mientras la máscara arranca
+desde el suelo — se lee como un parpadeo breve a oscuro antes de que el sujeto resuelva (~600 ms,
+cubiertos por el crossfade). Queda abierto: Firefox/Safari, CPU real, y el juicio del usuario sobre el
+frente ámbar del semitono (0,55 de intensidad pico en la banda de florecimiento).

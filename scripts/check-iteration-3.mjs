@@ -673,8 +673,8 @@ const candidate = gzipSum();
 // scene-runtime chunk is now 13,866 B gzip under a new hash, and the landing
 // set totals 101,339 B gzip. The delta against the UNCHANGED WU12-era baseline
 // fixture (91,905 B) is 9,434 B — still far inside the untouched 22,528 B limit.
-const LANDING_FROZEN_GZIP = 100083;
-const LANDING_FROZEN_DELTA = 8178; // 100083 - 91905, baseline fixture untouched (WU32: the per-character decode in the hero entry; the rebuilt warp + vignette + sampler in the overlays chunk; the pull profile in the ramp module; client x2 byte-identical)
+const LANDING_FROZEN_GZIP = 100882;
+const LANDING_FROZEN_DELTA = 8977; // 100882 - 91905, baseline fixture untouched (WU33: the content gate removed; the halftone mask overlay + the mask ramp in; the retired warp-burst code out; client x2 byte-identical)
 // WU18 (38,211 B): the image→dot-scene pipeline, its browser-safe core, the
 // composable overlays and the `/lab/image` route were added to the SAME engine
 // chunk, now shared by THREE laboratory routes. The chunk measures 33,296 B raw
@@ -697,8 +697,8 @@ const LANDING_FROZEN_DELTA = 8178; // 100083 - 91905, baseline fixture untouched
 // shared ramp module 547 B (WU31: the burst profile grew it 430 -> 547) + the
 // sequence route's 69 B no-js bootstrap inline.
 // Cap re-measured as measured + 2,048 B, the same documented margin.
-const LAB_MEASURED_GZIP = 43481;
-const LAB_CAP_GZIP = 45529; // measured total + 2048 B honest margin (<= 4096 B)
+const LAB_MEASURED_GZIP = 44344;
+const LAB_CAP_GZIP = 46392; // measured total + 2048 B honest margin (<= 4096 B)
 const LAB_MARGIN_LIMIT = 4096;
 const LANDING_ROUTE_PAGES = ['index.html', 'en/index.html'];
 /** Every `/lab/**` page is a laboratory page; nothing else is. */
@@ -709,20 +709,20 @@ const isLabPage = (name) => name.startsWith('lab/') && name.endsWith('.html');
 // in this set: the coming-hero is the one runtime path on the public page, and
 // the laboratories share the same engine code.
 const LANDING_FROZEN_HASHES = {
-  // WU32 re-measure (never silently): the hero entry grows with the
-  // per-character decode (charDeadline + reserveBox/releaseBox).
-  '_astro/JoyanComingHero.astro_astro_type_script_index_0_lang.Cm5taz_x.js':
-    'eda1b5bbc2ef3951fe3050feeed03a983c6682df781bf8b1fb6d04cf7100d61f',
+  // WU33 re-measure (never silently): the entry sheds the retired name
+  // assembly and carries the fateIn decode phase (the content gate is gone).
+  '_astro/JoyanComingHero.astro_astro_type_script_index_0_lang.BHVP9SnZ.js':
+    'e1502e0ca40d7ef031c52cfe716b7984289093cad7558e3612dcc0fa97ffe417',
   '_astro/client.BxDIQlYz.js': 'ed1f3e2228ec0a53328513096c375276d3aea8e4c8e2ded754af7b67a13d77f0',
   '_astro/client.kF-MUc6b.js': 'c72b737a3f669a7845f10ec12cf2206a3d4f964c2aef13d4572c6b831b74937d',
-  // WU32 re-measure (never silently): the overlays chunk grows with the
-  // rebuilt warp (displacement + trails), the vignette overlay, the memoised
-  // bilinear sampler and the subject-preserving star gate.
-  '_astro/overlays.CneIXZqO.js': 'ada09817145cbdbb024bec56346a96bf41594e758e4760fe49bada7ab06b680f',
-  // WU32 re-measure (never silently): the ramp module grows with the pull
-  // profile (WARP_BURST.pullAmount + the eased onset) and the vignette in
-  // BASE_OVERLAYS. The two client chunks stay BYTE-IDENTICAL.
-  '_astro/sequence-warp.B4xQQrBk.js': '447aca2f700f5d2d6660d9d6afef6a294b7dc3022782509cf59c1d3e70eb7698',
+  // WU33 re-measure (never silently): the overlays chunk grows with the
+  // halftone mask overlay (the public reveal).
+  '_astro/overlays.3d7PqE95.js': '36cdc12726e0cba12f311e51fb1df99cc846921a0b9a67741e432b62e5e34f8e',
+  // WU33 re-measure (never silently): the ramp module grows with the mask ramp
+  // (MASK_RAMP + sequenceMaskScene) and SHRINKS overall because the public
+  // runtime no longer pulls the retired warp-burst code. The two client
+  // chunks stay BYTE-IDENTICAL.
+  '_astro/sequence-warp.BilRXtOo.js': '4ec84718a0fc8ea3b205c42c84686949eca2e8090ee907438609f0c66b3803db',
 };
 
 const isClientChunk = (file) => typeof file === 'string' && /\.js$/i.test(file);
