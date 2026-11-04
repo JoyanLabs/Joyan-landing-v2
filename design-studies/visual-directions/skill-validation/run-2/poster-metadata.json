@@ -1,0 +1,7 @@
+{
+  "frame": 0,
+  "width": 1280,
+  "height": 768,
+  "source": "engine.renderFrame + engine.rasterize",
+  "rgbaSHA256": "f4afb70b8cd2a7a9044e09c2fa2d45a6e86ca3d682628d0c9c1e98341bd78bb5"
+}

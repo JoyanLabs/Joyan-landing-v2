@@ -1,0 +1,54 @@
+{
+  "node": "v22.23.4",
+  "budgetMs": 16.67,
+  "failures": [],
+  "determinism": {
+    "status": "PASS",
+    "processes": 2,
+    "pinned": [
+      0,
+      1,
+      90,
+      180,
+      270,
+      360,
+      450,
+      540,
+      630,
+      719
+    ],
+    "bytes": 160849,
+    "sha256": "d706bf295b5693e41da7e3970282ba7c97088636534a2c6cbbee7337cd5fcbc0"
+  },
+  "saturation": {
+    "status": "PASS",
+    "sampledFrames": 720,
+    "totalCells": 15360,
+    "occupiedAtZero": 397,
+    "frame": 0,
+    "maxCells": 0,
+    "fraction": 0
+  },
+  "controls": {
+    "overloadedSaturation": 1,
+    "differentPhasesDiffer": true
+  },
+  "animation": {
+    "T": 24,
+    "maxPeriodError": 3.774758283725532e-15,
+    "maxBoundaryChange": 0.000041230299493044686,
+    "maxMotion": 0.193919060822569,
+    "note": "study-specific safeguards; not thresholds defined in skill §4"
+  },
+  "cost": {
+    "status": "PASS",
+    "scope": "renderFrame + rasterize; cell=8; 60 warmup frames; 240 measured dynamic frames",
+    "samples": 240,
+    "coldMs": 18.241714999999658,
+    "medianMs": 9.661348000000544,
+    "p90Ms": 9.826019000000088,
+    "meanMs": 9.689784579166671,
+    "p95Ms": 9.934763999999632,
+    "worstMs": 10.14106400000037
+  }
+}

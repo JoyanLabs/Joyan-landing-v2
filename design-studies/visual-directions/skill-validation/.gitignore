@@ -1,0 +1,5 @@
+# Residuos del navegador aislado usado para revisar el boceto.
+# No son entregables; no se borran ni se leen sus bases de datos.
+/browser-profile/
+/chromium/
+/org.chromium.Chromium.*/

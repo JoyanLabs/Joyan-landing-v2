@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 1280 520" role="img" aria-labelledby="title desc">
+  <title id="title">El confín — boceto de composición, no salida del motor</title>
+  <desc id="desc">Mucho espacio libre sobre un horizonte bajo. Cinco contornos aislados sugieren nodos que se alejan hacia el borde derecho. Sin texto, sin eventos ni interacción.</desc>
+  <rect width="1280" height="520" fill="white"/>
+  <g id="estructura" fill="none" stroke="#777" stroke-width="2">
+    <path d="M90 368 Q560 350 1190 367"/>
+  </g>
+  <g id="sujeto" fill="none" stroke="#111" stroke-width="4">
+    <ellipse cx="270" cy="340" rx="14" ry="11"/>
+    <ellipse cx="490" cy="359" rx="10" ry="8"/>
+    <ellipse cx="730" cy="328" rx="17" ry="13"/>
+    <ellipse cx="940" cy="351" rx="11" ry="9"/>
+    <ellipse cx="1100" cy="318" rx="8" ry="7"/>
+  </g>
+</svg>

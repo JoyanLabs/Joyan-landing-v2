@@ -38,9 +38,9 @@ Este documento reemplaza al handoff del 2026-10-25. Se lee antes de tocar nada.
 
 ### Trabajo nuestro (afinar antes de que Angie produzca en serio)
 
-1. **I-16 · Validar la skill `joyan-escenas` en frío.** Un agente **sin el historial de iteración** debe poder
-   producir una escena usable siguiéndola. Si falla, se corrige la skill, no se improvisa la escena.
-   Es el **prerrequisito** de las tareas de Angie.
+1. ~~**I-16 · Validar la skill `joyan-escenas` en frío.**~~ **CERRADA 11-03**: validada en dos corridas
+   (la v1.0 falló con un bloqueante real, la v1.1 enmendada produjo y verificó «El confín»; enmiendas v1.2).
+   Las tareas de Angie quedan desbloqueadas.
 2. **Difuminado de capas al enfocar como sistema.** Primera versión hecha; es lo que más gustó y hay que
    volverlo parte del lenguaje (`docs/ESTETICA-CONSTELACION.md` manda: lo que no esté ahí no es lenguaje).
 3. **Jueces sobre la constelación** (bloque A1 del plan de lenguaje): no corridos todavía.
@@ -50,7 +50,7 @@ Este documento reemplaza al handoff del 2026-10-25. Se lee antes de tocar nada.
 ### Tareas delegadas a Angie (referencia + contrato)
 
 - **Serie de las cuatro escenas** (`docs/ESCENAS-SERIE.md`): el nudo, la máquina habitada, la llave, el registro.
-  Regla que manda: cada escena se entiende en tres segundos y sin una sola palabra. Empieza **después** de I-16.
+  Regla que manda: cada escena se entiende en tres segundos y sin una sola palabra. **Desbloqueada** (I-16 cerrada).
 - **I-10 · Arequipa, de mapa a constelación**: datos con licencia (OSM/ODbL u otras), CSV/GeoJSON reducido y
   versionado, y una escena que se lea como Arequipa y no como textura.
 

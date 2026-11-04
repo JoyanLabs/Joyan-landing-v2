@@ -1,0 +1,83 @@
+{
+  "readiness": "Page.loadEventFired + data-state=ready/data-hash; no sleep/time waits",
+  "screenshots": [
+    {
+      "name": "scene-1280.png",
+      "width": 1280,
+      "height": 768,
+      "rgbaSHA256": "f4afb70b8cd2a7a9044e09c2fa2d45a6e86ca3d682628d0c9c1e98341bd78bb5",
+      "nonGroundPixels": 3072
+    },
+    {
+      "name": "scene-390.png",
+      "width": 390,
+      "height": 320,
+      "rgbaSHA256": "618a4c0a21575f2e47dd77a56d50d56c2cb85d3b4e00ba6fb330d8df615c696f",
+      "nonGroundPixels": 405
+    },
+    {
+      "name": "scene-390-no-js.png",
+      "width": 390,
+      "height": 320,
+      "rgbaSHA256": "0b0f685462dd8bb0f145fd94c5a9ac3e53be84e4146ac45e4382073123131784",
+      "nonGroundPixels": 584
+    }
+  ],
+  "costs": [
+    {
+      "width": 1280,
+      "scope": "renderFrame + rasterize + putImageData; 60 warmup frames; 240 dynamic samples",
+      "samples": 240,
+      "coldMs": 34,
+      "medianMs": 14.600000001490116,
+      "p90Ms": 16.200000002980232,
+      "meanMs": 14.93458333335196,
+      "p95Ms": 16.5,
+      "worstMs": 22,
+      "status": "PASS",
+      "rgbaSHA256": "f4afb70b8cd2a7a9044e09c2fa2d45a6e86ca3d682628d0c9c1e98341bd78bb5"
+    },
+    {
+      "width": 390,
+      "scope": "renderFrame + rasterize + putImageData; 60 warmup frames; 240 dynamic samples",
+      "samples": 240,
+      "coldMs": 32,
+      "medianMs": 14.200000002980232,
+      "p90Ms": 14.600000001490116,
+      "meanMs": 14.365833333414049,
+      "p95Ms": 15.100000001490116,
+      "worstMs": 21.799999997019768,
+      "status": "PASS",
+      "rgbaSHA256": "f4afb70b8cd2a7a9044e09c2fa2d45a6e86ca3d682628d0c9c1e98341bd78bb5"
+    }
+  ],
+  "failures": [],
+  "browser": {
+    "protocolVersion": "1.3",
+    "product": "Chrome/156.0.8078.79",
+    "revision": "@a21ce95c24ce3964416f09ae1862f53f319eb4d0",
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+    "jsVersion": "15.6.75.27"
+  },
+  "noJS": {
+    "protocol": "Emulation.setScriptExecutionDisabled(value=true)",
+    "enginePosterRGBA": "f4afb70b8cd2a7a9044e09c2fa2d45a6e86ca3d682628d0c9c1e98341bd78bb5",
+    "moduleRan": false,
+    "loaded": "Page.loadEventFired (including the poster image)",
+    "identicalToLivePinnedCapture": false,
+    "resamplingDifference": {
+      "changedChannels": 1646,
+      "maxChannelDelta": 38
+    }
+  },
+  "requests": [
+    "/design-studies/visual-directions/skill-validation/run-2/index.html",
+    "/design-studies/visual-directions/skill-validation/run-2/scene.css",
+    "/design-studies/visual-directions/skill-validation/run-2/browser.mjs",
+    "/design-studies/visual-directions/skill-validation/run-2/poster.png",
+    "/scripts/scene-src/engine.mjs",
+    "/design-studies/visual-directions/skill-validation/run-2/scene.mjs",
+    "/scripts/scene-src/shapes.mjs",
+    "/favicon.ico"
+  ]
+}

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="320" viewBox="0 0 390 320">
+  <title>El confín — boceto de composición, no arte de entrada</title>
+  <rect width="390" height="320" fill="white"/>
+  <!-- Base: el aire vacío hace que el cierre no compita con la página. -->
+  <!-- Estructura: un horizonte bajo, curvo y abierto hacia los bordes. -->
+  <g fill="none" stroke="#444" stroke-width="1">
+    <path d="M-20 246 Q195 186 410 246"/>
+    <path d="M-20 263 Q195 203 410 263" stroke="#aaa"/>
+  </g>
+  <!-- Sujeto: cuatro presencias aisladas, no una constelación conectada. -->
+  <g fill="none" stroke="#222" stroke-width="1.2">
+    <path d="M63 190 l4 -4 l4 4 l-4 4 Z"/>
+    <path d="M153 158 l5 -5 l5 5 l-5 5 Z"/>
+    <path d="M262 177 l4 -4 l4 4 l-4 4 Z"/>
+    <path d="M330 212 l3 -3 l3 3 l-3 3 Z"/>
+  </g>
+</svg>

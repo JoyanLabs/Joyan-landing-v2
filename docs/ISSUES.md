@@ -110,11 +110,13 @@ Ningún verificador debe depender de un tiempo fijo; hay un subconjunto rápido 
 Repo commiteado y publicado, handoff al día, escena de referencia verificada (constelación volumétrica),
 issues marcados. Lo que aún la bloquea: **I-16**.
 
-### I-16 · Validar la skill `joyan-escenas` — **abierta · nuestro, prerrequisito de las de Angie**
-La skill está escrita pero **no probada**. Una escena nueva producida **solo** con la skill, verificada con su
-tabla de medición, más la lista de huecos publicada como enmiendas a la skill. Si el flujo falla, se corrige la
-skill, no se improvisa la escena. **Depende de.** I-01 (motor con un solo dueño, en su parte de estudio ya
-cumplida). **Tamaño.** 1 sesión de validación + 1 PR a la skill.
+### I-16 · Validar la skill `joyan-escenas` — **CERRADA 2026-11-03**
+Validada en frío en dos corridas: la v1.0 falló en §2 (sin rama para campos procedurales — bloqueante real
+verificado contra el motor) y la v1.1 enmendada permitió a un worker nuevo producir «El confín» completo con
+la receta 2B. Tabla §4 verificada: determinismo byte-idéntico, coste mediana/p90 bajo 16,67 ms, saturación
+0 % con controles, sin-JS con póster del mismo motor, legibilidad PASS por evaluador ciego (jd-judge-a).
+Enmiendas v1.2 con los 10+7 huecos. Evidencia: `odd/tasks/i16-validacion-skill.md` y
+`design-studies/visual-directions/skill-validation/`. **Las tareas de Angie quedan desbloqueadas.**
 
 ### I-21 · WU19 #7 — textura en zonas planas — **nueva, abierta, requiere decisión humana**
 Pares planos 0,7760 (P3, documentado en `docs/AUDITORIA-ESCENAS.md`). Es dither del motor: tocarlo re-mide el
