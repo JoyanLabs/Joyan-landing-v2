@@ -270,6 +270,13 @@ export const IMAGE_PALETTES = Object.freeze([
     ground: 0,
     palette: Object.freeze(['#0b0b0c', '#131318', '#1c1d26', '#2b2c3a', '#4a4b60', '#74758c',
       '#a3a4b8', '#ffb000', '#ff5d73', '#d9d7d2', '#f4f2ed', '#fffdf8']) }),
+  // WU50 — the H1 "Marea mineral" palette: the chosen direction. Seven steps from
+  // the ink ground up to the celadón light, with the system accent (#94CCBB) as
+  // the second-to-last mark. Used by the new page and by the transition band;
+  // `joyan-page` stays untouched for the page that is being replaced.
+  Object.freeze({ id: 'joyan-marea', label: 'Marea mineral — ink ground, petroleum to celadón, accent #94CCBB',
+    ground: 0,
+    palette: Object.freeze(['#10191C', '#183039', '#244C5B', '#3E7F87', '#5AA3A4', '#94CCBB', '#D5E5CF']) }),
 ]);
 
 /** The palette the public page uses; swappable in one place (WU22). */

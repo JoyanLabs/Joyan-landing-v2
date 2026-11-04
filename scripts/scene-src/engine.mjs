@@ -109,16 +109,32 @@
  */
 
 import {
-  BAYER4, CELL_GEOMETRIES, DITHER_MODES, LADDER as COVERAGE_LADDER, RAMP_MODES, SHAPES, buildMask,
-  cellSizeFor, discAreaIn, ditherThreshold, effectiveShape, maskDerivation, shapeCoverageCap, solveSize,
+  ALL_DITHER_MODES, BAYER2, BAYER4, CELL_GEOMETRIES, DITHER_MODES, LADDER as COVERAGE_LADDER, RAMP_MODES,
+  SHAPES, buildMask, cellSizeFor, discAreaIn, ditherThreshold, effectiveShape, maskDerivation,
+  shapeCoverageCap, solveSize,
 } from './shapes.mjs';
 
 // The WU17 catalogue is re-exported here as the engine's public surface: the
 // laboratory, the checks and the docs read it from the engine, never from a
 // second registry that could drift. WU19 adds `shapeCoverageCap` (the physical
 // coverage maximum per shape, which the full-coverage rung needs).
-export { SHAPES, DITHER_MODES, RAMP_MODES, CELL_GEOMETRIES, cellSizeFor, ditherThreshold,
+export { SHAPES, DITHER_MODES, ALL_DITHER_MODES, BAYER2, RAMP_MODES, CELL_GEOMETRIES, cellSizeFor, ditherThreshold,
   effectiveShape, maskDerivation, shapeCoverageCap };
+
+/**
+ * Dot-density rule for the live scene: one scale, derived from the viewport.
+ *
+ * A field that reads at 1440 px turns into a faint grid at 390 px, because the
+ * same radius covers far fewer device pixels of the same scene. The study
+ * measured the fix at x1.50 radius on a 390 px viewport (same dot centres), so
+ * this interpolates linearly from 1.0 at 900 px to 1.5 at 390 px and clamps
+ * outside that range. Pure: no DOM, no globals, same input -> same output.
+ */
+export function densityForViewport(width) {
+  if (!Number.isFinite(width) || width <= 0) throw new RangeError('densityForViewport needs a positive width');
+  const scale = 1 + (900 - width) / 1020;
+  return Math.min(1.5, Math.max(1, scale));
+}
 
 /**
  * The only inked ramp. Index 0 is an empty cell. Dots, never ASCII art. WU22
@@ -481,6 +497,16 @@ export function compensate(scene, r, g, b, step, metrics = sceneMetrics(scene)) 
  * Render one frame of a scene into palette indices and ramp steps. Pure: the
  * same (scene, frame, options) always produces the same arrays, in Node and in
  * the browser alike.
+ *
+ * DARK-GROUND PRIMITIVE (WU108). The level is normalised against the scene's
+ * GROUND tone, so this function is correct for a palette whose ground is its
+ * darkest tone, and only for that. On a paper palette the ground IS the
+ * lightest tone, the span collapses to zero and every cell lands on step 0; the
+ * inversion and the normalisation across the palette's extremes belong to the
+ * caller, once (see `design-studies/v1/v1.mjs` and the hybrid study). The engine
+ * carries no `groundMode` and no `minTone` on purpose: two truths here applied
+ * the inversion twice and would have forced a second re-measurement of the pin.
+ * `scripts/check-engine-surface.mjs` pins both halves of that contract.
  *
  * OPTIONS (all optional; the defaults are the WU16 behaviour byte for byte):
  *   dither    'bayer4' | 'bayer8' | 'blue' | 'none'

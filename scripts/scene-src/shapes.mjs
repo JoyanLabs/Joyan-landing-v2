@@ -67,6 +67,8 @@ export const SHAPES = Object.freeze(['disc', 'square', 'rounded', 'diamond', 'tr
 
 /** Every dither mode: two ordered matrices, one blue-noise tile, and none. */
 export const DITHER_MODES = Object.freeze(['bayer4', 'bayer8', 'blue', 'none']);
+/** Modes the engine can render, including the coarse 2x2 that no lab page shows. */
+export const ALL_DITHER_MODES = Object.freeze(['bayer2', 'bayer4', 'bayer8', 'blue', 'none']);
 
 /** Every ramp: a solved shape-size ladder, hard pixel blocks, a glyph table. */
 export const RAMP_MODES = Object.freeze(['shape', 'block', 'glyph']);
@@ -519,6 +521,10 @@ function bayerMatrix(size) {
 
 /** Published standard material: the canonical ordered-dither matrix (Bayer, 1973). */
 export const BAYER4 = Object.freeze(bayerMatrix(4));
+/** The coarsest ordered matrix: 2x2. Deliberately NOT in DITHER_MODES, because
+ *  the shape lab iterates that list and a fifth mode would grow a page whose
+ *  budget is pinned. Available for the poster/OG work in phase 2. */
+export const BAYER2 = Object.freeze(bayerMatrix(2));
 const BAYER8 = Object.freeze(bayerMatrix(8));
 
 const BLUE_SIZE = 16;
@@ -613,6 +619,7 @@ export function blueRanks() {
  */
 export function ditherThreshold(mode, x, y) {
   switch (mode) {
+    case 'bayer2': return (BAYER2[(y & 1) * 2 + (x & 1)] + 0.5) / 4;
     case 'bayer8': return (BAYER8[(y & 7) * 8 + (x & 7)] + 0.5) / 64;
     case 'blue': return blueTile()[((y & 15) * 16 + (x & 15))];
     case 'none': return 0.5;
