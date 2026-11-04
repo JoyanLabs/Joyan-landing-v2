@@ -40,3 +40,9 @@ dist-motion*/
 # Brand fonts staged by scripts/motion-src/render.mjs at render time (copied
 # from the build output; never committed)
 scripts/motion-src/*.woff2
+
+# External study clones vendored into the visual-directions workspace for
+# reference only. Their license notices live in external/LICENSES.md; the two
+# anthropic SKILL.md reference files stay tracked.
+design-studies/visual-directions/external/iso-topology/
+design-studies/visual-directions/external/codemap/
