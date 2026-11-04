@@ -1,0 +1,80 @@
+[
+  {
+    "id": "a",
+    "name": "Materia",
+    "tag": "La original A",
+    "bg": "#111315",
+    "paper": "#E7E3DA",
+    "accent": "#CF8968",
+    "cool": "#89A9BD",
+    "third": "#B993A4",
+    "mood": "Carbón · cobre · azul mineral",
+    "note": "Cálida y material. El cobre aporta taller; el azul evita que todo quede terroso.",
+    "caution": "El territorio crema + terracota ya es reconocible en marcas de IA. No es un motivo para descartarla, pero el lenguaje propio debe hacer el trabajo."
+  },
+  {
+    "id": "b",
+    "name": "Espectro",
+    "tag": "La original B",
+    "bg": "#12151A",
+    "paper": "#E5E7E9",
+    "accent": "#D7BFA7",
+    "cool": "#96BABD",
+    "third": "#C5A0B2",
+    "mood": "Grafito · arena · reflejo",
+    "note": "Nocturna y contenida. Los colores pueden aparecer en una franja, no como una nube detrás del texto.",
+    "caution": "Si el espectro se extiende por toda la página, volvemos al degradado genérico que queremos evitar."
+  },
+  {
+    "id": "c",
+    "name": "Níquel",
+    "tag": "Nueva / puente entre A y B",
+    "bg": "#131719",
+    "paper": "#E6E4DE",
+    "accent": "#D1B58D",
+    "cool": "#8CAEB8",
+    "third": "#B6A1B4",
+    "mood": "Níquel · latón · azul humo",
+    "note": "Conserva la calidez de A y la reserva de B. El latón sustituye al cobre sin convertir la página en algo frío.",
+    "caution": "Mi primera candidata para probar en la página. Su sobriedad necesita una composición con carácter, no más adornos."
+  },
+  {
+    "id": "d",
+    "name": "Petróleo",
+    "tag": "Nueva / más orgánica",
+    "bg": "#101A1D",
+    "paper": "#E6E5D7",
+    "accent": "#D9A2A0",
+    "cool": "#9AB7AD",
+    "third": "#C9C28E",
+    "mood": "Petróleo · arcilla rosa · salvia",
+    "note": "Técnica sin sentirse metálica. La base tiene una temperatura azul verdosa muy oscura; los acentos son minerales.",
+    "caution": "Es una forma de usar verdes sin neón ni pareja verde/morado. Si ese matiz no te representa, la descartamos."
+  },
+  {
+    "id": "e",
+    "name": "Archivo eléctrico",
+    "tag": "Nueva / más contrastada",
+    "bg": "#14161C",
+    "paper": "#ECE9E0",
+    "accent": "#8FA7FF",
+    "cool": "#D9BC65",
+    "third": "#A8BEC8",
+    "mood": "Tinta · azul eléctrico suave · ocre",
+    "note": "Más editorial y enérgica. Azul para la señal, ocre como contrapunto; no hay degradado entre ambos.",
+    "caution": "Se acerca más al territorio de herramientas tecnológicas. La elegiría si queremos más presencia, no más misterio."
+  },
+  {
+    "id": "f",
+    "name": "Azufre",
+    "tag": "Nueva / más experimental",
+    "bg": "#171916",
+    "paper": "#E7E7DC",
+    "accent": "#CBD577",
+    "cool": "#A3B8C5",
+    "third": "#C29F8D",
+    "mood": "Carbón oliva · azufre · acero",
+    "note": "Una señal amarilla verdosa sobre una base casi negra. Tiene algo de instrumento y de material industrial.",
+    "caution": "La más arriesgada: puede recordar al código visual de seguridad o devtools. No la llevaría hacia verde fosforescente."
+  }
+]

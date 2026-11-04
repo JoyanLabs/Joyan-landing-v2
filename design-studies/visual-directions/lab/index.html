@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Joyan — laboratorio del motor</title>
+<link rel="stylesheet" href="lab.css">
+</head>
+<body>
+<header class="bar">
+  <span class="firma">Joyan</span>
+  <span class="label">LABORATORIO DEL MOTOR · NO ES LA LANDING</span>
+</header>
+
+<main>
+<section class="intro">
+  <p class="label">ESTUDIO 10</p>
+  <h1>Lo que el motor<br>genera de verdad.</h1>
+  <p class="lede">Importa <code>engine.mjs</code> tal cual. Los controles cambian el dither, la densidad y el frame que el motor recibe. La escena <strong>máquina habitada</strong> anima por defecto: si no la ves moverse, el problema es real y hay que buscarlo.</p>
+</section>
+
+<section class="panel" aria-label="Controles">
+  <fieldset>
+    <legend class="label">ESCENA</legend>
+    <label><input type="radio" name="scene" value="constelacion2" checked> Constelación v2 · 480×300</label>
+    <label><input type="radio" name="scene" value="constelacion"> Constelación v1 · 240×150</label>
+    <label><input type="radio" name="scene" value="maquina"> Máquina (escena 2)</label>
+    <label><input type="radio" name="scene" value="strata"> Estratos (animada)</label>
+    <label><input type="radio" name="scene" value="strataPaper"> Estratos sobre papel</label>
+    <label><input type="radio" name="scene" value="night"> Noche (animada)</label>
+    <label><input type="radio" name="scene" value="fold"> Pliegue (fija)</label>
+    <label><input type="radio" name="scene" value="iso"> Isométrico (fijo)</label>
+  </fieldset>
+  <fieldset>
+    <legend class="label">DITHER</legend>
+    <label><input type="radio" name="dither" value="bayer2"> bayer2</label>
+    <label><input type="radio" name="dither" value="bayer4" checked> bayer4</label>
+    <label><input type="radio" name="dither" value="bayer8"> bayer8</label>
+    <label><input type="radio" name="dither" value="blue"> blue noise</label>
+    <label><input type="radio" name="dither" value="none"> sin dither</label>
+  </fieldset>
+  <fieldset>
+    <legend class="label">DENSIDAD</legend>
+    <label><input type="radio" name="density" value="1" checked> 1×</label>
+    <label><input type="radio" name="density" value="2"> 2×</label>
+    <label><input type="radio" name="density" value="4"> 4×</label>
+  </fieldset>
+  <fieldset>
+    <legend class="label">MOVIMIENTO</legend>
+    <label><input type="checkbox" name="animate" checked> animar frames</label>
+    <label><input type="range" name="frame" min="0" max="0" value="0" step="1"> <output name="frameOut">0</output></label>
+  </fieldset>
+</section>
+
+<section class="stage">
+  <div class="frame">
+    <canvas data-lab-canvas width="1280" height="640" aria-label="Escena dibujada por el motor"></canvas>
+    <div class="readout">
+      <span class="label" data-out-scene>estratos</span>
+      <span class="label" data-out-res>240 × 120</span>
+      <span class="label" data-out-dither>bayer4</span>
+      <span class="label" data-out-density>1×</span>
+      <span class="label" data-out-frame>frame 0 / 96</span>
+      <span class="label" data-out-status>iniciando</span>
+    </div>
+  </div>
+  <p class="caption">FIG. LAB / <span data-out-caption>el motor, en vivo</span></p>
+</section>
+
+<section class="strip-block">
+  <p class="label">EL MISMO FRAME, LOS CINCO DITHERS</p>
+  <div class="strip" data-strip></div>
+  <p class="fine">Comparación lado a lado, misma escena y mismo frame. Si acá no se distinguen, el problema es la resolución de la escena, no el dither.</p>
+</section>
+
+<section class="notes">
+  <p class="label">QUÉ MIRAR</p>
+  <ol>
+    <li><strong>Estratos</strong> tiene tres capas que derivan a velocidades distintas y tres pulsos que viajan. El movimiento tiene que verse sin buscar.</li>
+    <li><strong>Resolución:</strong> 240 × 120 celdas contra 160 × 80 de las escenas convertidas. Si todo se veía grueso, era la escena, no el motor.</li>
+    <li><strong>Densidad</strong> cambia el paso de la retícula: 2× y 4× son para escenas grandes, no para mejorar detalle.</li>
+    <li><strong>bayer2</strong> agrupa en bloques de 2×2; <strong>blue noise</strong> rompe la retícula. La tira de arriba existe para juzgarlos juntos.</li>
+  </ol>
+</section>
+</main>
+
+<script type="module" src="lab.mjs"></script>
+</body>
+</html>

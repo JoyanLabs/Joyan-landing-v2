@@ -1,0 +1,256 @@
+[
+  {
+    "id": "h1",
+    "name": "Marea mineral",
+    "family": "Petróleo → turquesa → celadón",
+    "bg": "#10191C",
+    "panel": "#182A30",
+    "ink": "#E4EEEA",
+    "muted": "#ACC3C1",
+    "accent": "#94CCBB",
+    "ramp": [
+      "#183039",
+      "#244C5B",
+      "#346E7B",
+      "#4D9199",
+      "#73B7B0",
+      "#A8D3BA",
+      "#D5E5CF"
+    ],
+    "note": "Referencia elegida: petróleo, turquesa y celadón. Colores originales sin cambios.",
+    "role": "Más observatorio, con una luz viva. Mi primera candidata para recuperar riqueza sin dispersión.",
+    "kind": "reference",
+    "secondary": null,
+    "secondaryDotCount": 0
+  },
+  {
+    "id": "h3",
+    "name": "Ópalo nocturno",
+    "family": "Pizarra → índigo gris → malva",
+    "bg": "#17191F",
+    "panel": "#252A36",
+    "ink": "#E9E7F0",
+    "muted": "#BCBDD0",
+    "accent": "#C8BEDD",
+    "ramp": [
+      "#252D3D",
+      "#3F4C68",
+      "#5F7094",
+      "#8291B3",
+      "#AAAACC",
+      "#C9B5CE",
+      "#E8D7E2"
+    ],
+    "note": "Referencia elegida: pizarra, índigo gris y malva. Colores originales sin cambios.",
+    "role": "Más cinematográfica. Recupera la idea de iridiscencia sin combinar verde y violeta ni saturar el fondo.",
+    "kind": "reference",
+    "secondary": null,
+    "secondaryDotCount": 0
+  },
+  {
+    "id": "a1",
+    "name": "Marea glacial",
+    "family": "Petróleo → turquesa → celadón",
+    "bg": "#10191C",
+    "panel": "#182A30",
+    "ink": "#E4EEEA",
+    "muted": "#ACC3C1",
+    "accent": "#AAD8D6",
+    "ramp": [
+      "#162F3D",
+      "#244A63",
+      "#376C8B",
+      "#5795AD",
+      "#7CB9C5",
+      "#AAD8D6",
+      "#DAEEE7"
+    ],
+    "note": "Hija de H1. Más azul y hielo, menos verde. Precisa sin perder profundidad.",
+    "role": "Más observatorio, con una luz viva. Mi primera candidata para recuperar riqueza sin dispersión.",
+    "kind": "analogous",
+    "secondary": null,
+    "secondaryDotCount": 0
+  },
+  {
+    "id": "a2",
+    "name": "Jade sumergido",
+    "family": "Petróleo → turquesa → celadón",
+    "bg": "#10191C",
+    "panel": "#182A30",
+    "ink": "#E4EEEA",
+    "muted": "#ACC3C1",
+    "accent": "#BCD7B5",
+    "ramp": [
+      "#18352F",
+      "#285347",
+      "#3C7563",
+      "#61947C",
+      "#8FBA9B",
+      "#BCD7B5",
+      "#E1ECD4"
+    ],
+    "note": "Hija de H1. Verde mineral que se ilumina hacia el liquen; no neón.",
+    "role": "Más observatorio, con una luz viva. Mi primera candidata para recuperar riqueza sin dispersión.",
+    "kind": "analogous",
+    "secondary": null,
+    "secondaryDotCount": 0
+  },
+  {
+    "id": "a3",
+    "name": "Ópalo lunar",
+    "family": "Pizarra → índigo gris → malva",
+    "bg": "#17191F",
+    "panel": "#252A36",
+    "ink": "#E9E7F0",
+    "muted": "#BCBDD0",
+    "accent": "#D4D8E7",
+    "ramp": [
+      "#282D42",
+      "#454D6C",
+      "#657497",
+      "#8C9CBC",
+      "#B6C0D6",
+      "#D4D8E7",
+      "#EDECF2"
+    ],
+    "note": "Hija de H3. Más plata azulada, menos malva: un espectro frío más silencioso.",
+    "role": "Más cinematográfica. Recupera la idea de iridiscencia sin combinar verde y violeta ni saturar el fondo.",
+    "kind": "analogous",
+    "secondary": null,
+    "secondaryDotCount": 0
+  },
+  {
+    "id": "a4",
+    "name": "Ópalo rosa",
+    "family": "Pizarra → índigo gris → malva",
+    "bg": "#17191F",
+    "panel": "#252A36",
+    "ink": "#E9E7F0",
+    "muted": "#BCBDD0",
+    "accent": "#DDC6D2",
+    "ramp": [
+      "#30283D",
+      "#50415E",
+      "#75607E",
+      "#9A829F",
+      "#BFA8BB",
+      "#DDC6D2",
+      "#F0E2E6"
+    ],
+    "note": "Hija de H3. Del índigo rojizo al rosa ceniza. Más íntima, sin fucsia.",
+    "role": "Más cinematográfica. Recupera la idea de iridiscencia sin combinar verde y violeta ni saturar el fondo.",
+    "kind": "analogous",
+    "secondary": null,
+    "secondaryDotCount": 0
+  },
+  {
+    "id": "b1",
+    "name": "Marea y cobre",
+    "family": "Petróleo → turquesa → celadón",
+    "bg": "#10191C",
+    "panel": "#182A30",
+    "ink": "#E4EEEA",
+    "muted": "#ACC3C1",
+    "accent": "#94CCBB",
+    "ramp": [
+      "#183039",
+      "#244C5B",
+      "#346E7B",
+      "#4D9199",
+      "#73B7B0",
+      "#A8D3BA",
+      "#D5E5CF"
+    ],
+    "note": "La base H1 conserva su gama; una franja cobre aparece solo junto a la apertura. Más contraste, no dos mitades de distinto color.",
+    "role": "Más observatorio, con una luz viva. Mi primera candidata para recuperar riqueza sin dispersión.",
+    "kind": "temperature",
+    "secondary": [
+      "#865941",
+      "#C18D68",
+      "#E8C29B"
+    ],
+    "secondaryDotCount": 140
+  },
+  {
+    "id": "b2",
+    "name": "Ópalo y miel",
+    "family": "Pizarra → índigo gris → malva",
+    "bg": "#17191F",
+    "panel": "#252A36",
+    "ink": "#E9E7F0",
+    "muted": "#BCBDD0",
+    "accent": "#C8BEDD",
+    "ramp": [
+      "#252D3D",
+      "#3F4C68",
+      "#5F7094",
+      "#8291B3",
+      "#AAAACC",
+      "#C9B5CE",
+      "#E8D7E2"
+    ],
+    "note": "La base H3 recibe un borde de miel. Frío y cálido se distinguen sin competir por toda la superficie.",
+    "role": "Más cinematográfica. Recupera la idea de iridiscencia sin combinar verde y violeta ni saturar el fondo.",
+    "kind": "temperature",
+    "secondary": [
+      "#8B703F",
+      "#C2A368",
+      "#E7D0A3"
+    ],
+    "secondaryDotCount": 140
+  },
+  {
+    "id": "c1",
+    "name": "Marea prismática",
+    "family": "Petróleo → turquesa → celadón",
+    "bg": "#10191C",
+    "panel": "#182A30",
+    "ink": "#E4EEEA",
+    "muted": "#ACC3C1",
+    "accent": "#94CCBB",
+    "ramp": [
+      "#183039",
+      "#244C5B",
+      "#346E7B",
+      "#4D9199",
+      "#73B7B0",
+      "#A8D3BA",
+      "#D5E5CF"
+    ],
+    "note": "H1 sigue dominando. Dos matices vecinos de la zona cálida —arcilla y arena— alternan en un borde pequeño. Mayor riqueza, mayor exigencia de dosificación.",
+    "role": "Más observatorio, con una luz viva. Mi primera candidata para recuperar riqueza sin dispersión.",
+    "kind": "split",
+    "secondary": [
+      "#D0A19A",
+      "#D7BE8C"
+    ],
+    "secondaryDotCount": 140
+  },
+  {
+    "id": "c2",
+    "name": "Ópalo botánico",
+    "family": "Pizarra → índigo gris → malva",
+    "bg": "#17191F",
+    "panel": "#252A36",
+    "ink": "#E9E7F0",
+    "muted": "#BCBDD0",
+    "accent": "#C8BEDD",
+    "ramp": [
+      "#252D3D",
+      "#3F4C68",
+      "#5F7094",
+      "#8291B3",
+      "#AAAACC",
+      "#C9B5CE",
+      "#E8D7E2"
+    ],
+    "note": "H3 sigue dominando. Salvia y liquen aparecen solo en la apertura. Es la más arriesgada: podría acercarse al verde/morado genérico si se expande.",
+    "role": "Más cinematográfica. Recupera la idea de iridiscencia sin combinar verde y violeta ni saturar el fondo.",
+    "kind": "split",
+    "secondary": [
+      "#A6C4B3",
+      "#C9CD9C"
+    ],
+    "secondaryDotCount": 140
+  }
+]

@@ -1,0 +1,17 @@
+/* Typographic variant: Instrument Serif + Archivo. Study only. */
+
+@font-face{font-family:"Instrument Serif";src:url('typo/fonts/instrument-serif-400-latin.woff2') format('woff2');font-display:swap;font-weight:400}
+@font-face{font-family:"Archivo";src:url('typo/fonts/archivo-latin.woff2') format('woff2');font-display:swap;font-weight:100 900}
+.tipo-b{--display:"Instrument Serif",Georgia,serif;--reading:Archivo,system-ui,sans-serif}
+.tipo-b h1{font-family:var(--display);font-weight:400;font-size:clamp(52px,7.4vw,112px);line-height:1;letter-spacing:-.02em}
+.tipo-b h2{font-family:var(--display);font-weight:400;letter-spacing:-.015em}
+.tipo-b .lede{font-family:var(--reading);font-size:18px}
+.tipo-b .two p,.tipo-b .list p,.tipo-b .notes-copy p,.tipo-b .hero-foot p,.tipo-b .foot p{font-family:var(--reading)}
+.tipo-b .two p{font-size:17px;line-height:1.7;max-width:60ch}
+.tipo-b .list p{font-size:14px}
+.tipo-b .notes-copy p{font-size:15px}
+.tipo-b .poster-title{font-family:var(--display);letter-spacing:-.01em}
+@media(max-width:900px){
+.tipo-b h1{font-size:clamp(46px,11.4vw,74px)}
+.tipo-b .two p{font-size:16px}
+}

@@ -1,0 +1,11 @@
+*{box-sizing:border-box}body{margin:0;background:#E8E5DF;color:#15191A;font:16px/1.7 Arial,sans-serif}
+header{padding:32px 4vw 8px}h1{font-size:clamp(26px,3.4vw,44px);line-height:1.1;letter-spacing:-.03em;margin:14px 0 12px}
+.lede,.nota{max-width:64ch;color:#4B5658;font-size:14px}.nota{margin-top:8px;font-size:12px}
+.label{font:10px/1.7 ui-monospace,Menlo,monospace;letter-spacing:.11em;color:#1C6B61}
+main{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;padding:20px 4vw 40px}
+.card{margin:0}img{display:block;width:100%;height:auto;background:#10191C}
+figcaption{display:flex;justify-content:space-between;gap:10px;padding-top:7px;font-size:12px;color:#4B5658}
+figcaption strong{color:#15191A}
+footer{padding:0 4vw 40px}
+@media(max-width:900px){main{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){main{grid-template-columns:1fr}}

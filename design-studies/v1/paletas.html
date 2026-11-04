@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Cuatro suelos · estudio de paletas — JoyanLabs</title>
+<link rel="icon" href="data:,">
+<link rel="preload" href="fonts/michroma-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/archivo-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="paletas.css">
+<script type="module" src="paletas.mjs"></script>
+</head>
+<body>
+<header class="study-head">
+ <div><p class="eyebrow">JoyanLabs / estudio A2</p><h1>Una constelación. Cuatro suelos.</h1></div>
+ <nav aria-label="Comparar paletas"><a href="#candidate-A">A · actual</a><a href="#candidate-B">B · capas</a><a href="#candidate-C">C · cálida</a><a href="#candidate-D">D · fría</a></nav>
+ <p class="instruction">Desliza para comparar → <span>Misma cámara, tamaño de punto y tiempo. Las medidas están debajo.</span></p>
+</header>
+<main class="comparison" aria-label="Cuatro candidatas, en orden A a D"></main>
+<noscript>Este estudio necesita JavaScript para componer y medir las cuatro emisiones. El hero aprobado no ha cambiado.</noscript>
+<footer class="method">
+ <h2>Cómo leer las medidas</h2>
+ <p>Vista base, 100/60 s, sin entrada ni grano superpuesto. El titular y el texto son los del hero existente, congelados sólo para comparar; no se propone copy nuevo. La composición tiene cielo, lavado, enlaces, viñeta y núcleos, en ese orden.</p>
+ <p>Contraste WCAG con luminancia lineal: peor media de celda de 5 × 5 px dentro del rectángulo completo del titular, incluidos espacios y estrellas detrás, sin las letras. Campo/stock: media del compuesto sin figura ni texto, con lavado, viñeta y velo; no es el contraste de un punto aislado. En A se compara contra el suelo efectivo del emisor #060B0D.</p>
+ <p>Peldaños: pasos no nulos realmente rasterizados en los planos de puntos (cielo + lavado en A/B; sólo cielo en C/D), no grupos forzados de color. No equivale al protocolo canónico del cielo 480 × 300: aquí se cuenta la emisión del panel; el JSON separa los peldaños del cielo. Halo: luminosidad en faldones a 3–12 celdas del nodo más próximo frente al entorno a 22–30 celdas. Se guarda también la diferencia pareada con/sin lavado para separar emisión y geometría.</p>
+ <p>El botón de profundidad repite en las cuatro muestras la cámara del nodo 18: cielo 0,18 / lavado 0,52 / figura 1,00; 1200 ms. Es una prueba de paleta fija, no una certificación del runtime, del foco óptico ni del presupuesto a 60 fps. Las métricas siempre corresponden a la vista base. Con movimiento reducido, el cambio es instantáneo.</p>
+ <p class="recommendation">Me quedaría con B como evolución de la oscura: devuelve capas sin abandonar la caja negra. Conservaría C como alternativa clara, no como inversión ni reemplazo automático. La decisión final sigue abierta.</p>
+</footer>
+</body>
+</html>

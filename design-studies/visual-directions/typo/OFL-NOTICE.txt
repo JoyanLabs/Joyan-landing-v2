@@ -1,0 +1,78 @@
+OFL NOTICE — typography comparison harness
+==========================================
+
+Every font file in typo/fonts/ was fetched during this study from the Google
+Fonts CSS API (https://fonts.googleapis.com/css2?family=...) with a browser-like
+User-Agent, which returns woff2 URLs on fonts.gstatic.com. Nothing was taken
+from a package manager, and nothing was copied into public/fonts/. Four families
+are shipped; the fifth sample on the page (the control) uses the platform's
+system sans and ships no file.
+
+Each family is distributed under the SIL Open Font License, Version 1.1. The
+full licence text for each was fetched from the upstream google/fonts
+repository and is kept beside this notice as OFL-<family>.txt; each fetched file
+was checked to begin with that family's own copyright line (quoted below). The
+canonical licence description is at https://openfontlicense.org.
+
+Shipped files (byte sizes and digests measured on this tree)
+-----------------------------------------------------------
+
+fonts/michroma-400.woff2
+  17 908 B · sha256 754fdb31c9906e82cf9c0ecb1d0b528073818fc2c418a39932c83a34cca027b6
+  Family:  Michroma
+  Weight:  400 (the face's only weight; static, no variation axes)
+  Source:  https://fonts.google.com/specimen/Michroma (Google Fonts)
+  Upstream: https://github.com/googlefonts/Michroma-font
+  Licence: SIL Open Font License 1.1 — see OFL-michroma.txt
+  Copyright line verified in that file:
+    "Copyright 2011 The Michroma Project Authors (https://github.com/googlefonts/Michroma-font)"
+  Role:    baseline — the current display face, copied from
+           design-studies/visual-directions/fonts/michroma-400.woff2
+           (byte-identical: same size and digest as the original).
+
+fonts/space-grotesk-latin.woff2
+  22 288 B · sha256 0640890476fc1198ab4de571fb658de443c4d85b66466ec09534a8737ab1ce9d
+  Family:  Space Grotesk
+  Weights: 400 and 500 from one variable file (wght 300–700, default 300)
+  Source:  https://fonts.google.com/specimen/Space+Grotesk (Google Fonts, latin subset)
+  Upstream: https://github.com/floriankarsten/space-grotesk
+  Licence: SIL Open Font License 1.1 — see OFL-space-grotesk.txt
+  Copyright line verified in that file:
+    "Copyright 2020 The Space Grotesk Project Authors (https://github.com/floriankarsten/space-grotesk)"
+
+fonts/archivo-latin.woff2
+  34 928 B · sha256 8f704806dbedeaaeca334b11ec348bc3ac3a439d6431544b3afb54f534ee4967
+  Family:  Archivo
+  Weights: 400 and 500 from one variable file (wght 100–900, default 600)
+  Source:  https://fonts.google.com/specimen/Archivo (Google Fonts, latin subset)
+  Upstream: https://github.com/Omnibus-Type/Archivo
+  Licence: SIL Open Font License 1.1 — see OFL-archivo.txt
+  Copyright line verified in that file:
+    "Copyright 2020 The Archivo Project Authors (https://github.com/Omnibus-Type/Archivo)"
+  Note:    the file's default instance is 600, so the page declares 400 and 500
+           explicitly; without an explicit weight Archivo would render at 600.
+
+fonts/instrument-serif-400-latin.woff2
+  21 032 B · sha256 5eb09b5ac0e28b67c2f041c8ba6d244604ca0c0980d65912ab2d47fed84ddc31
+  Family:  Instrument Serif
+  Weight:  400 (the face's only weight; static, no variation axes)
+  Source:  https://fonts.google.com/specimen/Instrument+Serif (Google Fonts, latin subset)
+  Upstream: https://github.com/Instrument/instrument-serif
+  Licence: SIL Open Font License 1.1 — see OFL-instrument-serif.txt
+  Copyright line verified in that file:
+    "Copyright 2022 The Instrument Serif Project Authors (https://github.com/Instrument/instrument-serif)"
+
+Not shipped
+-----------
+
+The control sample (candidate E) uses the platform's system sans via the CSS
+font stack "system-ui, Helvetica Neue, Helvetica, Arial, sans-serif". No font
+file is shipped for it, no licence is claimed for it, and its rendered metrics
+depend on the machine that opens the page.
+
+Scope
+-----
+
+These files live in design-studies/visual-directions/typo/fonts/ and are study
+assets, not landing assets. Nothing in public/fonts/, src/, scripts/ or the
+slice pages references them.

@@ -1,0 +1,130 @@
+[
+  {
+    "id": "p1-negro",
+    "palette": "p1",
+    "palette_name": "Violeta de Angie",
+    "ground": "Negro",
+    "source": "colorhunt.co/palette/1f2544474f7a81689dffd0ec",
+    "given": [
+      "#1F2544",
+      "#474F7A",
+      "#81689D",
+      "#FFD0EC"
+    ],
+    "ramp": [
+      "#1F2544",
+      "#333A5F",
+      "#474F7A",
+      "#645C8C",
+      "#81689D",
+      "#C09CC4",
+      "#FFD0EC"
+    ],
+    "radiusScale": 1.0,
+    "image": "p1-negro.svg",
+    "authored": false,
+    "bg": "#1F2544",
+    "panel": "#2E3560",
+    "ink": "#F4EFF8",
+    "muted": "#BDB2CE",
+    "accent": "#FFD0EC",
+    "accentTier": "#FFD0EC",
+    "note": "Luz sobre fondo oscuro."
+  },
+  {
+    "id": "p1-papel",
+    "palette": "p1",
+    "palette_name": "Violeta de Angie",
+    "ground": "Papel",
+    "source": "colorhunt.co/palette/1f2544474f7a81689dffd0ec",
+    "given": [
+      "#1F2544",
+      "#474F7A",
+      "#81689D",
+      "#FFD0EC"
+    ],
+    "ramp": [
+      "#1F2544",
+      "#333A5F",
+      "#474F7A",
+      "#645C8C",
+      "#81689D",
+      "#C09CC4",
+      "#FFD0EC"
+    ],
+    "radiusScale": 1.55,
+    "image": "p1-papel.svg",
+    "authored": true,
+    "bg": "#F3EEF6",
+    "panel": "#E7DFEE",
+    "ink": "#1F2544",
+    "muted": "#6B5C86",
+    "accent": "#5E4478",
+    "accentTier": "#5E4478",
+    "note": "Tinta re-resuelta: mismos centros, más radio."
+  },
+  {
+    "id": "p2-negro",
+    "palette": "p2",
+    "palette_name": "Verde de Angie",
+    "ground": "Negro",
+    "source": "colorhunt.co/palette/0b09092e4540408175b5b9f0",
+    "given": [
+      "#0B0909",
+      "#2E4540",
+      "#408175",
+      "#B5B9F0"
+    ],
+    "ramp": [
+      "#0B0909",
+      "#1C2724",
+      "#2E4540",
+      "#37635A",
+      "#408175",
+      "#7A9DB2",
+      "#B5B9F0"
+    ],
+    "radiusScale": 1.0,
+    "image": "p2-negro.svg",
+    "authored": false,
+    "bg": "#0B0909",
+    "panel": "#2E4540",
+    "ink": "#EDF0F6",
+    "muted": "#A9BDB8",
+    "accent": "#B5B9F0",
+    "accentTier": "#B5B9F0",
+    "note": "Luz sobre fondo oscuro."
+  },
+  {
+    "id": "p2-papel",
+    "palette": "p2",
+    "palette_name": "Verde de Angie",
+    "ground": "Papel",
+    "source": "colorhunt.co/palette/0b09092e4540408175b5b9f0",
+    "given": [
+      "#0B0909",
+      "#2E4540",
+      "#408175",
+      "#B5B9F0"
+    ],
+    "ramp": [
+      "#0B0909",
+      "#1C2724",
+      "#2E4540",
+      "#37635A",
+      "#408175",
+      "#7A9DB2",
+      "#B5B9F0"
+    ],
+    "radiusScale": 1.55,
+    "image": "p2-papel.svg",
+    "authored": true,
+    "bg": "#EDF0F4",
+    "panel": "#DDE4E5",
+    "ink": "#0B0909",
+    "muted": "#40605A",
+    "accent": "#1F6B5C",
+    "accentTier": "#1F6B5C",
+    "note": "Tinta re-resuelta: mismos centros, más radio."
+  }
+]

@@ -1,0 +1,838 @@
+{
+  "study": {
+    "title": "Estudio tipografico — H1 Marea mineral, suelo hibrido",
+    "work_unit": "wu41-typo-01",
+    "branch": "test/motion-graphics",
+    "surface": "design-studies/visual-directions/typo/",
+    "page": "typo/index.html + typo/typo.css (sin JavaScript, sin estilos en linea)",
+    "question": "una sola cara de lectura y un solo tratamiento de titular para la direccion elegida",
+    "method": "cinco candidatas, misma composicion, mismo texto, misma clamp, mismo interlineado (1,02) y mismo tracking (-0,03 em); solo cambia la letra"
+  },
+  "fonts": [
+    {
+      "id": "a",
+      "family": "Michroma",
+      "file": "fonts/michroma-400.woff2",
+      "bytes": 17908,
+      "declared_weights": "400",
+      "variation_axes": null,
+      "role": "baseline (display + system sans body)",
+      "license": "SIL Open Font License 1.1",
+      "license_file": "OFL-michroma.txt",
+      "source": "Google Fonts CSS API, family=Michroma (woff2 on fonts.gstatic.com)",
+      "upstream": "https://github.com/googlefonts/Michroma-font",
+      "metrics": {
+        "upm": 2048,
+        "x_height_em_os2": 0.5625,
+        "cap_height_em_os2": 0.75,
+        "zero_advance_em": 0.951,
+        "headline_advance_em": 23.93
+      },
+      "rendered_ink": {
+        "x_height_em": 0.563,
+        "cap_height_em": 0.75,
+        "zero_advance_em": 0.951
+      },
+      "note": "copia byte a byte de design-studies/visual-directions/fonts/michroma-400.woff2 (mismo sha256)",
+      "sha256": "754fdb31c9906e82cf9c0ecb1d0b528073818fc2c418a39932c83a34cca027b6"
+    },
+    {
+      "id": "b",
+      "family": "Space Grotesk",
+      "file": "fonts/space-grotesk-latin.woff2",
+      "bytes": 22288,
+      "declared_weights": "400 500",
+      "variation_axes": {
+        "wght": {
+          "min": 300,
+          "default": 300,
+          "max": 700
+        }
+      },
+      "role": "candidate: all roles",
+      "license": "SIL Open Font License 1.1",
+      "license_file": "OFL-space-grotesk.txt",
+      "source": "Google Fonts CSS API, family=Space+Grotesk (latin subset, woff2 on fonts.gstatic.com)",
+      "upstream": "https://github.com/floriankarsten/space-grotesk",
+      "metrics": {
+        "upm": 1000,
+        "x_height_em_os2": 0.486,
+        "cap_height_em_os2": 0.7,
+        "zero_advance_em": 0.638,
+        "headline_advance_em": 18.67
+      },
+      "rendered_ink": {
+        "x_height_em": 0.5,
+        "cap_height_em": 0.704,
+        "zero_advance_em": 0.641
+      },
+      "note": "un solo archivo variable sirve 400 y 500; el subtitulo usa 500",
+      "sha256": "0640890476fc1198ab4de571fb658de443c4d85b66466ec09534a8737ab1ce9d"
+    },
+    {
+      "id": "c",
+      "family": "Archivo",
+      "file": "fonts/archivo-latin.woff2",
+      "bytes": 34928,
+      "declared_weights": "400 500",
+      "variation_axes": {
+        "wght": {
+          "min": 100,
+          "default": 600,
+          "max": 900
+        }
+      },
+      "role": "candidate: all roles",
+      "license": "SIL Open Font License 1.1",
+      "license_file": "OFL-archivo.txt",
+      "source": "Google Fonts CSS API, family=Archivo (latin subset, woff2 on fonts.gstatic.com)",
+      "upstream": "https://github.com/Omnibus-Type/Archivo",
+      "metrics": {
+        "upm": 1000,
+        "x_height_em_os2": 0.526,
+        "cap_height_em_os2": 0.686,
+        "zero_advance_em": 0.575,
+        "headline_advance_em": 17.86
+      },
+      "rendered_ink": {
+        "x_height_em": 0.532,
+        "cap_height_em": 0.688,
+        "zero_advance_em": 0.573
+      },
+      "note": "la instancia por defecto del archivo variable es 600: sin peso explicito Archivo se dibuja en 600",
+      "sha256": "8f704806dbedeaaeca334b11ec348bc3ac3a439d6431544b3afb54f534ee4967"
+    },
+    {
+      "id": "d",
+      "family": "Instrument Serif",
+      "file": "fonts/instrument-serif-400-latin.woff2",
+      "bytes": 21032,
+      "declared_weights": "400",
+      "variation_axes": null,
+      "role": "candidate: all roles",
+      "license": "SIL Open Font License 1.1",
+      "license_file": "OFL-instrument-serif.txt",
+      "source": "Google Fonts CSS API, family=Instrument+Serif (latin subset, woff2 on fonts.gstatic.com)",
+      "upstream": "https://github.com/Instrument/instrument-serif",
+      "metrics": {
+        "upm": 1000,
+        "x_height_em_os2": 0.51,
+        "cap_height_em_os2": 0.72,
+        "zero_advance_em": 0.46,
+        "headline_advance_em": 13.41
+      },
+      "rendered_ink": {
+        "x_height_em": 0.516,
+        "cap_height_em": 0.735,
+        "zero_advance_em": 0.46
+      },
+      "note": "un solo peso",
+      "sha256": "5eb09b5ac0e28b67c2f041c8ba6d244604ca0c0980d65912ab2d47fed84ddc31"
+    },
+    {
+      "id": "e",
+      "family": "system sans (control)",
+      "file": null,
+      "bytes": null,
+      "declared_weights": null,
+      "variation_axes": null,
+      "role": "control",
+      "license": null,
+      "license_file": null,
+      "source": "stack CSS: system-ui, Helvetica Neue, Helvetica, Arial, sans-serif",
+      "upstream": null,
+      "metrics": {
+        "upm": null,
+        "x_height_em_os2": null,
+        "cap_height_em_os2": null,
+        "zero_advance_em": null,
+        "headline_advance_em": null
+      },
+      "rendered_ink": {
+        "x_height_em": 0.547,
+        "cap_height_em": 0.719,
+        "zero_advance_em": 0.572
+      },
+      "note": "no se envia ningun archivo; las metricas dependen de la plataforma y se midieron en Chromium/Linux"
+    }
+  ],
+  "typography": {
+    "hero_clamp": {
+      "value": "clamp(34px, 9.8vw, 92px)",
+      "computed_at_1440": 92,
+      "computed_at_390": 38.22,
+      "rationale": "92 px de tope, el mismo orden que la rodaja (clamp(46px,6.4vw,96px)); el minimo baja a 34 px para que la linea mas ancha de Michroma (8,0 em ya con tracking) no desborde a 320 px",
+      "line_height": 1.02,
+      "letter_spacing": "-0.03em"
+    },
+    "subhead": {
+      "size_px": 24,
+      "letter_spacing": "-0.01em",
+      "weight": {
+        "a": 400,
+        "b": 500,
+        "c": 500,
+        "d": 400,
+        "e": 400
+      }
+    },
+    "body": {
+      "size_px": 16,
+      "line_height": 1.65,
+      "measure": "59ch"
+    },
+    "specimen": {
+      "size_px": 40,
+      "letter_spacing": "normal"
+    },
+    "labels": {
+      "family": "monospace stack (ui-monospace, DejaVu Sans Mono, Liberation Mono)",
+      "size_px": 10,
+      "letter_spacing_range": "0.05em a 0.16em"
+    },
+    "font_display": {
+      "strategy": "swap",
+      "applied_to": "los cuatro @font-face",
+      "preload": "ninguno (pagina de estudio, no ruta de entrega)",
+      "fallback_stack": "cada familia cae en system-ui, Helvetica Neue, Helvetica, Arial, sans-serif"
+    }
+  },
+  "body_sample": {
+    "language": "es",
+    "text": "Nos interesa lo que podemos construir con máquinas, y también entender qué decisiones toma cada sistema, de dónde viene un resultado y de qué tenemos que hacernos cargo. No delegamos el juicio: lo ejercitamos en cada paso. Un proyecto empieza con una pregunta concreta, sigue con una prueba pequeña y termina cuando alguien puede explicar por qué funciona.",
+    "words": 58,
+    "characters": 356,
+    "measured_line_length": {
+      "ch_measure_defined": 59,
+      "full_line_chars_at_1440": {
+        "a": [
+          62,
+          61,
+          63,
+          65,
+          65
+        ],
+        "b": [
+          71,
+          71,
+          75,
+          67
+        ],
+        "c": [
+          71,
+          71,
+          70,
+          72
+        ],
+        "d": [
+          71,
+          71,
+          75,
+          67
+        ],
+        "e": [
+          62,
+          61,
+          63,
+          65,
+          65
+        ]
+      },
+      "full_line_range_at_1440": [
+        61,
+        75
+      ],
+      "last_line_chars_at_1440": {
+        "a": 40,
+        "b": 72,
+        "c": 72,
+        "d": 72,
+        "e": 40
+      },
+      "chars_per_line_at_390": {
+        "a": [
+          42,
+          44,
+          37,
+          40,
+          46,
+          42,
+          40,
+          39,
+          26
+        ],
+        "b": [
+          42,
+          44,
+          37,
+          40,
+          46,
+          42,
+          40,
+          39,
+          26
+        ],
+        "c": [
+          42,
+          44,
+          47,
+          40,
+          50,
+          47,
+          46,
+          40
+        ],
+        "d": [
+          54,
+          60,
+          59,
+          62,
+          56,
+          56,
+          9
+        ],
+        "e": [
+          42,
+          44,
+          37,
+          40,
+          46,
+          42,
+          40,
+          39,
+          26
+        ]
+      },
+      "note": "59 ch es la medida en unidades ch (ancho del glifo 0). Chromium redondea ch a px enteros, por eso el ancho fisico a 16 px va de 413 px (Instrument Serif) a 590 px (Space Grotesk). Los caracteres por linea se midieron con Range por glifo, no se estimaron."
+    }
+  },
+  "candidates": [
+    {
+      "id": "a",
+      "family": "Michroma",
+      "faces_used": {
+        "display": "Michroma, system-ui, \"Helvetica Neue\", Helvetica, Arial, sans-serif",
+        "text": "system-ui, \"Helvetica Neue\", Helvetica, Arial, sans-serif"
+      },
+      "hero": {
+        "computed_font_size_px": {
+          "at_1440": 92,
+          "at_390": 38.22
+        },
+        "line_widths_px_at_1440": [
+          710.13,
+          596.64,
+          737.14
+        ],
+        "line_widths_px_at_390": [
+          294.11,
+          246.39,
+          304.11
+        ],
+        "widest_line_em": 8.012,
+        "widest_line_share_of_copy_column_pct": 81.9,
+        "copy_column_px_at_1440": 900,
+        "size_for_equal_x_height_vs_michroma_at_92px": 92.0
+      },
+      "body": {
+        "measure_css": "59ch",
+        "measure_px_at_1440": 539.97,
+        "ch_px_at_16px": 9.152,
+        "measure_ch_measured": 59,
+        "chars_per_line_at_1440": [
+          62,
+          61,
+          63,
+          65,
+          65,
+          40
+        ],
+        "full_line_chars_at_1440": [
+          62,
+          61,
+          63,
+          65,
+          65
+        ],
+        "last_line_chars_at_1440": 40,
+        "lines_at_1440": 6,
+        "chars_per_line_at_390": [
+          42,
+          44,
+          37,
+          40,
+          46,
+          42,
+          40,
+          39,
+          26
+        ],
+        "lines_at_390": 9
+      },
+      "specimen_40px": {
+        "joyan_px": 156,
+        "uppercase_px": 1056,
+        "lowercase_px": 747
+      },
+      "samples_present": {
+        "heroHeadline": true,
+        "bodyParagraph": true,
+        "labelsMonospace": true
+      }
+    },
+    {
+      "id": "b",
+      "family": "Space Grotesk",
+      "faces_used": {
+        "display": "\"Space Grotesk\", system-ui, \"Helvetica Neue\", Helvetica, Arial, sans-serif",
+        "text": "\"Space Grotesk\", system-ui, \"Helvetica Neue\", Helvetica, Arial, sans-serif"
+      },
+      "hero": {
+        "computed_font_size_px": {
+          "at_1440": 92,
+          "at_390": 38.22
+        },
+        "line_widths_px_at_1440": [
+          546.13,
+          462.64,
+          561.14
+        ],
+        "line_widths_px_at_390": [
+          227.11,
+          191.39,
+          232.11
+        ],
+        "widest_line_em": 6.099,
+        "widest_line_share_of_copy_column_pct": 62.3,
+        "copy_column_px_at_1440": 900,
+        "size_for_equal_x_height_vs_michroma_at_92px": 103.6
+      },
+      "body": {
+        "measure_css": "59ch",
+        "measure_px_at_1440": 590,
+        "ch_px_at_16px": 10,
+        "measure_ch_measured": 59,
+        "chars_per_line_at_1440": [
+          71,
+          71,
+          75,
+          67,
+          72
+        ],
+        "full_line_chars_at_1440": [
+          71,
+          71,
+          75,
+          67
+        ],
+        "last_line_chars_at_1440": 72,
+        "lines_at_1440": 5,
+        "chars_per_line_at_390": [
+          42,
+          44,
+          37,
+          40,
+          46,
+          42,
+          40,
+          39,
+          26
+        ],
+        "lines_at_390": 9
+      },
+      "specimen_40px": {
+        "joyan_px": 120,
+        "uppercase_px": 654,
+        "lowercase_px": 579
+      },
+      "samples_present": {
+        "heroHeadline": true,
+        "bodyParagraph": true,
+        "labelsMonospace": true
+      }
+    },
+    {
+      "id": "c",
+      "family": "Archivo",
+      "faces_used": {
+        "display": "Archivo, system-ui, \"Helvetica Neue\", Helvetica, Arial, sans-serif",
+        "text": "Archivo, system-ui, \"Helvetica Neue\", Helvetica, Arial, sans-serif"
+      },
+      "hero": {
+        "computed_font_size_px": {
+          "at_1440": 92,
+          "at_390": 38.22
+        },
+        "line_widths_px_at_1440": [
+          493.13,
+          420.64,
+          529.14
+        ],
+        "line_widths_px_at_390": [
+          206.11,
+          176.39,
+          221.11
+        ],
+        "widest_line_em": 5.752,
+        "widest_line_share_of_copy_column_pct": 58.8,
+        "copy_column_px_at_1440": 900,
+        "size_for_equal_x_height_vs_michroma_at_92px": 97.4
+      },
+      "body": {
+        "measure_css": "59ch",
+        "measure_px_at_1440": 531,
+        "ch_px_at_16px": 9,
+        "measure_ch_measured": 59,
+        "chars_per_line_at_1440": [
+          71,
+          71,
+          70,
+          72,
+          72
+        ],
+        "full_line_chars_at_1440": [
+          71,
+          71,
+          70,
+          72
+        ],
+        "last_line_chars_at_1440": 72,
+        "lines_at_1440": 5,
+        "chars_per_line_at_390": [
+          42,
+          44,
+          47,
+          40,
+          50,
+          47,
+          46,
+          40
+        ],
+        "lines_at_390": 8
+      },
+      "specimen_40px": {
+        "joyan_px": 110,
+        "uppercase_px": 707,
+        "lowercase_px": 518
+      },
+      "samples_present": {
+        "heroHeadline": true,
+        "bodyParagraph": true,
+        "labelsMonospace": true
+      }
+    },
+    {
+      "id": "d",
+      "family": "Instrument Serif",
+      "faces_used": {
+        "display": "\"Instrument Serif\", system-ui, \"Helvetica Neue\", Helvetica, Arial, sans-serif",
+        "text": "\"Instrument Serif\", system-ui, \"Helvetica Neue\", Helvetica, Arial, sans-serif"
+      },
+      "hero": {
+        "computed_font_size_px": {
+          "at_1440": 92,
+          "at_390": 38.22
+        },
+        "line_widths_px_at_1440": [
+          371.13,
+          333.64,
+          399.14
+        ],
+        "line_widths_px_at_390": [
+          149.11,
+          134.39,
+          163.11
+        ],
+        "widest_line_em": 4.338,
+        "widest_line_share_of_copy_column_pct": 44.3,
+        "copy_column_px_at_1440": 900,
+        "size_for_equal_x_height_vs_michroma_at_92px": 100.4
+      },
+      "body": {
+        "measure_css": "59ch",
+        "measure_px_at_1440": 413,
+        "ch_px_at_16px": 7,
+        "measure_ch_measured": 59,
+        "chars_per_line_at_1440": [
+          71,
+          71,
+          75,
+          67,
+          72
+        ],
+        "full_line_chars_at_1440": [
+          71,
+          71,
+          75,
+          67
+        ],
+        "last_line_chars_at_1440": 72,
+        "lines_at_1440": 5,
+        "chars_per_line_at_390": [
+          54,
+          60,
+          59,
+          62,
+          56,
+          56,
+          9
+        ],
+        "lines_at_390": 7
+      },
+      "specimen_40px": {
+        "joyan_px": 76,
+        "uppercase_px": 495,
+        "lowercase_px": 404
+      },
+      "samples_present": {
+        "heroHeadline": true,
+        "bodyParagraph": true,
+        "labelsMonospace": true
+      }
+    },
+    {
+      "id": "e",
+      "family": "system sans (control)",
+      "faces_used": {
+        "display": "system-ui, \"Helvetica Neue\", Helvetica, Arial, sans-serif",
+        "text": "system-ui, \"Helvetica Neue\", Helvetica, Arial, sans-serif"
+      },
+      "hero": {
+        "computed_font_size_px": {
+          "at_1440": 92,
+          "at_390": 38.22
+        },
+        "line_widths_px_at_1440": [
+          534.06,
+          469.94,
+          559.47
+        ],
+        "line_widths_px_at_390": [
+          221.88,
+          195.23,
+          232.42
+        ],
+        "widest_line_em": 6.081,
+        "widest_line_share_of_copy_column_pct": 62.2,
+        "copy_column_px_at_1440": 900,
+        "size_for_equal_x_height_vs_michroma_at_92px": 94.7
+      },
+      "body": {
+        "measure_css": "59ch",
+        "measure_px_at_1440": 539.97,
+        "ch_px_at_16px": 9.152,
+        "measure_ch_measured": 59,
+        "chars_per_line_at_1440": [
+          62,
+          61,
+          63,
+          65,
+          65,
+          40
+        ],
+        "full_line_chars_at_1440": [
+          62,
+          61,
+          63,
+          65,
+          65
+        ],
+        "last_line_chars_at_1440": 40,
+        "lines_at_1440": 6,
+        "chars_per_line_at_390": [
+          42,
+          44,
+          37,
+          40,
+          46,
+          42,
+          40,
+          39,
+          26
+        ],
+        "lines_at_390": 9
+      },
+      "specimen_40px": {
+        "joyan_px": 101.89,
+        "uppercase_px": 659.84,
+        "lowercase_px": 551.28
+      },
+      "samples_present": {
+        "heroHeadline": true,
+        "bodyParagraph": true,
+        "labelsMonospace": true
+      }
+    }
+  ],
+  "observations": {
+    "michroma": "titular a 92 px: 710/597/737 px, el 82 % de la columna de 900 px. Ancho de frase 23,93 em y altura de x 0,563 em: la linea mas ancha es 1,39x la de Archivo y 1,85x la de Instrument Serif. A 20 px (marca, nombre de candidata) funciona como firma; a 92 px el bloque pesa mas que lo que dice.",
+    "space_grotesk": "titular 546/463/561 px (62 % de la columna), altura de x 0,500 em, la mas baja de las cuatro con archivo: a igual cuerpo se ve mas chica y necesitaria ~104 px para igualar la altura de x de Michroma. Terminales cortadas en angulo, apertura cerrada en la 'e' y la 's'. Cuerpo a 16 px: 67-75 caracteres por linea a 59 ch, el mas largo del grupo.",
+    "archivo": "titular 493/421/529 px (59 % de la columna) con el ancho de frase mas corto de las grotescas (17,86 em) y altura de x 0,532 em. A 92 px es el que mas se parece a un titular editorial sin dejar de ser grotesca; a 24 px/500 el subtitulo se lee como interfaz, no como voz. Cuerpo 70-72 caracteres por linea.",
+    "instrument_serif": "titular 371/334/399 px (44 % de la columna): la mitad de ancho que Michroma, altura de x 0,516 em y astas finas que aguantan 92 px sin ruido. A 16 px el cuerpo se vuelve demasiado pequeno (columna de 413 px, 5 lineas, 67-75 caracteres) y pide 17-18 px; el subtitulo a 24 px apenas se separa del parrafo. En el especimen los acentos de las mayusculas (ÁÉÍÓÚÑ) se tocan entre si a 40 px.",
+    "control": "system-ui: titular 534/470/559 px, cuerpo 61-65 caracteres por linea. Se lee correcto y generico: confirma que la composicion sola no alcanza y que el ground oscuro del hero hace la mayor parte del trabajo de tono."
+  },
+  "verification": {
+    "http": {
+      "requested_target": "http://127.0.0.1:4402/typo/...",
+      "result": "no verificable: al comprobar no habia ningun proceso escuchando en 127.0.0.1:4402 (curl salio con codigo 000, conexion rechazada). No se arranco ni se detuvo ese servidor.",
+      "fallback": {
+        "command": "python3 -m http.server 4461 --bind 127.0.0.1 (raiz design-studies/visual-directions; servidor temporal apagado al terminar)",
+        "checks": [
+          {
+            "url": "http://127.0.0.1:4461/typo/index.html",
+            "status": 200,
+            "bytes": 15774,
+            "content_type": "text/html"
+          },
+          {
+            "url": "http://127.0.0.1:4461/typo/typo.css",
+            "status": 200,
+            "bytes": 12523,
+            "content_type": "text/css"
+          },
+          {
+            "url": "http://127.0.0.1:4461/typo/fonts/michroma-400.woff2",
+            "status": 200,
+            "bytes": 17908,
+            "content_type": "font/woff2"
+          },
+          {
+            "url": "http://127.0.0.1:4461/typo/fonts/space-grotesk-latin.woff2",
+            "status": 200,
+            "bytes": 22288,
+            "content_type": "font/woff2"
+          },
+          {
+            "url": "http://127.0.0.1:4461/typo/fonts/archivo-latin.woff2",
+            "status": 200,
+            "bytes": 34928,
+            "content_type": "font/woff2"
+          },
+          {
+            "url": "http://127.0.0.1:4461/typo/fonts/instrument-serif-400-latin.woff2",
+            "status": 200,
+            "bytes": 21032,
+            "content_type": "font/woff2"
+          }
+        ]
+      },
+      "recheck_4402_after_work": "curl http://127.0.0.1:4402/typo/index.html -> 000 (sigue sin servidor en ese puerto)"
+    },
+    "no_scripts_no_inline_styles": {
+      "scriptTags": 0,
+      "inlineStyleAttrs": 0,
+      "styleTags": 0,
+      "onAttr": 0,
+      "jsUrls": 0
+    },
+    "fonts_loaded_in_page": {
+      "Michroma": true,
+      "Space Grotesk": true,
+      "Archivo": true,
+      "Instrument Serif": true
+    },
+    "samples_per_candidate": {
+      "a": {
+        "heroHeadline": true,
+        "bodyParagraph": true,
+        "labelsMonospace": true
+      },
+      "b": {
+        "heroHeadline": true,
+        "bodyParagraph": true,
+        "labelsMonospace": true
+      },
+      "c": {
+        "heroHeadline": true,
+        "bodyParagraph": true,
+        "labelsMonospace": true
+      },
+      "d": {
+        "heroHeadline": true,
+        "bodyParagraph": true,
+        "labelsMonospace": true
+      },
+      "e": {
+        "heroHeadline": true,
+        "bodyParagraph": true,
+        "labelsMonospace": true
+      }
+    },
+    "candidate_count": 5,
+    "licence_notice": {
+      "families_listed": [
+        "Michroma",
+        "Space Grotesk",
+        "Archivo",
+        "Instrument Serif"
+      ],
+      "families_shipped": [
+        "Michroma",
+        "Space Grotesk",
+        "Archivo",
+        "Instrument Serif"
+      ],
+      "match": true,
+      "ofl_texts_fetched": [
+        "OFL-michroma.txt",
+        "OFL-space-grotesk.txt",
+        "OFL-archivo.txt",
+        "OFL-instrument-serif.txt"
+      ],
+      "licence_verified": "SIL OFL 1.1; la primera linea de cada OFL-*.txt se comprobo contra la familia que dice acompana"
+    },
+    "body_paragraph": {
+      "words": 58,
+      "within_45_60": true,
+      "full_line_chars_at_1440_range": [
+        61,
+        75
+      ],
+      "measure_ch": 59,
+      "within_55_75": true
+    },
+    "layout": {
+      "doc_height_px": {
+        "1440": 7616,
+        "390": 11444
+      },
+      "horizontal_overflow": {
+        "1440": false,
+        "390": false
+      },
+      "brief_left_offset_px": {
+        "1440": 130,
+        "390": 19.5
+      }
+    },
+    "screenshots": {
+      "required": [
+        "dist-motion-verify/wu41-typo-01/1440-full.png",
+        "dist-motion-verify/wu41-typo-01/390-full.png"
+      ],
+      "per_candidate_crops_from_the_1440_capture": [
+        "dist-motion-verify/wu41-typo-01/1440-a.png",
+        "dist-motion-verify/wu41-typo-01/1440-b.png",
+        "dist-motion-verify/wu41-typo-01/1440-c.png",
+        "dist-motion-verify/wu41-typo-01/1440-d.png",
+        "dist-motion-verify/wu41-typo-01/1440-e.png"
+      ],
+      "intermediate": [
+        "dist-motion-verify/wu41-typo-01/probe-1440.png (viewport 1440x900)",
+        "dist-motion-verify/wu41-typo-01/probe-full.png (copia de 1440-full)",
+        "dist-motion-verify/wu41-typo-01/review-1.png .. review-5.png (cortes de 390-full)",
+        "dist-motion-verify/wu41-typo-01/zoom-d-numerals.png (detalle de los acentos de Instrument Serif)"
+      ],
+      "browser": "Firefox 158.0.1 del sistema, --headless --screenshot, perfil en dist-motion-verify/wu41-typo-01/firefox-profile"
+    },
+    "raw_measurement": "dist-motion-verify/wu41-typo-01/measure-raw.json",
+    "measurement_engine": "chromium (bundled 1243 via playwright) --allow-file-access-from-files on file://; las capturas son de Firefox 158 del sistema",
+    "tdd_note": "estudio de diseno: no hay test RED observable. La verificacion es estructural y de medicion, no de comportamiento."
+  },
+  "not_verified": [
+    "HTTP 200 en 127.0.0.1:4402 (no habia servidor escuchando); se verifico con un servidor temporal en 4461 y con file:// en Firefox",
+    "metricas renderizadas en Firefox: las capturas son de Firefox 158, las mediciones de DOM son de Chromium; los anchos de linea pueden diferir en el ultimo pixel",
+    "arena tactil y lectores de pantalla: fuera del alcance de este estudio",
+    "Instrument Serif por debajo de 16 px y el choque de acentos en mayusculas a 40 px: observado, no corregido"
+  ]
+}

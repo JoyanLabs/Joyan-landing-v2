@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="es" data-ground="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Joyan — híbrido: cielo de puntos, constelación de líneas</title>
+<link rel="stylesheet" href="hibrido.css"></head>
+<body>
+<header><p class="label">ESTUDIO 13 · HÍBRIDO</p>
+<h1>El cielo lo dibuja el motor.<br>La constelación, la línea.</h1>
+<p class="lede">Dos capas con oficios distintos: abajo, puntos del motor —banda, nebulosas, polvo, fugaz—; arriba, vector —nodos y hairlines que el motor no puede dibujar—. Cada una hace lo que sabe.</p></header>
+<main>
+<div class="stage">
+  <div class="canvas-box">
+    <canvas data-sky width="480" height="300" aria-hidden="true"></canvas>
+    <svg class="constellation" data-constellation viewBox="0 0 480 300" aria-hidden="true"></svg>
+  </div>
+  <div class="readout"><span class="label">480 × 300 celdas</span><span class="label" data-canvas>canvas —</span><span class="label" data-scale>escala —</span><span class="label" data-dpr>DPR —</span><span class="label" data-cell>celda —</span><span class="label" data-frame>frame 0</span><span class="label" data-cost>dinámico —</span><span class="label" data-switch>capa —</span><span class="label" data-tables>tablas —</span><span class="label" data-star>núcleo —</span><span class="label" data-register>registro: midiendo</span><span class="grounds" role="group" aria-label="Fondo"><button type="button" data-ground="dark" aria-pressed="true">oscuro</button><button type="button" data-ground="paper" aria-pressed="false">papel</button></span></div>
+</div>
+</main>
+<footer><p class="label">Si el vector desapareciera, el cielo seguiría siendo un cielo. Si el cielo desapareciera, la figura seguiría leyéndose.</p></footer>
+<script type="module" src="hibrido.mjs"></script>
+</body></html>

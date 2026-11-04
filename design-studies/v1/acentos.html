@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="es" data-accent-study>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>JoyanLabs — el acento cálido, cuatro pruebas</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="acentos.css">
+</head>
+<body>
+  <header class="study-intro">
+    <p class="study-kicker">JoyanLabs / estudio de color / 01</p>
+    <h1>Un poco de tierra.<br>El mismo espacio.</h1>
+    <p>Cuatro acentos sobre el hero real. No es una nueva escena de Arequipa: es una prueba de temperatura antes de construir S1.</p>
+    <p class="study-method">Paleta A intacta · base nominal <code>#020405</code> · tinta nominal <code>#B4CABE</code>.<br>Mismo motor, 35 nodos, 52 enlaces, tres planos y paralaje. Sólo cambian núcleos, anillos y destacados de la figura; el lavado no se toca.</p>
+    <nav class="study-nav" aria-label="Ir a una variante">
+      <a href="#v0">V0 · Actual</a><a href="#v1">V1 · Terracota</a><a href="#v2">V2 · Ocre</a><a href="#v3">V3 · Cobre</a>
+    </nav>
+    <p class="study-method">Toca un nodo en cada vista para comparar la profundidad. Cada render ocupa todo el ancho; los números y la UI están fuera de la imagen. La UI es una exploración de paleta general, no una decisión aprobada ni un estado vivo.</p>
+  </header>
+  <main id="comparisons" aria-label="Comparación de acentos"></main>
+  <footer class="study-footer">
+    <p><strong>Me quedaría con V1 · Terracota mineral.</strong> Añade un registro cálido sin repintar la paleta A y sirve para texto sin crear otro tono.</p>
+    <p>Contraste WCAG 2.x: luminancia sRGB linealizada, colores sólidos a opacidad 1 sobre <code>#060B0D</code>, el suelo efectivo actual. Texto ≥ 4,5:1; anillo ≥ 3:1. No es una certificación de los núcleos sobre el campo variable. La distancia de tono es angular HSL, no una medida de diferencia perceptual.</p>
+    <p>No se pinta ámbar de marca: su tono de referencia es 37,69°. V2 es deliberadamente el caso de riesgo. Ningún acento de este estudio se aplica a gates o estados vivos.</p>
+  </footer>
+  <noscript><p class="study-footer">Esta comparación necesita JavaScript para cargar las cuatro vistas del motor y calcular sus contrastes.</p></noscript>
+  <script type="module" src="acentos.mjs"></script>
+</body>
+</html>

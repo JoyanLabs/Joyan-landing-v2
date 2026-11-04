@@ -1,0 +1,652 @@
+/* Joyan — typography comparison harness.
+   H1 "Marea mineral", hybrid ground: dark hero + paper body.
+   No scripts, no inline styles. Every candidate is set with the same
+   composition, the same copy, the same clamp and the same tracking, so the
+   only variable left is the face. */
+
+/* ---- faces ---------------------------------------------------------------
+   Michroma: the current display face, shipped as the baseline.
+   Space Grotesk and Archivo are variable (wght 400-500 declared here); one
+   latin file each covers both weights. Instrument Serif ships 400 only.
+   font-display: swap on every face — the harness measures the face, so a
+   swap window is acceptable and no invisible text is acceptable. */
+
+@font-face {
+  font-family: "Michroma";
+  src: url("fonts/michroma-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("fonts/space-grotesk-latin.woff2") format("woff2");
+  font-weight: 400 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Archivo";
+  src: url("fonts/archivo-latin.woff2") format("woff2");
+  font-weight: 400 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Instrument Serif";
+  src: url("fonts/instrument-serif-400-latin.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ---- tokens ------------------------------------------------------------- */
+
+:root {
+  --night: #10191c;
+  --night-ink: #e4eeea;
+  --night-accent: #94ccbb;
+  --night-line: rgb(148 204 187 / 0.22);
+
+  --paper: #f2efe7;
+  --paper-ink: #15191a;
+  --paper-muted: #4b5658;
+  --paper-accent: #1c6b61;
+  --paper-line: rgb(21 25 26 / 0.16);
+
+  --mono: ui-monospace, "DejaVu Sans Mono", "Liberation Mono", monospace;
+  --sans: system-ui, "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+  /* The real clamp range of the slice, recalibrated so the widest face
+     (Michroma) still fits the copy column at 320 px without wrapping. */
+  --hero: clamp(34px, 9.8vw, 92px);
+  --hero-lh: 1.02;
+  --hero-track: -0.03em;
+  --sub: 24px;
+  --body: 16px;
+  --body-lh: 1.65;
+  --spec: 40px;
+  /* 59 ch, not 66: the CSS ch unit (the width of "0") is wider than the
+     average lowercase in all four faces, so 59 ch lands the rendered body at
+     61-75 characters per line instead of ~78. */
+  --measure: 59ch;
+  --gut: 5vw;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--paper-ink);
+  font-family: var(--sans);
+  font-synthesis: none;
+  line-height: 1.6;
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+dl,
+dd,
+figure {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-underline-offset: 4px;
+}
+
+a:focus-visible {
+  outline: 2px solid var(--paper-accent);
+  outline-offset: 5px;
+}
+
+.skip {
+  position: absolute;
+  left: -9999px;
+}
+
+.skip:focus {
+  left: 12px;
+  top: 12px;
+  z-index: 9;
+  padding: 10px;
+  background: var(--paper);
+  color: var(--paper-ink);
+}
+
+.wrap {
+  padding-left: var(--gut);
+  padding-right: var(--gut);
+}
+
+.tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* ---- masthead ----------------------------------------------------------- */
+
+.masthead {
+  background: var(--night);
+  color: var(--night-ink);
+  border-bottom: 1px solid var(--night-line);
+}
+
+.masthead .inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px 24px;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 20px var(--gut);
+}
+
+.wordmark {
+  font-family: "Michroma", var(--sans);
+  font-size: 20px;
+  letter-spacing: -0.04em;
+  text-decoration: none;
+}
+
+.masthead nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.masthead nav a {
+  text-decoration: none;
+}
+
+.masthead nav a:hover {
+  text-decoration: underline;
+}
+
+/* ---- brief -------------------------------------------------------------- */
+
+.brief {
+  padding-top: 46px;
+  padding-bottom: 38px;
+  padding-left: var(--gut);
+  padding-right: var(--gut);
+  border-bottom: 1px solid var(--paper-line);
+}
+
+.brief .inner {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.brief h1 {
+  font-family: "Michroma", var(--sans);
+  font-size: clamp(22px, 2.6vw, 32px);
+  font-weight: 400;
+  line-height: 1.12;
+  letter-spacing: -0.035em;
+  margin: 14px 0 20px;
+  max-width: 24ch;
+}
+
+.brief p {
+  max-width: 66ch;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.brief p + p {
+  margin-top: 12px;
+}
+
+.brief .fine {
+  font-size: 13px;
+  color: var(--paper-muted);
+}
+
+.index {
+  list-style: none;
+  padding: 0;
+  margin: 28px 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px 24px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+
+.index li {
+  border-top: 1px solid var(--paper-line);
+  padding-top: 8px;
+}
+
+.index a {
+  text-decoration: none;
+}
+
+.index a:hover {
+  text-decoration: underline;
+}
+
+.index span {
+  color: var(--paper-accent);
+}
+
+/* ---- candidate header --------------------------------------------------- */
+
+.cand {
+  border-top: 1px solid var(--paper-line);
+}
+
+.cand-head {
+  padding: 32px var(--gut) 24px;
+}
+
+.cand-head .inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: grid;
+  gap: 16px 48px;
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .cand-head .inner {
+    grid-template-columns: minmax(0, 1fr) 300px;
+  }
+}
+
+.cand-id {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--paper-accent);
+  text-transform: uppercase;
+}
+
+.cand-name {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(26px, 3.4vw, 40px);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin-top: 6px;
+}
+
+.cand-role {
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--paper-muted);
+  margin-top: 8px;
+  max-width: 62ch;
+}
+
+.cand-spec {
+  display: grid;
+  gap: 5px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+
+.cand-spec > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 4px;
+  border-bottom: 1px dotted var(--paper-line);
+}
+
+.cand-spec dt {
+  color: var(--paper-accent);
+  text-transform: uppercase;
+}
+
+.cand-spec dd {
+  color: var(--paper-ink);
+  text-align: right;
+}
+
+/* ---- dark hero block ---------------------------------------------------- */
+
+.block-hero {
+  background: var(--night);
+  color: var(--night-ink);
+  padding: 42px var(--gut) 28px;
+}
+
+.block-hero .inner {
+  display: grid;
+  gap: 34px;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+@media (min-width: 1340px) {
+  .block-hero .inner {
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 56px;
+    align-items: center;
+  }
+}
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--night-accent);
+}
+
+.headline {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: var(--hero);
+  line-height: var(--hero-lh);
+  letter-spacing: var(--hero-track);
+  margin-top: 20px;
+}
+
+.headline .line {
+  display: block;
+  white-space: nowrap;
+}
+
+.headline .dot {
+  color: var(--night-accent);
+}
+
+.lede {
+  font-family: var(--text);
+  font-size: 17px;
+  line-height: 1.6;
+  margin-top: 22px;
+  max-width: 44ch;
+}
+
+.cta-row {
+  margin-top: 22px;
+}
+
+.cta {
+  display: inline-flex;
+  gap: 26px;
+  align-items: baseline;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--night-accent);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.cta .arrow {
+  font-size: 18px;
+  line-height: 1;
+  color: var(--night-accent);
+}
+
+.scene {
+  display: grid;
+}
+
+.scene-field {
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  border: 1px solid var(--night-line);
+  background-color: var(--night);
+  background-image:
+    radial-gradient(46% 17% at 62% 46%, rgb(228 238 234 / 0.62), rgb(148 204 187 / 0.24) 55%, transparent 100%),
+    radial-gradient(95% 72% at 62% 46%, rgb(148 204 187 / 0.2), transparent 70%),
+    radial-gradient(circle at 1.5px 1.5px, rgb(228 238 234 / 0.5) 1px, transparent 1.45px),
+    radial-gradient(circle at 1.5px 1.5px, rgb(148 204 187 / 0.34) 1px, transparent 1.45px);
+  background-size: 100% 100%, 100% 100%, 9px 9px, 27px 27px;
+  background-position: center, center, 0 0, 4px 4px;
+  background-repeat: no-repeat, no-repeat, repeat, repeat;
+}
+
+figcaption {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--night-accent);
+  padding-top: 10px;
+  text-align: right;
+}
+
+.hero-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px 24px;
+  max-width: 1440px;
+  margin: 30px auto 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--night-line);
+}
+
+.hero-foot .tag {
+  color: var(--night-accent);
+}
+
+.hero-foot p {
+  font-size: 12px;
+  color: var(--night-ink);
+  opacity: 0.82;
+}
+
+/* ---- paper block -------------------------------------------------------- */
+
+.block-paper {
+  background: var(--paper);
+  color: var(--paper-ink);
+  padding: 42px var(--gut) 38px;
+}
+
+.block-paper .inner {
+  display: grid;
+  gap: 30px;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+@media (min-width: 1000px) {
+  .block-paper .inner {
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 56px;
+  }
+}
+
+.eyebrow-paper {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--paper-accent);
+}
+
+.subhead {
+  font-family: var(--display);
+  font-weight: var(--sub-weight);
+  font-size: var(--sub);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  margin-top: 14px;
+}
+
+.body-sample {
+  font-family: var(--text);
+  font-size: var(--body);
+  line-height: var(--body-lh);
+  max-width: var(--measure);
+  margin-top: 18px;
+}
+
+.meta {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+
+.meta > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 4px;
+  border-bottom: 1px dotted var(--paper-line);
+}
+
+.meta dt {
+  color: var(--paper-muted);
+  text-transform: uppercase;
+}
+
+.meta dd {
+  text-align: right;
+}
+
+/* ---- specimen strip ----------------------------------------------------- */
+
+.specimen {
+  padding: 26px var(--gut) 44px;
+  border-top: 1px solid var(--paper-line);
+  background: var(--paper);
+}
+
+.specimen .inner {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.specimen .tag {
+  color: var(--paper-accent);
+}
+
+.spec-word {
+  font-family: var(--spec-face);
+  font-size: var(--spec);
+  line-height: 1.2;
+  margin-top: 14px;
+}
+
+.spec-line {
+  font-family: var(--spec-face);
+  font-size: var(--spec);
+  line-height: 1.22;
+  overflow-wrap: anywhere;
+}
+
+.spec-line.numerals {
+  color: var(--paper-muted);
+}
+
+/* ---- candidates --------------------------------------------------------
+   One place per face: display role, text role, specimen role. The baseline
+   keeps the split it has today (Michroma display, system sans body). */
+
+.c-a {
+  --display: "Michroma", var(--sans);
+  --text: var(--sans);
+  --spec-face: "Michroma", var(--sans);
+  --sub-weight: 400;
+}
+
+.c-b {
+  --display: "Space Grotesk", var(--sans);
+  --text: "Space Grotesk", var(--sans);
+  --spec-face: "Space Grotesk", var(--sans);
+  --sub-weight: 500;
+}
+
+.c-c {
+  --display: "Archivo", var(--sans);
+  --text: "Archivo", var(--sans);
+  --spec-face: "Archivo", var(--sans);
+  --sub-weight: 500;
+}
+
+.c-d {
+  --display: "Instrument Serif", var(--sans);
+  --text: "Instrument Serif", var(--sans);
+  --spec-face: "Instrument Serif", var(--sans);
+  --sub-weight: 400;
+}
+
+.c-e {
+  --display: var(--sans);
+  --text: var(--sans);
+  --spec-face: var(--sans);
+  --sub-weight: 400;
+}
+
+/* ---- footer ------------------------------------------------------------- */
+
+.foot {
+  background: var(--night);
+  color: var(--night-ink);
+  border-top: 1px solid var(--night-line);
+  padding: 26px var(--gut);
+}
+
+.foot .inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px 24px;
+  max-width: 1440px;
+  margin: 0 auto;
+  font-size: 12px;
+}
+
+.foot .fine {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--night-accent);
+}
+
+@media (max-width: 700px) {
+  .block-hero {
+    padding-top: 32px;
+  }
+
+  .lede {
+    font-size: 16px;
+  }
+
+  .scene {
+    max-width: 420px;
+    margin-left: auto;
+  }
+
+  .hero-foot p {
+    text-align: left;
+  }
+
+  figcaption {
+    text-align: left;
+  }
+}

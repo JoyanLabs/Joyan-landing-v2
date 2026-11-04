@@ -1,0 +1,26 @@
+OFL NOTICE — self-hosted fonts in public/fonts/
+================================================
+
+Both faces are self-hosted static assets (no package dependency, no font CDN).
+Each ships under the SIL Open Font License 1.1 with the font's copyright and
+license text distributed by its upstream project; the full OFL 1.1 text is at
+https://openfontlicense.org and is distributed with the upstream font packages.
+
+michroma-400.woff2
+  Family:  Michroma
+  Weights: 400 (the face's only weight)
+  Source:  Google Fonts (fonts.google.com/specimen/Michroma), Vernon Adams.
+  License: SIL Open Font License 1.1.
+  Role:    the display face — the Joyan name and headings on both public pages
+           and on the /lab/sequence route (chosen by the user, WU27).
+
+vt323-400.woff2
+  Family:  VT323
+  Weights: 400 (the face's only weight)
+  Source:  Google Fonts (fonts.google.com/specimen/VT323), Peter Hull.
+  License: SIL Open Font License 1.1.
+  Role:    the act-1 terminal of the /lab/sequence route only, coloured with
+           the page palette (bone text, amber prompt — never phosphor green).
+
+No other file may appear in this folder without a recorded licence and a
+delivery-gate entry (scripts/check-delivery-scope.mjs, WU27 contract).

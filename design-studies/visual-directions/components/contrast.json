@@ -1,0 +1,33 @@
+{
+  "grounds": {
+    "oscuro": {
+      "bg": "#10191C",
+      "surface": "#182A30",
+      "ink": "#E4EEEA",
+      "muted": "#ACC3C1",
+      "accent": "#94CCBB"
+    },
+    "papel": {
+      "bg": "#F2EFE7",
+      "surface": "#E4E0D6",
+      "ink": "#15191A",
+      "muted": "#4B5658",
+      "accent": "#1C6B61"
+    }
+  },
+  "measured": {
+    "oscuro: texto sobre fondo": 15.04,
+    "oscuro: secundario sobre fondo": 9.62,
+    "oscuro: señal sobre fondo": 9.86,
+    "oscuro: texto del póster": 9.86,
+    "papel: texto sobre fondo": 15.41,
+    "papel: secundario sobre fondo": 6.59,
+    "papel: señal sobre fondo": 5.5,
+    "papel: texto del póster": 5.5
+  },
+  "note": "Los separadores usan el token superficie; la rampa de siete escalones no se usa en interfaz.",
+  "limitations": [
+    "Static colour-pair checks, not a full accessibility audit",
+    "Forced state classes are specimens, not real interaction"
+  ]
+}

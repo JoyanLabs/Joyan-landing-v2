@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>JoyanLabs — construye y opera plataformas de agentes</title>
+<link rel="icon" href="data:,">
+<link rel="preload" href="fonts/michroma-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/archivo-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="v1.css">
+</head>
+<body>
+
+<header class="top">
+  <p class="wordmark">JoyanLabs</p>
+</header>
+
+<main>
+
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="hero-copy">
+      <h1 class="hero-title" id="hero-title" data-placeholder="base" aria-live="polite" aria-atomic="true"><span class="hero-phrase">Plano de muestra.</span></h1>
+      <template data-placeholder="far">Muestra lejana.</template>
+      <template data-placeholder="mid">Muestra media.</template>
+      <template data-placeholder="near">Muestra cercana.</template>
+    </div>
+      <figure class="stage-wrap">
+        <div class="stage" data-stage>
+          <img class="poster" src="poster-sky.png" width="2531" height="900" alt="" fetchpriority="high">
+          <div class="sky-camera" aria-hidden="true"><canvas class="sky" data-sky width="480" height="300" aria-hidden="true"></canvas></div>
+          <div class="wash-camera" aria-hidden="true"><canvas class="wash" data-wash width="480" height="300" aria-hidden="true"></canvas></div>
+          <svg class="lines" data-constellation viewBox="0 0 480 300" aria-hidden="true" focusable="false">
+            <!-- Same 52 edges and 35 centres as the emission; present before JS. -->
+            <use class="link-underlay" href="#constellation-links"/>
+            <path class="links" id="constellation-links" d="M187.2 186.72L212.88 191.76 M212.88 191.76L181.2 231.6 M181.2 231.6L187.2 186.72
+              M144.48 182.16L191.52 135.36 M191.52 135.36L212.64 132 M212.64 132L191.28 159.6 M191.28 159.6L227.28 170.4 M227.28 170.4L212.88 191.76 M187.2 186.72L188.4 168 M188.4 168L144.48 182.16
+              M212.64 132L223.44 132.72 M223.44 132.72L191.28 159.6 M199.68 154.8L236.4 125.28 M236.4 125.28L243.12 129.36 M243.12 129.36L239.04 134.4 M239.04 134.4L199.68 154.8
+              M191.28 159.6L239.04 134.4 M239.04 134.4L232.08 142.08 M232.08 142.08L245.04 150 M245.04 150L245.28 160.08 M245.28 160.08L257.76 172.08 M257.76 172.08L239.04 163.68 M239.04 163.68L191.28 159.6
+              M239.04 163.68L252 176.64 M252 176.64L191.28 159.6 M252 176.64L257.76 172.08 M257.76 172.08L265.2 180 M265.2 180L252 176.64 M232.08 142.08L253.2 124.08 M253.2 124.08L245.04 150
+              M245.28 160.08L253.2 124.08 M253.2 124.08L267.12 136.56 M267.12 136.56L245.28 160.08 M267.12 136.56L265.2 180 M265.2 180L245.28 160.08 M267.12 136.56L298.32 155.04
+              M298.32 155.04L284.4 160.32 M284.4 160.32L306 229.92 M306 229.92L252 176.64 M255.6 106.32L268.8 106.32 M268.8 106.32L278.64 140.88 M278.64 140.88L267.12 136.56 M267.12 136.56L255.6 106.32
+              M268.8 106.32L286.8 78.96 M286.8 78.96L301.68 73.92 M301.68 73.92L295.92 94.08 M295.92 94.08L298.32 155.04 M298.32 155.04L278.64 140.88 M301.68 73.92L328.56 49.44
+              M301.68 73.92L323.52 94.8 M323.52 94.8L324.72 111.12 M324.72 111.12L295.92 94.08"/>
+            <g class="stars">
+              <g><circle class="core" cx="328.56" cy="49.44" r="1.7"/><circle class="ring" cx="328.56" cy="49.44" r="2"/></g>
+              <g><circle class="core" cx="181.2" cy="231.6" r="1.4"/><circle class="ring" cx="181.2" cy="231.6" r="2"/></g>
+              <g><circle class="core" cx="306" cy="229.92" r="1.4"/><circle class="ring" cx="306" cy="229.92" r="2"/></g>
+              <g><circle class="core" cx="236.4" cy="125.28" r="1.7"/><circle class="ring" cx="236.4" cy="125.28" r="2"/></g>
+              <g><circle class="core" cx="298.32" cy="155.04" r="1.4"/><circle class="ring" cx="298.32" cy="155.04" r="2"/></g>
+              <g><circle class="core" cx="188.4" cy="168" r="1.4"/><circle class="ring" cx="188.4" cy="168" r="2"/></g>
+              <g><circle class="core" cx="295.92" cy="94.08" r="1.7"/><circle class="ring" cx="295.92" cy="94.08" r="2"/></g>
+              <g><circle class="core" cx="252" cy="176.64" r="1.4"/><circle class="ring" cx="252" cy="176.64" r="2"/></g>
+              <g><circle class="core" cx="144.48" cy="182.16" r="1.4"/><circle class="ring" cx="144.48" cy="182.16" r="2"/></g>
+              <g><circle class="core" cx="212.88" cy="191.76" r="1.7"/><circle class="ring" cx="212.88" cy="191.76" r="2"/></g>
+              <g><circle class="core" cx="324.72" cy="111.12" r="1.4"/><circle class="ring" cx="324.72" cy="111.12" r="2"/></g>
+              <g><circle class="core" cx="191.52" cy="135.36" r="1.4"/><circle class="ring" cx="191.52" cy="135.36" r="2"/></g>
+              <g><circle class="core" cx="267.12" cy="136.56" r="1.7"/><circle class="ring" cx="267.12" cy="136.56" r="2"/></g>
+              <g><circle class="core" cx="268.8" cy="106.32" r="1.4"/><circle class="ring" cx="268.8" cy="106.32" r="2"/></g>
+              <g><circle class="core" cx="245.04" cy="150" r="1.4"/><circle class="ring" cx="245.04" cy="150" r="2"/></g>
+              <g><circle class="core" cx="227.28" cy="170.4" r="1.7"/><circle class="ring" cx="227.28" cy="170.4" r="2"/></g>
+              <g><circle class="core" cx="212.64" cy="132" r="1.4"/><circle class="ring" cx="212.64" cy="132" r="2"/></g>
+              <g><circle class="core" cx="301.68" cy="73.92" r="1.4"/><circle class="ring" cx="301.68" cy="73.92" r="2"/></g>
+              <g><circle class="core" cx="187.2" cy="186.72" r="1.7"/><circle class="ring" cx="187.2" cy="186.72" r="2"/></g>
+              <g><circle class="core" cx="199.68" cy="154.8" r="1.4"/><circle class="ring" cx="199.68" cy="154.8" r="2"/></g>
+              <g><circle class="core" cx="253.2" cy="124.08" r="1.4"/><circle class="ring" cx="253.2" cy="124.08" r="2"/></g>
+              <g><circle class="core" cx="323.52" cy="94.8" r="1.7"/><circle class="ring" cx="323.52" cy="94.8" r="2"/></g>
+              <g><circle class="core" cx="286.8" cy="78.96" r="1.4"/><circle class="ring" cx="286.8" cy="78.96" r="2"/></g>
+              <g><circle class="core" cx="232.08" cy="142.08" r="1.4"/><circle class="ring" cx="232.08" cy="142.08" r="2"/></g>
+              <g><circle class="core" cx="284.4" cy="160.32" r="1.7"/><circle class="ring" cx="284.4" cy="160.32" r="2"/></g>
+              <g><circle class="core" cx="265.2" cy="180" r="1.4"/><circle class="ring" cx="265.2" cy="180" r="2"/></g>
+              <g><circle class="core" cx="239.04" cy="163.68" r="1.4"/><circle class="ring" cx="239.04" cy="163.68" r="2"/></g>
+              <g><circle class="core" cx="255.6" cy="106.32" r="1.7"/><circle class="ring" cx="255.6" cy="106.32" r="2"/></g>
+              <g><circle class="core" cx="278.64" cy="140.88" r="1.4"/><circle class="ring" cx="278.64" cy="140.88" r="2"/></g>
+              <g><circle class="core" cx="223.44" cy="132.72" r="1.4"/><circle class="ring" cx="223.44" cy="132.72" r="2"/></g>
+              <g><circle class="core" cx="239.04" cy="134.4" r="1.7"/><circle class="ring" cx="239.04" cy="134.4" r="2"/></g>
+              <g><circle class="core" cx="191.28" cy="159.6" r="1.4"/><circle class="ring" cx="191.28" cy="159.6" r="2"/></g>
+              <g><circle class="core" cx="257.76" cy="172.08" r="1.4"/><circle class="ring" cx="257.76" cy="172.08" r="2"/></g>
+              <g><circle class="core" cx="245.28" cy="160.08" r="1.7"/><circle class="ring" cx="245.28" cy="160.08" r="2"/></g>
+              <g><circle class="core" cx="243.12" cy="129.36" r="1.4"/><circle class="ring" cx="243.12" cy="129.36" r="2"/></g>
+            </g>
+          </svg>
+          <canvas class="vignette" data-vignette aria-hidden="true"></canvas>
+          <svg class="node-controls" data-node-controls viewBox="0 0 480 300" role="group" aria-label="Constelación interactiva" aria-describedby="node-help"></svg>
+        </div>
+        <figcaption class="sr-only" id="node-help">Un cielo de puntos generado por el motor y una constelación. Activa un nodo para acercarte a su grupo de enlaces. Pulsa Escape o Volver a la constelación para regresar. No representa datos ni mediciones.</figcaption>
+        <p class="sr-only" data-node-status role="status" aria-live="polite"></p>
+      </figure>
+      <div class="hero-utility">
+        <button class="field-reset" type="button" hidden>Volver a la constelación</button>
+        <button class="field-pause" type="button" aria-pressed="false" hidden>Pausar campo</button>
+      </div>
+  </section>
+
+  <section class="block block-wide" aria-labelledby="criterio-title">
+    <div class="head">
+      <p class="eyebrow">Problema y criterio</p>
+      <h2 id="criterio-title">El agente hace una parte. Tú conservas la decisión.</h2>
+    </div>
+    <div class="line-body">
+      <p>Incorporar agentes a tus sistemas no significa delegarles el negocio. La lógica, las decisiones sobre datos y las aprobaciones quedan de tu lado. El criterio es integrar piezas concretas, no pedirte que adoptes una plataforma completa.</p>
+    </div>
+  </section>
+
+  <section class="lines-block" aria-labelledby="trabajo-title">
+    <div class="head">
+      <p class="eyebrow">Cómo trabajamos</p>
+      <h2 id="trabajo-title" class="body-lead">El bloqueo decide la herramienta.</h2>
+    </div>
+    <p class="range"><span class="range-code">L1–L4</span><span class="range-gloss">Las cuatro líneas de servicio, en orden.</span></p>
+
+    <ol class="lines">
+      <li class="line">
+        <div class="line-head">
+          <span class="code">L1</span>
+        </div>
+        <div class="line-body">
+          <h2>Antes de sumar herramientas, saber qué te bloquea.</h2>
+          <p>Si necesitas desbloquear tu operación, empezamos por un diagnóstico acotado. Cierra con un acta: qué vimos, qué medimos y hasta dónde podemos intervenir. Así tienes un alcance concreto para decidir cómo&nbsp;seguir.</p>
+          <p>En un cliente real de desarrollo de software, reorganizar la integración continua y llevar la escalera completa a un servidor propio dejó <strong>0 minutos facturables</strong>, medido.</p>
+        </div>
+      </li>
+
+      <li class="line">
+        <div class="line-head">
+          <span class="code">L2</span>
+        </div>
+        <div class="line-body">
+          <h2>Cada hallazgo, con su fuente.</h2>
+          <p>Si un agente revisa código, necesitas poder volver al hallazgo. El molde de integración que proponemos es el <strong>PR nudge</strong>: un agente que comenta en cada solicitud de cambio de código —pull request— con hallazgos citados. La pieza se integra en tus sistemas; tú decides y apruebas.</p>
+        </div>
+      </li>
+
+      <li class="line">
+        <div class="line-head">
+          <span class="code">L3</span>
+        </div>
+        <div class="line-body">
+          <h2>El acceso tiene condiciones.</h2>
+          <p>Para decidir quién entra y desde dónde, pensamos juntas la red y la identidad. La propuesta combina confianza cero, identidad centralizada y seguridad operada, con estos&nbsp;límites:</p>
+          <ul class="limits">
+            <li>la licencia Enterprise valida contra <code>license.netbird.io</code>: <strong>no hay air-gapped con licencia</strong>, es decir, no funciona como un entorno aislado de la red;</li>
+            <li>cada instalación self-hosted —alojada en tu propia infraestructura— es de <strong>un solo inquilino</strong>: una organización por instalación;</li>
+            <li>y <strong>peer</strong> (dispositivo o entorno conectado a la red) y <strong>SCIM</strong> (provisión de usuarios desde el proveedor de identidad) son sólo Enterprise de NetBird.</li>
+          </ul>
+        </div>
+      </li>
+
+    </ol>
+  </section>
+
+  <section class="lines-block" aria-labelledby="evidencia-title">
+    <div class="line">
+      <div class="line-head">
+        <span class="code">L4</span>
+      </div>
+      <div class="line-body">
+        <p class="eyebrow">Trazabilidad y auditoría de inteligencia artificial</p>
+        <h2 id="evidencia-title">Registrar no es autorizar.</h2>
+        <p>Si necesitas reconstruir una decisión, registrar actividad no alcanza. Las convenciones de inteligencia artificial generativa de <strong>OTel</strong> (OpenTelemetry) registran qué hizo el agente y cuánto consumió. <strong>No registran quién lo autorizó.</strong> El costo se reconstruye fuera del estándar.</p>
+        <p>El criterio para L4 —trazabilidad y auditoría de inteligencia artificial— es <strong>evidencia que vincula cada acción con su autorización</strong>. Magi, el plano de control propuesto: identidad, autorización y evidencia, plantea dos canales: aprobación humana para lo irreversible y automática con política firmada y versionada para lo reintentable. La traza indicaría cuál se usó.</p>
+        <p><strong>La evidencia es del cliente.</strong></p>
+        <p>Todavía no hay producto.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="block block-wide" aria-labelledby="registro-title">
+    <div class="head">
+      <p class="eyebrow">O0–O3</p>
+      <h2 id="registro-title">El registro se acuerda antes.</h2>
+      <p class="gloss">Niveles de evidencia. Una regla propuesta para delimitar el registro de cada servicio.</p>
+    </div>
+    <div class="line-body">
+      <p>Para saber qué podrás reconstruir, el nivel de evidencia se elige según el servicio y el modo de entrega. Estos niveles describen la propuesta, no acreditan una entrega:</p>
+      <p><strong>O0</strong> sin evidencia nuestra verificable; queda declarado por escrito.</p>
+      <p><strong>O1</strong> inferencia: modelo, tokens —unidades de texto procesadas—, costo, latencia y hash del artefacto —su huella digital—.</p>
+      <p><strong>O2</strong> O1 más red e identidad: quién entró, desde dónde y qué intentó salir.</p>
+      <p><strong>O3</strong> O2 más exportación PROV/RO-Crate —un formato que describe quién hizo qué y cuándo y lo empaqueta con sus archivos y metadatos— con hash firmado y revisión&nbsp;periódica.</p>
+    </div>
+  </section>
+
+  <section class="escs" aria-labelledby="escenarios-title">
+    <div class="escs-head">
+      <p class="eyebrow">Escenarios</p>
+      <h2 id="escenarios-title">La tarea cambia. Tú&nbsp;decides.</h2>
+      <p class="definition">Para situar tu caso, mira dónde interviene una persona y qué registro necesita. Son <strong>escenarios de trabajo, no casos de clientes ni entregas</strong>: muestran el rol del agente, la aprobación humana y lo que no se delega.</p>
+    </div>
+
+    <div class="lines">
+      <article class="line">
+        <div class="line-head"><span class="code">Contabilidad</span></div>
+        <div class="line-body">
+          <h3>Las excepciones y el registro final pasan por ti.</h3>
+          <p>En el ingreso documental, el agente clasifica archivos, extrae campos y marca faltantes e inconsistencias. Tú resuelves las excepciones y apruebas el registro final. Queda una traza por documento y un enlace a la página rechazada.</p>
+        </div>
+      </article>
+      <article class="line">
+        <div class="line-head"><span class="code">Soporte financiero</span></div>
+        <div class="line-body">
+          <h3>Fuera del guion, decide una&nbsp;persona.</h3>
+          <p>En soporte de primera línea, el agente responde consultas de rutina y busca información de políticas. Cuando el caso sale del guion, lo escala a una persona. El registro conserva la conversación y la política aplicada; el agente no decide la&nbsp;excepción.</p>
+        </div>
+      </article>
+      <article class="line">
+        <div class="line-head"><span class="code">Planta industrial</span></div>
+        <div class="line-body">
+          <h3>El agente propone. Tú decides.</h3>
+          <p>En mantenimiento predictivo, el agente ordena alertas de sensores y propone una intervención. La decisión de parar o intervenir es humana. Quedan la serie de lecturas y el motivo de la propuesta para reconstruir por qué se planteó.</p>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="band" aria-labelledby="confianza-title">
+    <div class="band-inner">
+      <p class="eyebrow">Confianza declarada</p>
+      <h2 id="confianza-title">Cero certificaciones.</h2>
+      <div class="line-body">
+        <p>Si necesitas evaluar nuestra postura, el criterio es lo que se puede demostrar. No hay ISO ni SOC 2. Hablamos de confianza cero, identidad centralizada, artefactos firmados, SBOM —inventario de componentes de software— y evidencia exportable. Esa postura no acredita tu cumplimiento.</p>
+        <p>Un artefacto, un lugar y un índice. Una definición no acredita implementación; un experimento no acredita entrega.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="closing" aria-labelledby="contacto-title">
+    <h2 id="contacto-title" class="closing-line">Comienza por el problema, no por la plataforma.</h2>
+    <div class="limits line-body">
+      <p>Cuéntanos qué te bloquea y qué decisión necesitas tomar. El primer paso es delimitar un diagnóstico: alcance, criterios de aceptación y un acta con la que puedas decidir cómo seguir.</p>
+    </div>
+    <a class="contact" href="mailto:hello@joyan.dev">Cuéntanos tu caso en hello@joyan.dev</a>
+  </section>
+
+</main>
+
+<footer class="signature">
+  <p>Alguien tiene que vigilar a las máquinas.</p>
+</footer>
+
+<script type="module" src="v1.mjs"></script>
+</body>
+</html>

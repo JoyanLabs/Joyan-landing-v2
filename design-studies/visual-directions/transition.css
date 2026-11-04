@@ -1,0 +1,33 @@
+@font-face{font-family:Michroma;src:url('fonts/michroma-400.woff2') format('woff2');font-display:swap}
+@font-face{font-family:Archivo;src:url('typo/fonts/archivo-latin.woff2') format('woff2');font-display:swap;font-weight:100 900}
+*{box-sizing:border-box}
+body{margin:0;background:#F2EFE7;color:#15191A;font-family:Archivo,system-ui,sans-serif;font-size:17px;line-height:1.7}
+p,h1,h2{margin:0}
+.label{font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.12em;color:#1C6B61}
+.hero{background:#10191C;color:#E4EEEA;padding:64px 6vw 0}
+.hero .label{color:#94CCBB}
+h1{font-family:Michroma,sans-serif;font-weight:400;font-size:clamp(32px,5.4vw,76px);line-height:1.06;letter-spacing:-.03em;margin:22px 0}
+.lede{color:#ACC3C1;max-width:56ch;padding-bottom:56px}
+
+/* la costura: el oscuro entrega sus puntos al papel, sin borde */
+.seam{position:relative;background:#F2EFE7}
+.seam-dark{position:absolute;inset:0 0 auto 0;height:34%;background:#10191C}
+.seam img{position:relative;display:block;width:100%;height:auto;margin-top:-1px}
+.seam-paper{height:60px;background:#F2EFE7}
+
+.body{padding:0 6vw 72px}
+h2{font-family:Archivo,sans-serif;font-weight:500;font-size:clamp(26px,3vw,42px);line-height:1.12;letter-spacing:-.03em;margin:18px 0 20px}
+h2 span{color:#4B5658}
+.body p{max-width:60ch;color:#4B5658}
+
+/* pie con respiración de puntos */
+.foot{background:#10191C;color:#E4EEEA;padding:0 6vw 34px}
+.pulse{display:flex;justify-content:space-between;align-items:flex-end;height:86px;padding-bottom:26px;border-bottom:1px solid #182A30}
+.pulse i{display:block;width:3px;height:calc(var(--h) * 26px);border-radius:50%;background:#94CCBB;opacity:.55;animation:breathe 4.2s ease-in-out infinite;animation-delay:var(--d)}
+@keyframes breathe{0%,100%{transform:scaleY(.35);opacity:.28}50%{transform:scaleY(1);opacity:.75}}
+.foot-row{display:flex;justify-content:space-between;align-items:center;gap:20px;padding-top:22px}
+.firma{font-family:Michroma,sans-serif;font-size:20px}
+.foot p{font-size:12px;color:#ACC3C1}
+.foot .label{color:#94CCBB}
+@media(prefers-reduced-motion:reduce){.pulse i{animation:none;transform:scaleY(.6);opacity:.5}}
+@media(max-width:760px){.seam img{margin-top:0}.hero{padding-top:40px}h1{font-size:clamp(28px,8.4vw,44px)}.foot-row{flex-direction:column;align-items:flex-start;gap:8px}}

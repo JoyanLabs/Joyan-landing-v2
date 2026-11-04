@@ -1,0 +1,68 @@
+[
+  {
+    "id": "t1",
+    "name": "Metal cálido",
+    "tone": "Latón → arena",
+    "bg": "#171614",
+    "panel": "#24211C",
+    "ink": "#E9E5DC",
+    "accent": "#CDB58E",
+    "dim": "#80735F",
+    "desc": "Mi recomendación: cálida sin volverse naranja. Taller, materia y una luz contenida."
+  },
+  {
+    "id": "t2",
+    "name": "Mineral frío",
+    "tone": "Acero → hielo",
+    "bg": "#14181B",
+    "panel": "#20272C",
+    "ink": "#E3E8EB",
+    "accent": "#A1BAC9",
+    "dim": "#657D8A",
+    "desc": "Más observatorio. Precisa y nocturna, sin recurrir al azul eléctrico."
+  },
+  {
+    "id": "t3",
+    "name": "Cobre apagado",
+    "tone": "Óxido → arcilla",
+    "bg": "#1A1513",
+    "panel": "#2A211D",
+    "ink": "#EBE3DD",
+    "accent": "#D3A189",
+    "dim": "#916951",
+    "desc": "Más terrenal que Metal cálido. Recupera A, pero sin azul ni rosa independientes."
+  },
+  {
+    "id": "t4",
+    "name": "Oliva mineral",
+    "tone": "Piedra → liquen",
+    "bg": "#171914",
+    "panel": "#24271F",
+    "ink": "#E5E8DB",
+    "accent": "#BBC39D",
+    "dim": "#7B8366",
+    "desc": "Orgánica y sobria. Un verde grisáceo, sin neón y sin pareja verde/morado."
+  },
+  {
+    "id": "t5",
+    "name": "Ciruela gris",
+    "tone": "Grafito → malva ceniza",
+    "bg": "#19161B",
+    "panel": "#28222B",
+    "ink": "#E9E3EA",
+    "accent": "#C2ABCA",
+    "dim": "#86728D",
+    "desc": "Más íntima y ligeramente extraña. El matiz es tenue: no un degradado violeta de IA."
+  },
+  {
+    "id": "t6",
+    "name": "Plata neutra",
+    "tone": "Carbón → plata",
+    "bg": "#171717",
+    "panel": "#252525",
+    "ink": "#E7E7E5",
+    "accent": "#BDBDB9",
+    "dim": "#7D7D79",
+    "desc": "El punto de control: casi sin color. Si esta te gusta, la identidad tendrá que vivir en las formas y la composición."
+  }
+]

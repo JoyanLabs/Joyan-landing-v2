@@ -1,0 +1,69 @@
+@font-face {
+  font-family: Archivo;
+  src: url('fonts/archivo-latin-wght-normal.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: Michroma;
+  src: url('fonts/michroma-400.woff2') format('woff2');
+  font-display: swap;
+}
+html[data-accent-study] { background: #060B0D; color: #EAF3E6; color-scheme: dark; }
+[data-accent-study] * { box-sizing: border-box; }
+[data-accent-study] body { margin: 0; font: 400 17px/1.6 Archivo, sans-serif; }
+[data-accent-study] a { color: inherit; text-underline-offset: .3em; }
+[data-accent-study] :focus-visible { outline: 2px solid #EAF3E6; outline-offset: 5px; }
+[data-accent-study] code { font: 13px/1.6 ui-monospace, monospace; }
+.study-intro, .study-footer { max-width: 1080px; padding: 64px 28px; margin: 0 auto; }
+.study-kicker, .variant-number { font: 12px/1.6 ui-monospace, monospace; text-transform: uppercase; letter-spacing: .1em; }
+.study-intro h1 { font: 400 clamp(28px, 4vw, 50px)/1.25 Michroma, sans-serif; letter-spacing: -.03em; margin: 28px 0; }
+.study-intro p { max-width: 74ch; }
+.study-method, .study-footer { color: #C0C9C4; font-size: 15px; }
+.study-nav { display: flex; flex-wrap: wrap; gap: 12px 28px; padding: 24px 0; }
+.study-nav a { padding: 8px 0; }
+.variant { padding: 0 0 48px; border-top: 1px solid #35413F; scroll-margin-top: 16px; }
+.variant-heading { padding: 30px 28px 24px; display: flex; justify-content: space-between; align-items: baseline; gap: 12px 32px; flex-wrap: wrap; }
+.variant-heading h2 { font: 500 clamp(23px, 2.6vw, 34px)/1.2 Archivo, sans-serif; margin: 0; }
+.variant-heading p { margin: 0; }
+.variant-number { color: #C0C9C4; display: block; margin-bottom: 8px; }
+.accent-hex { font: 16px/1.6 ui-monospace, monospace; white-space: nowrap; }
+.accent-chip { display: inline-block; width: 18px; height: 18px; background: var(--candidate); margin-right: 12px; vertical-align: -.15em; }
+.scene-frame { display: block; width: 100%; height: 900px; border: 0; background: #020405; }
+.variant-detail { padding: 28px; max-width: 1440px; margin: 0 auto; }
+.variant-reading { margin: 0 0 20px; color: #C0C9C4; max-width: 78ch; }
+.ui-sample { background: #060B0D; display: flex; align-items: center; flex-wrap: wrap; gap: 18px 32px; padding: 20px 0 28px; border-bottom: 1px solid #35413F; color: var(--ui-accent); }
+.ui-eyebrow { margin: 0; font: 13px/1.6 ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase; }
+.ui-sample .ui-code { font-size: 14px; }
+.ui-sample .ui-link { padding: 8px 0; }
+.ui-focus { color: #EAF3E6; background: #060B0D; border: 0; outline: 2px solid var(--candidate); outline-offset: 4px; padding: 10px 15px; margin: 4px; font: inherit; cursor: pointer; }
+.ui-focus:focus-visible { outline-color: var(--candidate); outline-width: 3px; outline-offset: 6px; }
+.measurements { margin: 24px 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px 28px; font-variant-numeric: tabular-nums; }
+.measurements dt { font-size: 14px; color: #C0C9C4; margin-bottom: 8px; }
+.measurements dd { margin: 0; font: 15px/1.65 ui-monospace, monospace; }
+.measurements strong { display: block; font-size: 23px; color: #EAF3E6; font-weight: 500; }
+.variant-verdict { padding-left: 18px; border-left: 2px solid #C0C9C4; margin: 28px 0 0; max-width: 92ch; }
+.ui-note { max-width: 90ch; font-size: 15px; color: #C0C9C4; }
+[data-accent='v0'] { --candidate: #94CCBB; --ui-accent: #94CCBB; }
+[data-accent='v1'] { --candidate: #B4643C; --ui-accent: #B4643C; }
+[data-accent='v2'] { --candidate: #A98A50; --ui-accent: #A98A50; }
+[data-accent='v3'] { --candidate: #8E5A44; --ui-accent: #A57159; }
+/* Same-origin views load the approved HTML/CSS/runtime unchanged. These are
+   the ENTIRE scene overrides. No filter/recolour on the canvas or palette. */
+html[data-accent-preview], [data-accent-preview] body { overflow: hidden; }
+[data-accent-preview] main > section:not(.hero), [data-accent-preview] .signature,
+[data-accent-preview] .grounds { display: none; }
+[data-accent-preview]:not([data-accent='v0']) .stage .core,
+[data-accent-preview]:not([data-accent='v0']) .stage .signal { fill: var(--candidate); }
+[data-accent-preview]:not([data-accent='v0']) .stage .ring { stroke: var(--candidate); }
+[data-accent-preview]:not([data-accent='v0']) .stage .node-controls .node-lit { filter: drop-shadow(0 0 3px var(--candidate)); }
+@media (max-width: 640px) {
+  .study-intro, .study-footer { padding: 40px 24px; }
+  .variant-heading { padding: 26px 24px 20px; }
+  .variant-detail { padding: 24px; }
+  .scene-frame { height: 844px; }
+  .measurements { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 16px; }
+  .measurements dd { font-size: 13px; }
+  .measurements strong { font-size: 21px; }
+  .ui-sample { gap: 18px 24px; }
+}

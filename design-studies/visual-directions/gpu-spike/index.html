@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Spike · WebGPU frente a canvas 2D sobre el campo de puntos</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #07090a; color: #cfd8d4; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  header { padding: 20px 24px 8px; }
+  h1 { margin: 0 0 6px; font-size: 15px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: #94ccbb; }
+  .lede { margin: 0; max-width: 96ch; color: #7e8c88; }
+  main { padding: 12px 24px 32px; display: grid; gap: 16px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  figure { margin: 0; display: grid; gap: 6px; }
+  figcaption { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #6b7a76; }
+  body.shots .pair { grid-template-columns: 1fr; }
+  body.shots header, body.shots dl, body.shots pre { display: none; }
+  canvas { width: 100%; height: auto; display: block; background: #060b0d; image-rendering: pixelated; border: 1px solid #16211f; }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 2px 18px; margin: 0; }
+  dt { color: #6b7a76; }
+  dd { margin: 0; color: #d5e5cf; }
+  pre { margin: 0; max-height: 420px; overflow: auto; padding: 12px; background: #0a1114; border: 1px solid #16211f; color: #8fa39d; font-size: 11px; }
+  .status { color: #73b7b0; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+</style></head>
+<body>
+<header>
+  <h1>Spike · WebGPU frente a canvas 2D</h1>
+  <p class="lede" data-caption>El mismo campo de puntos por dos caminos: el motor del sitio (<code>renderFrame</code> + <code>rasterize</code>) y un shader WGSL que evalúa el mismo modelo de tono por celda. Cada camino mide 144 marcos —un ciclo completo— y el resultado de un marco se compara celda a celda.</p>
+  <p class="status" data-status>cargando</p>
+</header>
+<main>
+  <div class="pair">
+    <figure>
+      <figcaption>canvas 2D — <code>renderFrame</code> + <code>rasterize</code></figcaption>
+      <canvas data-cpu width="480" height="300"></canvas>
+    </figure>
+    <figure>
+      <figcaption>WebGPU — compute WGSL + pase de pintura</figcaption>
+      <canvas data-gpu width="480" height="300"></canvas>
+    </figure>
+  </div>
+  <dl data-table></dl>
+  <pre data-report>midiendo…</pre>
+</main>
+<script type="module" src="spike.mjs"></script>
+</body></html>

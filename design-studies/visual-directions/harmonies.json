@@ -1,0 +1,65 @@
+[
+  {
+    "id": "h1",
+    "name": "Marea mineral",
+    "family": "Petróleo → turquesa → celadón",
+    "bg": "#10191C",
+    "panel": "#182A30",
+    "ink": "#E4EEEA",
+    "muted": "#ACC3C1",
+    "accent": "#94CCBB",
+    "ramp": [
+      "#183039",
+      "#244C5B",
+      "#346E7B",
+      "#4D9199",
+      "#73B7B0",
+      "#A8D3BA",
+      "#D5E5CF"
+    ],
+    "note": "Azul y verde comparten el recorrido. Las sombras son petróleo; la luz se vuelve celadón. Hay cambio de color sin saltar a otra familia.",
+    "role": "Más observatorio, con una luz viva. Mi primera candidata para recuperar riqueza sin dispersión."
+  },
+  {
+    "id": "h2",
+    "name": "Ámbar fundido",
+    "family": "Caoba → cobre → miel",
+    "bg": "#1B1512",
+    "panel": "#30231C",
+    "ink": "#F1E7D9",
+    "muted": "#D0B7A4",
+    "accent": "#E6BE87",
+    "ramp": [
+      "#39231E",
+      "#60382B",
+      "#8C5136",
+      "#B77949",
+      "#D69F62",
+      "#E9C38A",
+      "#F0DEB6"
+    ],
+    "note": "No es solo naranja sobre negro: el cobre vive en los medios y la miel aparece en los bordes luminosos. Las sombras conservan profundidad rojiza.",
+    "role": "Más taller y material. Es la evolución cálida de A, con una gama completa en vez de un único cobre."
+  },
+  {
+    "id": "h3",
+    "name": "Ópalo nocturno",
+    "family": "Pizarra → índigo gris → malva",
+    "bg": "#17191F",
+    "panel": "#252A36",
+    "ink": "#E9E7F0",
+    "muted": "#BCBDD0",
+    "accent": "#C8BEDD",
+    "ramp": [
+      "#252D3D",
+      "#3F4C68",
+      "#5F7094",
+      "#8291B3",
+      "#AAAACC",
+      "#C9B5CE",
+      "#E8D7E2"
+    ],
+    "note": "Azules grisáceos y malvas próximos. El color cambia con la luz en una superficie concreta, no en una nube detrás de toda la página.",
+    "role": "Más cinematográfica. Recupera la idea de iridiscencia sin combinar verde y violeta ni saturar el fondo."
+  }
+]

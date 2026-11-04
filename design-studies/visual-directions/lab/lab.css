@@ -1,0 +1,46 @@
+@font-face{font-family:Michroma;src:url('../fonts/michroma-400.woff2') format('woff2');font-display:swap}
+@font-face{font-family:Archivo;src:url('../typo/fonts/archivo-latin.woff2') format('woff2');font-display:swap;font-weight:100 900}
+*{box-sizing:border-box}
+:root{color-scheme:light}
+body{margin:0;background:#E8E5DF;color:#15191A;font-family:Archivo,system-ui,sans-serif;font-size:16px;line-height:1.7}
+p,h1{margin:0}
+code{font-family:ui-monospace,Menlo,monospace;font-size:.92em;background:#DEDAD2;padding:1px 4px}
+.label{font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.11em;color:#4B5658}
+.firma{font-family:Michroma,sans-serif;font-size:20px;letter-spacing:-.04em}
+
+.bar{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:18px 4vw;border-bottom:1px solid #C3C0B9}
+.intro{padding:40px 4vw 22px;max-width:900px}
+h1{font-family:Michroma,sans-serif;font-weight:400;font-size:clamp(30px,4.4vw,54px);line-height:1.08;letter-spacing:-.03em;margin:16px 0 18px}
+.lede{max-width:64ch}
+.nota{margin-top:14px;color:#4B5658;font-size:14px;max-width:64ch}
+
+.panel{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;padding:0 4vw 22px}
+fieldset{margin:0;border:1px solid #C3C0B9;padding:12px 14px 14px}
+legend{padding:0 6px}
+fieldset label{display:block;font-size:13px;padding:3px 0;cursor:pointer;white-space:nowrap}
+input[type="range"]{width:100%;margin-top:6px}
+input:focus-visible{outline:2px solid #1C6B61;outline-offset:3px}
+
+.stage{padding:0 4vw 10px}
+.frame{background:#10191C;padding:14px;border:1px solid #C3C0B9}
+canvas{display:block;width:100%;height:auto;image-rendering:pixelated}
+.readout{display:flex;flex-wrap:wrap;gap:6px 22px;padding-top:12px}
+.readout .label{color:#94CCBB}
+.caption{font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.09em;color:#4B5658;padding-top:10px}
+
+.notes{padding:22px 4vw 56px;max-width:900px}
+.notes ol{margin:14px 0 18px;padding-left:22px}
+.notes li{margin-bottom:9px;font-size:14px;line-height:1.7}
+.notes .fine{color:#4B5658;font-size:13px}
+
+@media(max-width:900px){.panel{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.panel{grid-template-columns:1fr}.bar{flex-direction:column;align-items:flex-start;gap:6px}}
+
+/* tira comparativa de dithers */
+.strip-block{padding:6px 4vw 10px}
+.strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:12px}
+.cell{margin:0;background:#10191C;padding:6px}
+.cell canvas{display:block;width:100%;height:auto;image-rendering:pixelated}
+.cell figcaption{color:#94CCBB;padding-top:6px;font-size:9px}
+.fine{font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.06em;color:#4B5658;margin-top:10px}
+@media(max-width:900px){.strip{grid-template-columns:repeat(2,minmax(0,1fr))}}

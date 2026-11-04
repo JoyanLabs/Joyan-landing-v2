@@ -1,0 +1,90 @@
+.atlas-h1{--bg:#10191C;--panel:#182A30;--ink:#E4EEEA;--muted:#ACC3C1;--accent:#94CCBB}
+.atlas-h1 .s0{background:#183039}
+.atlas-h1 .s1{background:#244C5B}
+.atlas-h1 .s2{background:#346E7B}
+.atlas-h1 .s3{background:#4D9199}
+.atlas-h1 .s4{background:#73B7B0}
+.atlas-h1 .s5{background:#A8D3BA}
+.atlas-h1 .s6{background:#D5E5CF}
+.atlas-h3{--bg:#17191F;--panel:#252A36;--ink:#E9E7F0;--muted:#BCBDD0;--accent:#C8BEDD}
+.atlas-h3 .s0{background:#252D3D}
+.atlas-h3 .s1{background:#3F4C68}
+.atlas-h3 .s2{background:#5F7094}
+.atlas-h3 .s3{background:#8291B3}
+.atlas-h3 .s4{background:#AAAACC}
+.atlas-h3 .s5{background:#C9B5CE}
+.atlas-h3 .s6{background:#E8D7E2}
+.atlas-a1{--bg:#10191C;--panel:#182A30;--ink:#E4EEEA;--muted:#ACC3C1;--accent:#AAD8D6}
+.atlas-a1 .s0{background:#162F3D}
+.atlas-a1 .s1{background:#244A63}
+.atlas-a1 .s2{background:#376C8B}
+.atlas-a1 .s3{background:#5795AD}
+.atlas-a1 .s4{background:#7CB9C5}
+.atlas-a1 .s5{background:#AAD8D6}
+.atlas-a1 .s6{background:#DAEEE7}
+.atlas-a2{--bg:#10191C;--panel:#182A30;--ink:#E4EEEA;--muted:#ACC3C1;--accent:#BCD7B5}
+.atlas-a2 .s0{background:#18352F}
+.atlas-a2 .s1{background:#285347}
+.atlas-a2 .s2{background:#3C7563}
+.atlas-a2 .s3{background:#61947C}
+.atlas-a2 .s4{background:#8FBA9B}
+.atlas-a2 .s5{background:#BCD7B5}
+.atlas-a2 .s6{background:#E1ECD4}
+.atlas-a3{--bg:#17191F;--panel:#252A36;--ink:#E9E7F0;--muted:#BCBDD0;--accent:#D4D8E7}
+.atlas-a3 .s0{background:#282D42}
+.atlas-a3 .s1{background:#454D6C}
+.atlas-a3 .s2{background:#657497}
+.atlas-a3 .s3{background:#8C9CBC}
+.atlas-a3 .s4{background:#B6C0D6}
+.atlas-a3 .s5{background:#D4D8E7}
+.atlas-a3 .s6{background:#EDECF2}
+.atlas-a4{--bg:#17191F;--panel:#252A36;--ink:#E9E7F0;--muted:#BCBDD0;--accent:#DDC6D2}
+.atlas-a4 .s0{background:#30283D}
+.atlas-a4 .s1{background:#50415E}
+.atlas-a4 .s2{background:#75607E}
+.atlas-a4 .s3{background:#9A829F}
+.atlas-a4 .s4{background:#BFA8BB}
+.atlas-a4 .s5{background:#DDC6D2}
+.atlas-a4 .s6{background:#F0E2E6}
+.atlas-b1{--bg:#10191C;--panel:#182A30;--ink:#E4EEEA;--muted:#ACC3C1;--accent:#94CCBB}
+.atlas-b1 .s0{background:#183039}
+.atlas-b1 .s1{background:#244C5B}
+.atlas-b1 .s2{background:#346E7B}
+.atlas-b1 .s3{background:#4D9199}
+.atlas-b1 .s4{background:#73B7B0}
+.atlas-b1 .s5{background:#A8D3BA}
+.atlas-b1 .s6{background:#D5E5CF}
+.atlas-b1 .s7{background:#865941}
+.atlas-b1 .s8{background:#C18D68}
+.atlas-b1 .s9{background:#E8C29B}
+.atlas-b2{--bg:#17191F;--panel:#252A36;--ink:#E9E7F0;--muted:#BCBDD0;--accent:#C8BEDD}
+.atlas-b2 .s0{background:#252D3D}
+.atlas-b2 .s1{background:#3F4C68}
+.atlas-b2 .s2{background:#5F7094}
+.atlas-b2 .s3{background:#8291B3}
+.atlas-b2 .s4{background:#AAAACC}
+.atlas-b2 .s5{background:#C9B5CE}
+.atlas-b2 .s6{background:#E8D7E2}
+.atlas-b2 .s7{background:#8B703F}
+.atlas-b2 .s8{background:#C2A368}
+.atlas-b2 .s9{background:#E7D0A3}
+.atlas-c1{--bg:#10191C;--panel:#182A30;--ink:#E4EEEA;--muted:#ACC3C1;--accent:#94CCBB}
+.atlas-c1 .s0{background:#183039}
+.atlas-c1 .s1{background:#244C5B}
+.atlas-c1 .s2{background:#346E7B}
+.atlas-c1 .s3{background:#4D9199}
+.atlas-c1 .s4{background:#73B7B0}
+.atlas-c1 .s5{background:#A8D3BA}
+.atlas-c1 .s6{background:#D5E5CF}
+.atlas-c1 .s7{background:#D0A19A}
+.atlas-c1 .s8{background:#D7BE8C}
+.atlas-c2{--bg:#17191F;--panel:#252A36;--ink:#E9E7F0;--muted:#BCBDD0;--accent:#C8BEDD}
+.atlas-c2 .s0{background:#252D3D}
+.atlas-c2 .s1{background:#3F4C68}
+.atlas-c2 .s2{background:#5F7094}
+.atlas-c2 .s3{background:#8291B3}
+.atlas-c2 .s4{background:#AAAACC}
+.atlas-c2 .s5{background:#C9B5CE}
+.atlas-c2 .s6{background:#E8D7E2}
+.atlas-c2 .s7{background:#A6C4B3}
+.atlas-c2 .s8{background:#C9CD9C}

@@ -1,0 +1,20 @@
+.g-h1-papel .r0{background:#1B2B2C}
+.g-h1-papel .r1{background:#2A4342}
+.g-h1-papel .r2{background:#3B5B59}
+.g-h1-papel .r3{background:#547674}
+.g-h1-papel .r4{background:#7C9895}
+.g-h1-papel .r5{background:#ADC0BB}
+.g-h1-papel .r6{background:#D8DFDA}
+.g-h1-papel .tone-accent{background:#1C6B61}
+.g-h3-papel .r0{background:#232735}
+.g-h3-papel .r1{background:#333A4E}
+.g-h3-papel .r2{background:#4A5470}
+.g-h3-papel .r3{background:#6C7794}
+.g-h3-papel .r4{background:#98A2B8}
+.g-h3-papel .r5{background:#C0C6D4}
+.g-h3-papel .r6{background:#E0E2E8}
+.g-h3-papel .tone-accent{background:#554F78}
+.g-h1-negro{--bg:#10191C;--panel:#182A30;--ink:#E4EEEA;--muted:#ACC3C1;--accent:#94CCBB}
+.g-h1-papel{--bg:#F2EFE7;--panel:#E4E0D6;--ink:#15191A;--muted:#4B5658;--accent:#1C6B61}
+.g-h3-negro{--bg:#17191F;--panel:#252A36;--ink:#E9E7F0;--muted:#BCBDD0;--accent:#C8BEDD}
+.g-h3-papel{--bg:#F1EFEA;--panel:#E3E1DC;--ink:#1A1B22;--muted:#4E5063;--accent:#554F78}

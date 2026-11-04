@@ -1,0 +1,102 @@
+{
+  "negro": {
+    "file": "slice-negro.html",
+    "label": "Negro",
+    "other": "papel",
+    "hybrid": false,
+    "ground": {
+      "bg": "#10191C",
+      "panel": "#182A30",
+      "ink": "#E4EEEA",
+      "muted": "#ACC3C1",
+      "accent": "#94CCBB",
+      "line": "#182A30",
+      "ramp": [
+        "#183039",
+        "#244C5B",
+        "#346E7B",
+        "#4D9199",
+        "#73B7B0",
+        "#A8D3BA",
+        "#D5E5CF"
+      ],
+      "fold": "#A8D3BA",
+      "note": "Luz sobre fondo oscuro: la escena emite."
+    },
+    "radius": 1.0,
+    "mobile_radius": 1.5
+  },
+  "papel": {
+    "file": "slice-papel.html",
+    "label": "Papel",
+    "other": "negro",
+    "hybrid": false,
+    "ground": {
+      "bg": "#F2EFE7",
+      "panel": "#E4E0D6",
+      "ink": "#15191A",
+      "muted": "#4B5658",
+      "accent": "#1C6B61",
+      "line": "#CFC9BC",
+      "ramp": [
+        "#1B2B2C",
+        "#2A4342",
+        "#3B5B59",
+        "#547674",
+        "#7C9895",
+        "#ADC0BB",
+        "#D8DFDA"
+      ],
+      "fold": "#1C6B61",
+      "note": "Tinta sobre papel: la escena absorbe."
+    },
+    "radius": 1.55,
+    "mobile_radius": 1.55
+  },
+  "hibrido": {
+    "file": "slice-hibrido.html",
+    "label": "Híbrido",
+    "other": "negro",
+    "hybrid": true,
+    "top": {
+      "bg": "#10191C",
+      "panel": "#182A30",
+      "ink": "#E4EEEA",
+      "muted": "#ACC3C1",
+      "accent": "#94CCBB",
+      "line": "#182A30",
+      "ramp": [
+        "#183039",
+        "#244C5B",
+        "#346E7B",
+        "#4D9199",
+        "#73B7B0",
+        "#A8D3BA",
+        "#D5E5CF"
+      ],
+      "fold": "#A8D3BA",
+      "note": "Luz sobre fondo oscuro: la escena emite."
+    },
+    "bottom": {
+      "bg": "#F2EFE7",
+      "panel": "#E4E0D6",
+      "ink": "#15191A",
+      "muted": "#4B5658",
+      "accent": "#1C6B61",
+      "line": "#CFC9BC",
+      "ramp": [
+        "#1B2B2C",
+        "#2A4342",
+        "#3B5B59",
+        "#547674",
+        "#7C9895",
+        "#ADC0BB",
+        "#D8DFDA"
+      ],
+      "fold": "#1C6B61",
+      "note": "Tinta sobre papel: la escena absorbe."
+    },
+    "radius": 1.0,
+    "mobile_radius": 1.5
+  }
+}

@@ -1,0 +1,18 @@
+/* Michroma as display, tuned ceiling. Reading in Archivo. Study only. */
+
+@font-face{font-family:"Michroma";src:url('typo/fonts/michroma-400.woff2') format('woff2');font-display:swap;font-weight:400}
+@font-face{font-family:"Archivo";src:url('typo/fonts/archivo-latin.woff2') format('woff2');font-display:swap;font-weight:100 900}
+.tipo-m{--reading:Archivo,system-ui,sans-serif}
+.tipo-m h1{font-family:"Michroma",sans-serif;font-weight:400;font-size:clamp(38px,5.6vw,80px);line-height:1.06;letter-spacing:-.03em}
+.tipo-m h2{font-family:var(--reading);font-weight:500;font-size:clamp(26px,3vw,42px);line-height:1.15;letter-spacing:-.03em}
+.tipo-m .poster-title{font-family:var(--reading);font-weight:500;font-size:clamp(26px,3vw,44px);line-height:1.1;letter-spacing:-.03em}
+.tipo-m .lede{font-family:var(--reading);font-size:18px}
+.tipo-m .two p,.tipo-m .list p,.tipo-m .notes-copy p,.tipo-m .hero-foot p,.tipo-m .foot p{font-family:var(--reading)}
+.tipo-m .two p{font-size:17px;line-height:1.7;max-width:60ch}
+.tipo-m .list p{font-size:14px}
+.tipo-m .notes-copy p{font-size:15px}
+@media(max-width:900px){
+.tipo-m h1{font-size:clamp(30px,7.6vw,52px)}
+.tipo-m h2{font-size:clamp(20px,5.4vw,30px)}
+.tipo-m .two p{font-size:16px}
+}

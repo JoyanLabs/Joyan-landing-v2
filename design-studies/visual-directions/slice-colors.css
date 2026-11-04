@@ -1,0 +1,5 @@
+.g-negro{--bg:#10191C;--panel:#182A30;--ink:#E4EEEA;--muted:#ACC3C1;--accent:#94CCBB;--line:#182A30}
+.g-papel{--bg:#F2EFE7;--panel:#E4E0D6;--ink:#15191A;--muted:#4B5658;--accent:#1C6B61;--line:#CFC9BC}
+.g-hibrido{--bg:#F2EFE7;--panel:#E4E0D6;--ink:#15191A;--muted:#4B5658;--accent:#1C6B61;--line:#CFC9BC}
+.g-hibrido .block-top{--bg:#10191C;--panel:#182A30;--ink:#E4EEEA;--muted:#ACC3C1;--accent:#94CCBB;--line:#182A30}
+.g-hibrido{background:#F2EFE7}
