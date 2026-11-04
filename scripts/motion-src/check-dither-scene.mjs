@@ -10,7 +10,10 @@ import { loadPlaywright } from './render.mjs';
 import { SCENE } from './render-dither-scene.mjs';
 
 const root = resolve(new URL('../..', import.meta.url).pathname);
-const out = resolve(root, 'dist-motion-verify/wu12');
+// WU30 — every run gets its own --out directory (the WU32 rule: a checker must
+// never rewrite another round's recorded evidence). Default stays the WU12 record.
+const outArg = process.argv.indexOf('--out');
+const out = resolve(root, outArg > -1 ? process.argv[outArg + 1] : 'dist-motion-verify/wu12');
 const red = process.argv.includes('--red');
 const base = 'http://127.0.0.1:4321';
 const failures = [], views = [], controls = [];
@@ -232,7 +235,7 @@ try {
       preservation.push({ path, unchanged, sha256: hash(current) });
     }
     check(preservation.find(p => p.path==='public/assets/dither/hero-dither.png').sha256==='b9c1ad1b6bb68ba8dc813fb329e0e25b67fbf393d4ad5e8c3aa2ad9d9041ec18', 'protected hero hash changed');
-    check(preservation.find(p => p.path==='public/assets/brand/og-default.png').sha256==='a49aabb8334ae756eb207996dc3e83fe343676fcac0400e9e32358886961921e', 'protected OG hash changed');
+    check(preservation.find(p => p.path==='public/assets/brand/og-default.png').sha256==='448db64220198797744cac17f7d4b1a373c07c67a92a182ed5fd73d57c7c0645', 'protected OG hash changed');
     await writeFile(resolve(out,'preservation.json'),JSON.stringify(preservation,null,2)+'\n');
     views.push({ label: 'preservation', paths: preservation.length, unchanged: preservation.every(p => p.unchanged), originalEncodes: originalFilms.length });
   }

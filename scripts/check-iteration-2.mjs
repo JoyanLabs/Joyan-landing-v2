@@ -23,9 +23,14 @@
  *      contrast >= 4.5:1, and compiled CSS (fixed/inset/z-index/pointer-
  *      events, reduced-motion static).
  *   7. Unit C dither assets — every output PNG exists with exact intrinsic
- *      dimensions, stays within its byte budget, and keeps neutral/reserved-
- *      amber tones; OG retains the exact wordmark and is not clobbered by the
- *      generator's negative budget gate.
+ *      dimensions and stays within its byte budget. The hero/scene dither keep
+ *      neutral/reserved-amber tones. The OG (WU30) is re-pinned to the page's
+ *      own aesthetic: its ground is the serialised hero composition rendered by
+ *      the same engine, every colour it ships is the ground or a ground ->
+ *      joyan-page-entry blend on the card's coverage ladder (enumerated), its
+ *      text is committed vector outlines (Michroma + JetBrains Mono, OFL) whose
+ *      full-alpha pixels are exact ink, the committed generator reproduces the
+ *      card byte-identically, and the negative budget gate cannot clobber it.
  *   8. Unit D MAGI motion — executed network model (7 nodes/6 edges/30
  *      particles on the diagram grid), canvas island wiring + a11y on both
  *      locales, compiled canvas chunk guards (DPR cap, 30fps, observers,
@@ -39,12 +44,17 @@
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import sharp from 'sharp';
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 import yaml from 'js-yaml';
 import ts from 'typescript';
+// WU30 — the OG card's single source of truth (geometry + colour model), shared
+// with the generator so the two cannot drift; the checker still re-rasterises
+// the committed outlines and reads the committed PNG's own pixels.
+import { IMAGE_PALETTES, PAGE_PALETTE_ID } from './scene-src/image-pipeline.mjs';
+import * as ogCard from './motion-src/og-card.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const DIST = resolve(ROOT, 'dist');
@@ -749,23 +759,77 @@ if (!/animation:/.test(shellTextureRule)) {
 }
 
 // ---------------------------------------------------------------------------
-// 7. Unit C — baked hero poster + independent static OG.
+// 7. Unit C — baked hero poster + the WU30 OG card.
+//
+//    WU30 REPLACES the old two-colour dithered-wordmark card with the page's own
+//    aesthetic, loudly: its ground is the SAME serialised hero composition the
+//    public page renders (same convert call, roll, `joyan-page` palette and
+//    stars/aurora/wash/vignette overlays), rasterised by the same engine in Node
+//    with no browser; its text is committed vector outlines (Michroma + JetBrains
+//    Mono — both OFL) so the generator needs no font at build time. The old
+//    palette heuristic and the old `<text>`-based wordmark mask are replaced by:
+//      * an ENUMERATED colour model — every shipped colour is the ground or a
+//        ground -> joyan-page-entry blend on a fixed coverage ladder;
+//      * a text-preservation assertion over BOTH outline layers (full-alpha
+//        pixels are the exact declared ink) plus the prompt's amber mark;
+//      * a byte-identity assertion against two fresh generator runs.
+// ---------------------------------------------------------------------------
 const tonePaletteOk = (palette) => palette.length > 0 && palette.every((color) => {
   const [r, g, b] = [1, 3, 5].map((offset) => parseInt(color.slice(offset, offset + 2), 16));
   const neutral = Math.max(r, g, b) - Math.min(r, g, b) <= 7;
   const hue = 60 * (g - b) / (r - b);
   return neutral || (r > g && g > b && hue >= 30 && hue <= 50);
 });
-const ogPaletteOk = (palette) => palette.length > 2 && tonePaletteOk(palette) &&
-  palette.some((color) => {
-    const [r, g, b] = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16));
-    return r > g && g > b && r - b > 7;
-  });
+// WU30 — the OG card's exhaustive colour model. `cardPalette` returns every
+// colour the card may contain: the ground plus each non-ground `joyan-page` entry
+// at every rung of the card's coverage ladder.
+const PAGE_PALETTE_HEXES = IMAGE_PALETTES.find((entry) => entry.id === PAGE_PALETTE_ID).palette;
+const OG_CARD_PALETTE = new Set([...ogCard.cardPalette(PAGE_PALETTE_HEXES).keys()].map((hex) => hex.toUpperCase()));
+const OG_CARD_INKS = ogCard.cardInks(PAGE_PALETTE_HEXES);
+const ogPaletteOk = (palette) => palette.length > 2 && palette.every((hex) => OG_CARD_PALETTE.has(hex.toUpperCase()));
+const ogGroundRgb = ogCard.hexToRgb(ogCard.GROUND_HEX);
+/**
+ * Classify every shipped colour back onto the ladder: the (joyan-page entry,
+ * coverage rung) nearest to it, when that match is exact to within rounding.
+ * This is what proves the ground is the page's DOT FIELD and not a flat wash —
+ * a flat fill would touch one rung per entry, a dithered field touches many.
+ */
+const ogLadderRungs = (palette, shipped) => {
+  const entries = ogCard.cardInks(palette).map((ink) => ({ ink, rgb: ogCard.hexToRgb(ink) }));
+  const perInk = new Map(entries.map((entry) => [entry.ink, new Set()]));
+  for (const hex of shipped) {
+    const rgb = ogCard.hexToRgb(hex);
+    let bestInk = null;
+    let bestRung = 0;
+    let bestDistance = Infinity;
+    for (const entry of entries) {
+      const axis = entry.rgb.map((value, channel) => value - ogGroundRgb[channel]);
+      for (let rung = 1; rung <= ogCard.COVERAGE_STEPS; rung++) {
+        let distance = 0;
+        for (let channel = 0; channel < 3; channel++) {
+          const value = Math.round(ogGroundRgb[channel] + (axis[channel] * rung) / ogCard.COVERAGE_STEPS);
+          distance += (value - rgb[channel]) ** 2;
+        }
+        if (distance < bestDistance) { bestDistance = distance; bestInk = entry.ink; bestRung = rung; }
+      }
+    }
+    if (bestDistance <= 2) perInk.get(bestInk).add(bestRung);
+  }
+  return perInk;
+};
 const dimensionsOk = (info, asset) => info.width === asset.width && info.height === asset.height;
 const budgetOk = (bytes, maxBytes) => bytes <= maxBytes;
-const wordmarkOk = (pixels, mask) => {
-  for (let i = 0; i < mask.length / 4; i++) {
-    if (mask[i * 4 + 3] >= 128 && ![244, 242, 237].every((v, ch) => pixels[i * 3 + ch] === v)) return false;
+/** Fully opaque text pixels (mask alpha 255) must be the layer's exact ink. */
+const textPixelsOk = (pixels, mask, box, ink, card) => {
+  for (let py = 0; py < box.height; py++) {
+    for (let px = 0; px < box.width; px++) {
+      if (mask[(py * box.width + px) * 4 + 3] !== 255) continue;
+      const x = box.x + px;
+      const y = box.y + py;
+      if (x < 0 || y < 0 || x >= card.width || y >= card.height) return false;
+      const i = (y * card.width + x) * 3;
+      if (!ink.every((value, channel) => pixels[i + channel] === value)) return false;
+    }
   }
   return true;
 };
@@ -775,6 +839,37 @@ const ASSET_CONTRACT = [
   { path: 'public/assets/brand/og-default.png', width: 1200, height: 628, maxBytes: 100 * 1024 },
   { path: 'public/assets/dither/scene-dither.png', width: 960, height: 540, maxBytes: 80 * 1024 },
 ];
+
+// WU30 — the committed outline SVGs the card's text is drawn from. They must be
+// real vector outlines (never a `<text>` element relying on a system font) and
+// the wordmark must carry the shipped name.
+const OG_OUTLINE_FILES = [ogCard.OUTLINES.wordmark, ogCard.OUTLINES.tagline, ogCard.OUTLINES.prompt];
+let ogOutlinePaths = 0;
+for (const path of OG_OUTLINE_FILES) {
+  const filePath = resolve(ROOT, path);
+  const source = existsSync(filePath) ? read(filePath) : '';
+  const paths = (source.match(/<path\b/g) ?? []).length;
+  if (paths === 0) {
+    fail(`og: ${path} must exist and carry committed vector outlines (derive them with scripts/motion-src/derive-outlines.py)`);
+    continue;
+  }
+  ogOutlinePaths += paths;
+  if (/<text\b/.test(source)) {
+    fail(`og: ${path} must be outlines only — a <text> element would reintroduce a build-time font dependency`);
+  } else {
+    pass(`og: ${path} is ${paths} vector path(s), no <text> font dependency`);
+  }
+}
+{
+  const wordmarkPath = resolve(ROOT, ogCard.OUTLINES.wordmark);
+  const wordmark = existsSync(wordmarkPath) ? read(wordmarkPath) : '';
+  if (/aria-label="Joyan"/.test(wordmark)) {
+    pass('og: the wordmark outlines are labelled "Joyan" (the shipped name)');
+  } else {
+    fail('og: the wordmark outline SVG must carry aria-label="Joyan"');
+  }
+}
+const OG_CARD_PALETTE_SIZE = OG_CARD_PALETTE.size;
 
 for (const asset of ASSET_CONTRACT) {
   const filePath = resolve(ROOT, asset.path);
@@ -812,17 +907,107 @@ for (const asset of ASSET_CONTRACT) {
       fail(`asset: ${asset.path} palette must contain only near-neutral tones (channel spread <= 7) or amber (R > G > B, hue 30–50), got [${info.palette.join(', ')}]`);
     }
   } else {
+    // WU30 colour model: every shipped colour is either the ground or a
+    // ground -> joyan-page-entry blend on the card's coverage ladder.
     if (ogPaletteOk(info.palette)) {
-      pass(`asset: ${asset.path} carries multitone neutrals and reserved amber (hue 30–50)`);
+      pass(`asset: ${asset.path} ships ${info.palette.length} colours, all inside the enumerated card palette (${OG_CARD_PALETTE_SIZE} colours: the ground + ${OG_CARD_INKS.length} joyan-page inks x ${ogCard.COVERAGE_STEPS} coverage rungs)`);
     } else {
-      fail(`asset: ${asset.path} must carry >2 neutral/amber tones including a reserved amber gate, got [${info.palette.join(', ')}]`);
+      const off = info.palette.filter((hex) => !OG_CARD_PALETTE.has(hex.toUpperCase()));
+      fail(`asset: ${asset.path} colour(s) outside the enumerated card palette: [${off.join(', ')}]`);
     }
+    // The ground must actually be the page's DOT FIELD, not a flat wash: a
+    // dithered field spreads across many coverage rungs of many inks.
+    const ladder = ogLadderRungs(PAGE_PALETTE_HEXES, info.palette);
+    const rich = [...ladder.entries()].filter(([, rungs]) => rungs.size >= 5).map(([ink]) => ink);
+    const touched = [...ladder.entries()].filter(([, rungs]) => rungs.size >= 1).map(([ink]) => ink);
+    if (rich.length >= 5) {
+      pass(`asset: ${asset.path} is a dithered field — ${rich.length} joyan-page inks each span >= 5 coverage rungs (${rich.join(', ')})`);
+    } else {
+      fail(`asset: ${asset.path} must be a dithered field: expected >= 5 joyan-page inks across >= 5 rungs, got ${rich.length} (${rich.join(', ')})`);
+    }
+    if (touched.length >= 8) {
+      pass(`asset: ${asset.path} uses ${touched.length}/${OG_CARD_INKS.length} joyan-page entries across the card`);
+    } else {
+      fail(`asset: ${asset.path} must use at least 8 joyan-page entries, found ${touched.length}`);
+    }
+    // Text preservation over BOTH committed outline layers.
     const pixels = await sharp(filePath).removeAlpha().raw().toBuffer();
-    const mask = await sharp(resolve(ROOT, 'scripts/dither-src/wordmark.svg'))
-      .resize(asset.width, asset.height, { fit: 'fill' }).ensureAlpha().raw().toBuffer();
-    if (wordmarkOk(pixels, mask)) pass('asset: OG wordmark alpha>=128 pixels are exact bone-50');
-    else fail('asset: OG wordmark mask must remain exact bone-50');
+    let solidPixels = 0;
+    for (const layer of ogCard.LAYERS) {
+      const svgText = read(resolve(ROOT, layer.svg));
+      const box = ogCard.layerBox(svgText, layer);
+      const mask = await sharp(resolve(ROOT, layer.svg))
+        .resize(box.width, box.height, { fit: 'fill' }).ensureAlpha().raw().toBuffer();
+      const ink = ogCard.hexToRgb(ogCard.INKS[layer.ink]);
+      let solid = 0;
+      for (let i = 0; i < box.width * box.height; i++) if (mask[i * 4 + 3] === 255) solid += 1;
+      solidPixels += solid;
+      if (solid === 0) {
+        fail(`asset: OG ${layer.id} outlines are missing from the card (no fully opaque pixels)`);
+      } else if (textPixelsOk(pixels, mask, box, ink, ogCard.CARD)) {
+        pass(`asset: OG ${layer.id} paints ${solid} fully opaque ${ogCard.INKS[layer.ink]} pixels (box ${box.x},${box.y} ${box.width}x${box.height})`);
+      } else {
+        fail(`asset: OG ${layer.id} fully opaque pixels must be the exact ink ${ogCard.INKS[layer.ink]}`);
+      }
+    }
+    if (solidPixels > 5000) {
+      pass(`asset: OG carries ${solidPixels} fully opaque outline pixels (both text layers present)`);
+    } else {
+      fail(`asset: OG must carry the wordmark and the supporting line as solid outlines, got ${solidPixels} fully opaque pixels`);
+    }
+    // Amber is the reserved attention mark: the prompt layer must paint it (the
+    // scene's own field also uses the page palette, so this is the authored use).
+    const promptLayer = ogCard.LAYERS.find((layer) => layer.id === 'prompt');
+    const amberRgb = ogCard.hexToRgb(ogCard.INKS[promptLayer.ink]);
+    let amberPixels = 0;
+    for (let i = 0; i < ogCard.CARD.width * ogCard.CARD.height; i++) {
+      if (amberRgb.every((value, channel) => pixels[i * 3 + channel] === value)) amberPixels += 1;
+    }
+    if (amberPixels > 0) {
+      pass(`asset: OG carries the reserved amber ${ogCard.INKS[promptLayer.ink]} as the attention mark (${amberPixels} exact pixels)`);
+    } else {
+      fail(`asset: OG must paint the attention mark in the reserved amber ${ogCard.INKS[promptLayer.ink]}`);
+    }
   }
+}
+
+// WU30 — determinism: two fresh generator runs, written away from the committed
+// asset, must be byte-identical to each other AND to the committed card.
+const OG_REGEN_DIR = resolve(ROOT, 'dist-motion-verify/wu30/check-iteration-2');
+mkdirSync(OG_REGEN_DIR, { recursive: true });
+const ogPath = resolve(ROOT, 'public/assets/brand/og-default.png');
+const ogHash = () => createHash('sha256').update(readFileSync(ogPath)).digest('hex');
+const runGenerator = (target) => spawnSync('node', ['scripts/generate-dither.mjs'], {
+  cwd: ROOT,
+  env: { ...process.env, DITHER_OUT: target },
+  encoding: 'utf8',
+});
+const beforeRegen = ogHash();
+const regenRuns = ['run-a.png', 'run-b.png'].map((name) => {
+  const target = resolve(OG_REGEN_DIR, name);
+  const run = runGenerator(target);
+  const bytes = existsSync(target) ? readFileSync(target) : null;
+  return { name, target, status: run.status, bytes, sha256: bytes ? createHash('sha256').update(bytes).digest('hex') : null };
+});
+if (regenRuns.every((run) => run.status === 0 && run.bytes)) {
+  pass('og: the generator wrote a card on both repeat runs (DITHER_OUT, committed asset untouched)');
+} else {
+  fail(`og: generator must support DITHER_OUT and exit 0, got statuses [${regenRuns.map((r) => r.status).join(', ')}]`);
+}
+if (regenRuns[0].sha256 && regenRuns[0].sha256 === regenRuns[1].sha256) {
+  pass(`og: repeat generation is byte-identical (sha256 ${regenRuns[0].sha256})`);
+} else {
+  fail(`og: repeat generation must be byte-identical, got [${regenRuns.map((r) => r.sha256).join(', ')}]`);
+}
+if (regenRuns[0].sha256 === beforeRegen) {
+  pass(`og: the committed card IS the generator's output (sha256 ${beforeRegen})`);
+} else {
+  fail(`og: the committed card must be the generator's output — committed ${beforeRegen}, regenerated ${regenRuns[0].sha256}`);
+}
+if (ogHash() === beforeRegen) {
+  pass('og: regeneration never wrote the committed asset');
+} else {
+  fail('og: regeneration clobbered the committed OG');
 }
 
 // Budget gate: the generator must exit 1 when an asset exceeds its byte
@@ -834,19 +1019,47 @@ for (const color of ['#008080', '#800080', '#ff0000', '#ffff00', '#080000']) {
   if (!tonePaletteOk([color])) pass(`control: off-brand ${color} rejected`);
   else fail(`control: off-brand ${color} accepted`);
 }
-const goodPalette = ['#0b0b0c', '#f4f2ed', '#ffb000'];
+const snapColour = ogCard.makeSnapper(PAGE_PALETTE_HEXES);
+const snapHex = (rgb) => ogCard.rgbToHex(snapColour(...rgb)).toUpperCase();
+const groundRgb = ogCard.hexToRgb(ogCard.GROUND_HEX);
 const controls = [
   ['neutral boundary spread7 / spread8', tonePaletteOk(['#070000']) && !tonePaletteOk(['#080000'])],
-  ['empty and binary OG palette', !ogPaletteOk([]) && !ogPaletteOk([INK_HEX, BONE_HEX])],
-  ['valid tone/amber OG palette', ogPaletteOk(goodPalette)],
-  ['off-brand multitone OG palette', !ogPaletteOk([...goodPalette, '#008080'])],
+  ['empty OG palette rejected', !ogPaletteOk([])],
+  ['enumerated OG palette accepts the ground and the reserved amber', ogPaletteOk(['#0b0b0c', '#f4f2ed', '#ffb000'])],
+  ['enumerated OG palette accepts both card text inks', ogPaletteOk([ogCard.INKS.wordmark, ogCard.INKS.tagline, ogCard.INKS.prompt])],
+  ['enumerated OG palette rejects off-brand hues', ['#008080', '#800080', '#ff0000', '#ffff00', '#080000'].every((color) => !ogPaletteOk([color]))],
+  ['enumerated OG palette rejects colours the page palette does not have', !ogPaletteOk(['#ff2200', '#00ff00'])],
+  ['snapper maps any colour onto the enumerated palette',
+    [snapHex([0, 0, 0]), snapHex([255, 255, 255]), snapHex([123, 45, 200]), snapHex([12, 200, 90])]
+      .every((hex) => OG_CARD_PALETTE.has(hex))],
+  ['snapper preserves an exact palette colour',
+    snapHex(ogCard.hexToRgb(ogCard.INKS.wordmark)) === ogCard.INKS.wordmark.toUpperCase()
+    && snapHex(ogCard.hexToRgb(ogCard.INKS.prompt)) === ogCard.INKS.prompt.toUpperCase()],
+  ['every enumerated colour lies on a ground -> joyan-page-entry segment',
+    // Rounding a rung to integers moves a channel by up to half a unit, and the
+    // anchor channel's own rounding scales into the others; two units is the
+    // honest bound for the ladder, and it still rejects any off-palette hue.
+    [...ogCard.cardPalette(PAGE_PALETTE_HEXES).values()].every((rgb) => ogCard.cardInks(PAGE_PALETTE_HEXES).some((ink) => {
+      const target = ogCard.hexToRgb(ink);
+      const axis = target.map((value, channel) => value - groundRgb[channel]);
+      const anchor = axis.findIndex((value) => Math.abs(value) > 4);
+      if (anchor < 0) return rgb.every((value, channel) => value === groundRgb[channel]);
+      const t = (rgb[anchor] - groundRgb[anchor]) / axis[anchor];
+      return t >= 0 && t <= 1 && rgb.every((value, channel) => Math.abs(value - (groundRgb[channel] + axis[channel] * t)) <= 2);
+    }))],
+  ['outline svg without width/height is rejected',
+    (() => { try { ogCard.svgSize('<svg viewBox="0 0 1 1"></svg>'); return false; } catch { return true; } })()],
+  ['text preservation rejects a corrupted opaque pixel',
+    !textPixelsOk(Buffer.from([243, 242, 237]), Buffer.from([0, 0, 0, 255]), { x: 0, y: 0, width: 1, height: 1 },
+      ogCard.hexToRgb(ogCard.INKS.wordmark), ogCard.CARD)
+    && textPixelsOk(Buffer.from([244, 242, 237]), Buffer.from([0, 0, 0, 255]), { x: 0, y: 0, width: 1, height: 1 },
+      ogCard.hexToRgb(ogCard.INKS.wordmark), ogCard.CARD)
+    && textPixelsOk(Buffer.from([11, 11, 12]), Buffer.from([0, 0, 0, 254]), { x: 0, y: 0, width: 1, height: 1 },
+      ogCard.hexToRgb(ogCard.INKS.wordmark), ogCard.CARD)],
   ['dimensions', dimensionsOk({ width: 1200, height: 628 }, ASSET_CONTRACT[1]) && !dimensionsOk({ width: 1199, height: 628 }, ASSET_CONTRACT[1])],
   ['budget boundary', budgetOk(102400, 102400) && !budgetOk(102401, 102400)],
-  ['wordmark alpha boundary/corruption', wordmarkOk(Buffer.from([244, 242, 237]), Buffer.from([0, 0, 0, 128])) && !wordmarkOk(Buffer.from([243, 242, 237]), Buffer.from([0, 0, 0, 128])) && wordmarkOk(Buffer.from([11, 11, 12]), Buffer.from([0, 0, 0, 127]))],
 ];
 for (const [name, ok] of controls) (ok ? pass : fail)(`control: ${name}`);
-const ogPath = resolve(ROOT, 'public/assets/brand/og-default.png');
-const ogHash = () => createHash('sha256').update(readFileSync(ogPath)).digest('hex');
 const beforeGate = ogHash();
 console.log('iteration-2: running dither budget gate test (DITHER_BUDGET_SCALE=0.0001)...');
 const gate = spawnSync('node', ['scripts/generate-dither.mjs'], {
@@ -1490,17 +1703,17 @@ const WU20_LANDING_SET = {
   'client.kF-MUc6b.js': { gz: 27057, sha256: 'c72b737a3f669a7845f10ec12cf2206a3d4f964c2aef13d4572c6b831b74937d' },
   // WU33 re-measure (never silently): the entry sheds the retired name
   // assembly and carries the fateIn decode phase (the content gate is gone).
-  'JoyanComingHero.astro_astro_type_script_index_0_lang.BHVP9SnZ.js': { gz: 2635, sha256: 'e1502e0ca40d7ef031c52cfe716b7984289093cad7558e3612dcc0fa97ffe417' },
+  'JoyanComingHero.astro_astro_type_script_index_0_lang.DRU98Nno.js': { gz: 2635, sha256: 'f82136ddf2039d62b4c98bc8a72f9a86438cdbd15b2fb5bb1b08b37431469d75' },
   // WU33 re-measure (never silently): the overlays chunk grows with the
   // halftone mask overlay (the public reveal).
-  'overlays.3d7PqE95.js': { gz: 9967, sha256: '36cdc12726e0cba12f311e51fb1df99cc846921a0b9a67741e432b62e5e34f8e' },
+  'overlays.CuUCykF4.js': { gz: 9997, sha256: '0765a4020b975b54ae365c0c0783834431c107c7ffa3b422f1d243abcc07a049' },
   // WU33 re-measure (never silently): the ramp module grows with the mask
   // ramp (MASK_RAMP + sequenceMaskScene) and SHRINKS overall because the
   // public runtime no longer pulls the retired warp-burst code. The two
   // client chunks stay BYTE-IDENTICAL.
-  'sequence-warp.BilRXtOo.js': { gz: 921, sha256: '4ec84718a0fc8ea3b205c42c84686949eca2e8090ee907438609f0c66b3803db' },
+  'sequence-warp.CShj-b0v.js': { gz: 921, sha256: '5b622fb162f8679fa6dc5ed99909f6fff491aa4297efd789194125f5694961d0' },
 };
-const WU20_LANDING_GZIP = 100882;
+const WU20_LANDING_GZIP = 100912; // WU42 re-measure: +30 B gzip from BAYER2 + densityForViewport in the shared engine module.
 const WU20_DELTA_LIMIT = 22 * 1024; // 22528 bytes, unchanged rule
 {
   const distJs = existsSync(cssDir) ? readdirSync(cssDir).filter((file) => file.endsWith('.js')) : [];
