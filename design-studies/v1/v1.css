@@ -153,19 +153,21 @@ body {
   --plane-ink: 1;
   --plane-tone: 1;
   --plane-blur: 0px;
-  --plane-rings: 1;
-  opacity: var(--plane-ink);
   filter: saturate(var(--plane-tone)) blur(var(--plane-blur));
-  transition: opacity 260ms ease-out, filter 260ms ease-out;
+  transition: filter 260ms ease-out;
 }
-.node-plane[data-treatment='focus'] { --plane-ink: 1; --plane-tone: 1; --plane-blur: 0px; --plane-rings: 1; }
-.node-plane[data-treatment='middle'] { --plane-ink: .96; --plane-tone: .6; --plane-blur: 0px; --plane-rings: .6; }
-.node-plane[data-treatment='back'] { --plane-ink: .9; --plane-tone: .42; --plane-blur: .8px; --plane-rings: .38; }
-/* Ink weight steps down with depth; the affordance under the pointer or the
-   keyboard never does, so a focus ring is never attenuated. */
-.node-plane .ring { opacity: var(--plane-rings); }
-.node-plane .node-lit .ring, .node-plane .node-selected .ring { opacity: 1; }
-@media (prefers-reduced-motion: reduce) { .node-plane { transition: none; } }
+.node-plane[data-treatment='focus'] { --plane-ink: 1; --plane-tone: 1; --plane-blur: 0px; }
+.node-plane[data-treatment='middle'] { --plane-ink: .96; --plane-tone: .6; }
+.node-plane[data-treatment='back'] { --plane-ink: .9; --plane-tone: .42; --plane-blur: .8px; }
+/* Ink weight steps down with depth, on the star body only. THE GROUP CARRIES NO
+   OPACITY: a child cannot cancel its parent's opacity, so an `opacity: 1` ring
+   inside an attenuated group was still attenuated (JD-B-001, found by the blind
+   judge). The ring is a direct sibling of the core, so `:not(.ring)` excludes it
+   and the keyboard affordance never dims. On the farthest plane the ring still
+   shares its plane's 0.8px blur: that is the depth cue, not attenuation. */
+.node-plane g > :not(.ring) { opacity: var(--plane-ink); transition: opacity 260ms ease-out; }
+.node-plane .node-selected > :not(.ring) { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .node-plane, .node-plane g > :not(.ring) { transition: none; } }
 .node-plane[data-node-plane='far'] .ring { stroke-dasharray: 1.5 1; }
 .node-plane[data-node-plane='mid'] .ring { stroke-dasharray: 3 1; }
 .node-plane .node-selected { transform-box: fill-box; transform-origin: center; transform: scale(1.12); }

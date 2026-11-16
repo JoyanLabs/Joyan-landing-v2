@@ -430,7 +430,7 @@ for (const row of rows) {
 const table = ['| plano | luminancia base | luminancia foco | razón | umbral | veredicto |',
   '| --- | --- | --- | --- | --- | --- |',
   ...rows.map((row) => `| ${row.plane} @ ${row.viewport} | ${lum(row.base)} | ${lum(row.foco)} | **${row.ratio.toFixed(3)}** | ≥ ${THRESHOLD} | **${row.verdict}** |`)].join('\n');
-const floors = ['| plano | máscara α>0,5 base → foco | cobertura | luz integrada base → foco | razón de luz | alfa máx. foco | p50 base / foco | p95 base / foco |',
+const floors = ['| plano | máscara α>0,5 base → foco | cobertura | luz integrada base → foco | razón de luz | alfa máx. foco | p50 / p95 base | p50 / p95 foco |',
   '| --- | --- | --- | --- | --- | --- | --- | --- |',
   ...rows.map((row) => `| ${row.plane} @ ${row.viewport} | ${row.pixels[0]} → ${row.pixels[1]} | ${(row.coverage * 100).toFixed(1)} % | ${row.light[0].toFixed(1)} → ${row.light[1].toFixed(1)} | ${row.lightRatio.toFixed(3)} | ${row.alphaMax[1].toFixed(3)} | ${row.baseP} | ${row.focoP} |`)].join('\n');
 
@@ -446,7 +446,7 @@ ${table}
 
 ## Piso absoluto (ningún plano oculto)
 
-| plano | máscara α>0,5 base → foco | cobertura | luz integrada base → foco | razón de luz | alfa máx. foco | p50 base / foco | p95 base / foco |
+| plano | máscara α>0,5 base → foco | cobertura | luz integrada base → foco | razón de luz | alfa máx. foco | p50 / p95 base | p50 / p95 foco |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 ${rows.map((row) => `| ${row.plane} @ ${row.viewport} | ${row.pixels[0]} → ${row.pixels[1]} | ${(row.coverage * 100).toFixed(1)} % | ${row.light[0].toFixed(1)} → ${row.light[1].toFixed(1)} | ${row.lightRatio.toFixed(3)} | ${row.alphaMax[1].toFixed(3)} | ${row.baseP} | ${row.focoP} |`).join('\n')}
 

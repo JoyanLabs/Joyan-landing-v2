@@ -246,9 +246,16 @@ genial cuando hacía click en un nodo»). Lo que se pide es lo contrario: **riqu
   (carpeta ignorada por git).
   Resultado: **la pieza ya cumplía el piso antes de cualquier cambio** — cielo 0,865 y 0,870; lavado 1,399 y
   1,041; nodos traseros 0,999 a 1,107. El pendiente no era un incumplimiento, era la falta de medición. La
-  mejora posterior es estructural: una escalera por plano declarada, orden de profundidad correcto, anillo de
-  foco nunca atenuado, ningún plano oculto y `prefers-reduced-motion` sin animación. La re-medición
-  independiente reproduce los números dentro del ruido.
+  mejora posterior es estructural: una escalera por plano declarada, orden de profundidad correcto, ningún plano
+  oculto y `prefers-reduced-motion` sin animación. La re-medición independiente reproduce los números dentro del
+  ruido.
+  **Cobertura:** los tres planos de nodo se midieron a 1280 y enfocando el nodo 0; falta medirlos a 390 y con
+  otros planos seleccionados antes de llamarlo certificación general (hallazgo JD-B-002 en
+  [`odd/tasks/i18-jueces-constelacion.md`](../odd/tasks/i18-jueces-constelacion.md)).
+- **El anillo de foco no se atenúa.** El grupo del plano **no lleva opacidad**: la atenuación vive en el cuerpo
+  de la estrella y el anillo queda fuera. Un `opacity: 1` en un hijo no cancela la opacidad del padre —lo
+demostró un juez ciego—, así que la afirmación anterior era falsa. En el plano más lejano el anillo comparte
+  su desenfoque de 0,8 px: eso es profundidad, no atenuación.
 
 ## Iteración de escenas
 
