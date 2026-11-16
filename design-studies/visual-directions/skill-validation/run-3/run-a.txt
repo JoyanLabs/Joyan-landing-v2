@@ -1,0 +1,16 @@
+§4 coste (Node)  | OK   | mediana 12.23 ms · p90 12.85 ms · media 12.29 ms · p95 13.12 ms · peor 14.19 ms · frío 30.58 ms — presupuesto 16.67 ms sobre mediana y p90; 240 muestras, 60 calentamiento, buffer reutilizado=true, 1600x800
+                 | …  | protocolo: mediana 12.23 ms · p90 12.85 ms · media 12.29 ms · p95 13.12 ms · peor 14.19 ms · frío 30.58 ms (renderFrame+rasterize, 240 muestras, 60 calentamiento, 1600x800)
+§4 determinismo  | OK   | DIGEST 09be079800b871e10ef0267415d6fbd8d44b985903b0a342de10dd0c4b20624d — misma salida en el mismo proceso; la igualdad byte a byte entre corridas la compara el runner (dos procesos)
+                 | …  | frames pineados 0,90,180,270,359 · poster 1600x800 · rgba-sha256 c96675322eccc79b03c8e03908ccda9eceeb529223d1a2187d9813abfdcbcd05
+§4 saturación    | OK   | peor frame 168: 134/20000 celdas = 0.67 % en el último peldaño (4) — barrido completo de 360 índices; umbral < 5 %
+§4 control vacío | OK   | póster: 7627/20000 celdas con tinta (38.14 %) — control de escena no vacía
+§4 control saturado | OK   | campo a maxTone: 64/64 = 100.00 % — el control tiene que dar 100 %; si no, la medición de saturación no mide nada
+§4 contraste     | OK   | par --ink #dceaea sobre --paper #05080a = 16.26:1 (WCAG, luminancia linealizada) — la escena no trae texto; el único par real es la leyenda de la página. Con la luma de pantalla del motor daría 12.03:1 — la skill no dice qué luminancia usar (ver HUECOS)
+§4 sin JS        | OK   | póster 1600x800 referenciado por <img>; canvas arranca hidden; señal ready/error en el marcado — la captura con scripting off la hace verify-browser.mjs (una corrida de Node no puede pintar)
+§3 adaptador/loop | OK   | T=12s (=360/30) · envolvente(0)=0 envolvente(1)=0 · head(0)=-0.80 head(1)=-0.80 · encendidas frame 0=0, frame 359=0, póster=294 (peldaño 4: 134) — los dos extremos del loop quedan apagados (ni cadena ni acento) y el póster tiene el acento en el último peldaño
+§3 continuidad   | OK   | 0 celdas con |Δpaso| ≥ 2 entre frames consecutivos del ciclo (peor par: 0) — incluye el cierre último→primero; se mide la secuencia, no dos renders independientes
+§1 boceto        | OK   | aspecto 2:1 · móvil declarado · captura 390x195 (sin recorte: 2:1) — tablero 1600x800; el SVG declara width/height 100 % + viewBox porque el comando de §1 abre el archivo directo y, con un width fijo, recorta
+§4 legibilidad   | PENDIENTE | no certificable por quien itera: hace falta un evaluador ciego — consigna y capturas listas en RESULTADO.md; la escena no se aprueba sin ese paso
+
+DIGEST 09be079800b871e10ef0267415d6fbd8d44b985903b0a342de10dd0c4b20624d
+RESUMEN 11 fila(s) OK · 0 FAIL · 1 PENDIENTE (legibilidad) · escena la-traza · nodos 9 (acento 5)

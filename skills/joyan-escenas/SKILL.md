@@ -6,7 +6,7 @@ description: >
 license: MIT
 metadata:
   author: JoyanLabs
-  version: "1.2"
+  version: "1.4"
   scope: [root]
   auto_invoke: "Creando o mejorando escenas del motor de puntos"
 ---
@@ -28,13 +28,26 @@ visual, y se descarta sin culpa.
 4. **Se mira el boceto en 390 px antes de seguir.** Lo que se pierde en móvil no se recupera en el motor.
    Captura real, no a ojo: Chromium CLI con perfil y temporales aislados y **cortos** (un `Socket path too long`
    mata la corrida desde rutas absolutas largas: corré desde el directorio del estudio con `TMPDIR=.`).
-   Boceto y entrega **declaran su relación de aspecto y su política móvil** (escala proporcional, sin crop) antes
-   de aprobar la composición; la captura final usa ese mismo encuadre.
+5. **El SVG declara su encuadre o la captura lo recorta.** `width="100%" height="100%"` + `viewBox` +
+   `preserveAspectRatio`, y el aspecto y la política móvil escritos en el propio archivo como
+   `data-aspect-ratio="2/1"` y `data-mobile-policy="escala proporcional, sin recorte"`. Sin eso el navegador
+   abre el archivo a su tamaño intrínseco y un boceto 2:1 sale **cortado** en `390×320` (medido: 2:1 recortado;
+   con `viewBox` da 390×195 completo, y `390×320` da letterbox sin recorte). El `--window-size` se deriva del
+   aspecto declarado, no se elige a mano.
 
 ```bash
-chromium --headless --disable-gpu --no-sandbox --user-data-dir=./browser-profile \
-  --screenshot=sketch-390.png --window-size=390,320 file://"$PWD"/sketch.svg
+CHROME=$(command -v chromium || command -v google-chrome || command -v chromium-browser)
+TMPDIR=. timeout 90 "$CHROME" --headless --disable-gpu --no-sandbox --user-data-dir=./browser-profile \
+  --screenshot=sketch-390.png --window-size=390,195 file://"$PWD"/sketch.svg
 ```
+
+`chromium` **no está en PATH** en este host: hay que resolverlo como arriba. `TMPDIR=.` deja directorios
+`org.chromium.*` en el estudio: agregalos al `.gitignore` del directorio junto al perfil.
+
+**Todo comando de navegador va envuelto en `timeout`** (90 s para una captura, 120 s para un verificador).
+Chromium sin timeout se cuelga y se lleva la sesión entera por delante; un cuelgue se **reporta como hueco**,
+no se espera. Si el archivo de salida no existe cuando el comando vuelve, la corrida falló aunque el proceso
+diga otra cosa.
 
 ## 2 · Del boceto al motor
 
@@ -59,8 +72,12 @@ motor: o lo dibuja el motor o no es evidencia.
 
 No existe `scene.converted`: el campo va directo. Escena mínima que `renderFrame(scene, frame)` acepta:
 
+La ruta del import depende de dónde viva el módulo: se cuenta desde la raíz del repo hasta el archivo
+(`scripts/scene-src/engine.mjs`). Desde `design-studies/visual-directions/<carpeta>/` son cuatro niveles:
+`../../../../scripts/scene-src/engine.mjs`. Verificá con `node -e "import('./tu-modulo.mjs')"` antes de seguir.
+
 ```js
-import { renderFrame } from '../../../scripts/scene-src/engine.mjs';
+import { renderFrame, sceneMetrics } from '../../../../scripts/scene-src/engine.mjs';
 
 const scene = {
   id: 'mi-escena', label: 'Mi escena',
@@ -69,8 +86,10 @@ const scene = {
   ground: 0,                                          // ÍNDICE del tono de suelo (el más oscuro)
   field(x, y, time) {                                 // motor discretiza él: capa = tinta por celda, nunca píxeles
     // x e y son CELDAS ENTERAS en [0, cols-1] / [0, rows-1]; normalizá vos si querés fracción.
+    // OJO: con options.density > 1 el motor llama field(x*density, y*density), así que el rango se multiplica.
     // El escalar comparte el ESPACIO TONAL del motor (no es una fracción libre):
-    //   tone = groundTone + ink * (maxTone - groundTone)   con ink 0..1 relativo a esta paleta
+    //   const m = sceneMetrics(scene);            // de acá salen groundTone y maxTone, no los inventes
+    //   tone = m.groundTone + ink * (m.maxTone - m.groundTone)   con ink 0..1 relativo a esta paleta
     // Devolver [r,g,b] también vale; el motor usa luma() y cuantifica.
     return /* tone o [r,g,b] */;
   },
@@ -78,14 +97,22 @@ const scene = {
 const frame = renderFrame(scene, index);              // { steps, indices, time, cols, rows }
 ```
 
-El motor discretiza él: la capa declara **tinta por celda**, nunca píxeles. Ejecutable de referencia:
-`design-studies/visual-directions/lab/scene-constelacion2.mjs`. Si el suelo NO es el tono más oscuro de la
-paleta, la normalización colapsa a paso 0 por diseño (contrato, no bug).
+El motor discretiza él: la capa declara **tinta por celda**, nunca píxeles. Referencia viva de la receta 2B:
+`design-studies/visual-directions/skill-validation/run-3/scene-traza.mjs` (escena completa, con envolvente de
+evento y tablas precomputadas). Si el suelo NO es el tono más oscuro de la paleta, la normalización colapsa a
+paso 0 por diseño (contrato, no bug).
+
+**Coste de `field()`.** Se llama una vez por celda y por frame: la geometría se precomputa en tablas al cargar
+el módulo y el estado se memoiza por `time`; recalcular geometría dentro de `field()` cuesta caro de verdad
+(medido: +12,42 ms por frame, frame ≈ 24 ms → fuera de presupuesto). Precomputar y memoizar es lo esperado,
+no una trampa.
 
 **Del campo al píxel** (`renderFrame` devuelve peldaños e índices, no imagen): horneá el póster con
-`rasterize()` (mismo motor) → PNG para el `<img>` del fallback sin JS. En el navegador, pintá el canvas con
-`ImageData/putImageData`; el póster debe ser visible por defecto y el canvas sólo después de una pintura
-válida. Póster y canvas comparten el mismo motor: nunca dos verdades.
+`rasterize()` (mismo motor) y codificá el PNG con `sharp` (ya es dependencia). **El póster usa
+`scene.posterFrame`**; si la escena no lo declara, elegí uno y anotalo, no dejes que cambie entre corridas.
+En el navegador, pintá el canvas con `ImageData/putImageData`. El póster debe ser visible por defecto y el
+canvas sólo después de una **pintura válida**: el canvas tiene contenido no uniforme y su `getImageData`
+coincide con el frame del motor. Póster y canvas comparten el mismo motor: nunca dos verdades.
 
 ## 3 · Animación
 
@@ -106,15 +133,22 @@ válida. Póster y canvas comparten el mismo motor: nunca dos verdades.
 | Qué | Cómo | Umbral |
 |---|---|---|
 | Legibilidad | capturas 1280 y 390 miradas por un **evaluador independiente** (que no participó de la iteración), consigna ciega: mostrar cada captura sin nombre ni explicación y registrar su respuesta literal. Definir antes qué descripciones del sujeto son aceptables | reconoce el sujeto sin texto en 3 s; sin evaluador, la evidencia técnica se entrega con **legibilidad pendiente** y la escena no se aprueba |
-| Contraste | por par texto/fondo realmente usado | ≥ 4,5:1; sin texto en la escena: no aplica |
+| Contraste | por par texto/fondo realmente usado, con **luminancia relativa WCAG** (no la `luma()` del motor: reportá las dos y decidí con WCAG) | ≥ 4,5:1; sin texto en la escena: no aplica |
 | Determinismo | dos corridas **independientes** del chequeo Node (mismos frames pineados) | salida byte-idéntica (`frameChars` o PNG) |
-| Coste | frame dinámico en Node y en navegador. Benchmark pineado: 60 frames de calentamiento + 240 muestras dinámicas, buffers reutilizados, resolución nativa; Node mide `renderFrame`+`rasterize`, el navegador añade `putImageData`; el frame frío se reporta aparte. Se afirma sobre mediana y p90, se reporta media/p95/peor | ≤ **16,67 ms** (60 fps) salvo presupuesto distinto pineado en el encargo |
-| Saturación | peor frame de los índices muestreados del ciclo (para ciclos chicos, barrer todos): celdas con `step === último peldaño de la rampa` / celdas totales. **Control obligatorio de escena no vacía** y un control saturado que dé 100 % | < 5 % |
-| Sin JS | captura con scripting off; el fallback es el **póster horneado por el mismo motor**, nunca un canvas vacío. La página expone `data-state="ready"` + hash al estar lista, y `data-state="error"` si una importación falla (un éxito que nunca llega no puede dejar una promesa colgada); «esperar por estado» no prohíbe un timeout de seguridad | nunca un rectángulo vacío |
+| Coste | frame dinámico en Node y en navegador. Benchmark pineado: 60 frames de calentamiento + 240 muestras dinámicas, buffers reutilizados, resolución nativa; Node mide `renderFrame`+`rasterize`, el navegador añade `putImageData`. **Frame frío = la primera llamada del proceso**; el primer pintado de la página (arranque de canvas) no es comparable y se reporta aparte, nunca como «frame frío». Se afirma sobre mediana y p90, se reporta media/p95/peor | ≤ **16,67 ms** (60 fps) salvo presupuesto distinto pineado en el encargo |
+| Saturación | peor frame de los índices muestreados del ciclo (para ciclos chicos, barrer todos): celdas con `step === último peldaño de la rampa` / celdas totales. El peldaño se lee de la tabla de cobertura exportada, **nunca del máximo observado** (una escena sin peldaño máximo daría 0 % falso). **Control obligatorio de escena no vacía** y un control saturado que dé 100 % | < 5 % |
+| Sin JS | captura con scripting off; el fallback es el **póster horneado por el mismo motor**, nunca un canvas vacío. La página expone `data-state="ready"` + `data-hash` (sha256 del `getImageData` del canvas) al estar lista, y `data-state="error"` si una importación falla. **Sin JS la señal se queda en `loading` para siempre por diseño**: la captura sin JS prueba el póster, no el atributo. «Esperar por estado» no prohíbe un timeout de seguridad | nunca un rectángulo vacío |
 
 Para servir en navegador: 4402 sirve `design-studies/visual-directions`, 4403 la raíz del repo (una página
-que importa `scripts/scene-src/*` **sólo funciona desde 4403**). Se espera por **estado** (hash o atributo),
-nunca por tiempo.
+que importa `scripts/scene-src/*` **sólo funciona desde 4403**). Los servidores **no están levantados por
+defecto**: verificalos o levantá el que corresponda antes de medir.
+
+```bash
+python3 -m http.server 4403 --bind 0.0.0.0 --directory .   # raíz del repo
+```
+
+Se espera por **estado** (hash o atributo), nunca por tiempo, y **todo comando lleva `timeout`**: un
+verificador que cuelga sin límite no es un verificador.
 
 ## 5 · Assets: qué generar y qué pedir
 
@@ -136,6 +170,10 @@ nunca por tiempo.
    reporta media/p95/peor.
 5. Un verificador con `waitForFunction` de 30 s **flaquea**: se espera por **estado** (hash o atributo), no
    por tiempo.
+6. `chromium` no está en PATH y `TMPDIR=.` deja `org.chromium.*`: resolvé el binario y ignorá la basura, o se
+   pierde la corrida.
+7. Un SVG sin `viewBox` **se recorta** en la captura y el boceto miente sobre lo que se ve en móvil.
+8. Geometría dentro de `field()` cuesta el presupuesto entero: tablas precomputadas y memo por `time`.
 
 ## 7 · Para delegar a otro agente
 
@@ -147,3 +185,7 @@ Hay dos encargos, y se nombran:
 En ambos casos el encargo lleva: la **regla de los tres segundos**, los **umbrales** de §4 (con el presupuesto
 de coste si no es el pineado), las **fuentes y licencias** de los assets, la **receta elegida** (2A/2B) y qué
 **no** se toca. Sin eso, el agente inventa — y lo que inventa no es verificable.
+
+Además, el encargo fija el **manifiesto de encuadre**: relación de aspecto, política móvil, resolución de
+entrega, `posterFrame` y el uso final de la pieza. Ese manifiesto es lo que después permite comparar dos
+versiones de la misma escena sin discutir de memoria.

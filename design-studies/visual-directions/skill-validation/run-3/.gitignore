@@ -1,0 +1,10 @@
+# Chromium profile and scratch for the cold validation run. Never committed:
+# it is a per-run browser profile, not art, and it is recreated on demand.
+browser-profile/
+browser-profile-*/
+chromium-profile/
+*.log
+tmp/
+
+# Chrome con TMPDIR=. (regla de §1) deja aquí su socket temporal; no es arte.
+org.chromium.*

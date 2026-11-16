@@ -1,0 +1,13 @@
+servidor 4403 → raíz del repo /home/joshrm/Proyectos/Joyan-landing-v2
+chrome /home/joshrm/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome
+§4 sin JS · señal  | OK   | data-state="ready" — se esperó por atributo, no por tiempo; la espera tiene tope
+motor Node↔canvas  | OK   | hash del canvas c96675322eccc79b… = hash de Node c96675322eccc79b… — el hash se tomó de un getImageData posterior a putImageData: prueba de que hubo pintura
+§2B póster/canvas  | OK   | canvas visible y póster oculto sólo después de la pintura — antes de pintar el canvas arranca hidden y el póster visible
+§4 coste (nav.)    | OK   | navegador: mediana 12.10 ms · p90 13.00 ms · media 12.27 ms · p95 13.40 ms · peor 14.50 ms · frío 15.20 ms (renderFrame+rasterize+putImageData, 240 muestras, 60 calentamiento, 1600x800) — presupuesto 16.67 ms; el frame frío de la página fue 1347.40 ms (incluye el arranque del canvas)
+                   | …  | frame raso (renderFrame+rasterize) 14.00 ms · primer putImageData en canvas nuevo 2.30 ms
+captura 1280       | OK   | browser-1280.png 1280x720 · 928 colores · 1.5 % de píxeles encendidos · diferencia media con el póster 0.7/255 — no es un rectángulo vacío y se parece al póster del motor
+captura 390        | OK   | browser-390.png 390x260 · 862 colores · 1.5 % de píxeles encendidos · diferencia media con el póster 2.6/255 — escala proporcional al ancho, sin recorte
+§4 señal de error  | OK   | data-state="error" · Failed to fetch dynamically imported module: http://127.0.0.1:4403/design-studies/visual-directions/skill-validation/run-3/motor-que-no-existe.mjs — una importación que falla no deja una promesa colgada
+§4 sin JS          | OK   | browser-nojs.png 1280x720 · 935 colores · 1.5 % de píxeles encendidos · diferencia media con el póster 0.4/255 · póster 1600x800 · data-state="loading" — el fallback es el póster del mismo motor; con scripting off la señal se queda en "loading" (ver HUECOS)
+
+RESUMEN navegador: 8 OK · 0 FAIL

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="es" data-state="loading">
+  <head>
+    <meta charset="utf-8" />
+    <title>La traza · demo de la señal de error</title>
+    <style>
+      :root { --paper: #05080a; --ink: #dceaea; }
+      html, body { margin: 0; background: var(--paper); color: var(--ink);
+        font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+      p { padding: 16px; }
+    </style>
+  </head>
+  <body data-state="loading">
+    <!-- Prueba de la otra mitad de la señal: una importación que falla deja
+         data-state="error" en vez de una promesa colgada y un canvas vacío. -->
+    <p id="out">cargando…</p>
+    <script type="module">
+      const out = document.getElementById('out');
+      try {
+        await import('./motor-que-no-existe.mjs');
+        document.documentElement.dataset.state = 'ready';
+        document.body.dataset.state = 'ready';
+        out.textContent = 'no debería llegar aquí';
+      } catch (error) {
+        const message = String(error && error.message ? error.message : error);
+        for (const node of [document.documentElement, document.body]) {
+          node.dataset.state = 'error';
+          node.dataset.error = message;
+        }
+        out.textContent = `data-state="error": ${message}`;
+      }
+    </script>
+  </body>
+</html>

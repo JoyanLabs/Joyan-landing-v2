@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="es" data-state="loading" data-aspect-ratio="2:1"
+      data-mobile-policy="escala proporcional al ancho del contenedor, sin recorte ni reencuadre">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>La traza · validación fría (run-3)</title>
+    <style>
+      /* El único par texto/fondo que la página usa de verdad (fila Contraste). */
+      :root { --paper: #05080a; --ink: #dceaea; }
+      html, body { margin: 0; background: var(--paper); color: var(--ink); }
+      figure { margin: 0; }
+      .frame { width: 100%; max-width: 1600px; margin: 0 auto; }
+      /* El marco hereda 2:1: la imagen y el canvas se escalan en bloque, sin recorte. */
+      .frame img, .frame canvas { display: block; width: 100%; height: auto; }
+      .frame [hidden] { display: none; }
+      figcaption {
+        max-width: 1600px; margin: 0 auto; padding: 10px 16px 18px;
+        font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink);
+      }
+    </style>
+  </head>
+  <body data-state="loading">
+    <figure>
+      <div class="frame">
+        <!-- Fallback sin JS: el póster horneado por el MISMO motor, visible por defecto. -->
+        <img id="poster" src="poster.png" width="1600" height="800"
+             alt="La traza: una cadena de nodos con una ruta encendida y un acento" />
+        <!-- El canvas sólo se muestra después de una pintura válida. -->
+        <canvas id="stage" width="1600" height="800" hidden></canvas>
+      </div>
+      <figcaption>La traza · el registro: qué autorizó qué</figcaption>
+    </figure>
+    <script type="module">
+      const stage = document.getElementById('stage');
+      const poster = document.getElementById('poster');
+
+      /** Señal observable: `data-state` + hash en los dos nodos raíz. */
+      const signal = (name, extra = {}) => {
+        for (const node of [document.documentElement, document.body]) {
+          node.dataset.state = name;
+          for (const [key, value] of Object.entries(extra)) node.dataset[key] = value;
+        }
+      };
+
+      const hex = (bytes) => Array.from(new Uint8Array(bytes), (b) => b.toString(16).padStart(2, '0')).join('');
+      const images = new WeakMap();
+      /** Un ImageData por buffer reutilizado: el bucle no asigna por frame. */
+      const imageFor = (rgba, width, height) => {
+        let image = images.get(rgba);
+        if (!image) {
+          image = new ImageData(rgba, width, height);
+          images.set(rgba, image);
+        }
+        return image;
+      };
+
+      try {
+        const [mod, engine, bench] = await Promise.all([
+          import('./scene-traza.mjs'),
+          import('../../../../scripts/scene-src/engine.mjs'),
+          import('./bench.mjs'),
+        ]);
+        const { default: scene, POSTER_FRAME, T, CYCLE_FRAMES } = mod;
+        const { renderFrame, rasterize } = engine;
+        const ctx = stage.getContext('2d', { willReadFrequently: true });
+        const width = stage.width;
+        const height = stage.height;
+        const buffer = new Uint8ClampedArray(width * height * 4);
+        const paint = (rgba, w, h) => ctx.putImageData(imageFor(rgba, w, h), 0, 0);
+
+        // Pintura del póster: se mide el frame frío del navegador aquí mismo.
+        const coldStart = performance.now();
+        const first = renderFrame(scene, POSTER_FRAME);
+        paint(rasterize(first, scene, 8, buffer), width, height);
+        const coldMs = performance.now() - coldStart;
+
+        // La huella se toma de lo que quedó EN el canvas, no de la fuente:
+        // así el hash prueba que hubo una pintura válida.
+        const painted = ctx.getImageData(0, 0, width, height).data;
+        const digest = hex(await crypto.subtle.digest('SHA-256', painted));
+
+        poster.hidden = true;
+        stage.hidden = false;
+        signal('ready', { hash: digest, coldMs: coldMs.toFixed(3) });
+
+        // Animación por TIEMPO EN SEGUNDOS (§3): si el pintado baja, se saltean
+        // frames en vez de estirar el loop. `frameAt` es la inversa del adaptador
+        // del motor: índice = fase × cycleFrames.
+        let paused = false;
+        const frameAt = (seconds) => {
+          const p = ((seconds / T) % 1 + 1) % 1;
+          return Math.round(p * CYCLE_FRAMES) % CYCLE_FRAMES;
+        };
+        const loop = () => {
+          if (!paused) {
+            const frame = renderFrame(scene, frameAt(performance.now() / 1000));
+            paint(rasterize(frame, scene, 8, buffer), width, height);
+          }
+          requestAnimationFrame(loop);
+        };
+        requestAnimationFrame(loop);
+
+        // Coste en navegador: mismo protocolo pineado, canvas fuera de pantalla
+        // para no mezclar las muestras con el bucle de animación.
+        window.__bench = () => {
+          paused = true;
+          const off = document.createElement('canvas');
+          off.width = width;
+          off.height = height;
+          const offCtx = off.getContext('2d');
+          const benchBuffer = new Uint8ClampedArray(width * height * 4);
+          const result = bench.runBench({
+            renderFrame,
+            rasterize,
+            scene,
+            cycleFrames: CYCLE_FRAMES,
+            buffer: benchBuffer,
+            paint: (rgba, w, h) => offCtx.putImageData(imageFor(rgba, w, h), 0, 0),
+          });
+          paused = false;
+          return { ...result, pageCold: coldMs, hash: document.documentElement.dataset.hash };
+        };
+        // Diagnóstico del frame frío: qué parte del primer pintado es frame y
+        // qué parte es el arranque del canvas (se reporta, no es una fila).
+        window.__probeCold = () => {
+          const off = document.createElement('canvas');
+          off.width = width;
+          off.height = height;
+          const offCtx = off.getContext('2d');
+          const probeBuffer = new Uint8ClampedArray(width * height * 4);
+          const start = performance.now();
+          const frame = renderFrame(scene, POSTER_FRAME);
+          const rgba = rasterize(frame, scene, 8, probeBuffer);
+          const afterFrame = performance.now();
+          offCtx.putImageData(imageFor(rgba, width, height), 0, 0);
+          const afterPaint = performance.now();
+          return { frame: afterFrame - start, paint: afterPaint - afterFrame };
+        };
+        window.__scene = { id: scene.id, cols: scene.cols, rows: scene.rows, T };
+      } catch (error) {
+        // Una importación que falla no puede dejar la página en una promesa colgada.
+        signal('error', { error: String(error && error.message ? error.message : error) });
+        poster.hidden = false;
+        stage.hidden = true;
+      }
+    </script>
+  </body>
+</html>

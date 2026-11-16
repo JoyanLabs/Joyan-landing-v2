@@ -1,0 +1,4 @@
+poster.png 1600x800 frame=180 time=6.000s
+rgba-sha256 c96675322eccc79b03c8e03908ccda9eceeb529223d1a2187d9813abfdcbcd05
+png-sha256  bf11cfc4df328b170bab239aaf046d24bbbd32f3e9b8a78530d680914671886a
+scene=la-traza cols=200 rows=100 posterFrame=180
