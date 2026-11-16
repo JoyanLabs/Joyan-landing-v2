@@ -142,12 +142,30 @@ body {
 .hero-title { block-size: 4.52em; }
 .hero-phrase { white-space: nowrap; }
 .hero-letter { display: inline-block; white-space: pre; }
-/* Filters only cover small vector planes; the full-bleed sky is pre-baked.
-   Every non-selected plane retains >=85% opacity and a visible star core. */
-.node-plane { opacity: 1; filter: none; }
-.node-plane[data-treatment='focus'] { opacity: 1; filter: none; }
-.node-plane[data-treatment='middle'] { opacity: .94; filter: saturate(.85) blur(.25px); }
-.node-plane[data-treatment='back'] { opacity: .88; filter: saturate(.75) blur(.65px); }
+/* FOCUS TREATMENT — one ladder per depth plane (odd/tasks/difuminado-por-planos.md,
+   S1-S5). The plane of the focused node affirms: full ink, no filter. The next
+   plane back is attenuated and desaturated softly. The farthest plane takes the
+   blur. No step hides a plane: --plane-ink never reaches zero, no plane is
+   clipped and every core stays lit; the measured retention, masks and captures
+   live in dist-motion-verify/wu130-planes/. Filters only cover these small
+   vector planes — the full-bleed sky is pre-baked. */
+.node-plane {
+  --plane-ink: 1;
+  --plane-tone: 1;
+  --plane-blur: 0px;
+  --plane-rings: 1;
+  opacity: var(--plane-ink);
+  filter: saturate(var(--plane-tone)) blur(var(--plane-blur));
+  transition: opacity 260ms ease-out, filter 260ms ease-out;
+}
+.node-plane[data-treatment='focus'] { --plane-ink: 1; --plane-tone: 1; --plane-blur: 0px; --plane-rings: 1; }
+.node-plane[data-treatment='middle'] { --plane-ink: .96; --plane-tone: .6; --plane-blur: 0px; --plane-rings: .6; }
+.node-plane[data-treatment='back'] { --plane-ink: .9; --plane-tone: .42; --plane-blur: .8px; --plane-rings: .38; }
+/* Ink weight steps down with depth; the affordance under the pointer or the
+   keyboard never does, so a focus ring is never attenuated. */
+.node-plane .ring { opacity: var(--plane-rings); }
+.node-plane .node-lit .ring, .node-plane .node-selected .ring { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .node-plane { transition: none; } }
 .node-plane[data-node-plane='far'] .ring { stroke-dasharray: 1.5 1; }
 .node-plane[data-node-plane='mid'] .ring { stroke-dasharray: 3 1; }
 .node-plane .node-selected { transform-box: fill-box; transform-origin: center; transform: scale(1.12); }

@@ -238,12 +238,17 @@ genial cuando hacía click en un nodo»). Lo que se pide es lo contrario: **riqu
 - Al enfocar: el plano del nodo **se afirma**; los planos intermedios **siguen visibles** con un tratamiento
   distinto (atenuado/desaturado suave); el plano **más lejano** recibe el desenfoque.
 - Prohibido resolverlo ocultando capas: la gracia es ver que hay mundo detrás.
-- **Retención de luminancia de cada plano trasero al enfocar: ≥ 40 %.** Piso de aceptación incorporado por
-  el encargo de `scene-iteration`; **no es un resultado medido ni una capacidad certificada** de la pieza actual.
-  Antes de implementar, fijar en el manifiesto el protocolo reproducible: luminancia WCAG linealizada,
-  comparación foco/base por plano, mismo estado de emisión y correspondencia de máscaras bajo la cámara.
-  Entregar ambas mediciones, razón, máscaras y capturas; la opacidad CSS no sustituye la luminancia medida.
-  El protocolo de retención queda por cerrar y verificar independientemente; no se presupone un verificador existente.
+- **Retención de luminancia de cada plano trasero al enfocar: ≥ 40 %. MEDIDA 2026-11-05.** El protocolo está
+  cerrado en [`odd/tasks/difuminado-por-planos.md`](../odd/tasks/difuminado-por-planos.md) §Protocolo de
+  medición: luminancia WCAG linealizada, comparación foco/base por plano con máscara propia (`α > 0,5`), misma
+  emisión en los dos estados; la opacidad CSS no sustituye la medición. Se mide en
+  `scripts/checks/check-plane-retention.mjs`; máscaras, capturas y reportes en `dist-motion-verify/wu130-planes/`
+  (carpeta ignorada por git).
+  Resultado: **la pieza ya cumplía el piso antes de cualquier cambio** — cielo 0,865 y 0,870; lavado 1,399 y
+  1,041; nodos traseros 0,999 a 1,107. El pendiente no era un incumplimiento, era la falta de medición. La
+  mejora posterior es estructural: una escalera por plano declarada, orden de profundidad correcto, anillo de
+  foco nunca atenuado, ningún plano oculto y `prefers-reduced-motion` sin animación. La re-medición
+  independiente reproduce los números dentro del ruido.
 
 ## Iteración de escenas
 

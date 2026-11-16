@@ -224,10 +224,17 @@ function destination(index){
 }
 function activate(index){
   const previous=active;active=index;generation++;
-  const focusPlane=index<0?-1:nodePlane(index),others=[0,1,2].filter(i=>i!==focusPlane).sort((a,b)=>Math.abs(b-focusPlane)-Math.abs(a-focusPlane)||a-b);
-  nodePlanes.forEach((plane,i)=>plane.dataset.treatment=index<0?'base':i===focusPlane?'focus':i===others[0]?'back':'middle');
+  const focusPlane=index<0?-1:nodePlane(index);
+  // Depth ladder from the focused plane: the plane the node lives in affirms,
+  // the next plane back is attenuated and desaturated softly, the farthest
+  // plane takes the blur (S2). A tie resolves towards the plane that sits
+  // deepest in the stack, so the blur never lands on the nearest plane.
+  const ladder=[0,1,2].filter(i=>i!==focusPlane).sort((a,b)=>Math.abs(b-focusPlane)-Math.abs(a-focusPlane)||a-b);
+  const treatment=i=>index<0?'base':i===focusPlane?'focus':i===ladder[0]?'back':'middle';
+  nodePlanes.forEach((plane,i)=>plane.dataset.treatment=treatment(i));
   nodeStars.forEach((star,i)=>star.classList.toggle('node-selected',i===index));
-  diagnostics.navigation={from:previous,to:index,plane:index<0?null:NODE_PLANES[focusPlane],placeholder:index<0?'base':NODE_PLANES[focusPlane]};
+  diagnostics.navigation={from:previous,to:index,plane:index<0?null:NODE_PLANES[focusPlane],placeholder:index<0?'base':NODE_PLANES[focusPlane],
+    treatments:Object.fromEntries(NODE_PLANES.map((name,i)=>[name,treatment(i)]))};
   swapHeadline(index);stage.dataset.activeNode=String(index);returnLeft=index<0||motion.matches?0:RETURN_MS;
   targets.forEach((t,i)=>{t.setAttribute('aria-pressed',String(i===index));light(i,i===index||i===hovered);});
   const group=new Set(RINGS.filter(r=>r.includes(index)).flat());nodeStars.forEach((s,i)=>s.classList.toggle('node-related',group.has(i)));
@@ -246,3 +253,18 @@ motion.addEventListener('change',()=>{stop();pause.hidden=motion.matches;if(moti
 let resizeTimer;addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{stop();cache.clear();rebuild();},120);});
 const poster=document.querySelector('.poster');poster.decode().catch(()=>{}).then(()=>requestAnimationFrame(()=>setTimeout(()=>{rebuild();stage.dataset.activeNode='-1';},250)));
 export const fieldDiagnostics=()=>({...diagnostics,camera:{...camera},active,running:!!raf,clock,paused});
+// Measurement hook (WU130). It drives the piece's own activation path and then
+// pins the field to its STILL_SECONDS render, so base and focus are sampled on
+// exactly the same emission. It chooses no treatment and no camera position:
+// what gets rasterised is what a person sees in that state. The 12 Hz worker is
+// stopped for the sample only; the next call (or `release`) resumes the field.
+let measurePaused=null;
+function settleTransition(){return new Promise(done=>{const look=()=>transition&&ready?requestAnimationFrame(look):done();look();});}
+export async function fieldMeasure({node=-1,release=false}={}){
+  if(measurePaused!==null){paused=measurePaused;measurePaused=null;}
+  if(release){activate(-1);await settleTransition();start();return fieldDiagnostics();}
+  activate(node);await settleTransition();
+  measurePaused=paused;paused=true;stop();
+  clock=0;lastEmission=0;paintWash();
+  return fieldDiagnostics();
+}
