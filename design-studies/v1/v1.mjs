@@ -222,6 +222,11 @@ function destination(index){
   }
   return result;
 }
+// Depth-semantics comparison (I-18 decision): ?planos=a|b|c picks one of the
+// three readings declared in v1.css. Anything else keeps the shipped ladder.
+const planesVariant=new URLSearchParams(location.search).get('planos');
+if(['a','b','c'].includes(planesVariant))document.documentElement.dataset.planes=planesVariant;
+
 function activate(index){
   const previous=active;active=index;generation++;
   const focusPlane=index<0?-1:nodePlane(index);

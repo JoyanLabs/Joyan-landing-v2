@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Revisión — Joyan</title>
+<meta name="robots" content="noindex">
+<style>
+  :root {
+    --bg: #10191C; --deep: #0A1114; --surface: #182A30;
+    --ink: #E4EEEA; --muted: #ACC3C1; --accent: #94CCBB;
+    --line: color-mix(in srgb, var(--accent) 22%, transparent);
+    --sans: 'Archivo', system-ui, sans-serif;
+    --mono: ui-monospace, 'SF Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 400 17px/1.6 var(--sans);
+    padding: clamp(28px, 6vw, 72px) clamp(20px, 6vw, 80px) 96px;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: clamp(26px, 4vw, 40px); line-height: 1.15; margin: 0 0 12px; letter-spacing: -.02em; }
+  h2 { font-size: clamp(19px, 2.4vw, 24px); margin: 56px 0 8px; }
+  .kicker {
+    font: 500 12px/1 var(--mono); text-transform: uppercase; letter-spacing: .18em;
+    color: var(--accent); margin: 0 0 18px;
+  }
+  .lede { color: var(--muted); max-width: 62ch; margin: 0 0 8px; }
+  .card {
+    display: block; text-decoration: none; color: inherit;
+    border: 1px solid var(--line); border-radius: 2px;
+    padding: 20px 22px; margin: 14px 0; background: var(--deep);
+    transition: border-color .2s, background .2s;
+  }
+  .card:hover, .card:focus-visible {
+    border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+    background: var(--surface); outline: none;
+  }
+  .card:focus-visible { box-shadow: 0 0 0 2.5px var(--accent); }
+  .card b { display: block; font-size: 18px; margin-bottom: 6px; }
+  .card span { color: var(--muted); font-size: 15.5px; }
+  .tag {
+    display: inline-block; font: 500 11px/1 var(--mono); letter-spacing: .12em;
+    text-transform: uppercase; color: var(--accent);
+    border: 1px solid var(--line); border-radius: 2px; padding: 5px 8px; margin-bottom: 10px;
+  }
+  ol { padding-left: 20px; color: var(--muted); }
+  ol li { margin-bottom: 6px; }
+  .note { color: var(--muted); font-size: 15px; border-left: 2px solid var(--line); padding-left: 14px; }
+  footer { margin-top: 64px; color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="kicker">Revisión · 2026-11-05</p>
+  <h1>Qué estás eligiendo y qué hay para validar</h1>
+  <p class="lede">Dos cosas: las tres lecturas posibles del desenfoque por planos (decisión de dirección), y
+  las escenas producidas sólo con la skill, para revisar el método antes de delegar.</p>
+
+  <h2>1 · El desenfoque por planos</h2>
+  <p class="lede">Abrí cada una y <strong>hacé click en un nodo</strong> (o Tab + Enter): el estado de foco es
+  lo que cambia. Los enlaces abren la misma pieza con otra lectura.</p>
+  <div class="tag">Elegí una</div>
+
+  <a class="card" href="index.html?planos=c">
+    <b>c · La actual</b>
+    <span>Desenfoque sutil (0,8 px) sobre el plano más alejado del nodo. Es lo que está aplicado hoy: se lee
+    sobre todo como atenuación, el desenfoque casi no se percibe.</span>
+  </a>
+
+  <a class="card" href="index.html?planos=a">
+    <b>a · Profundidad de campo centrada en el nodo</b>
+    <span>El plano más cercano al nodo enfocado sale de foco de verdad (1,6 px). Al mirar un nodo lejano, el
+    primer plano se desenfoca: es la lectura fotográfica.</span>
+  </a>
+
+  <a class="card" href="index.html?planos=b">
+    <b>b · Fondo fijo desenfocado</b>
+    <span>Ningún plano de nodos se desenfoca nunca: se atenúa y desatura. Lo que se suaviza es el cielo, del
+    todo. La figura queda siempre nítida y el fondo siempre blando.</span>
+  </a>
+
+  <p class="note">Lo que hay que decidir: <strong>¿«el plano más lejano» es el del stack o el del nodo
+  enfocado?</strong> Y si el peso del efecto tiene que ser el desenfoque (a, b) o alcanza con la atenuación (c).</p>
+
+  <h2>2 · Escenas producidas sólo con la skill</h2>
+  <p class="lede">Ambas las hizo un agente sin historial, siguiendo únicamente
+  <code>skills/joyan-escenas/SKILL.md</code>. Si algo no se entiende o falta, ese es el hueco a corregir en el
+  método.</p>
+
+  <a class="card" href="visual-directions/skill-validation/run-2/index.html">
+    <b>El confín</b>
+    <span>Pocos nodos, casi estáticos, deriva lenta. Sin interacción. Segundo intento del flujo, con la receta
+    procedural recién documentada.</span>
+  </a>
+
+  <a class="card" href="visual-directions/skill-validation/run-3/index.html">
+    <b>La traza</b>
+    <span>Una cadena que se enciende nodo a nodo: un solo acento sobre un campo apagado. Tercer intento, y el
+    que puso a prueba las enmiendas nuevas (evento, póster, señal de estado).</span>
+  </a>
+
+  <h2>Qué mirar en las escenas</h2>
+  <ol>
+    <li>¿Se entiende <strong>sin una sola palabra</strong> y en tres segundos?</li>
+    <li>¿Se lee como material de puntos con profundidad, o como ruido?</li>
+    <li>¿El loop cierra sin salto visible?</li>
+    <li>¿Con el JavaScript apagado queda la imagen (póster), o un rectángulo vacío?</li>
+  </ol>
+
+  <footer>Servido desde la raíz del repo en el puerto 4403: las páginas que importan el motor sólo funcionan así.</footer>
+</div>
+</body>
+</html>
