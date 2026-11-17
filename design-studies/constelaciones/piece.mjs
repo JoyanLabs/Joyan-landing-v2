@@ -19,14 +19,15 @@
  *
  * RESOLUTION IS PART OF THE ART. A 480-cell grid stretched over 1280 px puts a
  * 2.7 px dot on screen, and at that size the field reads as television static
- * instead of a sky. So the frame is rasterised at `CELL = 3` device pixels per
- * cell (`rasterize`, the same mask the bake uses) and, on a phone, on a 240-cell
- * grid, which is the engine's own density idea: the same picture, larger marks.
+ * instead of a sky. So the frame is rasterised at `CELL = 4` device pixels per
+ * cell (`rasterize`, the same mask the bake uses), a little above the ~1.33 px
+ * each cell gets on screen, so the downscale antialiases every dot instead of
+ * showing the cell grid; on a phone the same happens on a 240-cell grid.
  *
  * Deterministic review: `?frame=<index>` renders that exact frame and stops;
  * `?active=<nodeId>` opens a node. The capture script uses both.
  */
-import { rasterize, renderFrame } from '../../scripts/scene-src/engine.mjs';
+import { hashNoise, rasterize, renderFrame } from '../../scripts/scene-src/engine.mjs';
 import {
   constellationScene, linkSample, linkVisual, paletteTone, planeStyle, resolveLinks,
 } from '../../scripts/scene-src/constellation.mjs';
@@ -47,8 +48,17 @@ const panelNote = document.querySelector('[data-panel-note]');
 
 const C = genghe;
 const LINKS = resolveLinks(C);
+
+// The calm zone's legibility veil is DATA (`composition.veil`): the check
+// measures the calm intensity with it, so the page paints the same one instead
+// of a second, private value.
+const CALM_VEIL = C.composition?.veil;
+if (CALM_VEIL) {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(CALM_VEIL.colour.slice(i, i + 2), 16));
+  document.documentElement.style.setProperty('--calm-veil', `rgba(${r}, ${g}, ${b}, ${CALM_VEIL.alpha})`);
+}
 const LOOP_SECONDS = C.cycle.frames / C.cycle.fps;
-const CELL = 3;
+const CELL = 4;
 const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)');
 const STILL_FRAME = params.has('frame')
   ? Number(params.get('frame'))
@@ -195,7 +205,7 @@ function drawLinks(p) {
     const visual = linkVisual(C, link, p, { activeNode: active });
     if (visual.opacity <= 0 || visual.drawn <= 0) continue;
     const ink = paletteTone(C, INK_TONE[link.plane] ?? 0.6);
-    const width = Math.max(0.85, visual.width * cellPx * 0.4);
+    const width = Math.max(0.7, visual.width * cellPx * 0.2);
     const ax = link.fromNode.x * fieldWidth;
     const ay = link.fromNode.y * fieldHeight;
     const bx = link.toNode.x * fieldWidth;
@@ -206,6 +216,8 @@ function drawLinks(p) {
     // points, so the link is a chain of round marks along the segment, and each
     // mark's alpha is `linkSample` at its own position. That is also what makes
     // a breathing stroke light in stretches without a second code path.
+    // The stroke has BODY: a wide, soft skirt under a solid core, and a
+    // deterministic tooth so it reads as ink with grain instead of a rule.
     const span = Math.hypot(bx - ax, by - ay) * visual.drawn;
     const spacing = Math.max(2.2, cellPx * 0.95);
     const dots = Math.max(1, Math.floor(span / spacing));
@@ -215,29 +227,37 @@ function drawLinks(p) {
       if (alpha <= 0.004) continue;
       const x = ax + (bx - ax) * along;
       const y = ay + (by - ay) * along;
-      linkCtx.fillStyle = rgba(ink, alpha * 0.16);
+      // The tooth: stable per position, so the stroke does not crawl frame to frame.
+      const tooth = 0.78 + 0.44 * hashNoise(i, Math.round(link.fromNode.x * 977), 11);
+      linkCtx.fillStyle = rgba(ink, alpha * 0.15 * tooth);
       linkCtx.beginPath();
-      linkCtx.arc(x, y, width * 2.1, 0, Math.PI * 2);
+      linkCtx.arc(x, y, width * 2.4, 0, Math.PI * 2);
       linkCtx.fill();
-      linkCtx.fillStyle = rgba(ink, alpha * 0.92);
+      linkCtx.fillStyle = rgba(ink, alpha * 0.72 * tooth);
       linkCtx.beginPath();
       linkCtx.arc(x, y, width, 0, Math.PI * 2);
       linkCtx.fill();
     }
   }
 
-  // Cores, always above the strokes: two steps, as the layer requires.
+  // Cores, always above the strokes: two steps, as the layer requires. The
+  // engine paints the core into the field; this mark keeps it crisp at vector
+  // resolution, and the wide low skirting is the star's own light.
   for (const node of C.nodes) {
     const gain = planeStyle(node.plane).figureGain;
     const x = node.x * fieldWidth;
     const y = node.y * fieldHeight;
     const ink = paletteTone(C, 0.92);
-    const radius = (0.46 + 0.66 * gain) * cellPx;
-    linkCtx.fillStyle = rgba(ink, 0.2);
+    const radius = (0.6 + 0.8 * gain) * cellPx;
+    linkCtx.fillStyle = rgba(ink, 0.11);
     linkCtx.beginPath();
-    linkCtx.arc(x, y, radius * 2.6, 0, Math.PI * 2);
+    linkCtx.arc(x, y, radius * 3.0, 0, Math.PI * 2);
     linkCtx.fill();
-    linkCtx.fillStyle = rgba(ink, 0.5 + 0.4 * node.magnitude);
+    linkCtx.fillStyle = rgba(ink, 0.22);
+    linkCtx.beginPath();
+    linkCtx.arc(x, y, radius * 1.9, 0, Math.PI * 2);
+    linkCtx.fill();
+    linkCtx.fillStyle = rgba(ink, 0.62 + 0.34 * node.magnitude);
     linkCtx.beginPath();
     linkCtx.arc(x, y, radius, 0, Math.PI * 2);
     linkCtx.fill();

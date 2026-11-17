@@ -45,15 +45,25 @@ export default {
   layers: {
     sky: {
       kind: 'dust',
-      density: 0.42,
+      density: 0.045,
       seed: 20261106,
-      veil: 0.75,
-      clusters: [{ x: 0.62, y: 0.66, r: 0.09, boost: 0.5 }],
+      veil: 0.8,
+      keep: 0.7,
+      structure: { pocket: 0.5, ring: 6, outer: 1, band: 0.45, noise: 0.7 },
+      clusters: [{ x: 0.62, y: 0.66, r: 0.09, boost: 0.6 }],
     },
-    wash: { kind: 'atmosphere', seed: 20261106, gain: 0.9, drift: 1 },
+    wash: { kind: 'atmosphere', seed: 20261106, gain: 0.35, drift: 0.35 },
     figure: { planes: ['near'], parts: ['eco'], haloReach: 26 },
     vignette: { start: 0.35, exponent: 1.92, strength: 0.227 },
-    cores: { inner: 1.9, outer: 4 },
+    cores: { inner: 2, outer: 4.5 },
+  },
+
+  composition: {
+    reference: { width: 1280, height: 900 },
+    calm: { x: 40, y: 332, w: 320, h: 44 },
+    // The copy's legibility veil, the approved piece's own device. It is
+    // measured with the field, so the calm zone is the zone the reader sees.
+    veil: { colour: '#0a1114', alpha: 0.4 },
   },
 
   nodes: [

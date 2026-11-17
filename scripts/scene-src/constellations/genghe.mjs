@@ -60,16 +60,25 @@ export default {
   layers: {
     sky: {
       kind: 'dust',
-      density: 1,
+      // THE SPARSE FIELD. `density` is the fraction of cells that receive a star,
+      // the unicorn overlay's own 0.045, and `structure` is what makes it a sky:
+      // quiet around the figure (0.55 of the baseline), dense in the ring that
+      // surrounds it (1.75x), calmer again in the far field, with the milky band
+      // and the cluster knots on top. `keep: 0.7` is the overlay's rule applied
+      // to our stack: where the wash already carries tone the star gives up to
+      // 70 % of itself, so a star never punches the atmosphere.
+      density: 0.045,
       seed: 20261105,
       veil: 1,
+      keep: 0.7,
+      structure: { pocket: 0.65, ring: 7, outer: 1, band: 0.55, noise: 0.8 },
       // Two small knots of dust, off the figure, so the sky has weather.
-      clusters: [{ x: 0.15, y: 0.74, r: 0.07, boost: 0.5 }, { x: 0.85, y: 0.2, r: 0.055, boost: 0.45 }],
+      clusters: [{ x: 0.15, y: 0.74, r: 0.075, boost: 0.7 }, { x: 0.85, y: 0.18, r: 0.06, boost: 0.6 }],
     },
-    wash: { kind: 'atmosphere', seed: 20261105, gain: 1, drift: 1 },
-    figure: { planes: ['far', 'mid', 'near'], parts: ['asta', 'punta', 'guia'], haloReach: 30 },
+    wash: { kind: 'atmosphere', seed: 20261105, gain: 0.65, drift: 0.35 },
+    figure: { planes: ['far', 'mid', 'near'], parts: ['asta', 'punta', 'guia'], haloReach: 32 },
     vignette: { start: 0.35, exponent: 1.92, strength: 0.227 },
-    cores: { inner: 1.1, outer: 2.4 },
+    cores: { inner: 2.2, outer: 5 },
   },
 
   // Three asterism stars, nearly on one line (about 0.7 cells off at 480 wide),
@@ -140,6 +149,18 @@ export default {
     { from: 'genghe-iii', to: 'arcturus', behaviour: 'trace', plane: 'near', phase: 0.25, group: 'guia' },
     { from: 'genghe-ii', to: 'arcturus', behaviour: 'depth', plane: 'near', phase: 0, group: 'guia' },
   ],
+
+  // The composition the field is measured against: the rectangle the headline
+  // occupies on the approved plate (1280x900) is the calm zone, and everything
+  // else is derived from the nodes. The check reads this; the page's CSS reads
+  // the same place, so the measured calm zone is the one the copy sits on.
+  composition: {
+    reference: { width: 1280, height: 900 },
+    calm: { x: 40, y: 332, w: 320, h: 44 },
+    // The copy's legibility veil, the approved piece's own device. It is
+    // measured with the field, so the calm zone is the zone the reader sees.
+    veil: { colour: '#0a1114', alpha: 0.4 },
+  },
 
   // The camera as data: the home view, one aim per node, and the jump to the
   // neighbouring constellation (T4). The page reads these; the field ignores them.

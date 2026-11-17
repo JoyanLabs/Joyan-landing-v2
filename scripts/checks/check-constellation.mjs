@@ -28,6 +28,13 @@
  *              only the active group solid.
  *   LOOP       `constellationFrame(c, i)` renders identically twice and equals
  *              `constellationFrame(c, i + frames)`.
+ *   COMPOSITION the concrete recipe of the approved hero, measured on the field:
+ *              a sparse sky at the unicorn overlay's density with a quiet pocket,
+ *              a dense ring that returns the gaze, no seam between 8 px bands,
+ *              the calm zone in its intensity band and the vignette with real
+ *              presence. A UNIFORM field — one density everywhere — must FAIL
+ *              and name the reason (T9): the flat delivery passed every loose
+ *              threshold, so the check has to be able to reject it.
  *   PROVENANCE `official: false`, a culture, a source, copy marked provisional,
  *              and the unpublished product name kept out of every published
  *              string.
@@ -42,17 +49,18 @@
  */
 
 import {
-  BEHAVIOURS, FOCUS_FADE, LAYERS, PLANES, PLANE_STYLE, TRAMOS,
-  constellationFrame, constellationLayers, constellationScene, linksForPlane, resolveLinks,
-  traceEnvelope, traceProgress, linkSample, linkVisual, validateConstellation,
+  BEHAVIOURS, COMPOSITION, FOCUS_FADE, LAYERS, PLANES, PLANE_STYLE, TRAMOS,
+  compositionErrors, compositionMetrics, constellationFrame, constellationLayers, constellationScene,
+  linksForPlane, resolveLinks, traceEnvelope, traceProgress, linkSample, linkVisual,
+  validateConstellation,
 } from '../scene-src/constellation.mjs';
 import genghe from '../scene-src/constellations/genghe.mjs';
 import alrumh from '../scene-src/constellations/alrumh.mjs';
 import { SCENES } from '../scene-src/constellations/index.mjs';
 import { frameChars, RAMP, sceneMetrics } from '../scene-src/engine.mjs';
 
-const COLS = 480;
-const ROWS = 300;
+const COLS = genghe.stage.cols;
+const ROWS = genghe.stage.rows;
 const failures = [];
 const lines = [];
 
@@ -106,6 +114,10 @@ const breaks = [
   ['a focus link without a group', (c) => { delete c.links[0].group; }, /focus|group/i],
   ['the unpublished product name in published copy',
     (c) => { c.nodes[0].content.line = `${c.project.label}: primera estrella.`; }, /name|publish|project/i],
+  ['a sky with no structure (one density everywhere)', (c) => { delete c.layers.sky.structure; }, /structure/i],
+  ['a sky that forgets to keep the subject', (c) => { delete c.layers.sky.keep; }, /keep/i],
+  ['a scene with no calm zone declared', (c) => { delete c.composition; }, /composition|calm/i],
+  ['a legibility veil with no alpha', (c) => { delete c.composition.veil.alpha; }, /veil/i],
 ];
 for (const [label, mutate, pattern] of breaks) {
   const broken = clone(genghe);
@@ -143,13 +155,39 @@ check('vignette lateral edge 0.928', Math.abs(vignette.edge - 0.928) < 0.012, nu
 check('vignette corner 0.773', Math.abs(vignette.corner - 0.773) < 0.03, num(vignette.corner));
 
 // A declared-but-empty layer is exactly the defect this unit prevents, so the
-// composite has to lose something when the layer goes away.
+// composite has to lose something when the layer goes away. The corner is
+// measured as a REGION of the window: a single cell can land on no dot at all,
+// and a ratio of two empty cells would prove nothing.
+const cornerMean = (layers) => {
+  let sum = 0;
+  let count = 0;
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      sum += layers.composite[y * COLS + x];
+      count += 1;
+    }
+  }
+  return sum / count;
+};
+const cornerVig = (() => {
+  let sum = 0;
+  let count = 0;
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      sum += baseFrame.vignette[y * COLS + x];
+      count += 1;
+    }
+  }
+  return sum / count;
+})();
 const noVignette = clone(genghe);
 delete noVignette.layers.vignette;
-const flatCorner = layersAt(noVignette, 0).composite[0];
+const cornerBase = cornerMean(baseFrame);
+const cornerFlat = cornerMean(layersAt(noVignette, 0));
 check('removing the vignette brightens the corner by the vignette value',
-  Math.abs(flatCorner / baseCorner - 1 / vignette.corner) < 0.02,
-  `corner ${num(baseCorner)} -> ${num(flatCorner)} (x${(flatCorner / baseCorner).toFixed(3)}, 1/0.773 = 1.294)`);
+  cornerBase > 0 && Math.abs(cornerFlat / cornerBase - 1 / cornerVig) < 0.02,
+  `corner ${num(cornerBase)} -> ${num(cornerFlat)} (x${(cornerFlat / cornerBase).toFixed(3)},`
+  + ` 1/${num(cornerVig)} = ${(1 / cornerVig).toFixed(3)})`);
 
 for (const plane of PLANES) {
   const owners = genghe.nodes.filter((node) => node.plane === plane).map((node) => node.id);
@@ -163,6 +201,81 @@ check('the three figure planes form a weight ladder',
 check('the composite has contrast, not a uniform veil',
   baseCompositePeak > 0.5 && baseCompositePeak / Math.max(baseCompositeMean, 1e-6) > 4,
   `peak ${num(baseCompositePeak)} · mean ${num(baseCompositeMean)} · ratio ${(baseCompositePeak / baseCompositeMean).toFixed(1)}`);
+
+// ---------------------------------------------------------------------------
+// 2b. COMPOSITION — the recipe of the approved piece, measured on the field.
+// ---------------------------------------------------------------------------
+// The flat delivery met every loose threshold and still looked flat, so these
+// cases are the concrete recipe of the approved hero (the hybrid of v1): a
+// sparse sky with a quiet pocket, a dense ring that returns the gaze, no seam
+// between 8 px bands, the calm zone in its intensity band and a vignette with
+// real presence. They measure the FIELD (sky + wash + vignette) at the size of
+// the approved plate, because that is the material behind the figure; the
+// approved protocol hides the cores to measure the same thing.
+const REFERENCE = { width: 1280, height: 900 }; // the size of the approved plate
+const comp = compositionMetrics(genghe, { ...REFERENCE, cols: COLS, rows: ROWS });
+const midComp = compositionMetrics(genghe, {
+  ...REFERENCE, cols: COLS, rows: ROWS, index: Math.round(genghe.cycle.frames / 2),
+});
+const RULE = COMPOSITION;
+
+check('the sky is sparse: the frame carries the unicorn overlay\u2019s 0.045 density',
+  comp.sky.lit >= 0.033 && comp.sky.lit <= 0.060,
+  `frame lit ${num(comp.sky.lit)} \u00b7 field baseline ${num(comp.sky.outer)}`);
+check('the field is not a carpet edge to edge',
+  comp.sky.ring > comp.sky.outer * 1.25 && comp.sky.pocket < comp.sky.outer * 0.85,
+  `pocket ${num(comp.sky.pocket)} \u00b7 field ${num(comp.sky.outer)} \u00b7 ring ${num(comp.sky.ring)}`);
+check('the quiet pocket is at most 0.70 of the ring',
+  comp.pocketToRing <= RULE.pocketToRing,
+  `pocket ${num(comp.pocket)} / ring ${num(comp.ring)} = ${num(comp.pocketToRing)} (max ${RULE.pocketToRing})`);
+check('the dense ring returns the gaze: at least 1.5x the calm zone',
+  comp.ringToCalm >= RULE.ringToCalm,
+  `ring ${num(comp.ring)} / calm ${num(comp.calm)} = ${num(comp.ringToCalm)} (min ${RULE.ringToCalm})`);
+check('dense / calm is at least 1.8',
+  comp.denseToCalm >= RULE.denseToCalm,
+  `dense ${num(comp.dense)} / calm ${num(comp.calm)} = ${num(comp.denseToCalm)} (min ${RULE.denseToCalm})`);
+check('no seam between 8 px bands',
+  comp.bandJump <= RULE.bandJump,
+  `max jump ${num(comp.bandJump)} on ${comp.bandAxis} bands (max ${RULE.bandJump})`);
+check('no band is empty beyond 15 % of the window',
+  comp.emptyShare < RULE.emptyShare && comp.emptyBand > 0,
+  `longest empty run ${(comp.emptyShare * 100).toFixed(1)} % of the ${comp.emptyAxis} axis`);
+check('the calm zone sits in the approved 0.040-0.047 band',
+  comp.calm >= RULE.calm[0] && comp.calm <= RULE.calm[1],
+  `calm ${num(comp.calm)} (${RULE.calm[0]}-${RULE.calm[1]}) at ${REFERENCE.width}x${REFERENCE.height}`);
+check('the vignette closes the frame with real presence',
+  Math.abs(comp.vignette.centre - RULE.vignette.centre) < 0.002
+  && Math.abs(comp.vignette.edge - RULE.vignette.edge) < 0.012
+  && Math.abs(comp.vignette.corner - RULE.vignette.corner) < 0.03
+  && comp.vignette.lift > 1.04 && comp.vignette.corner < 0.86,
+  `layer ${num(comp.vignette.centre)}/${num(comp.vignette.edge)}/${num(comp.vignette.corner)}`
+  + ` \u00b7 painted corner x${num(comp.vignette.lift)} when the layer is removed`);
+check('the real constellation has no composition error',
+  compositionErrors(genghe, { ...REFERENCE, cols: COLS, rows: ROWS }).length === 0,
+  compositionErrors(genghe, { ...REFERENCE, cols: COLS, rows: ROWS }).join(' | ') || 'no errors');
+check('the composition holds at another frame of the loop',
+  midComp.pocketToRing <= RULE.pocketToRing && midComp.ringToCalm >= RULE.ringToCalm
+  && midComp.denseToCalm >= RULE.denseToCalm && midComp.bandJump <= RULE.bandJump
+  && midComp.calm >= RULE.calm[0] && midComp.calm <= RULE.calm[1],
+  `calm ${num(midComp.calm)} \u00b7 pocket/ring ${num(midComp.pocketToRing)}`
+  + ` \u00b7 ring/calm ${num(midComp.ringToCalm)} \u00b7 dense/calm ${num(midComp.denseToCalm)}`
+  + ` \u00b7 jump ${num(midComp.bandJump)}`);
+
+// T9 — THE NEGATIVE. The flat delivery, expressed as data: one density
+// everywhere and no atmosphere. It must FAIL and name the reason, otherwise the
+// check could pass the capture the direction rejected.
+const uniform = clone(genghe);
+uniform.layers.sky.structure = { pocket: 1, ring: 1, outer: 1, band: 0, noise: 0 };
+uniform.layers.sky.clusters = [];
+uniform.layers.wash.gain = 0;
+const uniformErrors = compositionErrors(uniform, { ...REFERENCE, cols: COLS, rows: ROWS });
+check('a uniform field fails the composition check', uniformErrors.length > 0,
+  uniformErrors.join(' | ') || 'NO ERRORS (passed silently)');
+check('a uniform field is named as uniform', uniformErrors.some((error) => /uniform field/i.test(error)),
+  uniformErrors[0] ?? 'NO ERRORS');
+check('a uniform field names the pocket and the ring',
+  ['pocket', 'ring'].every((word) => uniformErrors.some((error) => error.includes(word))),
+  uniformErrors.join(' | '));
 
 // ---------------------------------------------------------------------------
 // 3. Genghe is the figure the research describes: three stars, near-collinear.

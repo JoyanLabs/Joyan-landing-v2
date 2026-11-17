@@ -23,12 +23,15 @@ import { chromium } from '/home/joshrm/.cache/joyan-motion/node_modules/playwrig
 const OUT = fileURLToPath(new URL('./captures/', import.meta.url));
 const BASE = 'http://127.0.0.1:4403/design-studies/constelaciones/';
 const FRAME = 40;
+// The desktop plates are 1280x900, the size of the approved plate the direction
+// compares against (`design-studies/comparar/v1-hero.png`): an A/B at a
+// different size is not an A/B.
 const plates = [
-  { name: 'genghe-1280', width: 1280, height: 800, query: `?frame=${FRAME}` },
-  { name: 'genghe-1280-foco', width: 1280, height: 800, query: `?frame=${FRAME}&active=genghe-i` },
+  { name: 'genghe-1280', width: 1280, height: 900, query: `?frame=${FRAME}` },
+  { name: 'genghe-1280-foco', width: 1280, height: 900, query: `?frame=${FRAME}&active=genghe-i` },
   { name: 'genghe-390', width: 390, height: 844, query: `?frame=${FRAME}` },
   { name: 'genghe-390-foco', width: 390, height: 844, query: `?frame=${FRAME}&active=genghe-i` },
-  { name: 'vivo-1280', width: 1280, height: 800, query: '?vivo=1', settle: 2400 },
+  { name: 'vivo-1280', width: 1280, height: 900, query: '?vivo=1', settle: 2400 },
   { name: 'vivo-390', width: 390, height: 844, query: '?vivo=1', settle: 2400 },
 ];
 

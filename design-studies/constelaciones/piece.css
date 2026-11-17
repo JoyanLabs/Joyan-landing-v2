@@ -2,9 +2,11 @@
  * Constelaciones — review study.
  * Ground #020405, ink #b4cabe: the approved dark palette of
  * docs/ESTETICA-CONSTELACION.md. Layers bleed on all four sides, no frame, no
- * card, no shadow. Text never sits on bare texture: the left and right columns
- * carry a legibility veil of the same ground, which is the device the approved
- * piece already uses.
+ * card, no shadow. The field carries the composition the approved piece has —
+ * sparse sky, quiet pocket around the figure, dense ring, calm zone in its
+ * measured intensity band — so the copy sits on the field, not on a black card:
+ * only the right column, over the densest part of the ring, keeps a light
+ * legibility veil.
  */
 
 @font-face {
@@ -117,21 +119,18 @@ body { overflow: hidden; }
   display: block;
   width: 100%;
   height: 100%;
-  opacity: 0.82;
+  opacity: 0.55;
 }
 
-/* ---- text columns ---- */
-.veil {
-  position: absolute;
-  pointer-events: none;
-}
-
+/* The frame closes with the FIELD's own vignette (layer 4: centre 1.000,
+   lateral edge 0.928, corner 0.773). A second CSS vignette here would double
+   it, so `.edge` only carries the faintest fall at the very corners. */
 .edge {
   position: absolute;
   inset: 0;
   z-index: 1;
   pointer-events: none;
-  background: radial-gradient(ellipse 74% 74% at 50% 46%, transparent 55%, rgb(2 4 5 / 0.62) 100%);
+  background: radial-gradient(ellipse 82% 82% at 50% 46%, transparent 72%, rgb(2 4 5 / 0.28) 100%);
 }
 
 .head,
@@ -177,6 +176,23 @@ body { overflow: hidden; }
   top: 50%;
   width: min(320px, 34vw);
   transform: translateY(-58%);
+}
+
+/* The legibility veil the composition is measured with: the same colour and
+   alpha as `composition.veil`, feathered at its edge so it never reads as a
+   card. It covers the text column, which is the calm zone — the device the
+   approved piece already uses, and the reason its left side reads as mist and
+   not as confetti. The veil is uniform over the h1 rectangle the check
+   measures, and fades only in the column's outer band. */
+.veil-left {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 34vw;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(to right,
+    var(--calm-veil, transparent) 0%, var(--calm-veil, transparent) 86%, transparent 100%);
 }
 
 .title {
@@ -285,25 +301,19 @@ body { overflow: hidden; }
   letter-spacing: 0.04em;
 }
 
-/* The legibility veil: the same ground, feathered. It keeps text off the dots
-   without drawing a card. */
-.veil-left,
+/* The legibility veil: the same ground, feathered. It is LIGHT and it lives
+   over the right column, where the ring is densest and the panel copy sits. The
+   left column does not carry one: the field itself is quiet there (the calm
+   zone of the composition, 0.040-0.047 of image intensity), and a 95 % ground
+   cover turned that column black and made the plate read flat. */
 .veil-right {
+  position: absolute;
   inset-block: 0;
-  width: 30vw;
-  z-index: 1;
-}
-
-.veil-left {
-  left: 0;
-  width: 34vw;
-  background: linear-gradient(to right, var(--ground) 0%, rgb(2 4 5 / 0.95) 40%, rgb(2 4 5 / 0.6) 70%, transparent 100%);
-}
-
-.veil-right {
   right: 0;
   width: 34vw;
-  background: linear-gradient(to left, var(--ground) 0%, var(--ground) 58%, rgb(2 4 5 / 0.92) 78%, transparent 100%);
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(to left, rgb(2 4 5 / 0.72) 0%, rgb(2 4 5 / 0.5) 58%, transparent 100%);
 }
 
 /* ---- mobile: the field takes the top of the page, the text sits on ground ---- */
@@ -323,10 +333,9 @@ body { overflow: hidden; }
     left: 0;
   }
 
-  .veil-left,
   .veil-right { display: none; }
 
-  .edge { background: radial-gradient(ellipse 100% 62% at 50% 40%, transparent 46%, rgb(2 4 5 / 0.6) 100%); }
+  .edge { background: radial-gradient(ellipse 100% 62% at 50% 40%, transparent 60%, rgb(2 4 5 / 0.3) 100%); }
 
   .head {
     left: 0;

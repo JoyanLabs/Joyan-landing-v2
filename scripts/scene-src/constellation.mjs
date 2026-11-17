@@ -54,7 +54,7 @@
  * what `renderFrame` requires.
  */
 
-import { hashNoise, layeredNoise, renderFrame } from './engine.mjs';
+import { compensate, hashNoise, layeredNoise, luma, renderFrame, sceneMetrics, stepFor } from './engine.mjs';
 
 /** The stack, in composition order. A scene without all five is not a scene. */
 export const LAYERS = Object.freeze(['sky', 'wash', 'figure', 'vignette', 'cores']);
@@ -69,9 +69,9 @@ export const BEHAVIOURS = Object.freeze(['breathe', 'trace', 'depth', 'focus']);
  * far to near, so "the far ones barely read" is a number, not a wish.
  */
 export const PLANE_STYLE = Object.freeze({
-  far: Object.freeze({ opacity: 0.24, width: 0.52, figureGain: 0.55, depth: 0 }),
-  mid: Object.freeze({ opacity: 0.48, width: 0.78, figureGain: 0.78, depth: 1 }),
-  near: Object.freeze({ opacity: 0.92, width: 1.12, figureGain: 1, depth: 2 }),
+  far: Object.freeze({ opacity: 0.24, width: 1.1, figureGain: 0.55, depth: 0 }),
+  mid: Object.freeze({ opacity: 0.48, width: 1.7, figureGain: 0.78, depth: 1 }),
+  near: Object.freeze({ opacity: 0.92, width: 2.4, figureGain: 1, depth: 2 }),
 });
 
 /** How much of a link stays visible when the active node is in another group. */
@@ -79,24 +79,67 @@ export const FOCUS_FADE = 0.12;
 /** Lit stretches along a breathing link. Two or more is what "por tramos" means. */
 export const TRAMOS = 2.4;
 
+/**
+ * THE COMPOSITION RULES of the approved piece (`docs/ESTETICA-CONSTELACION.md`,
+ * «Composición»), as numbers. They are the recipe the first delivery of Genghe
+ * met in spirit and missed in fact: it passed every loose threshold and still
+ * read as a carpet. `compositionMetrics` measures them on the field and
+ * `compositionErrors` refuses a field that is one density everywhere.
+ *
+ * The regions are the approved measuring protocol's, not this file's invention:
+ *   pocket  the ellipse over the node bounding box, radii = half its spans
+ *   ring    1 < r² <= 2.25 of that ellipse (outer radii 1.5x)
+ *   calm    the rectangle the headline sits on (`composition.calm`, in px)
+ *   dense   16 px tiles, the mean of the top 10 %, headline tiles excluded
+ *   bands   non-overlapping 8 px groups, full rows and full columns
+ */
+export const COMPOSITION = Object.freeze({
+  /** The size of the approved plate; every rule below is measured there. */
+  reference: Object.freeze({ width: 1280, height: 900 }),
+  /** Intensity of the calm zone in the dark ground (image intensity I). */
+  calm: Object.freeze([0.040, 0.047]),
+  /** The quiet pocket around the figure, against the ring that surrounds it. */
+  pocketToRing: 0.70,
+  /** The ring has to return the gaze: it is denser than the calm zone. */
+  ringToCalm: 1.5,
+  /** And the densest tiles are denser still: the field has zones. */
+  denseToCalm: 1.8,
+  /** No rectangular seam: bands of 8 px may not jump more than this. */
+  bandPx: 8,
+  bandJump: 0.06,
+  /** No empty band (< 0.02) for more than 15 % of the window. */
+  emptyBand: 0.02,
+  emptyShare: 0.15,
+  /** The densest region: complete 16 px tiles, top 10 % of their means. */
+  tilePx: 16,
+  denseShare: 0.1,
+  /** The sky is as sparse as the unicorn's star overlay, and the star keeps
+   * `keep` of itself where the atmosphere already carries structure. */
+  skyDensity: 0.045,
+  skyKeep: 0.7,
+  /** The vignette's approved measurements, with real presence in the frame. */
+  vignette: Object.freeze({ centre: 1.000, edge: 0.928, corner: 0.773 }),
+});
+
 // Field amplitudes, MEASURED against the engine's own rung ladder: the ramp's
 // first rung sits at level ~0.008, the second at ~0.24 and the last at ~0.82 of
-// the palette range, and a tone of `t` maps to roughly 0.6 t of level on this
-// palette. So a dot has to be a real step on the tone axis, not a whisper: a
-// field of 0.02 everywhere would light every cell with the smallest dot and
-// read as a grey grid (the veil the approved piece rejects). These numbers put
-// 55–70 % of the frame on step 0 with four rungs in use — the band the check
-// enforces.
+// the palette range. The sky is a SPARSE field now, not a carpet: `density` is
+// the fraction of cells that receive a star (the unicorn overlay's 0.045), so a
+// lit cell has to be a real star and not a whisper. The three tiers are dot
+// sizes, and most of them are large: at 4.5 % of the frame, small dots cannot
+// carry the material at all.
 const SKY_FLOOR = 0;
-const DUST = Object.freeze([0, 0.13, 0.42, 0.95]);
-const NODE_GAIN = 0.075;
-const LINK_GAIN = 0.6;
+const DUST = Object.freeze([0, 0.30, 0.62, 1.06]);
+const NODE_GAIN = 0.135;
+const LINK_GAIN = 0.72;
+/** The stroke's tooth: a link is drawn as ink with grain, never as a rule. */
+const LINK_GRAIN = 0.34;
 const CORE_INNER = 1.12;
 const CORE_OUTER = 0.55;
 /** Distance, in cells, at which a node's halo is no longer worth computing. */
-const HALO_REACH = 30;
+const HALO_REACH = 32;
 /** How far from a link's axis a cell can be and still receive ink. */
-const LINK_REACH = 3.2;
+const LINK_REACH = 4.5;
 
 const TAU = Math.PI * 2;
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
@@ -153,6 +196,47 @@ export function planeStyle(plane) {
 
 /** The nodes of a constellation by id, without a second registry. */
 const nodeById = (c) => new Map(c.nodes.map((node) => [node.id, node]));
+
+/**
+ * The figure's pocket, as the approved measuring protocol defines it: the
+ * ellipse over the node bounding box, radii = half its spans. A figure with no
+ * span (one star) still gets a minimum pocket, because a single star is a scene
+ * and not a point. Both the field (which thins the sky there) and the check
+ * (which measures the pocket against the ring) read this one function.
+ * @param {object} c
+ */
+export function figurePocket(c) {
+  const xs = c.nodes.map((node) => node.x);
+  const ys = c.nodes.map((node) => node.y);
+  return {
+    cx: (Math.min(...xs) + Math.max(...xs)) / 2,
+    cy: (Math.min(...ys) + Math.max(...ys)) / 2,
+    rx: Math.max(0.06, (Math.max(...xs) - Math.min(...xs)) / 2),
+    ry: Math.max(0.06, (Math.max(...ys) - Math.min(...ys)) / 2),
+  };
+}
+
+/**
+ * The page's own cover geometry: the field is scaled to cover the window and
+ * cropped, never stretched. Composition is measured in the window, so the
+ * mapping has to be the page's, not a second one.
+ * @param {number} cols @param {number} rows @param {number} width @param {number} height
+ */
+export function stageWindow(cols, rows, width, height) {
+  const scale = Math.max(width / cols, height / rows);
+  return {
+    width,
+    height,
+    cols,
+    rows,
+    scale,
+    left: (width - cols * scale) / 2,
+    top: (height - rows * scale) / 2,
+  };
+}
+
+/** The pocket radius, r = 1 on the ellipse, of a point in frame units. */
+const pocketRadius = (pocket, u, v) => Math.hypot((u - pocket.cx) / pocket.rx, (v - pocket.cy) / pocket.ry);
 
 /**
  * The `focus` weight of a link: solid when the active node belongs to the
@@ -346,9 +430,24 @@ export function validateConstellation(c) {
     if (!layers.sky || typeof layers.sky !== 'object') {
       errors.push('missing layer: sky (the point sky)');
     } else {
-      if (!isNumber(layers.sky.density) || layers.sky.density <= 0) errors.push('layer "sky" needs a positive density');
+      if (!isNumber(layers.sky.density) || layers.sky.density <= 0 || layers.sky.density > 1) {
+        errors.push('layer "sky" needs a density in (0,1]: it is the fraction of cells that receive a star');
+      }
       if (!Number.isInteger(layers.sky.seed)) errors.push('layer "sky" needs an integer seed');
       if (!isNumber(layers.sky.veil) || layers.sky.veil < 0) errors.push('layer "sky" needs a veil amount');
+      if (!isUnit(layers.sky.keep)) {
+        errors.push('layer "sky" needs a keep in [0,1]: the star textures the ground, it does not punch the figure');
+      }
+      const structure = layers.sky.structure;
+      if (!structure || typeof structure !== 'object') {
+        errors.push('layer "sky" needs a structure: one density everywhere is a carpet, not a sky');
+      } else {
+        for (const key of ['pocket', 'ring', 'outer', 'band', 'noise']) {
+          if (!isNumber(structure[key]) || structure[key] < 0) {
+            errors.push(`layer "sky" structure.${key} must be a non-negative number`);
+          }
+        }
+      }
     }
     if (!layers.wash || typeof layers.wash !== 'object') {
       errors.push('missing layer: wash (the atmosphere)');
@@ -481,6 +580,35 @@ export function validateConstellation(c) {
     if (!camera.travel || typeof camera.travel !== 'object') errors.push('camera.travel is required (it may be empty)');
   }
 
+  // ---- composition ---------------------------------------------------------
+  // The calm zone has to be declared, because it is measured: a field with no
+  // calm zone and no pocket is a carpet, and the check refuses it.
+  const composition = c.composition;
+  if (!composition || typeof composition !== 'object') {
+    errors.push('composition is required: the calm zone and the pocket are measured, not assumed');
+  } else {
+    const rect = composition.calm;
+    if (!rect || typeof rect !== 'object' || !['x', 'y', 'w', 'h'].every((key) => isNumber(rect[key]))) {
+      errors.push('composition.calm needs x, y, w and h in px');
+    } else if (rect.w <= 0 || rect.h <= 0) {
+      errors.push('composition.calm needs a positive width and height');
+    }
+    const reference = composition.reference;
+    if (reference !== undefined
+      && (!reference || !isNumber(reference.width) || !isNumber(reference.height)
+        || reference.width <= 0 || reference.height <= 0)) {
+      errors.push('composition.reference needs a positive width and height');
+    }
+    // The legibility veil is measured with the field (the approved protocol
+    // measures it), so it is data and not only CSS.
+    if (composition.veil !== undefined) {
+      if (!composition.veil || !isHex(composition.veil.colour) || !isUnit(composition.veil.alpha)
+        || composition.veil.alpha <= 0) {
+        errors.push('composition.veil needs a #rrggbb colour and an alpha in (0,1]');
+      }
+    }
+  }
+
   return errors;
 }
 
@@ -518,25 +646,40 @@ export function paletteTone(c, tone) {
 }
 
 /**
- * The wash: structured atmosphere, never a radial gradient. A diagonal milky
- * band plus two knots, both modulated by the engine's own lattice noise, and the
- * band's own twist (a second, weaker band crossing it) so the cloud has a shape
- * instead of a centre. The two samples are crossfaded over the loop (`washK`),
- * which is what moves the weather.
+ * The wash: structured atmosphere with MASS, never a radial gradient and never a
+ * uniform veil — and, because the engine speaks only in dots, never a low
+ * continuous tone either.
+ *
+ * WHY IT IS A CLOUD AND NOT A TINT. A tone of 0.05 over a region is not painted
+ * as air: the engine can only lay the smallest dot on a Bayer lattice, and at
+ * this cell size that is a fine regular grid — the flat carpet, one size down.
+ * So the atmosphere carries its mass the way the approved nebula does: as the
+ * DENSITY of mid-size dots. The cloud has an edge because the dots stop, not
+ * because they dim, which is exactly how the milky band of the approved piece
+ * reads.
+ *
+ * The shape is a diagonal band, a second crossing ribbon and two knots, all
+ * multiplied by a grain that opens real gaps; the pocket thins it around the
+ * figure and the ring thickens it, so the cloud embraces the subject.
+ * @returns {number} cloud density in 0..1 (not a tone)
  */
-function washTone(u, v, cfg, seed, variant) {
+function washCloud(u, v, cfg, seed, variant) {
   const skew = variant === 0 ? 1 : -0.82;
   const axis = (u * 0.62 + v * 0.79) * skew + 0.52;
   const cross = (u * -0.55 + v * 0.62) + 0.18 + variant * 0.06;
-  const band = Math.exp(-((axis / 0.17) ** 2))
-    * (0.3 + 0.7 * layeredNoise(u * 6.4 + variant * 3.1, v * 6.4 - variant * 1.7, seed + variant * 13, { octaves: 2 }));
-  const twist = Math.exp(-((cross / 0.24) ** 2))
-    * (0.2 + 0.8 * layeredNoise(u * 9.1 - 4.4, v * 9.1 + 6.2, seed + 31 + variant * 11, { octaves: 2 }));
-  const knotA = Math.exp(-(((u - 0.3 - variant * 0.05) ** 2 + (v - 0.28) ** 2) / 0.055));
-  const knotB = Math.exp(-(((u - 0.74 + variant * 0.04) ** 2 + (v - 0.68) ** 2) / 0.075));
-  const grain = 0.35 + 0.65 * layeredNoise(u * 13 + 7.3, v * 13 + 2.9, seed + 61 + variant * 7, { octaves: 2 });
-  return cfg.gain * (0.2 * band + 0.09 * twist + 0.32 * knotA * grain + 0.26 * knotB * grain);
+  const band = Math.exp(-((axis / 0.22) ** 2));
+  const twist = Math.exp(-((cross / 0.22) ** 2));
+  const knotA = Math.exp(-(((u - (0.34 + variant * 0.04)) ** 2 + ((v - (0.26 + variant * 0.03)) * 1.1) ** 2) / 0.05));
+  const knotB = Math.exp(-(((u - (0.72 - variant * 0.03)) ** 2 + ((v - (0.34 + variant * 0.04)) * 1.1) ** 2) / 0.07));
+  const grain = layeredNoise(u * 6.6 + variant * 3.1, v * 6.6 - variant * 1.7, seed + variant * 13, { octaves: 3 });
+  // The grain opens gaps: outside them the cloud is exactly zero.
+  const envelope = clamp01((grain - 0.26) / 0.74);
+  return clamp01(cfg.gain * (0.62 * band + 0.25 * twist + 0.85 * knotA + 0.62 * knotB) * envelope);
 }
+
+/** The three dot sizes a cloud is made of, and their shares. */
+const CLOUD_DOTS = Object.freeze([0.40, 0.62, 0.95]);
+const CLOUD_SHARES = Object.freeze([0.24, 0.52, 0.24]);
 
 /**
  * Build (once, cached) every static plane and the sparse term tables a frame
@@ -553,7 +696,7 @@ function buildLayout(c, cols, rows) {
   const washB = new Float32Array(n);
   const vignette = new Float32Array(n);
   const core = new Float32Array(n);
-  const skyCfg = c.layers.sky ?? { density: 0, seed: 0, veil: 0 };
+  const skyCfg = c.layers.sky ?? { density: 0, seed: 0, keep: 0, veil: 0, structure: {} };
   const washCfg = c.layers.wash ?? { seed: 0, gain: 0 };
   // A missing layer renders as nothing (identity for the vignette, zero for the
   // ink layers): the RENDERER draws what the data has, and validation is the
@@ -561,45 +704,109 @@ function buildLayout(c, cols, rows) {
   const vig = c.layers.vignette ?? { start: 0, exponent: 1, strength: 0 };
   const coreCfg = c.layers.cores ?? { inner: 0, outer: 0 };
   const density = skyCfg.density ?? 0;
+  const keep = skyCfg.keep ?? 0;
+  const skyShape = skyCfg.structure ?? {};
+  const pocketGain = skyShape.pocket ?? 1;
+  const ringGain = skyShape.ring ?? 1;
+  const outerGain = skyShape.outer ?? 1;
+  const bandGain = skyShape.band ?? 0;
+  const noiseGain = skyShape.noise ?? 0;
   // The quiet pocket of `docs/ESTETICA-CONSTELACION.md`: the field thins around
   // the figure so the constellation reads clean and the ring around it is denser.
-  // It is composed from the nodes, not from the camera, so it is part of the art.
-  const pocketX = c.nodes.reduce((sum, node) => sum + node.x, 0) / c.nodes.length;
-  const pocketY = c.nodes.reduce((sum, node) => sum + node.y, 0) / c.nodes.length;
+  // It is composed from the nodes, not from the camera, so it is part of the art,
+  // and the check measures the same ellipse.
+  const pocket = figurePocket(c);
   const clusters = c.layers.sky.clusters ?? [];
+
+  // The sky's structure, as a pure function of the frame: a quiet pocket, a
+  // dense ring, the far field, the milky band, the cluster knots and a weather
+  // that opens gaps. It does NOT include `keep`, which depends on the wash.
+  const skyShapeAt = (u, v) => {
+    const radius = pocketRadius(pocket, u, v);
+    // A smooth radial PROFILE through three measured values, not a weighted
+    // average of three strong terms: the ring has to be dense at r = 1.25 and
+    // quiet again at r = 1, or its gain leaks into the pocket.
+    const ringBump = Math.exp(-(((radius - 1.38) / 0.24) ** 2));
+    const quiet = 1 - smoothstep(0.40, 1.30, radius);
+    const radial = outerGain + (ringGain - outerGain) * ringBump - (outerGain - pocketGain) * quiet;
+    const weather = 1 - noiseGain + noiseGain
+      * (0.32 + 1.42 * layeredNoise(u * 5.6 + 3.1, v * 5.6 - 1.7, skyCfg.seed + 71, { octaves: 2 }));
+    const bandAxis = (u * 0.55 + v * 0.83 - 0.62) / 0.13;
+    const milky = bandAxis * bandAxis < 1
+      ? (1 - bandAxis * bandAxis) ** 1.4
+        * (0.35 + 0.9 * layeredNoise(u * 8.4 - 2.2, v * 8.4 + 4.6, skyCfg.seed + 53, { octaves: 2 }))
+      : 0;
+    let shape = Math.max(0, radial) * weather + bandGain * milky;
+    for (const cluster of clusters) {
+      const d = Math.hypot(u - cluster.x, (v - cluster.y) * 1.1);
+      if (d < cluster.r) shape += cluster.boost * (1 - d / cluster.r) ** 2;
+    }
+    return shape;
+  };
+
+  // `density` is the MEAN fraction of cells that receive a star — the unicorn
+  // overlay's 0.045 — so the structure is normalised by its own mean instead of
+  // multiplying the baseline wherever the weather happens to be low. That is
+  // what makes the number mean something at every viewport and every sample.
+  let shapeSum = 0;
+  let shapeCount = 0;
+  for (let j = 0; j < 60; j++) {
+    for (let i = 0; i < 96; i++) {
+      shapeSum += skyShapeAt((i + 0.5) / 96, (j + 0.5) / 60);
+      shapeCount += 1;
+    }
+  }
+  const shapeNorm = shapeCount / Math.max(shapeSum, 1e-9);
 
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
       const at = y * cols + x;
       const u = (x + 0.5) / cols;
       const v = (y + 0.5) / rows;
-      // 1 · point sky: a veil of the smallest dot whose DENSITY is the picture —
-      // large-scale cloud, a milky band and a few clusters — plus two brighter
-      // tiers, so the ramp shows several dot sizes and not one uniform grain.
-      // Density is what makes material instead of a floor: a positive tone on
-      // every cell would put the smallest dot everywhere and read as a grid.
-      const cloud = layeredNoise(x * 0.016, y * 0.016, skyCfg.seed, { octaves: 2 });
-      const bandAxis = (u * 0.62 + v * 0.82 - 0.55) / 0.22;
-      const milky = Math.exp(-(bandAxis ** 2));
-      const pocket = 1 - 0.55 * Math.exp(-(((u - pocketX) ** 2 + ((v - pocketY) * 1.15) ** 2) / 0.045));
-      let lit = 0.05 + 0.16 * cloud + 0.26 * milky;
-      for (const cluster of clusters) {
-        const d = Math.hypot(u - cluster.x, (v - cluster.y) * 1.1);
-        if (d < cluster.r) lit += cluster.boost * (1 - d / cluster.r) ** 2;
-      }
-      const veil = clamp01(lit * pocket * density * (skyCfg.veil ?? 1));
-      const roll = hashNoise(x, y, skyCfg.seed + 17);
-      let dust = 0;
-      if (roll < veil) dust = DUST[1];
-      if (roll < veil * 0.82) dust = DUST[2];
-      if (roll < veil * 0.2) dust = DUST[3];
-      sky[at] = SKY_FLOOR + dust;
       // 2 · wash. It is atmosphere BEHIND the figure, so the pocket thins it too:
       // the approved composition asks for a pocket where the figure reads clean
       // and a denser ring around it, and a nebula laid over the stars hides them.
-      const washPocket = pocket ** 1.6;
-      washA[at] = washTone(u, v, washCfg, washCfg.seed, 0) * washPocket;
-      washB[at] = washTone(u, v, washCfg, washCfg.seed, 1) * washPocket;
+      const radius = pocketRadius(pocket, u, v);
+      const washPocket = 1 - 0.72 * (1 - smoothstep(0.55, 1.35, radius));
+      // The atmosphere's mass sits on the ring: the cloud embraces the figure,
+      // so the gaze returns to it. Far from the figure there is only a thin
+      // trail (and, with the grain's gaps, often nothing at all).
+      const washRing = 0.55 + 0.85 * Math.exp(-(((radius - 1.35) / 0.55) ** 2));
+      const cloudA = washCloud(u, v, washCfg, washCfg.seed, 0) * washPocket * washRing;
+      const cloudB = washCloud(u, v, washCfg, washCfg.seed, 1) * washPocket * washRing;
+      // A cloud cell is a dot of one of three sizes, chosen by hash: the density
+      // is the cloud, the size is the material.
+      const cloudDot = (density, salt) => {
+        if (density <= 0 || hashNoise(x, y, washCfg.seed + salt) > density) return 0;
+        const pick = hashNoise(x, y, washCfg.seed + salt + 4);
+        return pick < CLOUD_SHARES[0] ? CLOUD_DOTS[0]
+          : pick < CLOUD_SHARES[0] + CLOUD_SHARES[1] ? CLOUD_DOTS[1] : CLOUD_DOTS[2];
+      };
+      const washAValue = cloudDot(cloudA, 97);
+      const washBValue = cloudDot(cloudB, 113);
+      washA[at] = washAValue;
+      washB[at] = washBValue;
+      // 1 · point sky: a SPARSE field, at the unicorn overlay's density (0.045 of
+      // the cells receive a star), with the structure that makes it a sky and
+      // not a carpet: a quiet pocket around the figure, a dense ring around it
+      // that returns the gaze, a milky band, knots and a weather that opens gaps.
+      const shape = skyShapeAt(u, v) * shapeNorm;
+      // keep: the star textures the GROUND, not the atmosphere. Where the wash
+      // already carries structure the star gives up to `keep` of its BRIGHTNESS
+      // (the overlay's own rule: its `preserve` scales the mix toward the base),
+      // so a star never punches a hole in the subject.
+      const starKeep = 1 - keep * clamp01(((cloudA + cloudB) / 2 - 0.20) / 0.45);
+      const veil = clamp01(density * shape * (skyCfg.veil ?? 1));
+      const roll = hashNoise(x, y, skyCfg.seed + 17);
+      let dust = 0;
+      if (roll < veil) {
+        // Three dot sizes, weighted toward the small ones: the field's dust is
+        // quiet and only a fifth of the stars is the big bright mark. A field of
+        // mostly big dots is confetti — the carpet at a larger scale.
+        const size = hashNoise(x, y, skyCfg.seed + 29);
+        dust = (size < 0.60 ? DUST[1] : size < 0.90 ? DUST[2] : DUST[3]) * starKeep;
+      }
+      sky[at] = SKY_FLOOR + dust;
       // 4 · vignette: 1 at the centre, 0.928 at a lateral edge, 0.773 at a
       // corner. `r` is normalised so the frame corner is 1, which is what makes
       // those three approved measurements reproducible from (start, exponent,
@@ -760,7 +967,11 @@ function refresh(layout, p, activeNode) {
         ? visual.opacity * breatheAlong(along, p, link.phase ?? 0)
         : visual.opacity;
       if (amplitude <= 0) continue;
-      const amount = LINK_GAIN * amplitude * Math.exp(-2.4 * (terms.cross[i] * terms.cross[i]) / width2);
+      const amount = LINK_GAIN * amplitude * Math.exp(-2.4 * (terms.cross[i] * terms.cross[i]) / width2)
+        // The tooth: ink with grain, not a drawn rule. The modulation is a hash
+        // of the cell, so it is stable frame to frame and the stroke does not
+        // crawl.
+        * (1 - LINK_GRAIN / 2 + LINK_GRAIN * hashNoise(terms.cells[i], 7, 0));
       dyn[terms.cells[i]] += amount;
       plane[terms.cells[i]] += amount;
     }
@@ -771,10 +982,11 @@ function refresh(layout, p, activeNode) {
   const drift = c.layers.wash?.drift ?? 1;
   const k = 0.5 + 0.5 * drift * Math.cos(TAU * p + 0.7);
   state.washK = k;
+  const breath = 0.88 + 0.12 * k;
 
   // 4 and 5 · vignette then cores, in that order
   for (let i = 0; i < composite.length; i++) {
-    composite[i] = (sky[i] + washA[i] * k + washB[i] * (1 - k) + dyn[i]) * vignette[i] + core[i];
+    composite[i] = (sky[i] + Math.max(washA[i], washB[i]) * breath + dyn[i]) * vignette[i] + core[i];
   }
 }
 
@@ -843,7 +1055,11 @@ export function constellationLayers(c, options = {}) {
   const n = cols * rows;
   const wash = new Float32Array(n);
   const k = layout.state.washK;
-  for (let i = 0; i < n; i++) wash[i] = layout.washA[i] * k + layout.washB[i] * (1 - k);
+  // The two cloud samples are a UNION, not a crossfade: crossfading dot tones
+  // dims dots through the low rungs and rebuilds the very lattice the dot cloud
+  // exists to avoid. The weather moves as a slow brightness breath instead.
+  const breath = 0.88 + 0.12 * k;
+  for (let i = 0; i < n; i++) wash[i] = Math.max(layout.washA[i], layout.washB[i]) * breath;
 
   // The figure, split by plane: nodes only, so the ladder is the plane's weight
   // and not a link's behaviour.
@@ -876,3 +1092,377 @@ export function constellationLayers(c, options = {}) {
 }
 
 export default { validateConstellation, constellationFrame, linksForPlane };
+
+// ---------------------------------------------------------------------------
+// Composition. Measured on the FIELD (sky + wash + vignette) at the size of the
+// approved plate, because that is the material behind the figure: the approved
+// protocol hides the cores for the same reason. Every number below is the one
+// the engine actually lays down — a tone is turned into a ramp step, its ink is
+// compensated and its dot covers `coverage[step]` of the cell, exactly as
+// `renderFrame` does — so the measurement cannot flatter the data.
+// ---------------------------------------------------------------------------
+
+const FIELD_SCENES = new WeakMap();
+
+/** The scene (and its engine metrics) of a constellation at one grid, cached. */
+function fieldScene(c, cols, rows) {
+  let grids = FIELD_SCENES.get(c);
+  if (!grids) {
+    grids = new Map();
+    FIELD_SCENES.set(c, grids);
+  }
+  const key = `${cols}x${rows}`;
+  let entry = grids.get(key);
+  if (!entry) {
+    const scene = constellationScene(c, { cols, rows });
+    entry = { scene, metrics: sceneMetrics(scene) };
+    grids.set(key, entry);
+  }
+  return entry;
+}
+
+/**
+ * The field's rendered intensity, one number per cell: sky + wash, closed by the
+ * vignette, then painted as the engine paints it (ramp step, compensated ink,
+ * dot coverage). This is the quantity the approved protocol calls `I`.
+ * @param {object} c
+ * @param {{cols?: number, rows?: number, index?: number}} [options]
+ */
+export function fieldIntensity(c, options = {}) {
+  const cols = options.cols ?? c.stage.cols;
+  const rows = options.rows ?? c.stage.rows;
+  const layers = constellationLayers(c, { cols, rows, index: options.index ?? 0 });
+  const { scene, metrics } = fieldScene(c, cols, rows);
+  const span = metrics.maxTone - metrics.groundTone;
+  const values = new Float32Array(cols * rows);
+  const rgb = new Float32Array(cols * rows * 3);
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const at = y * cols + x;
+      const cell = paintCell(c, scene, metrics, span, (layers.sky[at] + layers.wash[at]) * layers.vignette[at], x, y);
+      rgb[at * 3] = cell[0];
+      rgb[at * 3 + 1] = cell[1];
+      rgb[at * 3 + 2] = cell[2];
+      values[at] = luma(cell[0], cell[1], cell[2]);
+    }
+  }
+  return { cols, rows, values, rgb };
+}
+
+/** One cell as the engine paints it: the RGBA the raster would put there. */
+function paintCell(c, scene, metrics, span, tone, x, y) {
+  const rgb = paletteTone(c, tone);
+  const level = clamp01((luma(rgb[0], rgb[1], rgb[2]) - metrics.groundTone) / span);
+  const step = stepFor(level, x, y, 'bayer4');
+  const ground = metrics.colors[metrics.groundIndex];
+  if (step === 0) return ground;
+  const ink = metrics.colors[compensate(scene, rgb[0], rgb[1], rgb[2], step, metrics)];
+  const coverage = metrics.coverage[step];
+  return [
+    ground[0] + (ink[0] - ground[0]) * coverage,
+    ground[1] + (ink[1] - ground[1]) * coverage,
+    ground[2] + (ink[2] - ground[2]) * coverage,
+  ];
+}
+
+/** Image intensity I of one cell painted at `tone`. */
+function paintTone(c, scene, metrics, span, tone, x, y) {
+  const [r, g, b] = paintCell(c, scene, metrics, span, tone, x, y);
+  return luma(r, g, b);
+}
+
+/** The legibility veil of the calm zone, as data, or null when it declares none. */
+function calmVeil(c) {
+  const veil = c.composition?.veil;
+  if (!veil || !isHex(veil.colour) || !isNumber(veil.alpha) || veil.alpha <= 0) return null;
+  return { rgb: [1, 3, 5].map((i) => parseInt(veil.colour.slice(i, i + 2), 16) / 255), alpha: veil.alpha };
+}
+
+const mean4 = (pair) => (pair[1] ? pair[0] / pair[1] : 0);
+const fixed = (value) => (Number.isFinite(value) ? value.toFixed(4) : String(value));
+
+/**
+ * The composition of one constellation, measured on the field at a window.
+ *
+ * Regions follow `docs/ESTETICA-CONSTELACION.md` §Protocolo de medición:
+ * `pocket` is the ellipse over the node bounding box, `ring` is 1 < r² <= 2.25,
+ * `calm` is the declared headline rectangle, `dense` is the mean of the top 10 %
+ * of complete 16 px tiles (headline tiles excluded), bands are non-overlapping
+ * 8 px groups of full rows and full columns. The page covers the stage without
+ * distorting a cell, so the window mapping is `stageWindow`, the page's own.
+ *
+ * @param {object} c
+ * @param {{width?: number, height?: number, cols?: number, rows?: number, index?: number}} [options]
+ */
+export function compositionMetrics(c, options = {}) {
+  const reference = c.composition?.reference ?? COMPOSITION.reference;
+  const width = options.width ?? reference.width;
+  const height = options.height ?? reference.height;
+  const cols = options.cols ?? c.stage.cols;
+  const rows = options.rows ?? c.stage.rows;
+  const win = stageWindow(cols, rows, width, height);
+  const field = fieldIntensity(c, { cols, rows, index: options.index ?? 0 });
+  const fieldRgb = field.rgb;
+  const veil = calmVeil(c);
+  const sky = constellationLayers(c, { cols, rows, index: options.index ?? 0 }).sky;
+  const pocket = figurePocket(c);
+  const calmRect = c.composition?.calm ?? { x: 0, y: 0, w: 0, h: 0 };
+
+  const px = (x) => win.left + (x + 0.5) * win.scale;
+  const py = (y) => win.top + (y + 0.5) * win.scale;
+  const centreX = px(pocket.cx * cols - 0.5);
+  const centreY = py(pocket.cy * rows - 0.5);
+  const rx = pocket.rx * cols * win.scale;
+  const ry = pocket.ry * rows * win.scale;
+
+  const field3 = { calm: [0, 0], pocket: [0, 0], ring: [0, 0] };
+  const lit3 = { calm: [0, 0], pocket: [0, 0], ring: [0, 0], outer: [0, 0] };
+  const rows2 = new Map();
+  const cols2 = new Map();
+  const tilePx = COMPOSITION.tilePx;
+  const tilesX = Math.ceil(width / tilePx);
+  const tilesY = Math.ceil(height / tilePx);
+  const tiles = new Array(tilesX * tilesY).fill(null);
+  const calmHitsTile = (tx, ty) => {
+    const x0 = tx * tilePx;
+    const y0 = ty * tilePx;
+    return x0 < calmRect.x + calmRect.w && x0 + tilePx > calmRect.x
+      && y0 < calmRect.y + calmRect.h && y0 + tilePx > calmRect.y;
+  };
+
+  // dense: the top 10 % of the complete tiles' means, rounded up. "Complete" is
+  // measured in cells: a tile of 16 px holds about (16 / scale)² cell centres,
+  // and a tile missing more than a fifth of them is a partial tile. The tiles
+  // read a 3x3 smoothed field: at this sparsity a single 6x6-cell tile is a
+  // Poisson sample, and the top decile of raw tiles would name luck as density.
+  const smoothed = new Float32Array(cols * rows);
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      let sum = 0;
+      let n = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx < 0 || yy < 0 || xx >= cols || yy >= rows) continue;
+          sum += field.values[yy * cols + xx];
+          n += 1;
+        }
+      }
+      smoothed[y * cols + x] = sum / n;
+    }
+  }
+  let mean = 0;
+  let count = 0;
+  let peak = 0;
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const at = y * cols + x;
+      const sx = px(x);
+      const sy = py(y);
+      if (sx < 0 || sy < 0 || sx >= width || sy >= height) continue;
+      const inCalm = sx >= calmRect.x && sx < calmRect.x + calmRect.w
+        && sy >= calmRect.y && sy < calmRect.y + calmRect.h;
+      // The legibility veil is part of the measured composite (the approved
+      // protocol measures it), so the calm zone carries it here too.
+      const value = inCalm && veil
+        ? luma(
+          veil.rgb[0] * veil.alpha + fieldRgb[at * 3] * (1 - veil.alpha),
+          veil.rgb[1] * veil.alpha + fieldRgb[at * 3 + 1] * (1 - veil.alpha),
+          veil.rgb[2] * veil.alpha + fieldRgb[at * 3 + 2] * (1 - veil.alpha),
+        )
+        : field.values[at];
+      const lit = sky[at] > 0 ? 1 : 0;
+      const r2 = ((sx - centreX) / rx) ** 2 + ((sy - centreY) / ry) ** 2;
+      const inPocket = r2 <= 1;
+      const inRing = r2 > 1 && r2 <= 2.25;
+      const add = (pair, amount) => { pair[0] += amount; pair[1] += 1; };
+      if (inPocket) { add(field3.pocket, value); add(lit3.pocket, lit); }
+      else if (inRing) { add(field3.ring, value); add(lit3.ring, lit); }
+      else { add(lit3.outer, lit); }
+      if (inCalm) { add(field3.calm, value); add(lit3.calm, lit); }
+
+      const rowKey = Math.floor(sy / COMPOSITION.bandPx);
+      const colKey = Math.floor(sx / COMPOSITION.bandPx);
+      const rowBand = rows2.get(rowKey) ?? [0, 0];
+      rowBand[0] += value;
+      rowBand[1] += 1;
+      rows2.set(rowKey, rowBand);
+      const colBand = cols2.get(colKey) ?? [0, 0];
+      colBand[0] += value;
+      colBand[1] += 1;
+      cols2.set(colKey, colBand);
+
+      const tx = Math.floor(sx / tilePx);
+      const ty = Math.floor(sy / tilePx);
+      if (tx < tilesX && ty < tilesY && !calmHitsTile(tx, ty)) {
+        const key = ty * tilesX + tx;
+        const tile = tiles[key] ?? { sum: 0, count: 0 };
+        tile.sum += smoothed[at];
+        tile.count += 1;
+        tiles[key] = tile;
+      }      mean += value;
+      count += 1;
+      if (value > peak) peak = value;
+    }
+  }
+
+  const calm = mean4(field3.calm);
+  const pocketMean = mean4(field3.pocket);
+  const ringMean = mean4(field3.ring);
+  let calmFieldSum = 0;
+  let calmFieldCount = 0;
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const sx = px(x);
+      const sy = py(y);
+      if (sx < calmRect.x || sx >= calmRect.x + calmRect.w) continue;
+      if (sy < calmRect.y || sy >= calmRect.y + calmRect.h) continue;
+      calmFieldSum += field.values[y * cols + x];
+      calmFieldCount += 1;
+    }
+  }
+
+  const full = Math.ceil(1 / COMPOSITION.denseShare);
+  const cellsPerTile = (tilePx / win.scale) ** 2;
+  const tileMeans = tiles.filter(Boolean)
+    .filter((tile) => tile.count >= cellsPerTile * 0.8)
+    .map((tile) => tile.sum / tile.count)
+    .sort((a, b) => b - a);
+  const topCount = Math.max(1, Math.ceil(tileMeans.length / full));
+  const dense = tileMeans.length
+    ? tileMeans.slice(0, topCount).reduce((a, b) => a + b, 0) / topCount : 0;
+
+  // Bands: the last group of 8 px is incomplete and is discarded, as the
+  // protocol says. The seam is the worst jump on either axis.
+  const bandAxis = (bands, limit) => {
+    const keys = [...bands.keys()].sort((a, b) => a - b)
+      .filter((key) => (key + 1) * COMPOSITION.bandPx <= limit);
+    const means = keys.map((key) => mean4(bands.get(key)));
+    let jump = 0;
+    let longest = 0;
+    let run = 0;
+    for (let i = 0; i < means.length; i++) {
+      if (i > 0) jump = Math.max(jump, Math.abs(means[i] - means[i - 1]));
+      if (means[i] < COMPOSITION.emptyBand) {
+        run += 1;
+        longest = Math.max(longest, run);
+      } else {
+        run = 0;
+      }
+    }
+    return { jump, emptyShare: longest * COMPOSITION.bandPx / limit };
+  };
+  const rowBands = bandAxis(rows2, height);
+  const colBands = bandAxis(cols2, width);
+  const bandJump = Math.max(rowBands.jump, colBands.jump);
+  const emptyShare = Math.max(rowBands.emptyShare, colBands.emptyShare);
+
+  // Vignette: the layer's own measurements at the field coordinates, plus the
+  // lift a corner REGION gains when the layer is removed — presence, not a
+  // declaration. A corner region is used because a single dark cell lands on no
+  // ramp step and its ratio says nothing.
+  const layers = constellationLayers(c, { cols, rows, index: options.index ?? 0 });
+  const vigAt = (u, v) => layers.vignette[Math.round(v * (rows - 1)) * cols + Math.round(u * (cols - 1))];
+  const { scene, metrics } = fieldScene(c, cols, rows);
+  const span = metrics.maxTone - metrics.groundTone;
+  let cornerLit = 0;
+  let cornerOpen = 0;
+  for (let y = 0; y < Math.min(16, rows); y++) {
+    for (let x = 0; x < Math.min(16, cols); x++) {
+      const at = y * cols + x;
+      const tone = layers.sky[at] + layers.wash[at];
+      cornerLit += paintTone(c, scene, metrics, span, tone * layers.vignette[at], x, y);
+      cornerOpen += paintTone(c, scene, metrics, span, tone, x, y);
+    }
+  }
+  const vignette = {
+    centre: vigAt(0.5, 0.5),
+    edge: vigAt(0, 0.5),
+    corner: vigAt(0, 0),
+    lift: cornerLit > 0 ? cornerOpen / cornerLit : 1,
+  };
+
+  return {
+    window: win,
+    calm,
+    calmField: calmFieldCount ? calmFieldSum / calmFieldCount : 0,
+    pocket: pocketMean,
+    ring: ringMean,
+    dense,
+    pocketToRing: ringMean > 0 ? pocketMean / ringMean : 0,
+    ringToCalm: calm > 0 ? ringMean / calm : 0,
+    denseToCalm: calm > 0 ? dense / calm : 0,
+    bandJump,
+    bandAxis: rowBands.jump >= colBands.jump ? 'row' : 'column',
+    emptyShare,
+    emptyAxis: rowBands.emptyShare >= colBands.emptyShare ? 'row' : 'column',
+    emptyBand: COMPOSITION.emptyBand,
+    sky: {
+      lit: (lit3.pocket[0] + lit3.ring[0] + lit3.outer[0])
+        / Math.max(1, lit3.pocket[1] + lit3.ring[1] + lit3.outer[1]),
+      calm: mean4(lit3.calm),
+      pocket: mean4(lit3.pocket),
+      ring: mean4(lit3.ring),
+      outer: mean4(lit3.outer),
+    },
+    vignette,
+    intensity: { mean: count ? mean / count : 0, peak },
+  };
+}
+
+/**
+ * The composition rules as errors, in a stable order. An empty array means the
+ * field has the approved recipe; a uniform field is NAMED as uniform, because
+ * the flat delivery is exactly that and it must not pass silently.
+ * @param {object} c
+ * @param {{width?: number, height?: number, cols?: number, rows?: number, index?: number}} [options]
+ * @returns {string[]}
+ */
+export function compositionErrors(c, options = {}) {
+  const m = compositionMetrics(c, options);
+  const R = COMPOSITION;
+  const errors = [];
+  // Uniformity is judged on the SKY's own density, over the three regions that
+  // have enough cells to be a sample: the calm rectangle is only ~1.5k cells,
+  // and its Poisson noise would either hide a uniform field or invent one.
+  const lit = [m.sky.pocket, m.sky.ring, m.sky.outer].filter((value) => value > 0);
+  const litSpread = lit.length ? Math.max(...lit) / Math.min(...lit) - 1 : 0;
+  if (litSpread <= 0.2) {
+    errors.push(`composition: uniform field — pocket ${fixed(m.pocket)}, ring ${fixed(m.ring)} `
+      + `and field calm ${fixed(m.calmField)} carry the same intensity: a carpet, not a sky`);
+  }
+  if (!(m.pocketToRing <= R.pocketToRing)) {
+    errors.push(`composition: quiet pocket ${fixed(m.pocketToRing)} of the ring (max ${R.pocketToRing}): `
+      + 'the figure does not read clean');
+  }
+  if (!(m.ringToCalm >= R.ringToCalm)) {
+    errors.push(`composition: ring/calm ${fixed(m.ringToCalm)} (min ${R.ringToCalm}): `
+      + 'the ring does not return the gaze');
+  }
+  if (!(m.denseToCalm >= R.denseToCalm)) {
+    errors.push(`composition: dense/calm ${fixed(m.denseToCalm)} (min ${R.denseToCalm}): `
+      + 'the field has no zones');
+  }
+  if (!(m.bandJump <= R.bandJump)) {
+    errors.push(`composition: band jump ${fixed(m.bandJump)} on ${m.bandAxis} bands of ${R.bandPx} px `
+      + `(max ${R.bandJump}): there is a seam`);
+  }
+  if (!(m.calm >= R.calm[0] && m.calm <= R.calm[1])) {
+    errors.push(`composition: calm ${fixed(m.calm)} is outside ${R.calm[0]}-${R.calm[1]}: `
+      + 'the headline zone is off the approved intensity');
+  }
+  if (!(m.emptyShare < R.emptyShare)) {
+    errors.push(`composition: empty band ${(m.emptyShare * 100).toFixed(1)} % of the ${m.emptyAxis} axis `
+      + `(max ${R.emptyShare * 100} %): the field dies somewhere`);
+  }
+  if (!(m.sky.outer >= R.skyDensity * 0.72 && m.sky.outer <= R.skyDensity * 1.35)) {
+    errors.push(`composition: sky density ${fixed(m.sky.outer)} at the field baseline `
+      + `(approved ${R.skyDensity}): the sky is a carpet`);
+  }
+  if (!(m.vignette.lift > 1.04 && m.vignette.corner < 0.86)) {
+    errors.push(`composition: the vignette has no presence — corner ${fixed(m.vignette.corner)}, `
+      + `x${fixed(m.vignette.lift)} on the painted corner when the layer is removed`);
+  }
+  return errors;
+}
