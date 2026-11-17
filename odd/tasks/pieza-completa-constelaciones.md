@@ -26,6 +26,35 @@ reproducible, no al revés.
   hace referencia al proyecto osea la escogemos y ese puede ser hasta como su pqeueño logo o identificador visual ,
   luego en la constelacion cada estrella cuando interactue con ella puedo ver algo sobre el proyecto»
 - **S10.** «trabajar el eemplo completo mas completo para luego pensar en el worflow reproducioble o reglas»
+- **S11.** «la escena con capas del unicornio donde estabas probando eso del difuinado ahi las escenas el fondo
+  espacial como esas nebuloass eso le daba cuerpo y con la interaccion se sentia profundo aqui comoo dices ese
+  capo es tplano y esta gfeo»
+- **S12.** «el resultado de la escena de el unicorio de joyan es la que me gusto mas y esas cosas las quiero siento
+  qeua qui retrocedimos»
+- **S13.** «la constelacion del unicornio que creamos ese me gusto ver tambien como se hizo lo de los nodos y eso
+  ese estilo bajo eso queria iterar»
+- **S14.** «como recomiendes osea como lo que stabamos viendo y trabajando en design studies v1 creo que era el
+  ejemplo no ? tambien levantalo para que te peuda validar que eso es a lo que me refiero»
+
+## Requisito corregido: la vara es el híbrido de v1
+
+La pieza nueva **retrocedió** respecto de dos referencias ya aprobadas. La vara no son umbrales sueltos, es la
+receta concreta del hero v1 (y del estudio del unicornio):
+
+| Qué | Referencia | Números |
+|---|---|---|
+| Sujeto con **masa** | unicornio: silueta de un tercio del cuadro; v1: nebulosa + núcleos grandes | — |
+| Campo **escaso y con estructura** | overlay de estrellas del unicornio | densidad **0,045**, `keep 0,7` |
+| **Bolsillo tranquilo** alrededor de la figura | v1 | ≤ **0,70** frente al anillo |
+| **Anillo denso** que devuelve la mirada | v1 | ≥ **1,5** frente a la calma |
+| **Denso / calma** | v1 | ≥ **1,8** |
+| Salto de densidad entre bandas | v1 | ≤ **0,06** |
+| Intensidad en la zona calma | v1 | **0,040 – 0,047** |
+| Viñeta | v1 | **1,000 / 0,928 / 0,773** |
+
+**Decisión (L4):** se construye el **híbrido** —cuerpo atmosférico con masa + figura de estrellas y enlaces por
+encima—, que es la receta que v1 ya aplica. Genghe no necesita otra idea: necesita recuperar la composición.
+Comparación de las tres piezas: `design-studies/COMPARAR.html`.
 
 ## Decisión de método
 
@@ -107,6 +136,8 @@ Se separa `engine` (biblioteca) de `page` (consumidor).
 | T5 | Nodos con contenido y secuencia (parte 1 / parte 2) | S8 | worker | feat(engine) |
 | T6 | Salida PNG de alta desde el mismo motor | S2 | worker | feat(engine) |
 | T7 | Página de la pieza: montaje y capturas de revisión | S1, S10 | inline | — |
+| T8 | Rehacer la base con la receta híbrida de v1: masa, campo escaso, bolsillo y anillo | S11-S14 | worker | feat(engine) |
+| T9 | Validar la composición: una constelación con campo uniforme **falla** el chequeo | S11 | worker | feat(engine) |
 
 ## Evidencia
 
@@ -135,3 +166,21 @@ Se separa `engine` (biblioteca) de `page` (consumidor).
   su pqeueño logo o identificador visual , luego en la constelacion cada estrella cuando interactue con ella puedo
   ver algo sobre el proyecto etc entonce asi cosas asi ytodas tus recomendaciones e investiga mas como podemos
   hacer algo asi»
+- **L3** (2026-11-05, verbatim): «vale y mira otra cosa importante que estaba bien en la escena con capas del
+  unicornio donde estabas probando eso del difuinado ahi las escenas el fondo espacial como esas nebuloass eso le
+  daba cuerpo y con la interaccion se sentia profundo aqui comoo dices ese capo es tplano y esta gfeo , asi que
+  debemos de volver a iterara porque el resultado de la escena de el unicorio de joyan es la que me gusto mas y
+  esas cosas las quiero siento qeua qui retrocedimos , no es la interaccion que esperaba revisa porfavor la otra
+  escena con las capas , ese es el estilo que deseo revislao bien, la constelacion del unicornio que creamos ese me
+  gusto ver tambien como se hizo lo de los nodos y eso ese estilo bajo eso queria iterar , y lo de este ejemplo de
+  Genghe mm si esta bien hacerlo mejor priomero confirma e si sabes de que es lo que me gusto y si tienes listo
+  eso»
+- **L4** (2026-11-05, verbatim): «como recomiendes osea como lo que stabamos viendo y trabajando en design studies
+  v1 creo que era el ejemplo no ? tambien levantalo para que te peuda validar que eso es a lo que me refiero porfa»
+  → se adopta el **híbrido** y se levanta `design-studies/COMPARAR.html` con las tres piezas.
+
+## Lo que ya NO es válido
+
+- **La skill no es el producto.** Queda congelada: produce mínimos, no ambición (conclusión de I-16).
+- **Un campo de puntos parejo no es una escena.** Si falta masa, bolsillo o viñeta con presencia, no se entrega
+  aunque cumpla la banda de luminancia media. Ese fue exactamente el error de la primera entrega de Genghe.
