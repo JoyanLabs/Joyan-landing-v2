@@ -1,0 +1,373 @@
+/*
+ * Constelaciones — review study.
+ * Ground #020405, ink #b4cabe: the approved dark palette of
+ * docs/ESTETICA-CONSTELACION.md. Layers bleed on all four sides, no frame, no
+ * card, no shadow. Text never sits on bare texture: the left and right columns
+ * carry a legibility veil of the same ground, which is the device the approved
+ * piece already uses.
+ */
+
+@font-face {
+  font-family: Archivo;
+  src: url('../v1/fonts/archivo-latin-wght-normal.woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root {
+  --ground: #020405;
+  --ink: #b4cabe;
+  --body: #9fb3a9;
+  --muted: #6f8279;
+  --hairline: rgb(180 202 190 / 0.18);
+  --mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--ground);
+  color: var(--body);
+  font-family: Archivo, system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+body { overflow: hidden; }
+
+.piece {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* ---- the field: engine frame + link strokes, moved together by the camera ---- */
+.field {
+  position: absolute;
+  transform-origin: 0 0;
+  transition: transform 1200ms cubic-bezier(0.3, 0, 0.2, 1);
+  will-change: transform;
+}
+
+.field canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.sky { image-rendering: auto; }
+
+.nodes { position: absolute; inset: 0; }
+
+.node {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  color: var(--ink);
+}
+
+.node::after {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  transition: border-color 220ms ease, inset 220ms ease;
+}
+
+.node:hover::after,
+.node:focus-visible::after {
+  inset: 4px;
+  border-color: rgb(180 202 190 / 0.55);
+}
+
+.node:focus-visible { outline: 2px solid rgb(180 202 190 / 0.7); outline-offset: 2px; }
+
+.node[aria-pressed='true']::after {
+  inset: 2px;
+  border-color: rgb(180 202 190 / 0.85);
+}
+
+/* ---- the neighbour, in the same field but farther away ---- */
+.neighbour {
+  position: absolute;
+  z-index: 2;
+  left: 72%;
+  top: 13%;
+  width: 28%;
+  max-width: 360px;
+  aspect-ratio: 240 / 150;
+  pointer-events: none;
+  transition: transform 1200ms cubic-bezier(0.3, 0, 0.2, 1);
+  /* the small frame fades into the main field instead of showing its edge */
+  mask-image: radial-gradient(ellipse at center, #000 42%, transparent 78%);
+}
+
+.neighbour canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0.82;
+}
+
+/* ---- text columns ---- */
+.veil {
+  position: absolute;
+  pointer-events: none;
+}
+
+.edge {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(ellipse 74% 74% at 50% 46%, transparent 55%, rgb(2 4 5 / 0.62) 100%);
+}
+
+.head,
+.caption,
+.panel,
+.legend {
+  position: absolute;
+  z-index: 2;
+}
+
+.head {
+  left: 40px;
+  top: 32px;
+  display: flex;
+  gap: 16px;
+  align-items: baseline;
+  padding: 10px 22px 14px 0;
+  /* The head is short and sits on denser field than the caption column: it
+     carries its own feathered ground so no texture sits under the label. */
+  background: radial-gradient(ellipse at 34% 50%, rgb(2 4 5 / 0.98) 0%, rgb(2 4 5 / 0.92) 46%, transparent 100%);
+}
+
+.mark {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.kicker {
+  margin: 0;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.caption {
+  left: 40px;
+  top: 50%;
+  width: min(320px, 34vw);
+  transform: translateY(-58%);
+}
+
+.title {
+  margin: 0 0 10px;
+  color: var(--ink);
+  font-size: clamp(28px, 3.2vw, 44px);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.native {
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--body);
+}
+
+.meaning,
+.detail,
+.source {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.45;
+  max-width: 30ch;
+}
+
+.meaning { color: var(--body); }
+.detail { color: var(--muted); }
+.source {
+  margin-top: 14px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.panel {
+  right: 40px;
+  top: 50%;
+  width: min(260px, 26vw);
+  padding-top: 14px;
+  border-top: 1px solid var(--hairline);
+  transform: translateY(-10%);
+}
+
+.panel-kicker,
+.legend-title {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.panel-title {
+  margin: 0 0 8px;
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.panel-line {
+  margin: 0 0 10px;
+  color: var(--body);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.panel-note {
+  margin: 0;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.legend {
+  right: 40px;
+  bottom: 32px;
+  width: min(300px, 30vw);
+  text-align: right;
+}
+
+.legend-list {
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1.75;
+  letter-spacing: 0.04em;
+}
+
+.neighbour-note {
+  margin: 0;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+}
+
+/* The legibility veil: the same ground, feathered. It keeps text off the dots
+   without drawing a card. */
+.veil-left,
+.veil-right {
+  inset-block: 0;
+  width: 30vw;
+  z-index: 1;
+}
+
+.veil-left {
+  left: 0;
+  width: 34vw;
+  background: linear-gradient(to right, var(--ground) 0%, rgb(2 4 5 / 0.95) 40%, rgb(2 4 5 / 0.6) 70%, transparent 100%);
+}
+
+.veil-right {
+  right: 0;
+  width: 34vw;
+  background: linear-gradient(to left, var(--ground) 0%, var(--ground) 58%, rgb(2 4 5 / 0.92) 78%, transparent 100%);
+}
+
+/* ---- mobile: the field takes the top of the page, the text sits on ground ---- */
+@media (max-width: 700px) {
+  body { overflow: auto; }
+
+  .piece {
+    position: relative;
+    inset: auto;
+    min-height: 100%;
+    padding-bottom: 28px;
+  }
+
+  .field {
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+
+  .veil-left,
+  .veil-right { display: none; }
+
+  .edge { background: radial-gradient(ellipse 100% 62% at 50% 40%, transparent 46%, rgb(2 4 5 / 0.6) 100%); }
+
+  .head {
+    left: 0;
+    top: 0;
+    gap: 10px;
+    padding: 18px 20px 34px;
+    width: 100%;
+    background: linear-gradient(to bottom, var(--ground) 0%, var(--ground) 58%, transparent 100%);
+  }
+
+  .neighbour {
+    left: 62%;
+    top: 9%;
+    width: 104px;
+    opacity: 0.8;
+  }
+
+  .caption,
+  .panel,
+  .legend {
+    position: static;
+    width: auto;
+    transform: none;
+    margin: 0 20px;
+  }
+
+  .caption { margin-top: 56vh; }
+  .title { font-size: 30px; }
+
+  .panel {
+    margin-top: 26px;
+    padding-top: 12px;
+  }
+
+  .legend {
+    margin-top: 26px;
+    text-align: left;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .field,
+  .neighbour { transition: none; }
+}
