@@ -273,6 +273,22 @@ Lo que la hace ser la vara, y que no se negocia al construir encima:
 | Atmósfera con cuerpo | nebulosa direccional y descentrada, no una elipse pareja |
 | Bolsillo tranquilo | zona calma donde vive el titular; el polvo no la invade |
 | Interacción con foco | click/tap/teclado en un nodo: cámara, planos y desenfoque |
+| Enlaces vivos | los 52 enlaces no están siempre sólidos: respiran, se trazan, pesan por plano y se afinan en foco |
+
+**Enlaces (segunda iteración, 2026-11-05).** Cada enlace toma una de cuatro conductas, definidas una sola vez y
+sin DOM (`design-studies/v1/link-behaviours.mjs`, medida por `scripts/checks/check-link-behaviours.mjs`, 22 reglas
+y 5 casos negativos):
+
+- `breathe` — 2,4 tramos encendidos que viajan por el trazo, con envolvente `sin(πq)` que vale **cero** en los dos
+extremos del loop y fase por enlace (razón áurea); opacidad 0 → 0,65 en la cresta.
+- `trace` — el trazo se dibuja de origen a destino **cuando pasa la señal que ya existía** (ventana 3,0–5,4 s);
+no se agregó una segunda traza: la señal del enlace 48 gobierna el dibujado.
+- `depth` — escalera estática por plano, anclada en el pelo fino aprobado: lejos 0,37 / 0,49 · medio 0,65 / 0,70 ·
+cerca 1,00 / 0,92 (opacidad / grosor).
+- `focus` — sólo el grupo del nodo activo (con sus amarres) queda sólido; el resto baja a `FOCUS_FADE`.
+
+Coste declarado: el enjambre carga **~57 %** de la tinta de antes en promedio (42 % en el still fijado) porque
+hay enlaces apagados en cada instante. Es más tinta apagada, no menos red: la cantidad de enlaces no cambia.
 
 **Decisión del desenfoque (2026-11-05):** se queda la lectura **sutil** — **0,8 px** sobre el plano más
 alejado del nodo enfocado, con los otros dos atenuados y desaturados. Se compararon en vivo dos alternativas

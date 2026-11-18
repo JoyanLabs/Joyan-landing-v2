@@ -2,6 +2,7 @@
  * camera/focus. The lab modules and their palettes are never modified. */
 import { EMISSIONS, material, emissionPlanes, figureTransform, cameraFor, PARALLAX,
   TRANSITION_MS, RETURN_MS, STILL_SECONDS, NODE_PLANES, NODE_RATES, nodePlane } from './hero-field.mjs';
+import { cyclePosition, LINK_CYCLE_MS, LINKS, linkStyle, traceEdge, traceWindow } from './link-behaviours.mjs';
 const stage=document.querySelector('[data-stage]'), canvas=document.querySelector('[data-sky]');
 const ctx=canvas.getContext('2d',{alpha:false}), washCanvas=document.querySelector('[data-wash]');
 const washCtx=washCanvas.getContext('2d'), svg=document.querySelector('[data-constellation]');
@@ -17,7 +18,7 @@ const pause=document.querySelector('.field-pause');
 // A stays the default; B is a deliberate, shareable layout-only experiment.
 if(new URL(location.href).searchParams.get('shadow-study')==='B')document.documentElement.dataset.shadowStudy='B';
 const motion=matchMedia('(prefers-reduced-motion: reduce)'), NS='http://www.w3.org/2000/svg';
-const { NODES_PX, RINGS, LINKS_PX }=EMISSIONS.dark;
+const { NODES_PX, RINGS }=EMISSIONS.dark;
 const ground='dark';
 let width,height,f,sky,wash,focusedWash,worker,busy=false,generation=0;
 let camera={x:0,y:0,zoom:1},transition=null,raf=0,active=-1,returnLeft=0;
@@ -47,7 +48,7 @@ function swapHeadline(index){
     return Promise.all(textAnimations.map(a=>a.finished)).then(()=>{if(version===textVersion){textAnimations.forEach(a=>a.cancel());textAnimations=[];}});
   }).catch(()=>{});
 }
-const cache=new Map(), diagnostics={layers:PARALLAX,durationMs:TRANSITION_MS,signalCycleMs:12000,frames:[],dynamicFrames:[]};
+const cache=new Map(), diagnostics={layers:PARALLAX,durationMs:TRANSITION_MS,signalCycleMs:LINK_CYCLE_MS,frames:[],dynamicFrames:[]};
 const figure=document.createElementNS(NS,'g');figure.setAttribute('data-figure-camera','');
 while(svg.firstChild)figure.append(svg.firstChild);svg.append(figure);
 const stars=figure.querySelector('.stars').cloneNode(true),near=document.createElementNS(NS,'g');
@@ -55,11 +56,29 @@ near.setAttribute('data-core-camera','');stars.setAttribute('aria-hidden','true'
 figure.querySelector('.stars').setAttribute('visibility','hidden');
 const signal=document.createElementNS(NS,'circle');signal.setAttribute('class','signal');signal.setAttribute('r','1.7');
 signal.setAttribute('opacity','0');figure.append(signal);
+// The 52 links are one element per edge, because each edge now carries its own
+// behaviour: a single mega-path could only ever be solid. The dark underlay
+// gets the same dash and the same opacity, so a stroke that goes out takes its
+// backing with it instead of leaving a ghost line. `linkCache` keeps the
+// per-frame writes to what actually changed: a `depth` link is written once.
+const linkInk=[],linkBack=[],linkCache=LINKS.map(()=>({ink:{},back:{}})),linkWork=LINKS.map(link=>({...link,inGroup:false}));
+const inkLayer=document.createElementNS(NS,'g');inkLayer.setAttribute('class','links');inkLayer.id='constellation-links';
+const backLayer=document.createElementNS(NS,'g');backLayer.setAttribute('class','link-underlay');
+for(let i=0;i<LINKS.length;i++){
+  const back=document.createElementNS(NS,'path'),ink=document.createElementNS(NS,'path');
+  back.setAttribute('class','link-back');ink.setAttribute('class','link');
+  [back,ink].forEach(path=>{path.setAttribute('pathLength','1');path.setAttribute('d','');});
+  backLayer.append(back);inkLayer.append(ink);linkBack.push(back);linkInk.push(ink);
+}
+figure.querySelector('.link-underlay').replaceWith(backLayer);
+figure.querySelector('.links').replaceWith(inkLayer);
+// The active node's ring group, which is what the `focus` weight reads.
+let related=new Set();
 const nodeStars=[...stars.children];
 const nodePlanes=NODE_PLANES.map(name=>{const group=document.createElementNS(NS,'g');group.setAttribute('class','node-plane');group.dataset.nodePlane=name;near.append(group);return group;});
 nodeStars.forEach((star,i)=>{star.dataset.star=String(i);star.setAttribute('aria-hidden','true');nodePlanes[nodePlane(i)].append(star);});
 stars.remove();
-const linkIndices=LINKS_PX.map(edge=>edge.map(point=>NODES_PX.findIndex(n=>n[0]===point[0]&&n[1]===point[1])));
+const linkIndices=LINKS.map(link=>[link.from,link.to]);
 function planeCamera(plane,c=camera){const rate=NODE_RATES[plane];return {x:c.x*rate,y:c.y*rate,zoom:1+(c.zoom-1)*rate};}
 function localPoint(index){const [x,y]=NODES_PX[index],c=planeCamera(nodePlane(index));return [(x*c.zoom+(c.x+(c.zoom-1)*f.x)/f.scale-camera.x/f.scale-(camera.zoom-1)*f.x/f.scale)/camera.zoom,
   (y*c.zoom+(c.y+(c.zoom-1)*f.y)/f.scale-camera.y/f.scale-(camera.zoom-1)*f.y/f.scale)/camera.zoom];}
@@ -121,6 +140,26 @@ function paintSky(){
   skyFocusCtx.getImageData(0,0,1,1);
   diagnostics.focusBakeMs=performance.now()-started;
 }
+function pathFor(a,b){return `M${localPoint(a).join(' ')}L${localPoint(b).join(' ')}`;}
+function setLink(el,cache,name,value){if(cache[name]===value)return;cache[name]=value;el.setAttribute(name,value);}
+// The focus weight eases over the piece's own camera transition instead of
+// snapping 52 strokes at once; with nothing focused there is no weight at all.
+function focusMix(){return active<0||!transition?1:ease(Math.min(1,transition.elapsed/TRANSITION_MS));}
+function paintLinks(p=cyclePosition(clock)){
+  const state={active:active>=0,edge:traceEdge(LINKS,active),focusMix:focusMix()},counts={};
+  LINKS.forEach((link,i)=>{
+    const work=linkWork[i];work.inGroup=related.has(link.from)||related.has(link.to);
+    const style=linkStyle(work,p,state),ink=linkInk[i],back=linkBack[i];counts[style.behaviour]=(counts[style.behaviour]??0)+1;
+    const dash=style.dash?`${style.dash[0].toFixed(4)} ${style.dash[1].toFixed(4)}`:'none',offset=style.offset.toFixed(4),
+      opacity=style.opacity.toFixed(4);
+    setLink(ink,linkCache[i].ink,'opacity',opacity);setLink(ink,linkCache[i].ink,'stroke-width',style.width.toFixed(3));
+    setLink(back,linkCache[i].back,'opacity',opacity);
+    for(const [el,cache] of [[ink,linkCache[i].ink],[back,linkCache[i].back]]){
+      setLink(el,cache,'stroke-dasharray',dash);setLink(el,cache,'stroke-dashoffset',offset);
+    }
+  });
+  diagnostics.linkBehaviours=counts;
+}
 function paint(){
   if(!ready)return;const started=performance.now();
   const tx=camera.x/f.scale+(camera.zoom-1)*f.x/f.scale,ty=camera.y/f.scale+(camera.zoom-1)*f.y/f.scale;
@@ -128,7 +167,9 @@ function paint(){
   nodePlanes.forEach((plane,i)=>{const c=planeCamera(i),scale=c.zoom/camera.zoom;
     const x=(c.x+(c.zoom-1)*f.x)/f.scale,y=(c.y+(c.zoom-1)*f.y)/f.scale;
     plane.setAttribute('transform',`translate(${(x-tx)/camera.zoom} ${(y-ty)/camera.zoom}) scale(${scale})`);});
-  figure.querySelector('.links').setAttribute('d',linkIndices.map(([a,b])=>`M${localPoint(a).join(' ')}L${localPoint(b).join(' ')}`).join(' '));
+  LINKS.forEach((link,i)=>{const d=pathFor(link.from,link.to);
+    setLink(linkInk[i],linkCache[i].ink,'d',d);setLink(linkBack[i],linkCache[i].back,'d',d);});
+  paintLinks();
   diagnostics.transforms={sky:transform(PARALLAX.sky),wash:transform(PARALLAX.wash),figure:{...camera}};
   stage.dataset.painted='true';diagnostics.frames.push(performance.now()-started);if(diagnostics.frames.length>600)diagnostics.frames.shift();
   performance.measure('joyan:camera-frame',{start:started,end:performance.now()});
@@ -191,12 +232,15 @@ function animateEmission(){
   busy=true;worker.postMessage({ground,generation,focused:active>=0,width:Math.ceil(width),height:Math.ceil(height),f,seconds:STILL_SECONDS+clock/1000});
 }
 function eventFrame(){
-  // One trace along an existing edge, 2.4 s travel in a 12 s cycle; no random path.
-  const edge=active<0?48:Math.max(0,linkIndices.findIndex(pair=>pair.includes(active)));
-  const q=(clock%12000-3000)/2400,[a,b]=linkIndices[edge].map(localPoint);
-  diagnostics.trace={edge,from:linkIndices[edge][0],to:linkIndices[edge][1],plane:active<0?null:NODE_PLANES[nodePlane(active)]};
-  signal.setAttribute('opacity',q>0&&q<1?String(Math.sin(Math.PI*q)**2):'0');
-  signal.setAttribute('cx',String(a[0]+(b[0]-a[0])*Math.max(0,Math.min(1,q))));signal.setAttribute('cy',String(a[1]+(b[1]-a[1])*Math.max(0,Math.min(1,q))));
+  // One trace along an existing edge, 2.4 s travel in a 12 s cycle; no random
+  // path. The edge the dot travels is drawn by the dot (`traceWindow` is this
+  // same window), so the piece has one trace and not a second one beside it.
+  const p=cyclePosition(clock),edge=traceEdge(LINKS,active),window=traceWindow(p),[a,b]=linkIndices[edge].map(localPoint);
+  diagnostics.trace={edge,from:LINKS[edge].from,to:LINKS[edge].to,plane:active<0?null:NODE_PLANES[nodePlane(active)],
+    progress:window.at,envelope:window.envelope,drawn:window.drawn};
+  signal.setAttribute('opacity',String(window.envelope**2));
+  signal.setAttribute('cx',String(a[0]+(b[0]-a[0])*window.at));signal.setAttribute('cy',String(a[1]+(b[1]-a[1])*window.at));
+  paintLinks(p);
 }
 function tick(now){
   raf=0;if(!canRun())return;const dt=lastTime===null?0:now-lastTime;lastTime=now;clock+=dt;
@@ -237,7 +281,7 @@ function activate(index){
     treatments:Object.fromEntries(NODE_PLANES.map((name,i)=>[name,treatment(i)]))};
   swapHeadline(index);stage.dataset.activeNode=String(index);returnLeft=index<0||motion.matches?0:RETURN_MS;
   targets.forEach((t,i)=>{t.setAttribute('aria-pressed',String(i===index));light(i,i===index||i===hovered);});
-  const group=new Set(RINGS.filter(r=>r.includes(index)).flat());nodeStars.forEach((s,i)=>s.classList.toggle('node-related',group.has(i)));
+  const group=new Set(RINGS.filter(r=>r.includes(index)).flat());related=group;nodeStars.forEach((s,i)=>s.classList.toggle('node-related',group.has(i)));
   reset.hidden=index<0;status.textContent=index<0?'Vista completa de la constelación.':`Nodo ${index+1}. Acercamiento a su grupo de enlaces. Escape para volver.`;
   const to=destination(index);setOptics(to,motion.matches);
   if(motion.matches){camera=to;transition=null;paint();}
@@ -266,5 +310,8 @@ export async function fieldMeasure({node=-1,release=false}={}){
   activate(node);await settleTransition();
   measurePaused=paused;paused=true;stop();
   clock=0;lastEmission=0;paintWash();
+  // The still carries the links of the same instant, or the sample would keep
+  // whatever the previous frame left behind.
+  eventFrame();
   return fieldDiagnostics();
 }
