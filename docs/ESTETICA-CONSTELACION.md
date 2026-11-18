@@ -257,12 +257,38 @@ genial cuando hacía click en un nodo»). Lo que se pide es lo contrario: **riqu
 demostró un juez ciego—, así que la afirmación anterior era falsa. En el plano más lejano el anillo comparte
   su desenfoque de 0,8 px: eso es profundidad, no atenuación.
 
+## Base canónica: `design-studies/v1/` (2026-11-05)
+
+**Todo lo que se construya de acá en adelante parte de esta pieza.** La dirección la eligió como vara después de
+rechazar una reconstrucción que cumplía todos los umbrales y aun así se veía plana. La pieza es
+`design-studies/v1/` (`hero-field.mjs`, `v1.mjs`, `v1.css`, `scene-constelacion2.mjs`), servida desde la raíz
+del repo en el puerto 4403.
+
+Lo que la hace ser la vara, y que no se negocia al construir encima:
+
+| Rasgo | Cómo se ve |
+|---|---|
+| Capas con paralaje | cielo 0,18 · lavado 0,52 · figura 1,00, con profundidad de campo real |
+| Figura con masa | núcleos grandes con halo; la constelación se lee de un golpe |
+| Atmósfera con cuerpo | nebulosa direccional y descentrada, no una elipse pareja |
+| Bolsillo tranquilo | zona calma donde vive el titular; el polvo no la invade |
+| Interacción con foco | click/tap/teclado en un nodo: cámara, planos y desenfoque |
+
+**Decisión del desenfoque (2026-11-05):** se queda la lectura **sutil** — **0,8 px** sobre el plano más
+alejado del nodo enfocado, con los otros dos atenuados y desaturados. Se compararon en vivo dos alternativas
+(desenfoque fuerte sobre el plano más cercano al nodo; fondo fijo suave) y **se descartaron**; el código de las
+variantes se eliminó para que no queden tres respuestas donde hay una.
+
+**Lo que quedó congelado:** las skills `joyan-escenas` y `scene-iteration` viven en [`archive/`](../archive/).
+Un procedimiento convierte gusto en umbrales, y un umbral produce mínimos: las escenas que generó eran
+correctas y vacías. No se anuncian como skills activas hasta que exista su reemplazo, que sale de esta pieza.
+
 ## Iteración de escenas
 
-Skill asociado: [scene-iteration](../archive/scene-iteration/SKILL.md). Interrogar con Angie → fundamentar en datos
-o referencia medida → proponer manifiesto → implementar → medir → revisión independiente → validación humana
-→ registrar. Los números y protocolos normativos permanecen en este documento; el manifiesto registra decisiones,
-evidencia, opciones rechazadas y pendientes. Una aprobación visual no certifica un umbral incumplido o sin medir.
+La iteración se hace **sobre la base canónica y con la vara a la vista**: se propone un cambio, se implementa, se
+mide y se compara contra `design-studies/v1/`. Los números y protocolos normativos permanecen en este documento.
+Una aprobación visual no certifica un umbral incumplido ni sin medir, y un umbral cumplido no certifica que se
+vea bien: las dos cosas se verifican por separado.
 
 ## Dónde vive
 

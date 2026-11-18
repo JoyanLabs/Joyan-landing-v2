@@ -53,8 +53,12 @@ receta concreta del hero v1 (y del estudio del unicornio):
 | Viñeta | v1 | **1,000 / 0,928 / 0,773** |
 
 **Decisión (L4):** se construye el **híbrido** —cuerpo atmosférico con masa + figura de estrellas y enlaces por
-encima—, que es la receta que v1 ya aplica. Genghe no necesita otra idea: necesita recuperar la composición.
-Comparación de las tres piezas: `design-studies/COMPARAR.html`.
+encima—, que es la receta que v1 ya aplica. Comparación de las tres piezas: `design-studies/COMPARAR.html`.
+
+**Corrección (L5): la base es `design-studies/v1/` y nada más.** La reconstrucción de Genghe se descartó y su
+estudio se borró del repo junto con los estudios viejos que confundían (unicornio estático, carta estelar,
+`look-b`). Las skills de escenas y su evidencia, y los docs de etapas anteriores (`DESIGN.md`,
+`V1-COPIA-referencia.md`), se movieron a `archive/`. La segunda iteración se construye **encima de v1**.
 
 ## Decisión de método
 
@@ -139,6 +143,22 @@ Se separa `engine` (biblioteca) de `page` (consumidor).
 | T8 | Rehacer la base con la receta híbrida de v1: masa, campo escaso, bolsillo y anillo | S11-S14 | worker | feat(engine) |
 | T9 | Validar la composición: una constelación con campo uniforme **falla** el chequeo | S11 | worker | feat(engine) |
 
+## Segunda iteración — sobre `design-studies/v1/` (2026-11-05)
+
+**Genghe queda descartado como base.** La dirección eligió `design-studies/v1/` como vara y pidió construir
+encima. El modelo de datos (`scripts/scene-src/constellation.mjs`), las cuatro conductas de enlace y el chequeo
+se conservan como piezas reutilizables, pero **la escena se construye sobre v1**, no sobre la reconstrucción.
+
+| ID | Tarea | Specs | Ruta | Commit |
+|---|---|---|---|---|
+| T10 | Enlaces vivos en v1: las cuatro conductas sobre los enlaces del hero | S4, S7 | worker | feat(design-system) |
+| T11 | Segunda constelación en la lejanía y viaje de cámara sin corte | S6, S7 | worker | feat(design-system) |
+| T12 | Nodos con contenido y secuencia (parte 1 / parte 2) | S8 | worker | feat(design-system) |
+| T13 | Salida PNG de alta desde el mismo campo | S2 | worker | feat(design-system) |
+
+Regla de la iteración: cada tarea entrega **capturas comparadas contra la base** y no se acepta por cumplir
+umbrales. La primera entrega de Genghe cumplió todo y se rechazó igual.
+
 ## Evidencia
 
 (por completar)
@@ -177,7 +197,7 @@ Se separa `engine` (biblioteca) de `page` (consumidor).
   eso»
 - **L4** (2026-11-05, verbatim): «como recomiendes osea como lo que stabamos viendo y trabajando en design studies
   v1 creo que era el ejemplo no ? tambien levantalo para que te peuda validar que eso es a lo que me refiero porfa»
-  → se adopta el **híbrido** y se levanta `design-studies/COMPARAR.html` con las tres piezas.
+  → se adopta el **híbrido** y se levanta la comparación de las tres piezas.
 
 ## Lo que ya NO es válido
 
