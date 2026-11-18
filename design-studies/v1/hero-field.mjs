@@ -35,10 +35,33 @@ const planes = new Map();
 export function emissionPlanes(ground, seconds = STILL_SECONDS, dynamic = new Float32Array(480 * 300)) {
   if (seconds === STILL_SECONDS && planes.has(ground)) return planes.get(ground);
   dynamic.fill(0);
-  // This is the lab's own halo + twinkle + event composition, not a new halo.
-  EMISSIONS[ground].forEachDynamicCell(seconds, (at, x, y, amount) => { dynamic[at] = amount; });
+  // The lab's twinkle + events, WITHOUT the node halo. THE GLOW BELONGS TO THE
+  // NODE (WU150): baked into this wash the halo sat on the atmosphere plane
+  // (parallax 0.52) while its star sat on the figure plane (1.00) and, with a
+  // node focused, on a different depth plane — so the resplandor stayed behind
+  // on another height. It is drawn per node, in the node's own plane, by
+  // `nodeGlow` below. Subtracting the halo term HERE — instead of re-tuning
+  // NODE_GAIN inside the emission — keeps `scene-constelacion2.mjs`
+  // byte-identical to `visual-directions/lab/` and leaves the dust, the events
+  // and the palette exactly as they were. The subtraction is exact by
+  // construction: `dynamicTone = twinkle + nodeTone + events`.
+  const emission = EMISSIONS[ground];
+  emission.forEachDynamicCell(seconds, (at, x, y, amount) => {
+    const rest = amount - emission.nodeTone(x, y, seconds);
+    dynamic[at] = rest > 0 ? rest : 0;
+  });
   if (seconds === STILL_SECONDS) planes.set(ground, dynamic);
   return dynamic;
+}
+/** The node's own glow: its radius in figure units and the opacity it breathes.
+ * Always on — the floor is above zero — and tied to the node's own phase of the
+ * emission (`nodeBrightness`), so the star and its light breathe together. */
+export const NODE_GLOW = Object.freeze({ radius: 8.0, big: 1.16, floor: .34, swing: .66 });
+export function nodeGlow(index, seconds = STILL_SECONDS) {
+  const brightness = EMISSIONS.dark.nodeBrightness(index, seconds);
+  const scale = index % 3 === 0 ? NODE_GLOW.big : 1;
+  return { radius: NODE_GLOW.radius * scale * (.95 + .05 * brightness),
+    opacity: NODE_GLOW.floor + NODE_GLOW.swing * brightness };
 }
 /** Sparse animated wash. Palette/dither/masks still belong to the engine.
  * Cache the expensive colour decisions, not time: the emission is evaluated at

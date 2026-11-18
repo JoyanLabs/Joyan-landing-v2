@@ -265,18 +265,25 @@ body {
    dash per link. So the group holds no opacity and no width of its own — a
    group opacity would multiply all 52 strokes at once, which is exactly the
    always-solid plate these conductas replace. The middle plane's link is still
-   the approved hairline, 0.7 / 0.65. */
+   the approved hairline, 0.7 / 0.65.
+   THE PULSE (WU150): the base stroke is solid and the comet is a SECOND stack
+   of paths over it — the sub-segment each copy stands for, so the bright head
+   lands exactly where the model says. The round cap is what makes the head read
+   as a spark and not as a cut segment. */
 .stage .lines .links,
-.stage .lines .link-underlay {
+.stage .lines .link-underlay,
+.stage .lines .pulses {
   fill: none;
 }
 .stage .lines .link,
-.stage .lines .link-back {
+.stage .lines .link-back,
+.stage .lines .pulse {
   vector-effect: non-scaling-stroke;
 }
 .stage .lines .links .link { stroke: var(--ink); }
 .stage .lines .link-underlay .link-back { stroke: var(--bg); }
 .stage .lines .link-underlay { stroke-width: 3; opacity: .35; }
+.stage .lines .pulse { stroke: var(--ink); stroke-linecap: round; }
 .stage .lines .core { fill: var(--ink); }
 .stage .lines .ring {
   fill: none;
@@ -315,6 +322,10 @@ body {
 .stage .node-controls [data-node]:focus { outline: none; }
 .stage .node-controls:has([data-node]:focus-visible) .node-lit .ring { stroke-width: 2.5; }
 .stage .node-controls .core { fill: var(--ink); }
+/* THE GLOW IS THE NODE'S (WU150): an ink radial gradient in the star's own
+   plane, always on, breathing with the node's phase. The gradient's stops use
+   the page's ink, so no second colour enters the palette. */
+.stage .node-controls .glow { fill: url(#node-glow); pointer-events: none; }
 .stage .node-controls .ring { fill: none; stroke: var(--accent); stroke-width: .7; vector-effect: non-scaling-stroke; }
 .stage .node-controls .node-lit .ring { stroke-width: 2; }
 .stage .node-controls .node-related .ring { stroke-width: 1.2; }

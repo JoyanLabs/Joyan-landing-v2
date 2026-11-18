@@ -11,16 +11,23 @@
  * its loop, stops travelling in the signal's window, stops separating the
  * planes or stops fading the unfocused links, this exits non-zero.
  *
+ * WU150 replaces the dashed line with a PULSE: the base link stays solid at its
+ * plane's hairline and a short mark travels from one node to the other, once
+ * per cycle, with a tail of 3-4 copies that get longer, thinner and fainter
+ * behind a bright thick head. The rules below measure the travel (head from
+ * origin to destination), the per-link phase, the tail's gradient and the fact
+ * that the signal's own edge pulses with the signal and not on a second clock.
+ *
  * Usage (from the repository root):
  *   timeout 180 node scripts/checks/check-link-behaviours.mjs
  */
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import {
-  BREATH, HAIRLINE, LINKS, LINK_CYCLE_MS, PLANE_LINK, TRACE_WINDOW, cyclePosition, linkBehaviour,
-  linkStyle, traceEdge, traceWindow, wrap01,
+  HAIRLINE, LINKS, LINK_CYCLE_MS, PLANE_LINK, PULSE, PULSE_REACH, TRACE_WINDOW, cyclePosition,
+  linkBehaviour, linkPhase, linkStyle, pulseTravel, traceEdge, traceWindow, wrap01,
 } from '../../design-studies/v1/link-behaviours.mjs';
-import { FOCUS_FADE, TRAMOS, breatheAlong } from '../../scripts/scene-src/constellation.mjs';
+import { FOCUS_FADE } from '../../scripts/scene-src/constellation.mjs';
 
 const num = (v) => (Number.isFinite(v) ? (Math.abs(v) < 1e-9 ? '0' : v.toFixed(4)) : String(v));
 const spread = (values) => Math.max(...values) - Math.min(...values);
@@ -46,59 +53,110 @@ const check = (name, run) => cases.push({ name, run });
 
 const SAMPLE_STEPS = 96;
 const at = (impl, link, p, state = BASE) => impl(link, p, state);
+/** The copies of a pulse, or an empty list: every pulse rule reads them here. */
+const copiesOf = (style) => style.pulse?.copies ?? [];
+/** Everything one style says, so the periodicity rule can compare two of them. */
+const styleDelta = (a, b) => {
+  const parts = [Math.abs(a.opacity - b.opacity), Math.abs(a.offset - b.offset),
+    Math.abs((a.dash?.[0] ?? -1) - (b.dash?.[0] ?? -1))];
+  const [pa, pb] = [a.pulse, b.pulse];
+  if (!pa || !pb) { parts.push(pa === pb ? 0 : 10); return Math.max(...parts); }
+  parts.push(Math.abs(pa.head - pb.head));
+  const count = Math.max(pa.copies.length, pb.copies.length);
+  for (let i = 0; i < count; i++) {
+    const [ca, cb] = [pa.copies[i], pb.copies[i]];
+    if (!ca || !cb) { parts.push(10); continue; }
+    parts.push(Math.abs(ca.from - cb.from), Math.abs(ca.to - cb.to), Math.abs(ca.opacity - cb.opacity),
+      Math.abs(ca.width - cb.width), Math.abs(ca.length - cb.length));
+  }
+  return Math.max(...parts);
+};
 
-// -- breathe ---------------------------------------------------------------
-const breatheLink = LINKS.find((link) => link.plane === 'mid' && link.index !== BASE.edge);
-check('breathe is the behaviour of a mid-plane link with nothing focused', (impl) => {
-  const style = at(impl, breatheLink, 0.2);
-  return { pass: style.behaviour === 'breathe', detail: `link ${breatheLink.index} · ${style.behaviour}` };
+// -- pulse -----------------------------------------------------------------
+const pulseLink = LINKS.find((link) => link.plane === 'mid' && link.index !== BASE.edge);
+/** The cycle position where THIS link's comet is exactly halfway across it. */
+const pulseMid = wrap01(0.5 - pulseLink.phase);
+check('pulse is the behaviour of a mid-plane link with nothing focused', (impl) => {
+  const style = at(impl, pulseLink, 0.2);
+  return { pass: style.behaviour === 'pulse', detail: `link ${pulseLink.index} · ${style.behaviour}` };
 });
-check('breathe varies inside the cycle (the stroke lights and goes out)', (impl) => {
-  const values = Array.from({ length: SAMPLE_STEPS }, (_, step) => at(impl, breatheLink, step / SAMPLE_STEPS).opacity);
-  const range = spread(values);
-  return { pass: range >= 0.5 * planeOf(breatheLink).opacity,
-    detail: `${num(Math.min(...values))}..${num(Math.max(...values))} of plane ${num(planeOf(breatheLink).opacity)} (needs ≥ ${num(0.5 * planeOf(breatheLink).opacity)})` };
+check('a pulse link keeps its base stroke solid at the plane weight', (impl) => {
+  const styles = Array.from({ length: SAMPLE_STEPS }, (_, step) => at(impl, pulseLink, step / SAMPLE_STEPS));
+  const opacities = styles.map((style) => style.opacity);
+  const solid = styles.every((style) => style.dash === null && style.offset === 0
+    && Math.abs(style.opacity - planeOf(pulseLink).opacity) < 1e-9);
+  return { pass: solid,
+    detail: `${styles.length} posiciones · dash ${styles.every((style) => style.dash === null) ? 'ninguno' : 'presente'} · opacidad ${num(Math.min(...opacities))}..${num(Math.max(...opacities))} de ${num(planeOf(pulseLink).opacity)}` };
 });
-check('breathe is 0 at both ends of its own loop and 1 at its crest', (impl) => {
-  const phase = breatheLink.phase;
-  const start = at(impl, breatheLink, wrap01(-phase)).opacity;
-  const end = at(impl, breatheLink, wrap01(1 - phase)).opacity;
-  const crest = at(impl, breatheLink, wrap01(0.5 - phase)).opacity;
-  return { pass: start <= 1e-9 && end <= 1e-9 && Math.abs(crest - planeOf(breatheLink).opacity) < 1e-9,
-    detail: `q=0 → ${num(start)} · q=1 → ${num(end)} · crest → ${num(crest)} of ${num(planeOf(breatheLink).opacity)}` };
+check('the pulse is a short head, not a second line along the link', (impl) => {
+  const { pulse } = at(impl, pulseLink, pulseMid);
+  const copies = copiesOf(at(impl, pulseLink, pulseMid));
+  const head = copies[0];
+  return { pass: !!pulse && head && head.length > 0 && head.length <= 0.15
+      && copies.every((copy) => copy.length >= head.length),
+    detail: `cabeza ${num(head?.length)} del enlace (≤ 0,15) · ${copies.length} copias, largos ${copies.map((copy) => num(copy.length)).join(' / ')}` };
 });
-check('breathe lights TRAMOS stretches along the stroke, lit longer than the gap', (impl) => {
-  const { dash } = at(impl, breatheLink, 0.31);
-  const [lit, gap] = dash ?? [NaN, NaN];
-  const period = lit + gap;
-  return { pass: Math.abs(period - 1 / TRAMOS) < 1e-9 && lit > gap && lit > 0,
-    detail: `dash ${num(lit)}/${num(gap)} · period ${num(period)} = 1/${TRAMOS} → ${num(1 / period)} stretches` };
+check('the pulse travels from origin to destination, once per cycle', (impl) => {
+  const steps = 192;
+  // Sampled in the link's OWN travel position, so the phase cannot hide a
+  // journey that never leaves the origin.
+  const styles = Array.from({ length: steps }, (_, step) =>
+    at(impl, pulseLink, wrap01(step / steps - pulseLink.phase)));
+  const heads = styles.map((style) => style.pulse?.head ?? NaN);
+  const spans = styles.map((style) => copiesOf(style)[0]).map((copy) => (copy ? [copy.from, copy.to] : [NaN, NaN]));
+  const rising = heads.every((head, i) => i === 0 || head > heads[i - 1]);
+  // One window, so one crossing of every point of the link per cycle.
+  const crossings = heads.filter((head, i) => i > 0 && heads[i - 1] < 0.5 && head >= 0.5).length;
+  const span = heads.at(-1) - heads[0];
+  // The painted copy advances with it instead of standing still on the link.
+  const visible = spans.filter(([from, to]) => to > from);
+  const advances = visible.every(([from], i) => i === 0 || from >= visible[i - 1][0]);
+  return { pass: rising && heads[0] <= 0 && heads.at(-1) >= 1 && span >= 1 && crossings === 1 && advances && visible.length > 0,
+    detail: `cabeza ${num(heads[0])} → ${num(heads.at(-1))} (recorrido ${num(span)}) · monótona=${rising} · cruces del centro=${crossings} · fuera del enlace en los dos extremos=${heads[0] <= 0 && heads.at(-1) >= 1} · ${visible.length} posiciones con trazo, avanza=${advances}` };
 });
-check('breathe travels from origin to destination, one period per cycle', (impl) => {
-  const step = 0.01;
-  const before = at(impl, breatheLink, 0.2).offset, after = at(impl, breatheLink, 0.2 + step).offset;
-  // The crest of the library's own `breatheAlong` is the reference: the dash
-  // pattern must move in the same direction and at the same speed.
-  const crestAt = (p) => {
-    let best = -Infinity, along = 0;
-    for (let k = 0; k < 2000; k++) {
-      const value = breatheAlong(k / 2000, p, breatheLink.phase);
-      if (value > best) { best = value; along = k / 2000; }
-    }
-    return along;
-  };
-  const drift = wrap01((crestAt(0.2 + step) - crestAt(0.2)) * TRAMOS);
-  const dashDrift = wrap01((before - after) * TRAMOS);
-  return { pass: after < before && Math.abs(dashDrift - drift) < 0.05 && Math.abs(dashDrift - step) < 0.05,
-    detail: `offset ${num(before)} → ${num(after)} (dash drift ${num(dashDrift)} periods per ${step} cycle) · breatheAlong crest drift ${num(drift)}` };
+check('every pulse carries its own phase: they do not pulse on one shared clock', (impl) => {
+  const pulses = LINKS.filter((link) => at(impl, link, 0.4).behaviour === 'pulse');
+  const heads = pulses.map((link) => at(impl, link, 0.4).pulse?.head ?? NaN);
+  const range = spread(heads);
+  // The phase relation itself: link A at p equals link B at p + phaseA - phaseB.
+  const [a, b] = [pulses[0], pulses[Math.min(5, pulses.length - 1)]];
+  const shifted = at(impl, b, wrap01(0.4 + linkPhase(a.index) - linkPhase(b.index)), BASE).pulse?.head ?? NaN;
+  return { pass: pulses.length > 1 && range >= 0.5 && Math.abs(shifted - heads[0]) < 1e-9,
+    detail: `${pulses.length} pulsos · cabezas en p=0.4 de ${num(Math.min(...heads))} a ${num(Math.max(...heads))} (abanico ${num(range)}) · enlace ${b.index} desplazado a la fase de ${a.index} → ${num(shifted)} vs ${num(heads[0])}` };
+});
+check('the tail: each copy behind the head is longer, thinner and fainter', (impl) => {
+  const style = at(impl, pulseLink, pulseMid), pulse = style.pulse, copies = copiesOf(style);
+  const lengths = copies.map((copy) => copy.length), widths = copies.map((copy) => copy.width), opacities = copies.map((copy) => copy.opacity);
+  const longer = lengths.every((value, i) => i === 0 || value > lengths[i - 1]);
+  const thinner = widths.every((value, i) => i === 0 || value < widths[i - 1]);
+  const fainter = opacities.every((value, i) => i === 0 || value < opacities[i - 1]);
+  // Every copy ends at the head and starts where its own length says, so the
+  // extra length is the tail behind the head and not four separate marks.
+  const tip = Math.min(1, Math.max(0, pulse.head));
+  const aligned = copies.every((copy) => Math.abs(copy.to - tip) < 1e-9
+    && Math.abs(copy.from - Math.max(0, pulse.head - copy.length)) < 1e-9);
+  return { pass: copies.length >= 3 && longer && thinner && fainter && aligned,
+    detail: `${copies.length} copias · largo ${lengths.map(num).join(' < ')} · grosor ${widths.map(num).join(' > ')} · opacidad ${opacities.map(num).join(' > ')} · todas terminan en la cabeza=${aligned}` };
+});
+check('the signal edge pulses with the signal, not on its own clock', (impl) => {
+  const link = LINKS[BASE.edge];
+  // Five positions inside the signal's window and two outside it, so the rule
+  // proves both halves: the spark rides the signal and it is dark when the
+  // signal is not travelling.
+  const rows = [0.05, 0.25, 0.3, 0.35, 0.42, 0.45, 0.6].map((p) => ({ p, window: traceWindow(p), style: at(impl, link, p) }));
+  const follows = rows.filter((row) => row.window.inside)
+    .every((row) => row.style.pulse && Math.abs(row.style.pulse.head - row.window.at) < 1e-9);
+  const off = rows.filter((row) => !row.window.inside)
+    .every((row) => !row.style.pulse || copiesOf(row.style).every((copy) => copy.opacity === 0));
+  const outside = rows.filter((row) => !row.window.inside).map((row) => Math.max(0, ...copiesOf(row.style).map((copy) => copy.opacity)));
+  return { pass: follows && off && outside.length >= 2,
+    detail: `cabeza del pulso = progreso de la señal en la ventana=${follows} · ${outside.length} posiciones fuera, copia más visible ${outside.map(num).join(' / ')} → apagado=${off}` };
 });
 check('every behaviour is 2π-periodic in the cycle', (impl) => {
   let worst = 0, where = '';
   for (const link of LINKS) for (const p of [0, 0.13, 0.5, 0.87]) {
     for (const state of [BASE, focused(20), focused(0)]) {
-      const a = impl(link, p, state), b = impl(link, p + 1, state);
-      const delta = Math.max(Math.abs(a.opacity - b.opacity), Math.abs(a.offset - b.offset),
-        Math.abs((a.dash?.[0] ?? -1) - (b.dash?.[0] ?? -1)));
+      const delta = styleDelta(impl(link, p, state), impl(link, p + 1, state));
       if (delta > worst) { worst = delta; where = `link ${link.index} @ p=${p}`; }
     }
   }
@@ -162,7 +220,9 @@ check('trace follows the edge the signal already travelled, and does not move it
 // lit, so what is measured there is the plane's weight and nothing else.
 const crestOf = (impl, link) => {
   const behaviour = impl(link, 0, BASE).behaviour;
-  if (behaviour === 'breathe') return wrap01(0.5 - link.phase);
+  // A pulse link's base stroke is always at the plane weight, so any position
+  // is its crest; `trace` is only at full weight in the middle of its window.
+  if (behaviour === 'pulse') return 0.3;
   if (behaviour === 'trace') return (TRACE_WINDOW.delay + TRACE_WINDOW.travel / 2) / LINK_CYCLE_MS; // q = 0.5
   return 0.3;
 };
@@ -280,15 +340,28 @@ for (const { name, run } of cases) {
 
 // The negative cases: each mutant breaks exactly one rule and MUST be caught.
 // A rule that no broken implementation can fail is not a check.
+const withHead = (style, head) => (style.pulse ? { ...style, pulse: { ...style.pulse, head } } : style);
 const mutants = [
-  { name: 'todos los enlaces sólidos (la conducta anterior)', guards: ['breathe varies inside the cycle (the stroke lights and goes out)', 'breathe lights TRAMOS stretches along the stroke, lit longer than the gap', 'trace is drawn from origin to destination: 0 at the start, 1 at the end'],
-    style: (link, p, state = BASE) => ({ ...linkStyle(link, p, state), opacity: PLANE_LINK[link.plane].opacity, dash: null }) },
+  { name: 'todos los enlaces sólidos (la conducta anterior)', guards: ['the pulse is a short head, not a second line along the link', 'the pulse travels from origin to destination, once per cycle', 'the tail: each copy behind the head is longer, thinner and fainter', 'trace is drawn from origin to destination: 0 at the start, 1 at the end'],
+    style: (link, p, state = BASE) => ({ ...linkStyle(link, p, state), opacity: PLANE_LINK[link.plane].opacity, dash: null, offset: 0, pulse: null }) },
   { name: 'escalera de planos invertida', guards: ['every link at its crest sits at its plane weight, and the ladder rises from far to near'],
     style: (link, p, state = BASE) => ({ ...linkStyle(link, p, state), opacity: PLANE_LINK[link.plane === 'far' ? 'near' : link.plane === 'near' ? 'far' : 'mid'].opacity }) },
   { name: 'foco que no desvanece el resto', guards: ['focus leaves node 20\'s group solid and everything else below the threshold'],
     style: (link, p, state = BASE) => ({ ...linkStyle(link, p, state), opacity: PLANE_LINK[link.plane].opacity }) },
-  { name: 'breathe sin envolvente', guards: ['breathe is 0 at both ends of its own loop and 1 at its crest'],
-    style: (link, p, state = BASE) => { const style = linkStyle(link, p, state); return style.behaviour === 'breathe' ? { ...style, opacity: PLANE_LINK[link.plane].opacity } : style; } },
+  { name: 'el enlace base vuelve a ir punteado', guards: ['a pulse link keeps its base stroke solid at the plane weight'],
+    style: (link, p, state = BASE) => ({ ...linkStyle(link, p, state), dash: [0.2, 0.2], offset: 0 }) },
+  { name: 'pulso clavado en el origen (sin viaje)', guards: ['the pulse travels from origin to destination, once per cycle'],
+    style: (link, p, state = BASE) => withHead(linkStyle(link, p, state), -PULSE_REACH) },
+  { name: 'pulso invertido: del destino al origen', guards: ['the pulse travels from origin to destination, once per cycle'],
+    style: (link, p, state = BASE) => { const style = linkStyle(link, p, state);
+      return style.pulse ? withHead(style, 1 + PULSE_REACH - (style.pulse.head + PULSE_REACH)) : style; } },
+  { name: 'cola sin degradado: todas las copias iguales', guards: ['the tail: each copy behind the head is longer, thinner and fainter'],
+    style: (link, p, state = BASE) => { const style = linkStyle(link, p, state);
+      return style.pulse ? { ...style, pulse: { ...style.pulse, copies: style.pulse.copies.map(() => ({ ...style.pulse.copies[0] })) } } : style; } },
+  { name: 'todos los pulsos en fase', guards: ['every pulse carries its own phase: they do not pulse on one shared clock'],
+    style: (link, p, state = BASE) => withHead(linkStyle(link, p, state), pulseTravel(wrap01(p))) },
+  { name: 'la traza pierde su pulso', guards: ['the signal edge pulses with the signal, not on its own clock'],
+    style: (link, p, state = BASE) => (link.index === state.edge ? { ...linkStyle(link, p, state), pulse: null } : linkStyle(link, p, state)) },
   { name: 'traza con fase propia, no la del señal', guards: ['trace is drawn from origin to destination: 0 at the start, 1 at the end', 'trace is off outside the signal\'s window'],
     style: (link, p, state = BASE) => (link.index === state.edge
       ? { ...linkStyle(link, p, state), opacity: PLANE_LINK[link.plane].opacity, dash: [wrap01(p + link.phase), 2] }
@@ -310,7 +383,7 @@ for (const mutant of mutants) {
 
 // ------------------------------------------------------------------ the table
 const base = LINKS.map((link) => linkStyle(link, 0.3, BASE).behaviour);
-const count = (behaviours) => ['breathe', 'trace', 'depth', 'focus'].map((behaviour) => `${behaviour} ${behaviours.filter((value) => value === behaviour).length}`).join(' · ');
+const count = (behaviours) => ['pulse', 'trace', 'depth', 'focus'].map((behaviour) => `${behaviour} ${behaviours.filter((value) => value === behaviour).length}`).join(' · ');
 const focus20 = LINKS.map((link) => linkBehaviour(withGroup(link, 20), focused(20)));
 const focus0 = LINKS.map((link) => linkBehaviour(withGroup(link, 0), focused(0)));
 
@@ -319,7 +392,7 @@ console.log(`conductas sin foco: ${count(base)}`);
 console.log(`conductas con el nodo 0 activo: ${count(focus0)}`);
 console.log(`conductas con el nodo 20 activo: ${count(focus20)}`);
 console.log(`escalera de planos (opacidad / grosor): far ${num(PLANE_LINK.far.opacity)}/${num(PLANE_LINK.far.width)} · mid ${num(PLANE_LINK.mid.opacity)}/${num(PLANE_LINK.mid.width)} · near ${num(PLANE_LINK.near.opacity)}/${num(PLANE_LINK.near.width)}`);
-console.log(`breathe: ${BREATH.period.toFixed(4)} periodo → ${(1 / BREATH.period).toFixed(2)} tramos, ${BREATH.lit.toFixed(4)} encendido / ${(BREATH.period - BREATH.lit).toFixed(4)} apagado`);
+console.log(`pulso: cabeza ${PULSE.head.toFixed(4)} · cola ${PULSE.step.toFixed(4)} × ${PULSE.copies.length} copias · alcance ${PULSE_REACH.toFixed(4)} del enlace`);
 console.log('');
 for (const row of rows) console.log(`${row.pass ? 'PASS' : 'FAIL'}  ${row.name} — ${row.detail}`);
 console.log('');

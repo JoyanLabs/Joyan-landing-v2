@@ -81,7 +81,18 @@
             </g>
           </svg>
           <canvas class="vignette" data-vignette aria-hidden="true"></canvas>
-          <svg class="node-controls" data-node-controls viewBox="0 0 480 300" role="group" aria-label="Constelación interactiva" aria-describedby="node-help"></svg>
+          <svg class="node-controls" data-node-controls viewBox="0 0 480 300" role="group" aria-label="Constelación interactiva" aria-describedby="node-help">
+            <defs>
+              <!-- The glow of a node, painted in the node's own plane (WU150). -->
+              <radialGradient id="node-glow">
+                <stop offset="0" style="stop-color:var(--ink);stop-opacity:.55"/>
+                <stop offset=".16" style="stop-color:var(--ink);stop-opacity:.22"/>
+                <stop offset=".42" style="stop-color:var(--ink);stop-opacity:.08"/>
+                <stop offset=".75" style="stop-color:var(--ink);stop-opacity:.025"/>
+                <stop offset="1" style="stop-color:var(--ink);stop-opacity:0"/>
+              </radialGradient>
+            </defs>
+          </svg>
         </div>
         <figcaption class="sr-only" id="node-help">Un cielo de puntos generado por el motor y una constelación. Activa un nodo para acercarte a su grupo de enlaces. Pulsa Escape o Volver a la constelación para regresar. No representa datos ni mediciones.</figcaption>
         <p class="sr-only" data-node-status role="status" aria-live="polite"></p>
@@ -90,145 +101,6 @@
         <button class="field-reset" type="button" hidden>Volver a la constelación</button>
         <button class="field-pause" type="button" aria-pressed="false" hidden>Pausar campo</button>
       </div>
-  </section>
-
-  <section class="block block-wide" aria-labelledby="criterio-title">
-    <div class="head">
-      <p class="eyebrow">Problema y criterio</p>
-      <h2 id="criterio-title">El agente hace una parte. Tú conservas la decisión.</h2>
-    </div>
-    <div class="line-body">
-      <p>Incorporar agentes a tus sistemas no significa delegarles el negocio. La lógica, las decisiones sobre datos y las aprobaciones quedan de tu lado. El criterio es integrar piezas concretas, no pedirte que adoptes una plataforma completa.</p>
-    </div>
-  </section>
-
-  <section class="lines-block" aria-labelledby="trabajo-title">
-    <div class="head">
-      <p class="eyebrow">Cómo trabajamos</p>
-      <h2 id="trabajo-title" class="body-lead">El bloqueo decide la herramienta.</h2>
-    </div>
-    <p class="range"><span class="range-code">L1–L4</span><span class="range-gloss">Las cuatro líneas de servicio, en orden.</span></p>
-
-    <ol class="lines">
-      <li class="line">
-        <div class="line-head">
-          <span class="code">L1</span>
-        </div>
-        <div class="line-body">
-          <h2>Antes de sumar herramientas, saber qué te bloquea.</h2>
-          <p>Si necesitas desbloquear tu operación, empezamos por un diagnóstico acotado. Cierra con un acta: qué vimos, qué medimos y hasta dónde podemos intervenir. Así tienes un alcance concreto para decidir cómo&nbsp;seguir.</p>
-          <p>En un cliente real de desarrollo de software, reorganizar la integración continua y llevar la escalera completa a un servidor propio dejó <strong>0 minutos facturables</strong>, medido.</p>
-        </div>
-      </li>
-
-      <li class="line">
-        <div class="line-head">
-          <span class="code">L2</span>
-        </div>
-        <div class="line-body">
-          <h2>Cada hallazgo, con su fuente.</h2>
-          <p>Si un agente revisa código, necesitas poder volver al hallazgo. El molde de integración que proponemos es el <strong>PR nudge</strong>: un agente que comenta en cada solicitud de cambio de código —pull request— con hallazgos citados. La pieza se integra en tus sistemas; tú decides y apruebas.</p>
-        </div>
-      </li>
-
-      <li class="line">
-        <div class="line-head">
-          <span class="code">L3</span>
-        </div>
-        <div class="line-body">
-          <h2>El acceso tiene condiciones.</h2>
-          <p>Para decidir quién entra y desde dónde, pensamos juntas la red y la identidad. La propuesta combina confianza cero, identidad centralizada y seguridad operada, con estos&nbsp;límites:</p>
-          <ul class="limits">
-            <li>la licencia Enterprise valida contra <code>license.netbird.io</code>: <strong>no hay air-gapped con licencia</strong>, es decir, no funciona como un entorno aislado de la red;</li>
-            <li>cada instalación self-hosted —alojada en tu propia infraestructura— es de <strong>un solo inquilino</strong>: una organización por instalación;</li>
-            <li>y <strong>peer</strong> (dispositivo o entorno conectado a la red) y <strong>SCIM</strong> (provisión de usuarios desde el proveedor de identidad) son sólo Enterprise de NetBird.</li>
-          </ul>
-        </div>
-      </li>
-
-    </ol>
-  </section>
-
-  <section class="lines-block" aria-labelledby="evidencia-title">
-    <div class="line">
-      <div class="line-head">
-        <span class="code">L4</span>
-      </div>
-      <div class="line-body">
-        <p class="eyebrow">Trazabilidad y auditoría de inteligencia artificial</p>
-        <h2 id="evidencia-title">Registrar no es autorizar.</h2>
-        <p>Si necesitas reconstruir una decisión, registrar actividad no alcanza. Las convenciones de inteligencia artificial generativa de <strong>OTel</strong> (OpenTelemetry) registran qué hizo el agente y cuánto consumió. <strong>No registran quién lo autorizó.</strong> El costo se reconstruye fuera del estándar.</p>
-        <p>El criterio para L4 —trazabilidad y auditoría de inteligencia artificial— es <strong>evidencia que vincula cada acción con su autorización</strong>. Magi, el plano de control propuesto: identidad, autorización y evidencia, plantea dos canales: aprobación humana para lo irreversible y automática con política firmada y versionada para lo reintentable. La traza indicaría cuál se usó.</p>
-        <p><strong>La evidencia es del cliente.</strong></p>
-        <p>Todavía no hay producto.</p>
-      </div>
-    </div>
-  </section>
-
-  <section class="block block-wide" aria-labelledby="registro-title">
-    <div class="head">
-      <p class="eyebrow">O0–O3</p>
-      <h2 id="registro-title">El registro se acuerda antes.</h2>
-      <p class="gloss">Niveles de evidencia. Una regla propuesta para delimitar el registro de cada servicio.</p>
-    </div>
-    <div class="line-body">
-      <p>Para saber qué podrás reconstruir, el nivel de evidencia se elige según el servicio y el modo de entrega. Estos niveles describen la propuesta, no acreditan una entrega:</p>
-      <p><strong>O0</strong> sin evidencia nuestra verificable; queda declarado por escrito.</p>
-      <p><strong>O1</strong> inferencia: modelo, tokens —unidades de texto procesadas—, costo, latencia y hash del artefacto —su huella digital—.</p>
-      <p><strong>O2</strong> O1 más red e identidad: quién entró, desde dónde y qué intentó salir.</p>
-      <p><strong>O3</strong> O2 más exportación PROV/RO-Crate —un formato que describe quién hizo qué y cuándo y lo empaqueta con sus archivos y metadatos— con hash firmado y revisión&nbsp;periódica.</p>
-    </div>
-  </section>
-
-  <section class="escs" aria-labelledby="escenarios-title">
-    <div class="escs-head">
-      <p class="eyebrow">Escenarios</p>
-      <h2 id="escenarios-title">La tarea cambia. Tú&nbsp;decides.</h2>
-      <p class="definition">Para situar tu caso, mira dónde interviene una persona y qué registro necesita. Son <strong>escenarios de trabajo, no casos de clientes ni entregas</strong>: muestran el rol del agente, la aprobación humana y lo que no se delega.</p>
-    </div>
-
-    <div class="lines">
-      <article class="line">
-        <div class="line-head"><span class="code">Contabilidad</span></div>
-        <div class="line-body">
-          <h3>Las excepciones y el registro final pasan por ti.</h3>
-          <p>En el ingreso documental, el agente clasifica archivos, extrae campos y marca faltantes e inconsistencias. Tú resuelves las excepciones y apruebas el registro final. Queda una traza por documento y un enlace a la página rechazada.</p>
-        </div>
-      </article>
-      <article class="line">
-        <div class="line-head"><span class="code">Soporte financiero</span></div>
-        <div class="line-body">
-          <h3>Fuera del guion, decide una&nbsp;persona.</h3>
-          <p>En soporte de primera línea, el agente responde consultas de rutina y busca información de políticas. Cuando el caso sale del guion, lo escala a una persona. El registro conserva la conversación y la política aplicada; el agente no decide la&nbsp;excepción.</p>
-        </div>
-      </article>
-      <article class="line">
-        <div class="line-head"><span class="code">Planta industrial</span></div>
-        <div class="line-body">
-          <h3>El agente propone. Tú decides.</h3>
-          <p>En mantenimiento predictivo, el agente ordena alertas de sensores y propone una intervención. La decisión de parar o intervenir es humana. Quedan la serie de lecturas y el motivo de la propuesta para reconstruir por qué se planteó.</p>
-        </div>
-      </article>
-    </div>
-  </section>
-
-  <section class="band" aria-labelledby="confianza-title">
-    <div class="band-inner">
-      <p class="eyebrow">Confianza declarada</p>
-      <h2 id="confianza-title">Cero certificaciones.</h2>
-      <div class="line-body">
-        <p>Si necesitas evaluar nuestra postura, el criterio es lo que se puede demostrar. No hay ISO ni SOC 2. Hablamos de confianza cero, identidad centralizada, artefactos firmados, SBOM —inventario de componentes de software— y evidencia exportable. Esa postura no acredita tu cumplimiento.</p>
-        <p>Un artefacto, un lugar y un índice. Una definición no acredita implementación; un experimento no acredita entrega.</p>
-      </div>
-    </div>
-  </section>
-
-  <section class="closing" aria-labelledby="contacto-title">
-    <h2 id="contacto-title" class="closing-line">Comienza por el problema, no por la plataforma.</h2>
-    <div class="limits line-body">
-      <p>Cuéntanos qué te bloquea y qué decisión necesitas tomar. El primer paso es delimitar un diagnóstico: alcance, criterios de aceptación y un acta con la que puedas decidir cómo seguir.</p>
-    </div>
-    <a class="contact" href="mailto:hello@joyan.dev">Cuéntanos tu caso en hello@joyan.dev</a>
   </section>
 
 </main>

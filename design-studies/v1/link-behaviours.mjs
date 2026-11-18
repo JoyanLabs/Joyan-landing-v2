@@ -19,17 +19,20 @@
  * defined in `scripts/scene-src/constellation.mjs`, which is imported, not
  * re-implemented):
  *
- *   breathe  the stroke lights in TRAMOS stretches that travel along the link
- *            and go out again. Rendered here as a travelling dash pattern (same
- *            frequency `TRAMOS`, same travel: one period per cycle, same phase
- *            convention as `breatheAlong`) under a link envelope that is
- *            exactly 0 at both ends of that link's own loop.
+ *   pulse    THE LINE IS NOT DASHED. The base stroke is solid at its plane's
+ *            hairline and a short PULSE travels from one node to the other,
+ *            once per cycle and per link, with its own phase. Stacking 3-4
+ *            copies of the same stroke, each one longer and ending at the same
+ *            head, turns the mark into a comet: a short thick bright head with
+ *            a tail that gets longer, thinner and fainter behind it. With no
+ *            node focused this IS the ambient animation.
  *   trace    the stroke is drawn from origin to destination. This is NOT a
  *            second travelling signal: the piece already has one (the `.signal`
  *            dot of `v1.mjs`, 3.0 s → 5.4 s of a 12 s cycle). `traceWindow` is
  *            that same window and `traceEnvelope`/`traceProgress` are the
  *            library's own shapes, so the link is drawn exactly where and while
- *            the dot travels it.
+ *            the dot travels it — and the signal's edge PULSES with the signal,
+ *            so `trace` and `pulse` share one journey instead of racing two.
  *   depth    opacity and thickness come from the plane and nothing else — no
  *            animation at all, and the far links barely read.
  *   focus    when a node is active, only its group's links stay solid; the rest
@@ -42,10 +45,12 @@
  *            the rest keeps its behaviour at a fraction of it.
  *
  * ENVELOPES. Every animated behaviour is multiplied by an envelope that is
- * exactly zero at both ends of its own loop — `sin(πq)` for `breathe` on the
- * link's phase, `sin(π·at)` for `trace` on the signal's window — so the wrap is
- * invisible and nothing is remembered across it. `depth` has no envelope
- * because it has no animation, and `focus` is a state weight, not a loop.
+ * exactly zero at both ends of its own loop — `sin(πq)` for the signal on its
+ * window — so the wrap is invisible and nothing is remembered across it. The
+ * pulse needs no envelope: its copies are entirely off the path at both ends of
+ * the travel (head ≤ 0 and head ≥ 1), so the wrap has no ink to cut. `depth`
+ * has no envelope because it has no animation, and `focus` is a state weight,
+ * not a loop.
  *
  * THE PLANE LADDER IS ANCHORED ON THE APPROVED HAIRLINE. The piece draws every
  * link at width 0.7 / opacity 0.65 (`v1.css`). The middle plane keeps exactly
@@ -55,7 +60,7 @@
  */
 
 import { EMISSIONS, NODE_PLANES, nodePlane } from './hero-field.mjs';
-import { FOCUS_FADE, PLANE_STYLE, TRAMOS, traceEnvelope, traceProgress } from '../../scripts/scene-src/constellation.mjs';
+import { FOCUS_FADE, PLANE_STYLE, traceEnvelope, traceProgress } from '../../scripts/scene-src/constellation.mjs';
 
 /** The signal's cycle, in ms: the piece's own, 12 s (`diagnostics.signalCycleMs`). */
 export const LINK_CYCLE_MS = 12000;
@@ -80,16 +85,75 @@ export function cyclePosition(ms) {
   return wrap01(ms / LINK_CYCLE_MS);
 }
 
-/** The per-link phase: deterministic, so a link breathes the same everywhere. */
+/** The per-link phase: deterministic, so a link pulses the same everywhere. */
 export function linkPhase(index) {
   return wrap01(index * PHASE_STEP);
 }
 
 /**
- * The `breathe` geometry, in `pathLength="1"` units: `TRAMOS` lit stretches per
- * link, each a little longer than its gap, travelling one period per cycle.
+ * THE PULSE, in fractions of the link (0 = origin, 1 = destination). `head` is
+ * the head's own length and `step` how much longer each following copy is, so
+ * the copies share one head and the extra length becomes the tail BEHIND it.
+ * `copies` is ordered head first: short, thick and bright, then longer,
+ * thinner and fainter. `PULSE_REACH` is the longest copy, i.e. how far past the
+ * ends the head has to run before the whole comet is off the link.
+ *
+ * WHY THE COPIES ARE SEGMENTS AND NOT A DASH PATTERN. The brief asked for
+ * `pathLength="1"` plus a travelling `stroke-dashoffset`, and that was built and
+ * measured: in this piece's SVG (a filtered layer inside a `viewBox` with a
+ * letterboxed viewport) Chromium did not put the dash where the same model said
+ * it was — the band landed ~18 % further along, and for most offsets no band
+ * was painted at all. A comet has to sit exactly on the head the check and the
+ * capture name, so each copy is drawn as the segment it stands for: the same
+ * short head with the same longer, thinner, fainter tails, and no dash phase to
+ * argue with. The capture measures the result instead of trusting the geometry.
  */
-export const BREATH = Object.freeze({ period: 1 / TRAMOS, lit: 0.55 / TRAMOS });
+export const PULSE = Object.freeze({
+  head: 0.075,
+  step: 0.085,
+  copies: Object.freeze([
+    Object.freeze({ width: 2.20, opacity: 1.90, extra: 0 }),
+    Object.freeze({ width: 1.70, opacity: 1.10, extra: 1 }),
+    Object.freeze({ width: 1.25, opacity: 0.62, extra: 2 }),
+    Object.freeze({ width: 0.85, opacity: 0.32, extra: 3 }),
+  ]),
+});
+
+/** How far the head has to run past the ends so no copy is left on the link. */
+export const PULSE_REACH = PULSE.head + (PULSE.copies.length - 1) * PULSE.step;
+
+/**
+ * Where the head is at travel position `q` (0 → 1 over one cycle), measured
+ * along the link: from `-PULSE_REACH` (every copy entirely before the origin)
+ * to `1 + PULSE_REACH` (every copy entirely past the destination). Both ends
+ * are off the path, so the wrap from q = 1 to q = 0 has no ink to cut.
+ */
+export function pulseTravel(q) {
+  return -PULSE_REACH + q * (1 + 2 * PULSE_REACH);
+}
+
+/**
+ * The copies of the pulse with their head at `head`, `gain` scaling the whole
+ * comet (the focus fade). Every copy ends at the head and starts at
+ * `head − length`, clipped to the link: past an end the comet simply leaves it.
+ */
+function pulseAt(plane, head, gain) {
+  const tip = Math.min(1, Math.max(0, head));
+  return Object.freeze({
+    head,
+    copies: Object.freeze(PULSE.copies.map((copy) => {
+      const length = PULSE.head + copy.extra * PULSE.step;
+      const from = Math.max(0, head - length);
+      return Object.freeze({
+        length,
+        from,
+        to: tip,
+        width: plane.width * copy.width,
+        opacity: tip > from ? Math.min(1, plane.opacity * copy.opacity * gain) : 0,
+      });
+    })),
+  });
+}
 
 /**
  * The plane ladder of a link, anchored on the approved hairline. The library's
@@ -162,16 +226,20 @@ export function linkBehaviour(link, state = {}) {
   if (state.active && link.inGroup) return 'focus';
   if (link.index === state.edge) return 'trace';
   if (link.plane === 'far') return 'depth';
-  return 'breathe';
+  return 'pulse';
 }
 
 /**
  * The visible style of one link at cycle position `p`.
  *
  * @returns {{behaviour: string, plane: string, width: number, opacity: number,
- *   dash: number[] | null, offset: number, drawn: number}} `width` and
- *   `opacity` in the piece's own units, `dash`/`offset` in `pathLength="1"`
- *   units, `drawn` the fraction of a traced link painted from `from` to `to`.
+ *   dash: number[] | null, offset: number, drawn: number,
+ *   pulse: {head: number, copies: Array<{dash: number[], offset: number,
+ *     width: number, opacity: number}>} | null}} `width` and `opacity` are the
+ *   BASE stroke in the piece's own units, `dash`/`offset` are its dash pattern
+ *   in `pathLength="1"` units, `drawn` the fraction of a traced link painted
+ *   from `from` to `to`, and `pulse` the travelling comet drawn on top (null
+ *   when the link has none).
  * @param {object} link one entry of LINKS, plus `inGroup`
  * @param {number} p cycle position in [0,1)
  * @param {{active?: boolean, edge?: number, focusMix?: number}} [state]
@@ -184,19 +252,20 @@ export function linkStyle(link, p, state = {}) {
   // (0 = the previous state, 1 = the new one) without a second definition.
   const mix = state.focusMix ?? 1;
   const fade = state.active && !link.inGroup ? 1 - (1 - FOCUS_FADE) * mix : 1;
-  const base = { behaviour, plane: link.plane, width: plane.width, opacity: plane.opacity * fade, dash: null, offset: 0, drawn: 1 };
-  if (behaviour === 'breathe') {
-    const q = wrap01(p + link.phase);
-    // The envelope is exactly 0 at both ends of the link's loop (q = 0 and
-    // q = 1 are the same instant) and 1 at its crest.
-    const envelope = Math.sin(Math.PI * q);
-    return { ...base, opacity: plane.opacity * envelope * fade,
-      dash: [BREATH.lit, BREATH.period - BREATH.lit], offset: -q * BREATH.period };
+  const base = { behaviour, plane: link.plane, width: plane.width, opacity: plane.opacity * fade, dash: null, offset: 0, drawn: 1, pulse: null };
+  if (behaviour === 'pulse') {
+    // The base stroke is SOLID at its plane's hairline; the movement is the
+    // comet on top of it, so the constellation never blinks out.
+    return { ...base, opacity: plane.opacity * fade,
+      pulse: pulseAt(plane, pulseTravel(wrap01(p + link.phase)), fade) };
   }
   if (behaviour === 'trace') {
     const window = traceWindow(p);
     return { ...base, opacity: plane.opacity * window.envelope * fade,
-      dash: window.inside ? [window.drawn, 2] : null, drawn: window.drawn };
+      dash: window.inside ? [window.drawn, 2] : null, drawn: window.drawn,
+      // The signal's edge pulses WITH the signal: same window, same progress,
+      // same envelope. Without it the link would carry a second journey.
+      pulse: pulseAt(plane, window.at, window.envelope * fade) };
   }
   // depth and focus: the plane's own weight, undashed, no animation.
   return base;

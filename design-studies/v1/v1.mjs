@@ -1,8 +1,8 @@
 /** Layered viewport consumer: cached sky, sparse 12 Hz emission, compositor
  * camera/focus. The lab modules and their palettes are never modified. */
 import { EMISSIONS, material, emissionPlanes, figureTransform, cameraFor, PARALLAX,
-  TRANSITION_MS, RETURN_MS, STILL_SECONDS, NODE_PLANES, NODE_RATES, nodePlane } from './hero-field.mjs';
-import { cyclePosition, LINK_CYCLE_MS, LINKS, linkStyle, traceEdge, traceWindow } from './link-behaviours.mjs';
+  TRANSITION_MS, RETURN_MS, STILL_SECONDS, NODE_PLANES, NODE_RATES, nodePlane, nodeGlow } from './hero-field.mjs';
+import { cyclePosition, LINK_CYCLE_MS, LINKS, PULSE, linkStyle, traceEdge, traceWindow } from './link-behaviours.mjs';
 const stage=document.querySelector('[data-stage]'), canvas=document.querySelector('[data-sky]');
 const ctx=canvas.getContext('2d',{alpha:false}), washCanvas=document.querySelector('[data-wash]');
 const washCtx=washCanvas.getContext('2d'), svg=document.querySelector('[data-constellation]');
@@ -72,11 +72,40 @@ for(let i=0;i<LINKS.length;i++){
 }
 figure.querySelector('.link-underlay').replaceWith(backLayer);
 figure.querySelector('.links').replaceWith(inkLayer);
+// THE PULSE (WU150). Each pulse link carries its comet as its own paths over the
+// solid base: the copy list is painted longest-and-faintest first, so the short
+// bright head lands last and on top. Each copy is the SEGMENT it stands for —
+// `M head−length L head` along the link — because the dash-phase route put the
+// spark somewhere other than the head the module names (see `link-behaviours.mjs`).
+// The base line itself is never dashed.
+const pulseLayer=document.createElementNS(NS,'g');pulseLayer.setAttribute('class','pulses');
+const pulsePaths=LINKS.map(()=>[]),pulseCache=LINKS.map(()=>PULSE.copies.map(()=>({})));
+LINKS.forEach((link,i)=>{
+  for(let k=PULSE.copies.length-1;k>=0;k--){
+    const path=document.createElementNS(NS,'path');
+    path.setAttribute('class','pulse');
+    path.setAttribute('d','');path.setAttribute('opacity','0');
+    pulseLayer.append(path);pulsePaths[i][k]=path;
+  }
+});
+figure.insertBefore(pulseLayer,signal);
 // The active node's ring group, which is what the `focus` weight reads.
 let related=new Set();
 const nodeStars=[...stars.children];
 const nodePlanes=NODE_PLANES.map(name=>{const group=document.createElementNS(NS,'g');group.setAttribute('class','node-plane');group.dataset.nodePlane=name;near.append(group);return group;});
-nodeStars.forEach((star,i)=>{star.dataset.star=String(i);star.setAttribute('aria-hidden','true');nodePlanes[nodePlane(i)].append(star);});
+// THE GLOW IS THE NODE'S (WU150). It used to be baked into the emission's wash,
+// so it sat on the atmosphere plane while its star sat on the figure plane and,
+// when a node was focused, on a different depth plane: the resplandor stayed
+// behind on another height. Each star now carries its own glow, first child of
+// its own group, so it is drawn in the same plane, moves with the same camera
+// and is present whether or not anything is focused.
+const glowCache=nodeStars.map(()=>({}));
+nodeStars.forEach((star,i)=>{const core=star.querySelector('.core'),glow=document.createElementNS(NS,'circle');
+  glow.setAttribute('class','glow');glow.setAttribute('r','0');glow.setAttribute('opacity','0');
+  // The glow shares its star's centre; it is a second circle, not a moved one.
+  glow.setAttribute('cx',core.getAttribute('cx'));glow.setAttribute('cy',core.getAttribute('cy'));
+  star.insertBefore(glow,star.firstChild);
+  star.dataset.star=String(i);star.setAttribute('aria-hidden','true');nodePlanes[nodePlane(i)].append(star);});
 stars.remove();
 const linkIndices=LINKS.map(link=>[link.from,link.to]);
 function planeCamera(plane,c=camera){const rate=NODE_RATES[plane];return {x:c.x*rate,y:c.y*rate,zoom:1+(c.zoom-1)*rate};}
@@ -141,12 +170,24 @@ function paintSky(){
   diagnostics.focusBakeMs=performance.now()-started;
 }
 function pathFor(a,b){return `M${localPoint(a).join(' ')}L${localPoint(b).join(' ')}`;}
+// The comet's copy: the sub-segment of the link from `from` to `to`, both in 0..1
+// fractions of the link. All 52 links are straight, so the interpolation is the
+// segment — no dash phase between the model and the pixels.
+function pulsePath(link,from,to){const [ax,ay]=localPoint(link.from),[bx,by]=localPoint(link.to);
+  return `M${(ax+(bx-ax)*from).toFixed(2)} ${(ay+(by-ay)*from).toFixed(2)}L${(ax+(bx-ax)*to).toFixed(2)} ${(ay+(by-ay)*to).toFixed(2)}`;}
 function setLink(el,cache,name,value){if(cache[name]===value)return;cache[name]=value;el.setAttribute(name,value);}
+// The glow breathes with the node's OWN phase (the emission's `nodeBrightness`),
+// which is what keeps it attached to the star instead of to a layer behind it.
+function paintGlow(){
+  const seconds=STILL_SECONDS+clock/1000;
+  nodeStars.forEach((star,i)=>{const style=nodeGlow(i,seconds),cache=glowCache[i],glow=star.firstChild;
+    setLink(glow,cache,'r',style.radius.toFixed(3));setLink(glow,cache,'opacity',style.opacity.toFixed(4));});
+}
 // The focus weight eases over the piece's own camera transition instead of
 // snapping 52 strokes at once; with nothing focused there is no weight at all.
 function focusMix(){return active<0||!transition?1:ease(Math.min(1,transition.elapsed/TRANSITION_MS));}
 function paintLinks(p=cyclePosition(clock)){
-  const state={active:active>=0,edge:traceEdge(LINKS,active),focusMix:focusMix()},counts={};
+  const state={active:active>=0,edge:traceEdge(LINKS,active),focusMix:focusMix()},counts={},pulses={visible:0};
   LINKS.forEach((link,i)=>{
     const work=linkWork[i];work.inGroup=related.has(link.from)||related.has(link.to);
     const style=linkStyle(work,p,state),ink=linkInk[i],back=linkBack[i];counts[style.behaviour]=(counts[style.behaviour]??0)+1;
@@ -157,8 +198,18 @@ function paintLinks(p=cyclePosition(clock)){
     for(const [el,cache] of [[ink,linkCache[i].ink],[back,linkCache[i].back]]){
       setLink(el,cache,'stroke-dasharray',dash);setLink(el,cache,'stroke-dashoffset',offset);
     }
+    // The comet. A link without a pulse writes its copies dark once and stops;
+    // the copies that are off the link are left frozen instead of rewritten.
+    for(let k=0;k<PULSE.copies.length;k++){
+      const copy=style.pulse?.copies[k],el=pulsePaths[i][k],cache=pulseCache[i][k];
+      setLink(el,cache,'opacity',copy?copy.opacity.toFixed(4):'0');
+      if(!copy||copy.opacity<=0||copy.to<=copy.from)continue;
+      setLink(el,cache,'stroke-width',copy.width.toFixed(3));
+      setLink(el,cache,'d',pulsePath(link,copy.from,copy.to));
+    }
+    if(style.pulse&&style.pulse.copies.some(copy=>copy.opacity>0))pulses.visible++;
   });
-  diagnostics.linkBehaviours=counts;
+  diagnostics.linkBehaviours=counts;diagnostics.pulses=pulses;
 }
 function paint(){
   if(!ready)return;const started=performance.now();
@@ -170,6 +221,7 @@ function paint(){
   LINKS.forEach((link,i)=>{const d=pathFor(link.from,link.to);
     setLink(linkInk[i],linkCache[i].ink,'d',d);setLink(linkBack[i],linkCache[i].back,'d',d);});
   paintLinks();
+  paintGlow();
   diagnostics.transforms={sky:transform(PARALLAX.sky),wash:transform(PARALLAX.wash),figure:{...camera}};
   stage.dataset.painted='true';diagnostics.frames.push(performance.now()-started);if(diagnostics.frames.length>600)diagnostics.frames.shift();
   performance.measure('joyan:camera-frame',{start:started,end:performance.now()});
@@ -241,6 +293,7 @@ function eventFrame(){
   signal.setAttribute('opacity',String(window.envelope**2));
   signal.setAttribute('cx',String(a[0]+(b[0]-a[0])*window.at));signal.setAttribute('cy',String(a[1]+(b[1]-a[1])*window.at));
   paintLinks(p);
+  paintGlow();
 }
 function tick(now){
   raf=0;if(!canRun())return;const dt=lastTime===null?0:now-lastTime;lastTime=now;clock+=dt;
@@ -304,12 +357,15 @@ export const fieldDiagnostics=()=>({...diagnostics,camera:{...camera},active,run
 // stopped for the sample only; the next call (or `release`) resumes the field.
 let measurePaused=null;
 function settleTransition(){return new Promise(done=>{const look=()=>transition&&ready?requestAnimationFrame(look):done();look();});}
-export async function fieldMeasure({node=-1,release=false}={}){
+export async function fieldMeasure({node=-1,release=false,clockMs=0}={}){
   if(measurePaused!==null){paused=measurePaused;measurePaused=null;}
   if(release){activate(-1);await settleTransition();start();return fieldDiagnostics();}
   activate(node);await settleTransition();
   measurePaused=paused;paused=true;stop();
-  clock=0;lastEmission=0;paintWash();
+  // `clockMs` pins the instant, so a capture can name the point of the pulse it
+  // shows. It changes nothing about the piece: the same cycle position the
+  // running clock would reach on its own.
+  clock=Number.isFinite(clockMs)?((clockMs%LINK_CYCLE_MS)+LINK_CYCLE_MS)%LINK_CYCLE_MS:0;lastEmission=0;paintWash();
   // The still carries the links of the same instant, or the sample would keep
   // whatever the previous frame left behind.
   eventFrame();

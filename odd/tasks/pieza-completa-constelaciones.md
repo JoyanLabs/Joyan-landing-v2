@@ -103,7 +103,7 @@ Una escena sin las cinco no es una escena: es un campo. Esto es lo que la skill 
 
 | Conducta | Comportamiento |
 |---|---|
-| `breathe` | El trazo se enciende y se apaga por tramos, 2π-periódico con fase por enlace |
+| `pulse` | El enlace queda sólido y una chispa con cola viaja de un nodo al otro, con fase por enlace (reemplaza al punteado, rechazado) |
 | `trace` | La línea se dibuja de origen a destino cuando algo la recorre (progreso 0→1) |
 | `depth` | Opacidad y grosor por plano: los lejanos apenas se leen, sin animación |
 | `focus` | Sólo el grupo del nodo activo queda sólido; el resto se desvanece |
