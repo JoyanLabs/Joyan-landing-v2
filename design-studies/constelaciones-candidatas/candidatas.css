@@ -1,0 +1,431 @@
+/**
+ * Constelaciones candidatas — hoja de decisión.
+ *
+ * Una sola tinta fría (#B4CABE) sobre suelo oscuro: la misma del campo
+ * aprobado (docs/ESTETICA-CONSTELACION.md). Sin bordes de caja, sin sombras de
+ * tarjeta, sin esquinas redondeadas: cada celda se separa por un pelo fino,
+ * como una hoja de espécimen. Las fuentes son las de la base canónica
+ * (../v1/fonts/) para que la comparación no dependa de otra tipografía.
+ */
+@font-face {
+  font-family: 'Michroma';
+  src: url('../v1/fonts/michroma-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Archivo';
+  src: url('../v1/fonts/archivo-latin-wght-normal.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --display: 'Michroma', 'Archivo', system-ui, sans-serif;
+  --sans: 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  --ground: #020405;
+  --ink: #E4EEEA;
+  --tinta: #B4CABE;
+  --muted: #7E928D;
+  --hair: rgba(180, 202, 190, 0.16);
+  --hair-soft: rgba(180, 202, 190, 0.09);
+  --pad: clamp(20px, 5vw, 56px);
+  --max: 1180px;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body { background: var(--ground); }
+
+body {
+  margin: 0;
+  color: var(--tinta);
+  font: 400 16px/1.62 var(--sans);
+  -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
+}
+
+::selection { background: var(--tinta); color: var(--ground); }
+:focus-visible { outline: 2px solid var(--tinta); outline-offset: 3px; }
+
+.mono { font-family: var(--mono); }
+.defs { position: absolute; }
+
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ------------------------------------------------------------------- la cabeza */
+.top {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20px;
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 20px var(--pad) 16px;
+  border-bottom: 1px solid var(--hair);
+}
+.wordmark {
+  margin: 0;
+  font: 400 18px/1.2 var(--display);
+  letter-spacing: 0.005em;
+  color: var(--ink);
+}
+.tag { margin: 0; font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+
+/* ------------------------------------------------------------------ la entrada */
+main { display: block; }
+
+.intro {
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: clamp(48px, 7vw, 92px) var(--pad) clamp(40px, 5vw, 64px);
+}
+.eyebrow {
+  margin: 0 0 20px;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.title {
+  margin: 0 0 26px;
+  font: 400 clamp(30px, 4.4vw, 52px)/1.1 var(--display);
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  text-wrap: balance;
+}
+.lede {
+  max-width: 62ch;
+  margin: 0 0 14px;
+  font-size: 15.5px;
+  line-height: 1.62;
+  color: color-mix(in srgb, var(--tinta) 78%, var(--ground));
+  text-wrap: pretty;
+}
+.lede strong { font-weight: 600; color: var(--ink); }
+.lede--corta { color: var(--muted); font-size: 14px; }
+
+/* ---------------------------------------------------------------- las tarjetas */
+.grid {
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 0 var(--pad) clamp(56px, 8vw, 104px);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  column-gap: clamp(24px, 3vw, 46px);
+  row-gap: clamp(44px, 5vw, 68px);
+  align-items: start;
+}
+.card {
+  border-top: 1px solid var(--hair);
+  padding-top: 16px;
+  min-width: 0;
+}
+.idx {
+  margin: 0 0 14px;
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  color: var(--muted);
+}
+
+/* El suelo de cada figura: negro, lavado direccional y viñeta — capas 1 y 4 de
+   la escena, sin nebulosa inventada. */
+.diagram {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  margin-bottom: 22px;
+  overflow: hidden;
+  background:
+    linear-gradient(112deg, #061012 0%, #020405 46%, #000 100%);
+  box-shadow: inset 0 0 64px 18px rgba(0, 0, 0, 0.88);
+  isolation: isolate;
+}
+.diagram svg { display: block; width: 100%; height: 100%; overflow: visible; }
+
+.figura .link {
+  fill: none;
+  stroke: var(--tinta);
+  stroke-width: 0.7;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+}
+/* Las conductas de enlace en una sola imagen fija: peso y opacidad, nada de
+   guiones (los guiones se probaron y se rechazaron). */
+.figura .link[data-behaviour='depth'] { opacity: 0.4; }
+.figura .link[data-behaviour='trace'] { opacity: 0.62; }
+.figura .link[data-behaviour='focus'] { opacity: 0.26; }
+.figura .link[data-behaviour='pulse'] { opacity: 0.8; }
+
+.figura .halo { fill: url(#halo-fig); }
+/* El polvo es el suelo, no la carta: sin nombres y por debajo de la figura.
+   Cerca de las estrellas baja de camada, para que el bolsillo siga limpio. */
+.figura .dust { fill: var(--tinta); }
+.figura .dust[data-tier='0'] { opacity: 0.3; }
+.figura .dust[data-tier='1'] { opacity: 0.68; }
+.figura .dust[data-tier='2'] { opacity: 1; }
+.figura .core { fill: var(--ink); }
+.figura .ring {
+  fill: none;
+  stroke: var(--tinta);
+  stroke-width: 0.7;
+  opacity: 0.55;
+  vector-effect: non-scaling-stroke;
+}
+.figura .spark {
+  fill: var(--ink);
+  filter: drop-shadow(0 0 3px rgba(180, 202, 190, 0.7));
+}
+
+.figura .scalebar path {
+  fill: none;
+  stroke: var(--tinta);
+  stroke-width: 0.6;
+  opacity: 0.42;
+  vector-effect: non-scaling-stroke;
+}
+.figura .scalebar text {
+  font: 400 8.5px var(--mono);
+  fill: color-mix(in srgb, var(--tinta) 62%, var(--ground));
+  letter-spacing: 0.04em;
+}
+
+/* ------------------------------------------------------------------- el texto */
+.name {
+  margin: 0 0 6px;
+  font: 400 19px/1.2 var(--display);
+  letter-spacing: 0.01em;
+  color: var(--ink);
+}
+.abbr {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  vertical-align: 0.18em;
+  margin-left: 8px;
+}
+.gloss {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--tinta) 66%, var(--ground));
+}
+.sep { color: var(--muted); }
+.why {
+  margin: 0 0 18px;
+  font-size: 15px;
+  line-height: 1.56;
+  color: var(--tinta);
+  text-wrap: pretty;
+}
+
+.specs {
+  display: grid;
+  grid-template-columns: 76px 1fr;
+  gap: 7px 12px;
+  margin: 0 0 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hair-soft);
+}
+.specs dt {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding-top: 2px;
+}
+.specs dd {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--tinta) 84%, var(--ground));
+}
+
+.lee { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; }
+.lee[data-lee='sí'] { color: var(--ink); }
+.lee[data-lee='parcial'] { color: var(--tinta); }
+.lee[data-lee='no'] { color: var(--muted); }
+
+.estrellas {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 11px;
+  row-gap: 2px;
+  margin: 0 0 14px;
+  font-size: 10.5px;
+  line-height: 1.75;
+  letter-spacing: 0.01em;
+  color: var(--muted);
+}
+.star-item { white-space: nowrap; }
+.star-item .bayer { color: var(--tinta); }
+.star-item .mag { color: color-mix(in srgb, var(--muted) 82%, var(--ground)); }
+
+.nota {
+  margin: 0;
+  padding-left: 12px;
+  border-left: 1px solid var(--hair);
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: color-mix(in srgb, var(--muted) 92%, var(--ground));
+}
+.nota-label {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 3px;
+}
+
+/* -------------------------------------------------------------- recomendación */
+.rec {
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: clamp(48px, 7vw, 88px) var(--pad) clamp(40px, 5vw, 72px);
+  border-top: 1px solid var(--hair);
+}
+.rec-title {
+  margin: 0 0 20px;
+  font: 400 clamp(24px, 3vw, 34px)/1.15 var(--display);
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+.rec-lede {
+  max-width: 62ch;
+  margin: 0 0 clamp(32px, 4vw, 48px);
+  font-size: 15px;
+  line-height: 1.62;
+  color: color-mix(in srgb, var(--tinta) 76%, var(--ground));
+  text-wrap: pretty;
+}
+.finalists {
+  list-style: none;
+  margin: 0 0 clamp(36px, 5vw, 56px);
+  padding: 0;
+  display: grid;
+  gap: 0;
+  max-width: 78ch;
+}
+.finalist {
+  border-top: 1px solid var(--hair-soft);
+  padding: 18px 0 20px;
+}
+.finalist-name {
+  margin: 0 0 10px;
+  font: 400 16px/1.2 var(--display);
+  letter-spacing: 0.01em;
+  color: var(--ink);
+}
+.rank {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  margin-right: 10px;
+  vertical-align: 0.15em;
+}
+.finalist-why {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.62;
+  color: color-mix(in srgb, var(--tinta) 82%, var(--ground));
+  text-wrap: pretty;
+}
+
+.discard { max-width: 78ch; margin: 0 0 clamp(36px, 5vw, 56px); }
+.discard-title {
+  margin: 0 0 14px;
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.discard-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: color-mix(in srgb, var(--tinta) 66%, var(--ground));
+}
+.discard-list .who { color: var(--ink); font-family: var(--display); font-size: 13px; }
+
+.tabla-wrap { max-width: 100%; overflow-x: auto; }
+.tabla {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 420px;
+  font-size: 12.5px;
+}
+.tabla caption { text-align: left; }
+.tabla th, .tabla td {
+  text-align: left;
+  padding: 9px 14px 9px 0;
+  border-bottom: 1px solid var(--hair-soft);
+  font-weight: 400;
+  white-space: nowrap;
+}
+.tabla thead th {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom-color: var(--hair);
+}
+.tabla tbody th { color: var(--ink); font-family: var(--display); font-size: 12px; }
+.tabla td { color: color-mix(in srgb, var(--tinta) 80%, var(--ground)); }
+
+/* ------------------------------------------------------------------- el pie */
+.foot {
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: clamp(32px, 4vw, 52px) var(--pad) clamp(56px, 7vw, 88px);
+  border-top: 1px solid var(--hair);
+  font-size: 12px;
+  line-height: 1.66;
+  color: var(--muted);
+}
+.foot p { max-width: 82ch; margin: 0 0 12px; }
+.foot-title {
+  margin: 0 0 14px;
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.foot a { color: var(--tinta); text-decoration-color: var(--hair); text-underline-offset: 2px; }
+.foot a:hover { text-decoration-color: var(--tinta); }
+.foot-warn { color: color-mix(in srgb, var(--muted) 96%, var(--ground)); }
+
+@media (max-width: 620px) {
+  .top { flex-wrap: wrap; gap: 6px 16px; }
+  .tag { letter-spacing: 0.1em; }
+  .eyebrow { font-size: 10px; letter-spacing: 0.1em; }
+  .grid { row-gap: 44px; }
+  .specs { grid-template-columns: 68px 1fr; }
+  .lede { max-width: 100%; }
+  /* La extensión ya está dicha en la línea de escala de cada tarjeta: acá la
+     tabla se queda con lo que se compara de un vistazo. */
+  .tabla { min-width: 0; font-size: 11.5px; }
+  .tabla th:nth-child(5), .tabla td:nth-child(5) { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .figura .spark { display: none; }
+}
