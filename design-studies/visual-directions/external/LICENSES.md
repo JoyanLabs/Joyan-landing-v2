@@ -13,7 +13,7 @@ Material descargado **solo para estudio**: se lee, se prueba y se descarta. No e
 
 **Se toma el método:** verificación con navegador real (capturas, consola, estados), auditoría de consistencia, y el concepto de *datos como puntos que recorren aristas*.
 
-**No se toma el estilo:** frosted glass, glow, neón ni diagramas de producto ajenos. Nuestra identidad es la de `docs/DESIGN.md`; estas piezas no la sustituyen.
+**No se toma el estilo:** frosted glass, glow, neón ni diagramas de producto ajenos. Nuestra identidad es la de `archive/DESIGN.md`; estas piezas no la sustituyen.
 
 ## Reglas
 

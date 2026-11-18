@@ -9,7 +9,7 @@ todo, **qué se aprendió por el camino**. Los films se pueden regenerar desde e
 código; las lecciones no se regeneran solas.
 
 La referencia de contrato visual (qué color significa qué, presupuestos,
-reglas de accesibilidad) está en [`DESIGN.md`](./DESIGN.md). Este archivo es la
+reglas de accesibilidad) está en [`DESIGN.md`](../archive/DESIGN.md). Este archivo es la
 guía de método.
 
 **Cómo leer la evidencia.** Los números históricos, las comparaciones visuales y

@@ -259,7 +259,7 @@ demostró un juez ciego—, así que la afirmación anterior era falsa. En el pl
 
 ## Iteración de escenas
 
-Skill asociado: [scene-iteration](../skills/scene-iteration/SKILL.md). Interrogar con Angie → fundamentar en datos
+Skill asociado: [scene-iteration](../archive/scene-iteration/SKILL.md). Interrogar con Angie → fundamentar en datos
 o referencia medida → proponer manifiesto → implementar → medir → revisión independiente → validación humana
 → registrar. Los números y protocolos normativos permanecen en este documento; el manifiesto registra decisiones,
 evidencia, opciones rechazadas y pendientes. Una aprobación visual no certifica un umbral incumplido o sin medir.
@@ -267,7 +267,7 @@ evidencia, opciones rechazadas y pendientes. Una aprobación visual no certifica
 ## Dónde vive
 
 Skills asociados: [frontend-design](../skills/frontend-design/SKILL.md) y
-[scene-iteration](../skills/scene-iteration/SKILL.md). Actualización de la estética aprobada: **2026-10-29**.
+[scene-iteration](../archive/scene-iteration/SKILL.md). Actualización de la estética aprobada: **2026-10-29**.
 
 `design-studies/v1/` — `hero-field.mjs` (campo compuesto), `v1.mjs` (runtime y cámara), `v1.css` (composición),
 `scene-constelacion2*.mjs` (emisión, byte-idéntica a `lab/`). Evidencia y capturas en

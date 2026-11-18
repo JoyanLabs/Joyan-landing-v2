@@ -54,8 +54,10 @@ joyan-landing/
 | **github-actions-templates** | Plantillas de workflows de GitHub Actions | `skills/github-actions-templates/SKILL.md` |
 | **changelog-automation**  | Automatizar changelogs y releases     | `skills/changelog-automation/SKILL.md`  |
 | **multi-stage-dockerfile** | Dockerfiles multi-stage optimizados  | `skills/multi-stage-dockerfile/SKILL.md` |
-| **joyan-escenas**         | Flujo de escenas del motor de puntos | `skills/joyan-escenas/SKILL.md`         |
-| **scene-iteration**       | Iteracion medida de escenas con Angie | `skills/scene-iteration/SKILL.md`      |
+
+> Las skills de escenas (`joyan-escenas`, `scene-iteration`) están **congeladas** en
+> [`archive/`](archive/): un procedimiento convierte gusto en umbrales y produce mínimos. No se
+> anuncian como skills activas hasta que exista su reemplazo.
 
 ## Auto-invoke Skills
 
@@ -71,7 +73,6 @@ When performing these actions, ALWAYS invoke the corresponding skill FIRST:
 | Creando commits, PRs, o usando templates de GitHub | `git-guidelines` |
 | Creando nuevos skills | `skill-creator` |
 | Creando o actualizando documentación | `documentation` |
-| Creando o mejorando escenas del motor de puntos | `joyan-escenas` |
 | Creando o modificando Dockerfiles multi-stage | `multi-stage-dockerfile` |
 | Creando releases, changelogs o notas de release | `changelog-automation` |
 | Creando schemas Zod | `zod-4` |
@@ -82,7 +83,6 @@ When performing these actions, ALWAYS invoke the corresponding skill FIRST:
 | Después de crear/modificar un skill | `skill-sync` |
 | Disenando interfaces de usuario con Stitch | `stitch-design` |
 | Escribiendo tipos/interfaces TypeScript | `typescript` |
-| Implementing or revising dot-engine scenes with Angie | `scene-iteration` |
 | Mejorar prompts para generacion de UI | `enhance-prompt` |
 | Regenerar tablas Auto-invoke de AGENTS.md | `skill-sync` |
 | Validar skills contra código real | `skill-auditor` |

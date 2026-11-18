@@ -78,7 +78,7 @@ se aprendió al hacerlo:
   orden, y cómo se corta en candidatos revisables.
 
 El contrato visual (qué color significa qué, presupuestos, accesibilidad) sigue
-en [`docs/DESIGN.md`](./docs/DESIGN.md).
+en [`archive/DESIGN.md`](./archive/DESIGN.md).
 
 ## Validación
 

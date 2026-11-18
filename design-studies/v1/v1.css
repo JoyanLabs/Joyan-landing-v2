@@ -167,19 +167,12 @@ body {
    shares its plane's 0.8px blur: that is the depth cue, not attenuation. */
 .node-plane g > :not(.ring) { opacity: var(--plane-ink); transition: opacity 260ms ease-out; }
 .node-plane .node-selected > :not(.ring) { opacity: 1; }
-/* THREE READINGS OF THE FOCUS LADDER — this is a decision, not a setting.
-   a · depth of field centred on the NODE, strong: the plane nearest the
-       focused node takes a real blur (1.6 px), so looking at a far node
-       throws the foreground out of focus.
-   b · fixed background: the sky softens (full baked extreme) and NO node
-       plane ever blurs; depth inside the figure is carried by ink and
-       saturation only.
-   c · as shipped: a subtle blur (0.8 px) on the plane farthest from the node.
-   Open the study with ?planos=a|b|c to compare. Default is c. */
-[data-planes='a'] .node-plane[data-treatment='back'] { --plane-blur: 1.6px; --plane-tone: .35; }
-[data-planes='b'] .node-plane[data-treatment='back'] { --plane-blur: 0px; --plane-tone: .5; }
-[data-planes='b'] .node-plane[data-treatment='middle'] { --plane-tone: .68; }
-[data-planes='b'] .stage[data-focused='true'] .sky.focus-copy { opacity: 1; }
+/* FOCUS LADDER — one reading, chosen by the direction (2026-11-05): a subtle
+   blur (0.8 px) on the plane farthest from the focused node, with the two other
+   planes attenuated and desaturated. The stronger variants (blur on the nearest
+   plane, or a fixed soft background) were compared live and are NOT the reading:
+   they were removed instead of left as dead switches, because three options on a
+   page read as three answers. This is the answer. */
 
 @media (prefers-reduced-motion: reduce) { .node-plane, .node-plane g > :not(.ring) { transition: none; } }
 .node-plane[data-node-plane='far'] .ring { stroke-dasharray: 1.5 1; }

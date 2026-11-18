@@ -46,7 +46,7 @@ Verificado leyendo el repo de referencia y el nuestro:
   caer en la rampa ámbar si el pixel de origen ya es ámbar.
 - Determinismo y costura: `seek(t)` puro, sin `Math.random`, **sin dither temporal**
   (si no, se rompen la costura del loop y el check `costura` del oráculo).
-- Preview: `docs/DESIGN.md` manda; si el spike contradice el manual, se actualiza el
+- Preview: `archive/DESIGN.md` manda; si el spike contradice el manual, se actualiza el
   manual con la justificación, no se ignora.
 
 ## Tareas

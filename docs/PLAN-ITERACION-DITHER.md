@@ -7,7 +7,7 @@
 > describían el inventario inicial, no el árbol actual.
 > **Este documento decide el orden y el corte. No decide el arte.**
 > Fuentes: `docs/GUIA-MOTION.md` (método y aprendizaje), `odd/tasks/dither-look-spike.md`
-> (registro del spike), `docs/DESIGN.md` (contrato visual), y la dirección canónica en
+> (registro del spike), `archive/DESIGN.md` (contrato visual), y la dirección canónica en
 > `joyanlabs-plan` (`docs/JOYAN_DIRECTION_2026.md`, `docs/landing/LANDING_AUDIT_2026-08-09.md`).
 
 ---
@@ -30,7 +30,7 @@ sin arte genérico, cortado en candidatos revisables.
   su arte es de otro y sus piezas son genéricas para nosotros. La técnica se reimplementó.
 - **Renombrar nada de marca.** Tagline, casing de MAGI, identidad de Lanza y
   `Powered by MAGI · Built by Joyan` siguen pendientes de branding y no entran acá.
-- **Generar assets en build time.** `docs/DESIGN.md` manda pre-horneado y commiteado;
+- **Generar assets en build time.** `archive/DESIGN.md` manda pre-horneado y commiteado;
   meter Playwright en el camino de deploy es un cambio de política, no un detalle.
 
 ---
@@ -255,7 +255,7 @@ D5/WU10 siguen separando el copy. Se conserva como antecedente, no como tarea pe
 ### WU4 · Reparar el drift de la documentación — **HECHO**
 
 - **Problema, tal como se encontró:** el contrato citaba archivos que no existen
-  —`public/assets/motion/el-caret.mp4` (`docs/DESIGN.md:278`, `:295`), `motion-src/film.mjs`,
+  —`public/assets/motion/el-caret.mp4` (`archive/DESIGN.md:278`, `:295`), `motion-src/film.mjs`,
   y tres figuras SVG inline (`OperationFlowFigure`/`SignalTraceFigure`/`CooperativeRingFigure`,
   `:100`, `:294`)—. Y WU2 destapó una segunda mentira, en el documento de método: la
   afirmación de que «buscar F3 y F5 en órdenes opuestos tiene que dar SVG byte-idéntico»
@@ -323,7 +323,7 @@ Y el **pitch mostrado en px CSS** que sale de eso (el número que importa):
 **Decisión:** la constante se expresa como **pitch mostrado objetivo (6–8 px CSS)**, no como
 píxeles de fuente, y de ahí se deriva por presentación: `celda = objetivo × anchoFuente ÷
 anchoMostrado`. En concreto: **hero celda 6** en el encode de 1280 (pitch 7,5; la 8 sigue siendo
-aceptable) y **secciones celda 14–16**, no 8. La regla se escribe en `docs/DESIGN.md` como parte
+aceptable) y **secciones celda 14–16**, no 8. La regla se escribe en `archive/DESIGN.md` como parte
 del contrato de assets cuando se construya el primer asset.
 
 **Conclusión que cierra el asunto, y que sólo apareció al mirar las vistas del browser**
@@ -558,7 +558,7 @@ adicional; no sustituye F1 ni ditheriza los cinco films de argumento.
 - H.264286,342 B≤300KiB,CRF41; poster7.8s de6,735 B≤80KiB,37colores, píxeles
   lossless. No AV1. CRF34 dio505,228 B; otros intentos CRF40 fallaron seam/budget y
   quedan registrados. Primer/último source idénticos; seam codificado MAE0.815/255,
-  max26, no identidad pixel. Flags, hashes y límites: [DESIGN WU12](./DESIGN.md#wu12--visible-normal-mode-j1-surface-2026-10-10).
+  max26, no identidad pixel. Flags, hashes y límites: [DESIGN WU12](../archive/DESIGN.md#wu12--visible-normal-mode-j1-surface-2026-10-10).
 - RED real antes de escribir UI:12 fallas por escena ausente, `wu12/red.json` y
   `red.log`. GREEN en la preview del padre con build fresco: ES/EN×390/768/1440×
   normal/reducido; errores0, cuerpos completos, reconocimiento y copy/CTA libres.

@@ -4,7 +4,7 @@ Este documento es el encargo completo para que **Angie produzca una escena sola*
 que nadie le explique el proyecto de viva voz. Es también la prueba final del método: si el encargo no alcanza,
 el que está mal es el documento.
 
-**Corte: 2026-11-05.** Skill: `skills/joyan-escenas/SKILL.md` (v1.4). Referencias vivas de la receta procedural:
+**Corte: 2026-11-05.** Skill: `archive/joyan-escenas/SKILL.md` (v1.4). Referencias vivas de la receta procedural:
 `design-studies/visual-directions/skill-validation/run-3/scene-traza.mjs`.
 
 ---
@@ -37,7 +37,7 @@ Lectura completa de la serie: `docs/ESCENAS-SERIE.md`.
 
 | Qué | Dónde |
 |---|---|
-| Método completo | `skills/joyan-escenas/SKILL.md` (v1.4) — leelo entero antes de empezar |
+| Método completo | `archive/joyan-escenas/SKILL.md` (v1.4) — leelo entero antes de empezar |
 | Lenguaje visual aprobado | `docs/ESTETICA-CONSTELACION.md` |
 | Motor real | `scripts/scene-src/engine.mjs` (`renderFrame`, `rasterize`, `sceneMetrics`, `COVERAGE`) |
 | Escena de referencia con movimiento y eventos | `design-studies/visual-directions/skill-validation/run-3/scene-traza.mjs` |

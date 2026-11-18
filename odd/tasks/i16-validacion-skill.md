@@ -1,7 +1,7 @@
 # I-16 · Validación en frío de la skill `joyan-escenas`
 
 Un agente **sin el historial de iteración** debe poder producir una escena usable siguiendo **sólo**
-`skills/joyan-escenas/SKILL.md`. Un flujo que no se probó no es un método: es una hipótesis con formato de
+`archive/joyan-escenas/SKILL.md`. Un flujo que no se probó no es un método: es una hipótesis con formato de
 documento. Si el flujo falla, **se corrige la skill, no se improvisa la escena**.
 
 ## Specs
@@ -65,7 +65,7 @@ parte de la serie de cuatro que es tarea de Angie. Encargo según §7 de la prop
 
 ### T3 · Enmiendas y evaluador ciego (skill v1.2)
 
-- H1–H7 publicados como enmiendas v1.2 (`skills/joyan-escenas/SKILL.md`): protocolo de evaluador
+- H1–H7 publicados como enmiendas v1.2 (`archive/joyan-escenas/SKILL.md`): protocolo de evaluador
   independiente ciego, contrato espacial/tonal del campo (`x/y` en celdas, escalar en espacio tonal del
   motor), horneado de póster con `rasterize`, señal `data-state=ready/error` + hash, benchmark pineado
   (60 calentamiento + 240 muestras, frío aparte), saturación ejecutable con control no vacío, política

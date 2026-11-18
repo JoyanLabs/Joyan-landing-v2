@@ -56,7 +56,7 @@ El wordmark vectorial disponible está en [`public/assets/brand/joyan-wordmark-m
 - [Decisión tipográfica](DECISION-TIPOGRAFIA.md): roles de Michroma y Archivo y riesgos.
 - [Maqueta del hero](../design-studies/v1/index.html): referencia visual del estudio, no página final de producción.
 - [Paleta Marea mineral](../design-studies/visual-directions/assets-kit/PALETA.md): estudio histórico útil para rastrear colores; su propuesta de cuerpo papel no representa la decisión posterior.
-- [Manual de diseño anterior](DESIGN.md): contratos de otra etapa de la landing; no tomarlo por sí solo como guía del lenguaje de constelación actual.
-- Skills relacionados: [joyan-escenas](../skills/joyan-escenas/SKILL.md) y [scene-iteration](../skills/scene-iteration/SKILL.md).
+- [Manual de diseño anterior](../archive/DESIGN.md): contratos de otra etapa de la landing; no tomarlo por sí solo como guía del lenguaje de constelación actual.
+- Skills relacionados: [joyan-escenas](../archive/joyan-escenas/SKILL.md) y [scene-iteration](../archive/scene-iteration/SKILL.md).
 
 **Mantenimiento:** revisar este resumen cuando se aprueben decisiones de identidad de producto, color o dirección visual; registrar la decisión y su fuente, sin promover exploraciones a aprobaciones por omisión.

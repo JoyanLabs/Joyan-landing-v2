@@ -116,7 +116,7 @@ Se separa `engine` (biblioteca) de `page` (consumidor).
 
 ## Restricciones y riesgos
 
-- **Marca.** `docs/DESIGN.md` dice que el primer producto vertical **no se publica con su nombre hasta que
+- **Marca.** `archive/DESIGN.md` dice que el primer producto vertical **no se publica con su nombre hasta que
   branding lo apruebe**. La constelación puede ser el identificador visual, pero el nombre «Lanza» queda como
   **identificador interno** hasta esa aprobación. La pieza no publica el nombre.
 - **Copy.** El texto se había descartado el 10-29. S8 lo reintroduce: los nodos muestran algo. Hasta que exista

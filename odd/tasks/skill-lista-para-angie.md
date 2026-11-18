@@ -59,7 +59,7 @@ Worker sin historial, escena distinta de la anterior y con eventos (la cadena qu
 
 ### T3 · Enmiendas v1.4 — 2026-11-05
 
-12 huecos confirmados y corregidos en `skills/joyan-escenas/SKILL.md`:
+12 huecos confirmados y corregidos en `archive/joyan-escenas/SKILL.md`:
 
 1. §1 · el SVG declara `viewBox` + `width/height 100%` + `preserveAspectRatio`, y aspecto/política móvil van
    como `data-aspect-ratio`/`data-mobile-policy`; se documenta el recorte medido.

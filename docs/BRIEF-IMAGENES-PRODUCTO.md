@@ -45,4 +45,4 @@ Representar un producto de Joyan dentro de un **espacio oscuro con profundidad**
 - [Identidad visual actual](IDENTIDAD-VISUAL-ACTUAL.md): colores, fuentes, estados y límites.
 - [Estética de la constelación](ESTETICA-CONSTELACION.md): dirección original, capas y decisiones.
 - [Maqueta de referencia](../design-studies/v1/index.html): abrir desde la raíz servida del repositorio para que cargue sus módulos.
-- Skill relacionado: [joyan-escenas](../skills/joyan-escenas/SKILL.md), para escenas del motor; este brief también admite imágenes conceptuales generadas externamente.
+- Skill relacionado: [joyan-escenas](../archive/joyan-escenas/SKILL.md), para escenas del motor; este brief también admite imágenes conceptuales generadas externamente.
