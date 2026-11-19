@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1280, initial-scale=1">
+<title>constelación</title>
+<link rel="stylesheet" href="./card.css">
+</head>
+<!--
+  La tarjeta es una sola pieza: el campo de puntos lo pinta el motor
+  (`field.mjs` → `renderFrame` + `rasterize`) y los enlaces son la capa SVG de
+  `design-studies/v1/link-behaviours.mjs`. El texto lo llena `card.mjs` con el
+  dato del catálogo; acá no hay ni un nombre escrito a mano.
+-->
+<body>
+<div class="card" id="card">
+  <canvas id="field" aria-hidden="true"></canvas>
+  <svg id="links" aria-hidden="true"></svg>
+
+  <div class="copy">
+    <p class="abbr mono" id="abbr"></p>
+    <h1 class="name" id="name"></h1>
+    <p class="meaning" id="meaning"></p>
+    <p class="counts mono" id="counts"></p>
+  </div>
+
+  <p class="series mono">estudio · constelaciones</p>
+  <p class="credit mono">figura y datos: d3-celestial (Olaf Frohn) · BSD-3-Clause · J2000</p>
+</div>
+<script type="module" src="./card.mjs"></script>
+</body>
+</html>

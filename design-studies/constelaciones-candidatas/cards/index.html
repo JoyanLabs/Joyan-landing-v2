@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Constelaciones — tarjetas del flujo</title>
+<style>
+  @font-face {
+    font-family: 'Michroma';
+    src: url('../../v1/fonts/michroma-400.woff2') format('woff2');
+    font-weight: 400; font-display: block;
+  }
+  @font-face {
+    font-family: 'Archivo';
+    src: url('../../v1/fonts/archivo-latin-wght-normal.woff2') format('woff2');
+    font-weight: 100 900; font-display: block;
+  }
+  :root {
+    --ground: #020405;
+    --ink: #b4cabe;
+    --mono: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 56px clamp(20px, 5vw, 72px) 96px;
+    background: var(--ground); color: var(--ink);
+    font: 400 16px/1.6 'Archivo', system-ui, sans-serif;
+  }
+  h1 { font: 400 clamp(28px, 3vw, 40px)/1.15 'Michroma', 'Archivo', sans-serif; margin: 0 0 8px; }
+  .lead { max-width: 62ch; color: rgba(180, 202, 190, 0.74); margin: 0 0 40px; }
+  .lead b { color: var(--ink); font-weight: 600; }
+  .grid { display: grid; gap: 40px; max-width: 1200px; }
+  figure { margin: 0; }
+  figure img { display: block; width: 100%; height: auto; background: var(--ground); }
+  figcaption {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px;
+    margin-top: 10px; font-family: var(--mono); font-size: 12.5px; letter-spacing: 0.06em;
+    color: rgba(180, 202, 190, 0.72);
+  }
+  figcaption .abbr { letter-spacing: 0.24em; color: rgba(180, 202, 190, 0.5); }
+  figcaption .meaning { font-family: 'Archivo', sans-serif; letter-spacing: 0; font-size: 14px; }
+  figcaption a { margin-left: auto; color: rgba(180, 202, 190, 0.6); }
+  .nota { max-width: 72ch; margin: 48px 0 0; color: rgba(180, 202, 190, 0.6); font-size: 14px; }
+  .nota code { font-family: var(--mono); font-size: 12.5px; color: rgba(180, 202, 190, 0.82); }
+  a { color: inherit; }
+</style>
+</head>
+<body>
+<h1>Constelaciones — tarjetas del flujo</h1>
+<p class="lead">Tres tarjetas elegidas para mostrar rango —<b>Ori</b> (muchos nodos), <b>Lyr</b> (media) y
+<b>Cru</b> (pocos)— y una cuarta, <b>Sge</b>, que no pidió ni un cambio de código: es el mismo renderer con
+otro id. El resto de las 88 queda como dato de almacén, sin tarjeta.</p>
+
+<div class="grid" id="grid"></div>
+
+<p class="nota">Cada PNG lo produce el motor real: cinco capas (<code>constellation.mjs</code>), dithering y
+paleta (<code>renderFrame</code> + <code>rasterize</code>), enlaces de la vara a 0,8 / 1,1 / 1,5 px
+(<code>design-studies/v1/link-behaviours.mjs</code>). Se renderiza dos veces en procesos separados y el
+chequeo exige el mismo sha256: <code>node scripts/checks/check-cards.mjs</code>. La vara, para comparar:
+<a href="../../v1/">design-studies/v1/</a>.</p>
+
+<script type="module">
+  // Lo que se renderizó, y nada más: la galería no inventa datos.
+  const RENDERIZADAS = ['Ori', 'Lyr', 'Cru', 'Sge'];
+  const { constellationFor } = await import('./data.mjs');
+  const grid = document.getElementById('grid');
+  for (const id of RENDERIZADAS) {
+    const data = constellationFor(id);
+    const figure = document.createElement('figure');
+    const link = document.createElement('a');
+    link.href = `./capturas/${id}.png`;
+    const img = document.createElement('img');
+    img.src = `./capturas/${id}.png`;
+    img.width = 1440;
+    img.height = 900;
+    img.alt = `Tarjeta de ${data.name}: figura de ${data.counts.nodes} nodos y ${data.counts.segments} segmentos sobre el campo de puntos.`;
+    link.append(img);
+    const caption = document.createElement('figcaption');
+    caption.innerHTML = `<span class="abbr">${data.abbr}</span><span>${data.name}</span>`
+      + `<span class="meaning">${data.meaning}</span>`
+      + `<span>${data.counts.nodes} nodos · ${data.counts.segments} segmentos</span>`
+      + `<a href="./capturas/${id}.png">PNG 1440 × 900</a>`;
+    figure.append(link, caption);
+    grid.append(figure);
+  }
+</script>
+</body>
+</html>

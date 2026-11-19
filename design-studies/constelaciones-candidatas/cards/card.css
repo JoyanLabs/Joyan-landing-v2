@@ -1,0 +1,143 @@
+/**
+ * La tarjeta, 1280 × 900 a sangre. Sin marco, sin borde, sin sombra: el campo
+ * sangra por los cuatro lados, como la vara (`design-studies/v1/`).
+ *
+ * Una sola tinta fría — #b4cabe, el tono más alto de la paleta de la casa — y
+ * la variación de peso es transparencia de esa misma tinta, no un segundo
+ * color. Michroma para el nombre, Archivo para la glosa, mono para el registro
+ * funcional: la misma partición tipográfica de `docs/DECISION-TIPOGRAFIA.md`.
+ */
+@font-face {
+  font-family: 'Michroma';
+  src: url('../../v1/fonts/michroma-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Archivo';
+  src: url('../../v1/fonts/archivo-latin-wght-normal.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: block;
+}
+
+:root {
+  /* El tamaño lo manda `CARD` en `data.mjs`; `card.mjs` lo escribe acá. */
+  --card-w: 1440px;
+  --card-h: 900px;
+  --ink: #b4cabe;
+  --ground: #020405;
+  --display: 'Michroma', 'Archivo', system-ui, sans-serif;
+  --sans: 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html,
+body {
+  margin: 0;
+  width: var(--card-w);
+  height: var(--card-h);
+  overflow: hidden;
+  background: var(--ground);
+}
+
+.card {
+  position: relative;
+  width: var(--card-w);
+  height: var(--card-h);
+  overflow: hidden;
+  background: var(--ground);
+  color: var(--ink);
+  font: 400 17px/1.65 var(--sans);
+  -webkit-text-size-adjust: none;
+}
+
+#field {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#links {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+#links line {
+  stroke: var(--ink);
+  stroke-linecap: round;
+  shape-rendering: geometricPrecision;
+}
+
+.series {
+  position: absolute;
+  left: 72px;
+  bottom: 86px;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(180, 202, 190, 0.44);
+}
+
+.copy {
+  position: absolute;
+  left: 72px;
+  top: 104px;
+  width: 392px;
+}
+
+.abbr {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: rgba(180, 202, 190, 0.62);
+}
+
+.name {
+  margin: 0;
+  font: 400 58px/1.06 var(--display);
+  letter-spacing: 0.005em;
+  color: var(--ink);
+}
+
+.meaning {
+  margin: 8px 0 0;
+  font-size: 20px;
+  line-height: 1.4;
+  color: rgba(180, 202, 190, 0.86);
+}
+
+.counts {
+  margin: 26px 0 0;
+  font-size: 12.5px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  color: rgba(180, 202, 190, 0.68);
+}
+
+.credit {
+  position: absolute;
+  left: 72px;
+  bottom: 62px;
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.5;
+  letter-spacing: 0.06em;
+  color: rgba(180, 202, 190, 0.34);
+}
+
+.mono { font-family: var(--mono); }
