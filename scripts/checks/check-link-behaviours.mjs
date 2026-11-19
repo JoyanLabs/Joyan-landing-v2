@@ -244,13 +244,19 @@ check('the links that do not animate are the far ones: depth has no envelope', (
   return { pass: far.length > 0 && allDepth && noneElse,
     detail: `${far.length}/${LINKS.filter((link) => link.plane === 'far').length} enlaces far son depth (el otro es la traza) · ${noneElse ? 'ningún otro plano tiene depth' : 'hay depth fuera del plano lejano'}` };
 });
-check('the far links barely read against the near ones', (impl) => {
+check('the far links read but stay clearly below the near ones', (impl) => {
   const far = LINKS.filter((link) => link.plane === 'far');
   const near = LINKS.filter((link) => link.plane === 'near');
-  const worst = far.reduce((a, link) => Math.max(a, at(impl, link, 0.3, BASE).opacity), 0);
+  // The traced edge is OFF most of the cycle by design (it only draws while the
+  // signal rides it), so it is excluded: it is not a dim link, it is a timed one.
+  const farStatic = far.filter((link) => at(impl, link, 0.3, BASE).behaviour !== 'trace');
+  const dimmest = farStatic.reduce((a, link) => Math.min(a, at(impl, link, 0.3, BASE).opacity), 1);
   const brightest = near.reduce((a, link) => Math.max(a, at(impl, link, crestOf(impl, link), BASE).opacity), 0);
-  return { pass: worst <= 0.7 * HAIRLINE.opacity && worst <= 0.5 * brightest,
-    detail: `max far opacity ${num(worst)} ≤ ${num(0.7 * HAIRLINE.opacity)} (70 % de la hairline ${HAIRLINE.opacity}) y ≤ mitad del near más brillante ${num(brightest)}` };
+  // The old rule required the far links to be almost invisible; the direction
+  // rejected exactly that when the swarm could not be seen at all. A far link
+  // must clear the perception floor AND stay clearly under the near ones.
+  return { pass: dimmest >= 0.5 && dimmest <= 0.8 * brightest,
+    detail: `min far opacity ${num(dimmest)} ≥ 0.5 (piso de percepción) y ≤ 80 % del near más brillante ${num(brightest)}` };
 });
 check('depth has no animation at all', (impl) => {
   const link = LINKS.find((l) => l.plane === 'far' && l.index !== BASE.edge);

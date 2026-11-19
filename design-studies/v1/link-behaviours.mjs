@@ -112,10 +112,10 @@ export const PULSE = Object.freeze({
   head: 0.075,
   step: 0.085,
   copies: Object.freeze([
-    Object.freeze({ width: 2.20, opacity: 1.90, extra: 0 }),
-    Object.freeze({ width: 1.70, opacity: 1.10, extra: 1 }),
-    Object.freeze({ width: 1.25, opacity: 0.62, extra: 2 }),
-    Object.freeze({ width: 0.85, opacity: 0.32, extra: 3 }),
+    Object.freeze({ width: 3.00, opacity: 1.00, extra: 0 }),
+    Object.freeze({ width: 2.20, opacity: 0.70, extra: 1 }),
+    Object.freeze({ width: 1.50, opacity: 0.45, extra: 2 }),
+    Object.freeze({ width: 1.00, opacity: 0.28, extra: 3 }),
   ]),
 });
 
@@ -167,13 +167,17 @@ function pulseAt(plane, head, gain) {
 const SPREAD = 0.8;
 const weight = (ratio) => ratio ** SPREAD;
 const MID = PLANE_STYLE.mid;
-export const PLANE_LINK = Object.freeze(Object.fromEntries(Object.entries(PLANE_STYLE).map(([plane, style]) => [
-  plane,
-  Object.freeze({
-    width: HAIRLINE.width * weight(style.width / MID.width),
-    opacity: Math.min(1, HAIRLINE.opacity * weight(style.opacity / MID.opacity)),
-  }),
-])));
+export const PLANE_LINK = Object.freeze({
+  // AN EXPLICIT LADDER, IN PIXELS. It used to be derived from the approved
+  // hairline by a ratio, and that put the far links at 0.49 px and 37 % opacity:
+  // measured in the browser and reported by the direction as "you cannot see the
+  // lines or the pulse". A hairline under one device pixel at a third of its
+  // opacity is not subtle, it is absent. Far still anchors on the approved 0.7
+  // hairline; the ladder now rises in both axes, so depth stays readable.
+  far: Object.freeze({ width: 0.8, opacity: 0.55 }),
+  mid: Object.freeze({ width: 1.1, opacity: 0.75 }),
+  near: Object.freeze({ width: 1.5, opacity: 1 }),
+});
 
 const { NODES_PX, LINKS_PX } = EMISSIONS.dark;
 const nodeAt = (point) => NODES_PX.findIndex(([x, y]) => x === point[0] && y === point[1]);
