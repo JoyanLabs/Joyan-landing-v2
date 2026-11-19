@@ -116,6 +116,8 @@ main { display: block; }
   text-wrap: pretty;
 }
 .lede strong { font-weight: 600; color: var(--ink); }
+.lede a { color: var(--ink); text-decoration-color: var(--hair); text-underline-offset: 2px; }
+.lede a:hover { text-decoration-color: var(--tinta); }
 .lede--corta { color: var(--muted); font-size: 14px; }
 
 /* ---------------------------------------------------------------- las tarjetas */

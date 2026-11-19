@@ -192,3 +192,21 @@ Fuente `Wikipedia`: artículo de la estrella, valores Gaia DR2/DR3 citados allí
 | γ Sadr | 20h22m13.7s | +40°15′24″ | 2,23 | IAU-CSN |
 | δ Fawaris | 19h44m58.5s | +45°07′51″ | 2,90 | IAU-CSN |
 | ε Aljanah | 20h46m12.7s | +33°58′13″ | 2,48 | IAU-CSN |
+
+## El catálogo de las 88
+
+Vista nueva y aditiva, para referencia: `catalogo.html`. Las seis tarjetas de esta hoja no cambian
+de orden ni de contenido; el catálogo es otra página con el mismo lenguaje (puntos con halo,
+enlaces finos, una sola tinta, suelo oscuro, gnomónica centrada en cada figura, norte arriba y este
+a la izquierda).
+
+- **88 figuras**, 767 nodos y 743 segmentos, desde `datos/catalogo-88.json` (d3-celestial,
+  `data/constellations.lines.json`, Olaf Frohn, **BSD 3-Clause**, *Copyright (c) 2015, Olaf Frohn.
+  All rights reserved.*). Reconstruible con `node datos/construir-catalogo.mjs`; procedencia y
+  licencia completas en `datos/LEEME.md` y en el bloque `meta` del JSON.
+- **Buscador** por nombre en español, en inglés, abreviatura y alternativas del anexo (Aries o
+  Carnero, Lebreles por Perros de Caza), sin acentos ni mayúsculas. **Filtros** por hemisferio
+  (Dec media ±20°), tamaño (nodos) y `rank` del dataset, combinables, con el conteo de cada opción.
+- Lo que el catálogo dice y no conviene olvidar: las líneas que unen estrellas son
+  **convencionales** y no las define la IAU; el `rank` 1–3 es jerarquía de estilo del dataset, no
+  una categoría oficial; los puntos no llevan magnitud porque el dataset de líneas no la trae.

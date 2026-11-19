@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Las 88 constelaciones — catálogo de referencia</title>
+<link rel="icon" href="data:,">
+<link rel="preload" href="../v1/fonts/michroma-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../v1/fonts/archivo-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="candidatas.css">
+<link rel="stylesheet" href="catalogo.css">
+</head>
+<body>
+
+<!-- Un solo halo para las 88: la misma tinta fría del campo, ningún segundo color. -->
+<svg class="defs" width="0" height="0" aria-hidden="true" focusable="false">
+  <defs>
+    <radialGradient id="halo-cat">
+      <stop offset="0" stop-color="#B4CABE" stop-opacity=".3"/>
+      <stop offset=".3" stop-color="#B4CABE" stop-opacity=".1"/>
+      <stop offset=".65" stop-color="#B4CABE" stop-opacity=".035"/>
+      <stop offset="1" stop-color="#B4CABE" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+</svg>
+
+<header class="top">
+  <p class="wordmark">JoyanLabs</p>
+  <p class="tag mono">estudio · constelaciones · catálogo</p>
+  <a class="top-link mono" href="index.html">← las seis candidatas</a>
+</header>
+
+<main>
+
+  <section class="intro intro--cat">
+    <p class="eyebrow mono">catálogo · referencia · 88 constelaciones</p>
+    <h1 class="title">Las 88 constelaciones</h1>
+    <p class="lede">Las 88 constelaciones de la IAU, dibujadas con las líneas de sus estrellas: coordenadas
+      <strong>J2000</strong> de un dataset público, proyección <strong>gnomónica</strong> centrada en cada figura y una
+      sola tinta fría sobre suelo oscuro. Es la misma mano que las seis candidatas de <a href="index.html">la hoja de
+      decisión</a>, pero acá no se elige nada: esto queda como referencia para cualquier otra cosa.</p>
+    <p class="lede lede--corta">Las líneas que unen las estrellas son <strong>convencionales</strong>. La IAU fija
+      límites y abreviaturas, no figuras: distintos datasets dibujan la misma constelación con enlaces distintos, y
+      estos enlaces son los del dataset citado abajo. Ningún trazo está inventado ni corregido a mano.</p>
+    <p class="lede lede--corta">El dataset de líneas no trae magnitudes, así que <strong>todos los puntos pesan
+      igual</strong>. Cada figura se escala a su cuadro para que se lea la forma: el tamaño relativo no se compara
+      mirando, se compara en los números — nodos, segmentos y la Dec media que lleva cada tarjeta.</p>
+
+    <p class="cat-totales mono" id="totales">88 figuras · 767 nodos · 743 segmentos</p>
+  </section>
+
+  <section class="cat-controls" aria-label="Buscar y filtrar el catálogo" id="controls">
+    <div class="cat-controls-in">
+      <div class="buscador">
+        <label class="sr-only" for="q">Buscar constelación por nombre o abreviatura</label>
+        <span class="buscador-lupa mono" aria-hidden="true">buscar</span>
+        <input id="q" type="search" placeholder="Orión, Ori, Eagle, Carnero…" autocomplete="off" spellcheck="false">
+        <button class="limpiar mono" id="limpiar" type="button">limpiar</button>
+      </div>
+
+      <div class="filtros" id="filtros">
+        <div class="filtro" data-grupo="hem">
+          <span class="filtro-label mono" id="f-hem">hemisferio</span>
+          <button type="button" data-v="todos" aria-pressed="true" aria-describedby="f-hem">todos</button>
+          <button type="button" data-v="norte" aria-pressed="false" aria-describedby="f-hem">norte</button>
+          <button type="button" data-v="ecuatorial" aria-pressed="false" aria-describedby="f-hem">ecuatorial</button>
+          <button type="button" data-v="sur" aria-pressed="false" aria-describedby="f-hem">sur</button>
+        </div>
+        <div class="filtro" data-grupo="size">
+          <span class="filtro-label mono" id="f-size">tamaño · nodos</span>
+          <button type="button" data-v="todos" aria-pressed="true" aria-describedby="f-size">todos</button>
+          <button type="button" data-v="2-5" aria-pressed="false" aria-describedby="f-size">2–5</button>
+          <button type="button" data-v="6-9" aria-pressed="false" aria-describedby="f-size">6–9</button>
+          <button type="button" data-v="10+" aria-pressed="false" aria-describedby="f-size">10 o más</button>
+        </div>
+        <div class="filtro" data-grupo="rank">
+          <span class="filtro-label mono" id="f-rank" title="rank 1-3 del dataset: jerarquía de estilo, no una categoría de la IAU">rank</span>
+          <button type="button" data-v="todos" aria-pressed="true" aria-describedby="f-rank">todos</button>
+          <button type="button" data-v="1" aria-pressed="false" aria-describedby="f-rank">1 principal</button>
+          <button type="button" data-v="2" aria-pressed="false" aria-describedby="f-rank">2 media</button>
+          <button type="button" data-v="3" aria-pressed="false" aria-describedby="f-rank">3 menor</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cat-wrap" aria-labelledby="cat-h">
+    <p class="cat-count mono" id="count" aria-live="polite">88 de 88 figuras</p>
+    <h2 class="sr-only" id="cat-h">Catálogo</h2>
+    <ul class="cat-grid" id="grid"></ul>
+    <p class="cat-vacio mono" id="vacio" hidden>ninguna figura con esos filtros.</p>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <p class="foot-title mono">datos y licencia</p>
+  <p>Líneas y figuras: <a href="https://github.com/ofrohn/d3-celestial">d3-celestial</a>, <code>data/constellations.lines.json</code>
+    de Olaf Frohn — <strong>licencia BSD 3-Clause</strong>, <em>Copyright (c) 2015, Olaf Frohn. All rights reserved.</em>
+    El texto completo está en <code>datos/LICENCIA-d3-celestial.txt</code> y el dataset vendorizado en
+    <code>datos/fuente-constellations.lines.json</code>. La versión reducida que usa esta página
+    (<a href="datos/catalogo-88.json">datos/catalogo-88.json</a>) repite la procedencia y la licencia en su bloque
+    <code>meta</code>.</p>
+  <p>Nombres en español: <a href="https://es.wikipedia.org/wiki/Anexo:Constelaciones">Anexo:Constelaciones</a> de
+    Wikipedia, que los toma de José Luis Comellas, <em>Astronomía</em> (Rialp, 1987), pp. 211-212. Nombres en inglés y
+    nombre oficial en latín: campo <code>en</code> y <code>name</code> de d3-celestial. Donde el dataset y el anexo
+    discrepan (por ejemplo <em>Lebreles</em> / <em>Perros de Caza</em>), el nombre que se imprime es el del anexo y el
+    otro queda en el buscador, no en la tarjeta.</p>
+  <p>Serpens llega partida en dos figuras en el dataset (Caput y Cauda); acá es una constelación con las dos partes
+    dibujadas y un solo conteo. Las 89 features del archivo original son 88 constelaciones.</p>
+  <p class="foot-warn">Lo que este catálogo no dice: el <code>rank</code> 1–3 es la jerarquía de estilo del dataset
+    (mayor tamaño o brillo para el nombre), no una categoría de la IAU. Los puntos no llevan magnitud porque el dataset
+    de líneas no la trae. Y las figuras de más de ~40° de extensión (Hydra, Eridanus, Serpens) se dibujan con la misma
+    gnomónica que el resto: los enlaces siguen rectos, pero el borde se estira.</p>
+  <p><a href="index.html">← volver a las seis candidatas</a></p>
+</footer>
+
+<script type="module" src="catalogo.mjs"></script>
+</body>
+</html>
