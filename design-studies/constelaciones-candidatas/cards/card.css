@@ -1,6 +1,12 @@
 /**
- * La tarjeta, 1280 × 900 a sangre. Sin marco, sin borde, sin sombra: el campo
+ * La tarjeta, 1440 × 900 a sangre. Sin marco, sin borde, sin sombra: el campo
  * sangra por los cuatro lados, como la vara (`design-studies/v1/`).
+ *
+ * DOS ESTADOS, NINGUNA ANIMACIÓN: el estado (reposo, o un nodo enfocado) lo
+ * calcula `field.mjs` entero al cargar — planos, poses, pesos y dither — y la
+ * página sólo lo pinta. No hay transición que reducir, así que
+ * `prefers-reduced-motion` recibe el estado final por construcción; la regla
+ * está escrita igual para que una transición futura no se cuele.
  *
  * Una sola tinta fría — #b4cabe, el tono más alto de la paleta de la casa — y
  * la variación de peso es transparencia de esa misma tinta, no un segundo
@@ -141,3 +147,11 @@ body {
 }
 
 .mono { font-family: var(--mono); }
+
+/* prefers-reduced-motion — el estado final sin animación. La tarjeta ya se
+   aplica de una vez (no hay bucle, ni reloj, ni transición); esto lo deja dicho
+   y el chequeo compara las dos capturas byte a byte. */
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .card * { animation: none !important; transition: none !important; }
+}
