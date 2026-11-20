@@ -19,9 +19,14 @@
  *                  modelo devuelve exactamente la desviación declarada (las 88
  *                  son IAU; la regla `official: false` se escribió para
  *                  asterismos).
- *   NO PLANA       ≥ 3 peldaños de punto, el campo no es ni vacío ni una
- *                  alfombra, la figura devuelve más tono que la calma del texto
- *                  y la calma queda por debajo del techo de legibilidad.
+ *   NO PLANA       ≥ 3 peldaños de punto, la figura devuelve más tono que la
+ *                  calma del texto y la calma de la copia no es más clara que
+ *                  la de la vara. La alfombra NO se mide por cuánta tinta hay
+ *                  —un umbral de cobertura bruta confunde «alfombra» con
+ *                  «banda densa»— sino por falta de ESTRUCTURA: la banda de
+ *                  atmósfera llena (≥ 90 %), el resto limpio (≤ 10 %) y la
+ *                  banda separada de él (≥ 3×). Un campo uniforme, el mismo
+ *                  tono en todo el cuadro, es el caso negativo que lo prueba.
  *   CAPAS          quitar cielo, lavado, figura o núcleos CAMBIA el compuesto:
  *                  las cinco capas están y cada una mueve la imagen.
  *   ISOMÉTRICO     (etapa 3) cada plano se desplaza y se escala en Z con la
@@ -267,18 +272,127 @@ try {
       errors.length ? errors.join(' | ') : 'cinco capas válidas; única desviación: procedencia IAU vs asterismo');
   }
 
-  // ------------------------------------------------------------ 5 · no plana
-  const { buildField } = await import(`file://${ROOT}/${CARDS}/field.mjs`);
+  // --------------------------------------------------- 5 · estructura, no tinta
+  // Una alfombra es un campo PAREJO, no un campo con mucha tinta: la banda
+  // densa del conjunto aprobado pinta casi todo su interior y sigue siendo una
+  // banda, con borde y con un bolsillo limpio donde va la copia. Medir cuánta
+  // tinta hay en el cuadro confunde las dos cosas y defiende el defecto
+  // contrario (la nube dispersa). Por eso la regla mide ESTRUCTURA: la BANDA
+  // —la región de atmósfera del propio modelo, al 50 % de su forma, menos el
+  // bolsillo de la copia— llena, el RESTO del campo limpio, y la separación
+  // entre los dos. Un campo uniforme da 1,0 de separación y falla.
+  const { buildField, planeSheets } = await import(`file://${ROOT}/${CARDS}/field.mjs`);
+  const { material } = await import(`file://${ROOT}/${CARDS}/live/bake.mjs`);
+  const { washRegion } = await import(`file://${ROOT}/scripts/scene-src/constellation.mjs`);
+  const { EMISSIONS } = await import(`file://${ROOT}/design-studies/v1/hero-field.mjs`);
   const dataOri = constellationFor('Ori');
   const field = buildField(dataOri);
   check('peldaños de punto', field.stats.distinctSteps >= 3, `${field.stats.distinctSteps} pasos no nulos`);
-  check('el campo no es ni vacío ni una alfombra',
-    field.stats.litShare >= 0.03 && field.stats.litShare <= 0.25,
-    `${(field.stats.litShare * 100).toFixed(1)} % de celdas con tinta`);
+
+  // Los umbrales. `inside`/`outside` son los del conjunto aprobado (la banda de
+  // la vara pinta 91–96 % de sus posiciones y deja polvo fuera de ella); la
+  // separación se pide por encima de 1,0 —el campo parejo— y por debajo de la
+  // que la vara logra entre su banda y su campo: 0,910 / 0,243 = 3,74× medido
+  // con su propia región (`check-cards-live.mjs`, caso de cobertura). Nuestra
+  // tarjeta mide 0,996 / 0,088 = 11,3×.
+  const BAND = Object.freeze({ inside: 0.90, outside: 0.10, separation: 3, region: 0.08 });
+
+  /** La atmósfera de la tarjeta, con el dither del motor: el tono del lavado
+   * del modelo pasado por `material()`, la misma función que hornea la escena
+   * viva. Mide la CAPA DE ATMÓSFERA y no el compuesto: el cielo (polvo
+   * declarado) y la figura no son candidatos a alfombra, y contarlos juntos
+   * mezclaría dos materiales en un solo número. */
+  const atmosphere = (c) => {
+    const wash = planeSheets(c).lavado;
+    return material(c, CARD.cols, CARD.rows, CARD.cell, (x, y) => wash[y * CARD.cols + x], true).steps;
+  };
+
+  /** Cobertura dentro y fuera de la región, y la separación entre las dos. */
+  const structureOf = (mask, steps) => {
+    let inside = 0;
+    let inked = 0;
+    let outside = 0;
+    let outed = 0;
+    for (let at = 0; at < mask.length; at++) {
+      const painted = steps[at] > 0;
+      if (mask[at]) { inside += 1; if (painted) inked += 1; } else { outside += 1; if (painted) outed += 1; }
+    }
+    const coverage = { inside: inside ? inked / inside : 0, outside: outside ? outed / outside : 0, cells: inside };
+    return {
+      ...coverage,
+      separation: coverage.outside > 0 ? coverage.inside / coverage.outside : Infinity,
+      share: inside / mask.length,
+    };
+  };
+
+  // Las tres condiciones con nombre, para que el caso negativo informe CUÁL
+  // rechaza al campo uniforme y no sólo que no pasa.
+  const structureRules = (band) => [
+    { name: 'la banda de atmósfera está llena',
+      ok: band.inside >= BAND.inside && band.share >= BAND.region,
+      detail: `${num(band.inside, 3)} de la banda pintada sobre ${band.cells} celdas `
+        + `(${(band.share * 100).toFixed(1)} % del cuadro, el piso es ${num(BAND.region, 2)})` },
+    { name: 'fuera de la banda el campo queda limpio',
+      ok: band.outside <= BAND.outside,
+      detail: `${num(band.outside, 3)} de tinta fuera de la banda · ${num(band.inside, 3)} dentro` },
+    { name: 'la banda se separa del resto del campo',
+      ok: band.separation >= BAND.separation,
+      detail: `${num(band.separation, 1)}× (${num(band.inside, 3)} / ${num(band.outside, 3)}); un campo parejo da 1,0` },
+  ];
+
+  const region = washRegion(dataOri.constellation, { cols: CARD.cols, rows: CARD.rows, share: 0.5 });
+  const band = structureOf(region.mask, atmosphere(dataOri.constellation));
+  for (const rule of structureRules(band)) check(rule.name, rule.ok, rule.detail);
+
+  // EL CASO NEGATIVO. Un campo PAREJO —el mismo tono en todas las celdas, el
+  // promedio de la atmósfera de esta tarjeta— pasa por el mismo dither y por
+  // las mismas tres condiciones. Si no fallara, la regla estaría midiendo
+  // cobertura y no estructura.
+  const wash = planeSheets(dataOri.constellation).lavado;
+  const flatTone = wash.reduce((sum, value) => sum + value, 0) / wash.length;
+  const flatSteps = material(dataOri.constellation, CARD.cols, CARD.rows, CARD.cell, () => flatTone, true).steps;
+  const flatBand = structureOf(region.mask, flatSteps);
+  const rejected = structureRules(flatBand).filter((rule) => !rule.ok).map((rule) => rule.name);
+  check('un campo uniforme no pasa (caso negativo)', rejected.length > 0,
+    `banda ${num(flatBand.inside, 3)} · fuera ${num(flatBand.outside, 3)} · ${num(flatBand.separation, 2)}× `
+    + `— lo rechaza «${rejected.join('» y «')}»`);
+
   check('la figura tiene más cuerpo que la calma',
     field.stats.figureTone > field.stats.calmTone * 1.15,
     `bolsillo ${num(field.stats.figureTone, 4)} · calma ${num(field.stats.calmTone, 4)}`);
-  check('la calma del texto queda oscura', field.stats.calmTone <= 0.032, `${num(field.stats.calmTone, 4)} de tono`);
+
+  // LA CALMA DEL TEXTO, CONTRA LA VARA. El 0,032 anterior se calibró con la
+  // nube vieja; no se sube para que pase, se reemplaza por la vara medida con
+  // el MISMO instrumento: el tono que el motor convierte en punto —el que
+  // promedia `field.stats.calmTone`—, en la MISMA retícula de 480 × 300, sobre
+  // el MISMO rectángulo de copia y con la viñeta de su cuadro. Nada se inventa:
+  // la vara es `design-studies/v1/`, de sólo lectura, y su emisión se lee acá.
+  // En intensidad de imagen (el protocolo de `docs/ESTETICA-CONSTELACION.md`,
+  // que es como la casa llama «calma») la vara mide 0,044151 a 1440 y la
+  // tarjeta 0,0157: los dos instrumentos dicen lo mismo, la copia es más oscura.
+  const calm = dataOri.constellation.composition.calm;
+  let calmLuma = 0;
+  let calmCells = 0;
+  let varaCalm = 0;
+  const emission = EMISSIONS.dark;
+  for (let y = 0; y < CARD.rows; y++) {
+    for (let x = 0; x < CARD.cols; x++) {
+      const px = (x + 0.5) * CARD.cell;
+      const py = (y + 0.5) * CARD.cell;
+      if (px < calm.x || px >= calm.x + calm.w || py < calm.y || py >= calm.y + calm.h) continue;
+      calmLuma += field.rgbaLuma[y * CARD.cols + x];
+      // La vara se muestrea en las mismas coordenadas de su retícula 480 × 300
+      // (su `baseTone` ya habla en unidades de esa retícula) y con su viñeta.
+      varaCalm += emission.baseTone(x + 0.5, y + 0.5) * emission.vignette(x + 0.5, y + 0.5);
+      calmCells += 1;
+    }
+  }
+  calmLuma = calmCells ? calmLuma / calmCells : 0;
+  varaCalm = calmCells ? varaCalm / calmCells : 0;
+  check('la calma de la copia no es más clara que la de la vara',
+    field.stats.calmTone <= varaCalm,
+    `copia ${num(field.stats.calmTone, 4)} de tono contra ${num(varaCalm, 4)} de la vara `
+    + `· en intensidad de imagen: ${num(calmLuma, 4)} contra 0.0442 (la vara a 1440)`);
 
   // ------------------------------------------------------- 6 · isométrico
   // La etapa 3 como números: la pose de cada plano (desplazamiento + escala

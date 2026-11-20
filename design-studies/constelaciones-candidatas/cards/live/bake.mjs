@@ -9,15 +9,19 @@
  *   CIELO      `material()` sobre una retícula de celda 5 y sobremuestreo 1,6
  *              (la de v1): cada celda es un `stepFor(level, x, y, 'bayer4')` y
  *              su tinta sale de `compensate`. Es una hoja opaca con su ground.
- *   LAVADO     otra hoja, ésta TRANSPARENTE, sobre la retícula del motor
- *              (480 × 300) a celda 3. La nebulosa está hecha de PUNTOS con la
- *              escalera del motor: la amplitud del evento decide el peldaño
- *              (`stepFor(level, x, y, 'bayer4')`, o sea el tamaño del punto y
- *              su densidad en el Bayer) y el alfa es la MÁSCARA de cobertura de
- *              ese peldaño, nada más. El `smoothstep` de v1 vive sobre la
- *              AMPLITUD del evento (`washAmplitude`), nunca sobre el alfa: una
- *              celda no se apaga con una opacidad continua, se apaga bajando de
- *              peldaño hasta el 0, que es un agujero. Es el grano de la vara.
+ *   LAVADO     otra hoja, ésta TRANSPARENTE, sobre 288 × 180 celdas a CELDA 5,
+ *              que es la celda de la banda de v1 (su cielo, dibujado 1:1) y no
+ *              la de su hoja de lavado (celda 3, dibujada a 0,8): el peldaño más
+ *              chico de la escalera, a celda 3, es una cruz; a celda 5, un punto
+ *              redondo. 288 × 5 = 1 440 px, así que la hoja sigue llegando al
+ *              canvas PÍXEL POR PÍXEL (una retícula 480 × 300 a celda 5 mediría
+ *              2 400 × 1 500 px y el navegador la remuestrearía a 0,6, que
+ *              suaviza el dither). La nebulosa está hecha de PUNTOS con la
+ *              escalera del motor: el TONO de la atmósfera decide el peldaño
+ *              (`stepFor(level, x, y, 'bayer4')`) y el alfa es la MÁSCARA de
+ *              cobertura de ese peldaño, nada más. Una celda no se apaga con una
+ *              opacidad continua: baja de peldaño hasta el 0, que es un agujero.
+ *              Es el grano de la vara.
  *   ENFOCADO   la misma hoja de lavado desaturada un 10 % hacia su luma, que es
  *              el `focusedWash` de v1. El cielo enfocado no se hornea acá: se
  *              hornea en `live.mjs` con `blur(6px)` + downsample ×2, porque
@@ -50,8 +54,10 @@ export const BAKE = Object.freeze({
    * 2 305 × 1 440 px para un cuadro de 1 440 × 900). */
   skyCell: 5,
   overscan: 1.6,
-  /** El lavado: la retícula del motor a celda 3 → 1 440 × 900 px. */
-  washCell: 3,
+  /** El lavado: 288 × 180 celdas a celda 5 = 1 440 × 900 px, la celda de la
+   * banda de v1 en su cielo y el mismo tamaño de hoja que antes. */
+  washGrid: Object.freeze([288, 180]),
+  washCell: 5,
   /** La desaturación del lavado enfocado, la de v1. */
   desaturate: 0.1,
   /** La viñeta se pinta a un cuarto del cuadro, como v1. */
@@ -72,39 +78,6 @@ function sceneOf(c) {
 }
 
 const clamp01 = (value) => (value < 0 ? 0 : value > 1 ? 1 : value);
-const smoothstep = (p) => p * p * (3 - 2 * p);
-/** La banda de amplitud del lavado: dónde arranca y hasta dónde sube la nube. */
-const WASH_AMPLITUDE = Object.freeze({ floor: 0.30, ceiling: 0.78 });
-
-/**
- * LA AMPLITUD DEL EVENTO. El modelo entrega la densidad de la nube (0..1, y no
- * un tono); el `smoothstep` de v1 vive acá. Con más amplitud la celda sube de
- * peldaño —punto más grande, y más denso en el Bayer— y con menos baja hasta el
- * 0, que es un agujero: la masa de la nube la lleva la escalera, no una
- * opacidad. Un `step` de cobertura nunca se modula con esto.
- *
- * LA NUBE VIVE EN UNA BANDA DE PELDAÑOS, no en todo el rango.
- *
- *   TECHO   el peldaño más alto de la escalera es el disco inscripto: cubre la
- *           celda ENTERA, así que una nube que llegue a él deja de ser puntos y
- *           se vuelve una mancha sólida —la «nube lisa» que la vara no tiene—.
- *   PISO    una celda CON atmósfera arranca en el peldaño de grano y sube desde
- *           ahí. Si no, la capa más tenue del modelo se apaga en tintas oscuras
- *           (el motor compensa la tinta del peldaño, y un tono muy bajo pide una
- *           tinta casi tan oscura como el ground) y la nube desaparece en vez de
- *           adelgazarse: la nebulosa pierde la masa que el desplazamiento
- *           aprobado sí tenía.
- *
- * Así el borde de la nube está donde los puntos SE ACABAN (densidad 0 → celda 0
- * → agujero), no donde se apagan, que es la regla del modelo de la atmósfera.
- * @param {number} density densidad de la nube en 0..1
- * @returns {number} amplitud del evento en 0..1
- */
-export function washAmplitude(density) {
-  if (!(density > 0)) return 0;
-  const { floor, ceiling } = WASH_AMPLITUDE;
-  return floor + (ceiling - floor) * smoothstep(clamp01(density));
-}
 
 /** El instante de la pieza en el ciclo propio de la constelación: el cuadro 100
  * del registro de v1, llevado al ciclo declarado por el modelo. */
@@ -203,7 +176,6 @@ export function bakeLayers(c, { width, height }) {
   const [cols, rows] = BAKE.grid;
   const layers = constellationLayers(c, { cols, rows, index: stillIndex(c) });
   const skyGrid = layers.sky;
-  const washGrid = layers.wash;
   // El cielo: celda 5 sobre la ventana sobremuestreada de v1, muestreada del
   // tono del modelo con bilineal (la retícula mide 3 px por celda y la hoja, 5).
   const skyCols = Math.ceil((width * BAKE.overscan) / BAKE.skyCell);
@@ -217,14 +189,16 @@ export function bakeLayers(c, { width, height }) {
     const gy = Math.min(rows - 1, Math.max(0, Math.round((y / skyRows * BAKE.overscan - 0.3) * rows)));
     return skyGrid[gy * cols + gx];
   });
-  // El lavado: la MISMA `material()` del motor sobre la retícula 480 × 300 a
-  // celda 3, transparente. La muestra es la AMPLITUD de la nebulosa —el tono que
-  // el motor convierte en peldaño—, y el alfa sale de la máscara de ese peldaño.
-  // El tono del cielo no entra acá: donde el modelo no tiene atmósfera la celda
-  // baja a 0 y la hoja queda agujereada, en vez de sembrar polvo en otro plano.
+  // El lavado: la MISMA `material()` del motor sobre 288 × 180 a celda 5,
+  // transparente. La muestra es el TONO de la atmósfera —el que el motor
+  // convierte en peldaño— y el alfa sale de la máscara de ese peldaño. El tono
+  // del cielo no entra acá: donde el modelo no tiene atmósfera la celda baja a 0
+  // y la hoja queda agujereada, en vez de sembrar polvo en otro plano.
+  const [washCols, washRows] = BAKE.washGrid;
+  const washGrid = constellationLayers(c, { cols: washCols, rows: washRows, index: stillIndex(c) }).wash;
   const wash = material(
-    c, cols, rows, BAKE.washCell,
-    (x, y) => washAmplitude(washGrid[y * cols + x]),
+    c, washCols, washRows, BAKE.washCell,
+    (x, y) => washGrid[y * washCols + x],
     true,
   );
   return { sky, wash, focusedWash: desaturated(wash), vignette: bakeVignette(c, layers.vignette, cols, rows) };
@@ -260,8 +234,8 @@ function bakeVignette(c, grid, cols, rows) {
  * @param {{cols?:number, rows?:number, cell?:number}} [options]
  */
 export function dynamicWash(c, options = {}) {
-  const cols = options.cols ?? BAKE.grid[0];
-  const rows = options.rows ?? BAKE.grid[1];
+  const cols = options.cols ?? BAKE.washGrid[0];
+  const rows = options.rows ?? BAKE.washGrid[1];
   const cell = options.cell ?? BAKE.washCell;
   const scene = sceneOf(c);
   const metrics = sceneMetrics(scene);
@@ -310,9 +284,9 @@ export function dynamicWash(c, options = {}) {
         if (amount <= 0) continue;
         const x = at % cols;
         const y = Math.floor(at / cols);
-        // El tono es la AMPLITUD del evento; el peldaño lo elige la LUT con esa
-        // posición de Bayer, exactamente como `stepFor` en el horneado.
-        const t = Math.min(levels - 1, Math.max(0, Math.round(washAmplitude(amount) * (levels - 1))));
+        // El modelo ya entrega el TONO de la atmósfera; la LUT elige el peldaño
+        // con esa posición de Bayer, exactamente como `stepFor` en el horneado.
+        const t = Math.min(levels - 1, Math.max(0, Math.round(amount * (levels - 1))));
         const k = (((y % 4) * 4 + x % 4) * levels + t) * 4;
         steps[at] = colors[k + 3];
         const mask = masks[steps[at]];

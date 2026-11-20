@@ -11,9 +11,10 @@
  *
  *   a) LAS LÁMINAS SON HORNEADAS Y LA FIGURA ES SVG
  *      el cielo y el lavado son hojas que el motor hornea: el mismo sha256 en
- *      DOS procesos separados, celda 5 con sobremuestreo 1,6 y celda 3
- *      transparente; y la figura es vectorial: ocultar el SVG apaga cada nodo
- *      del cuadro, y la tinta de los nodos no aparece en ninguna lámina.
+ *      DOS procesos separados, celda 5 con sobremuestreo 1,6 y 288 × 180 a
+ *      celda 5 transparente; y la figura es vectorial: ocultar el SVG apaga
+ *      cada nodo del cuadro, y la tinta de los nodos no aparece en ninguna
+ *      lámina.
  *   b) EL BLUR ES EL DE v1
  *      el plano `back` lleva 0,8 px por `filter` CSS vivo; el cielo enfocado
  *      está horneado (ningún `filter` vivo sobre el canvas del cielo) y su
@@ -48,6 +49,12 @@
  *      el canvas es la lámina, píxel por píxel: si el dibujo se escalara o
  *      cayera en una fracción de píxel, el dither del motor quedaría suavizado.
  *
+ *   Y LA COBERTURA, que es el caso que faltaba: dentro de la región de atmósfera
+ *   —la forma de la banda a la mitad de su propio pico, con el bolsillo de la
+ *   figura y el de la copia— la lámina tiene que pintar ≥ 90 % de las posiciones,
+ *   y fuera de esa región ≤ 10 %. La vara se mide igual, con una región que sale
+ *   del tono de su emisión y no de lo que ya pintó.
+ *
  * Uso, desde la raíz del repo:
  *   timeout 180 node scripts/checks/check-cards-live.mjs
  *
@@ -67,9 +74,9 @@ import { CARD, constellationFor } from '../../design-studies/constelaciones-cand
 import { BAKE, bakeLayers, dynamicWash, stillIndex } from '../../design-studies/constelaciones-candidatas/cards/live/bake.mjs';
 import { stillSeconds } from '../../design-studies/constelaciones-candidatas/cards/live/depth.mjs';
 import {
-  SKY_CROP, WINDOW, densestWindow, grainOf, varaSheets,
+  SKY_CROP, WINDOW, compareNebula, coverageOf, densestWindow, grainOf, varaCoverage, varaSheets,
 } from '../../design-studies/constelaciones-candidatas/cards/live/nebula-compare.mjs';
-import { constellationLayers } from '../../scripts/scene-src/constellation.mjs';
+import { constellationLayers, washRegion } from '../../scripts/scene-src/constellation.mjs';
 import { rasterize as rasterizeCell, sceneMetrics } from '../../scripts/scene-src/engine.mjs';
 
 const ROOT = resolve(fileURLToPath(new URL('../..', import.meta.url)));
@@ -293,6 +300,12 @@ const sheetGrain = (sheet, cell) => {
  * Compara lo que quedó en un canvas con la lámina que el motor horneó: si el
  * dibujo se hubiera escalado, o su destino hubiera caído en una fracción de
  * píxel, el navegador remuestrea la lámina y los píxeles no coinciden.
+ *
+ * EL COLOR TIENE UN LÍMITE QUE DEPENDE DEL ALFA. El canvas guarda el color
+ * PREMULTIPLICADO en 8 bits, así que al desmultiplicarlo un píxel de alfa `a`
+ * puede volver corrido hasta ±255/(2a); con las máscaras de celda 5 (alfa 4, 9,
+ * 35) eso es ±31, no un remuestreo. El ALFA se compara exacto — ahí un escalado
+ * se vería en el acto — y el color contra ese límite de redondeo.
  */
 const blitError = (sheet, origin, data, width, height, tolerance) => {
   let mismatch = 0;
@@ -302,14 +315,17 @@ const blitError = (sheet, origin, data, width, height, tolerance) => {
     for (let x = 0; x < width; x++) {
       const at = ((y + origin[1]) * sheet.width + (x + origin[0])) * 4;
       const got = (y * width + x) * 4;
-      const alphaGap = Math.abs(sheet.pixels[at + 3] - data[got + 3]);
+      const sheetAlpha = sheet.pixels[at + 3];
+      const alphaGap = Math.abs(sheetAlpha - data[got + 3]);
       // Un píxel con alfa 0 no lleva color: la lámina guarda la tinta igual y el
       // canvas la premultiplica a 0. Se compara el color sólo donde hay tinta.
-      const colourGap = sheet.pixels[at + 3] === 0 ? 0
+      const colourGap = sheetAlpha === 0 ? 0
         : Math.max(...[0, 1, 2].map((k) => Math.abs(sheet.pixels[at + k] - data[got + k])));
+      const allowed = sheetAlpha === 0 ? tolerance
+        : Math.max(tolerance, Math.ceil(255 / (2 * sheetAlpha)) + 1);
       if (alphaGap > alpha) alpha = alphaGap;
       if (colourGap > colour) colour = colourGap;
-      if (alphaGap > 0 || colourGap > tolerance) mismatch += 1;
+      if (alphaGap > 0 || colourGap > allowed) mismatch += 1;
     }
   }
   return { mismatch, alpha, colour, pixels: width * height };
@@ -423,11 +439,13 @@ try {
   const leafShape = leavesInfo.leaves;
   check('a', 'la retícula y la celda son las de v1',
     leafShape.sky.cell === 5 && leafShape.sky.overscan === 1.6
-    && leafShape.wash.cell === 3 && leafShape.wash.transparent === true
-    && leafShape.wash.cols === 480 && leafShape.wash.rows === 300,
+    && leafShape.wash.cell === 5 && leafShape.wash.transparent === true
+    && leafShape.wash.cols === 288 && leafShape.wash.rows === 180,
     `cielo celda ${leafShape.sky.cell} × sobremuestreo ${leafShape.sky.overscan} `
     + `(pasos ${leafShape.sky.steps}) · lavado celda ${leafShape.wash.cell} `
-    + `sobre ${leafShape.wash.cols}×${leafShape.wash.rows} transparente (pasos ${leafShape.wash.steps})`);
+    + `sobre ${leafShape.wash.cols}×${leafShape.wash.rows} transparente (pasos ${leafShape.wash.steps}); `
+    + `la celda de la banda de v1 —su cielo, 1:1— y no la de su hoja de lavado `
+    + `(celda 3, dibujada a 0,8): a celda 3 el peldaño más chico es una cruz`);
 
   // La figura es SVG: se toma una captura, se oculta el SVG de los nodos y se
   // mide cuánto se apaga CADA nodo en el cuadro. Si alguien horneara la figura,
@@ -832,12 +850,15 @@ try {
   const bakedGrain = sheetGrain(baked.wash, BAKE.washCell);
   const ladder = new Set(ladderMasks(BAKE.washCell).flat());
   const fromLadder = (values) => values.every((value) => ladder.has(value));
-  const liveWash = dynamicWash(catalogue, { cols: 480, rows: 300, cell: BAKE.washCell });
+  const liveWash = dynamicWash(catalogue);
   liveWash.update(stillSeconds(), false);
   const liveGrain = sheetGrain(liveWash, BAKE.washCell);
   // La hoja pinta atmósfera: ningún peldaño sin nebulosa detrás (si lo hubiera,
-  // el tono no saldría de la amplitud del evento sino de otra capa).
-  const model = constellationLayers(catalogue, { cols: 480, rows: 300, index: stillIndex(catalogue) });
+  // el tono no saldría del tono de la atmósfera sino de otra capa). El modelo se
+  // lee en la MISMA retícula que la hoja (288 × 180), no en la del cielo.
+  const washCols = baked.wash.width / BAKE.washCell;
+  const washRows = baked.wash.height / BAKE.washCell;
+  const model = constellationLayers(catalogue, { cols: washCols, rows: washRows, index: stillIndex(catalogue) });
   let orphans = 0;
   for (let cell = 0; cell < baked.wash.steps.length; cell++) {
     if (baked.wash.steps[cell] && !(model.wash[cell] > 0)) orphans += 1;
@@ -886,17 +907,48 @@ try {
     + `cobertura total · ${orphans} celdas pintadas sin atmósfera · peldaños `
     + `${bakedGrain.rungs.map(([step, many]) => `${step}:${many}`).join(' ')}`);
 
+  // ------------------------------------------------- a la cobertura de la banda
+  // La vara no es una nube dispersa: es una RETÍCULA LLENA. Se mide la fracción
+  // de posiciones pintadas DENTRO de la región de atmósfera —la forma de la
+  // banda a la mitad de su propio pico, la misma vara para las dos— y la de las
+  // que quedan fuera, que tienen que seguir vacías. La vara se mide igual: su
+  // región sale del tono de su emisión, no de lo que ya pintó.
+  const band = washRegion(catalogue, { cols: washCols, rows: washRows, share: 0.5 });
+  const cover = coverageOf(baked.wash, BAKE.washCell, band.mask);
+  const varaCover = varaCoverage(0.5);
+  // La región no puede encogerse hasta volverse trivial: si midiera menos que un
+  // octavo del cuadro, el caso se estaría aprobando con una banda de juguete.
+  const regionShare = band.cells / (washCols * washRows);
+  check('a', 'la nebulosa llena su banda (≥ 0,90) y deja vacío el resto (≤ 0,10)',
+    cover.inside >= 0.90 && cover.outside <= 0.10 && regionShare >= 0.08,
+    `nuestra banda ${num(cover.inside, 3)} pintada sobre ${cover.cells} posiciones de la región `
+    + `(${(100 * regionShare).toFixed(1)} % del cuadro) y ${num(cover.outside, 3)} `
+    + `fuera de ella · la vara, medida igual (región al 50 % de su tono): ${num(varaCover.inside, 3)} `
+    + `dentro y ${num(varaCover.outside, 3)} fuera sobre ${varaCover.cells} posiciones · `
+    + `la vara deja fuera de su banda un borde de polvo; nuestra composición no`);
+  report.coverage = { ours: cover, vara: varaCover, region: regionShare };
+
   // ------------------------------------------------- j la nebulosa contra la vara
-  check('j', 'la nebulosa usa la escalera igual que la vara (misma ventana de 240 × 160 px)',
+  // Las dos ventanas se componen igual (cielo + lavado sobre el ground de su
+  // escena) y se miden dos veces: la tinta de la LÁMINA (alfa de la nuestra, luma
+  // de la banda de v1, que es opaca) y la tinta RENDERIZADA en la ventana
+  // compuesta —la única cifra que se puede comparar entre una hoja transparente
+  // y una opaca—.
+  const comparison = await compareNebula(PRIMARY);
+  const inkRatio = comparison.rendered.vara > 0 ? comparison.rendered.ours / comparison.rendered.vara : 0;
+  check('j', 'la nebulosa usa la escalera y la tinta de la vara (misma ventana de 240 × 160 px)',
     ours.rungs.length >= 2 && ours.rungs.length <= ladderMasks(BAKE.washCell).length - 2
-    && varaBand.rungs.length >= 1 && ours.ink > 0 && varaBand.ink > 0,
+    && varaBand.rungs.length >= 1 && ours.ink > 0 && varaBand.ink > 0
+    && inkRatio >= 0.5 && inkRatio <= 2,
     `nuestra nebulosa: ${ours.rungs.length} peldaños (${ours.rungs.join('/')}) y `
     + `${num(ours.ink * 100, 1)} % de tinta de alfa · la banda de v1: ${varaBand.rungs.length} peldaños `
     + `(${varaBand.rungs.join('/')}) y ${num(varaBand.ink * 100, 1)} % de tinta sobre su ground · `
+    + `RENDERIZADO en la ventana compuesta: ${num(comparison.rendered.ours * 100, 1)} % contra `
+    + `${num(comparison.rendered.vara * 100, 1)} % de la vara (×${num(inkRatio, 2)}) · `
     + `el lavado de v1 en su propia ventana: ${varaWash.rungs.length} peldaños y `
     + `${num(varaWash.ink * 100, 2)} % (${WINDOW.width} × ${WINDOW.height} px, ×2 en `
     + `\`capturas/nebulosa-comparacion-2x.png\`)`);
-  report.nebula = { ours, vara: varaBand, varaWash };
+  report.nebula = { ours, vara: varaBand, varaWash, rendered: comparison.rendered, inkRatio };
 
   // -------------------------------------- k las láminas llegan 1:1 al canvas
   // El canvas del lavado dibuja la lámina con 8 px de guarda; el del cielo, desde
@@ -971,9 +1023,12 @@ try {
     + `(d) error de curva ${report.optics?.focusOpacityError.toExponential(2)} · `
     + `(e) ${num(report.return?.after, 0)} ms / Escape ${report.return?.escapeMs} ms · `
     + `(g) ${(report.click?.diff * 100).toFixed(1)} % de píxeles y ${(report.click?.blurDrop * 100).toFixed(0)} % de nitidez menos · `
-    + `(h) alfa discreto · (i) nebulosa de celdas · (j) ${report.nebula?.ours.rungs.length} peldaños y `
-    + `${num((report.nebula?.ours.ink ?? 0) * 100, 1)} % de tinta contra ${report.nebula?.vara.rungs.length} peldaños y `
-    + `${num((report.nebula?.vara.ink ?? 0) * 100, 1)} % de la vara`);
+    + `(h) alfa discreto · (i) nebulosa de celdas · (a) cobertura ${num((report.coverage?.ours.inside ?? 0), 3)} `
+    + `dentro / ${num((report.coverage?.ours.outside ?? 0), 3)} fuera contra ${num((report.coverage?.vara.inside ?? 0), 3)} / `
+    + `${num((report.coverage?.vara.outside ?? 0), 3)} de la vara · (j) ${report.nebula?.ours.rungs.length} peldaños y `
+    + `${num((report.nebula?.ours.ink ?? 0) * 100, 1)} % de tinta de alfa `
+    + `(${num((report.nebula?.rendered.ours ?? 0) * 100, 1)} % renderizado) contra ${report.nebula?.vara.rungs.length} peldaños y `
+    + `${num((report.nebula?.vara.ink ?? 0) * 100, 1)} % (${num((report.nebula?.rendered.vara ?? 0) * 100, 1)} % renderizado)`);
 } catch (error) {
   check('·', 'la escena completa', false, String(error?.stack ?? error).split('\n').slice(0, 4).join(' · ').slice(0, 800));
 } finally {

@@ -13,25 +13,24 @@ un puntero que **no mueve nada**.
 | `index.html` | El cuadro (1 440 × 900) y la pila: `sky-camera` → `wash-camera` → `lines` → `vignette` → `node-controls`, más la copia y los controles. |
 | `live.css` | La escalera de planos de v1 (tinta 1 / 0,96 / 0,9 · tono 1 / 0,6 / 0,42 · blur 0 / 0 / 0,8 px), los enlaces, la selección a 1,12 y el `data-instant` que apaga transiciones CSS en una captura. |
 | `depth.mjs` | El modelo puro: mundo 480 × 300, tasas de plano, cámara de foco (zoom 1,28 · mira 0,65 nodo + 0,35 centroide · recorte al marco), escalera de tratamientos, registro de tiempo de v1. |
-| `bake.mjs` | El horneado: `material()` (celda 5, sobremuestreo 1,6) para el cielo, `material()` transparente (retícula 480 × 300, celda 3, alfa = **máscara de cobertura del peldaño**) para el lavado, su versión desaturada un 10 %, y la viñeta. También la emisión de la atmósfera (LUT de 16 × 2048, la de v1) y `washAmplitude`, el `smoothstep` de v1 que modula la **amplitud** del evento y no su alfa. |
+| `bake.mjs` | El horneado: `material()` (celda 5, sobremuestreo 1,6) para el cielo, `material()` transparente (retícula 288 × 180, **celda 5**, alfa = **máscara de cobertura del peldaño**) para el lavado, su versión desaturada un 10 %, y la viñeta. También la emisión de la atmósfera (LUT de 16 × 2048, la de v1). La celda del lavado es la de la banda de v1 —su cielo, dibujado 1:1— y no la de su hoja de lavado (celda 3, dibujada a 0,8): a celda 3 el peldaño más chico de la escalera es una cruz, a celda 5 es un punto redondo. 288 × 5 = 1 440 px, así que la hoja sigue llegando al canvas píxel por píxel. |
 | `emission.mjs` | El worker de la emisión: una `OffscreenCanvas` de 1 440 × 900, la atmósfera del instante, `transferToImageBitmap`. |
 | `live.mjs` | La escena: compone las hojas, dibuja la figura SVG, mueve la cámara, cruza las opacidades y expone `window.__live` para que el chequeo mida. |
 | `capture.mjs` | Una captura por estado: `reposo`, `mitad`, `foco`, `puntero-a`, `puntero-b`. |
-| `nebula-compare.mjs` | La nebulosa contra la vara: hornea las dos con la misma llamada del motor, recorta la misma ventana de 240 × 160 px, la amplía ×2 con vecino más cercano y escribe `capturas/nebulosa-2x-*.png`. Imprime peldaños usados y fracción de tinta de las dos. |
+| `nebula-compare.mjs` | La nebulosa contra la vara: hornea las dos con la misma llamada del motor, recorta la misma ventana de 240 × 160 px, la amplía ×2 con vecino más cercano y escribe `capturas/nebulosa-2x-*.png`. Imprime peldaños usados, fracción de tinta de las dos y la tinta **renderizada** de las dos ventanas compuestas, que es la única cifra comparable entre una hoja transparente y una opaca. |
 | `capturas/` | Los PNG de `Ori` en los cinco estados, y la comparación de grano (`nebulosa-comparacion-2x.png`: nuestra nebulosa a la izquierda, la de v1 a la derecha). |
 
 ## Los siete puntos del mecanismo, y dónde se miden
 
 1. **Capas.** Cielo horneado con `material()` + `stepFor(level, x, y, 'bayer4')` + `compensate` +
-   `rasterize`, celda 5 y sobremuestreo 1,6; lavado horneado sobre la retícula del motor (480 × 300)
-   a celda 3, `transparent`, con el alfa tomado **sólo** de la máscara de cobertura del peldaño: la
-   nebulosa son puntos de la escalera —el tamaño del punto y su densidad en el Bayer— y no una
-   opacidad continua. El `smoothstep` de v1 modula la **amplitud** del evento (`washAmplitude`), que
-   elige el peldaño; y la nube vive en una banda de peldaños: piso para que la capa más tenue no se
-   apague en tintas oscuras, techo porque el último peldaño cubre la celda entera y una nube que
-   llegue ahí es una mancha sólida, no grano. `focusedWash` desaturado un 10 %. La figura es **SVG
-   vectorial** (nodos + aristas) en `viewBox 0 0 480 300`: el motor no pinta ni un nodo. Las dos
-   láminas llegan al canvas 1:1 y en un desplazamiento entero, así el dither no se remuestrea. →
+   `rasterize`, celda 5 y sobremuestreo 1,6; lavado horneado sobre 288 × 180 a celda 5,
+   `transparent`, con el alfa tomado **sólo** de la máscara de cobertura del peldaño: la nebulosa son
+   puntos de la escalera —el tamaño del punto y su densidad en el Bayer— y no una opacidad continua.
+   El TONO de la atmósfera lo pone el modelo (`WASH` en `scripts/scene-src/constellation.mjs`): es
+   una retícula llena, la banda pinta ≥ 90 % de sus posiciones como la de v1, y el borde está donde
+   el tono baja del primer peldaño. `focusedWash` desaturado un 10 %. La figura es **SVG vectorial**
+   (nodos + aristas) en `viewBox 0 0 480 300`: el motor no pinta ni un nodo. Las dos láminas llegan
+   al canvas 1:1 y en un desplazamiento entero, así el dither no se remuestrea. →
    casos **a**, **h**, **i**, **j** y **k**.
 2. **Blur.** Cielo enfocado horneado (`blur(6px)` + downsample ×2, una vez por rebuild); lavado sin
    blur; planos de nodos con `filter` CSS vivo y la escalera focus/middle/back. Cruce de opacidades
@@ -73,6 +72,12 @@ horneada con la misma llamada y medida en la misma ventana, y el canvas contra l
 píxel, que es lo que prueba que el dither no se remuestrea al dibujar. Casos **h**, **i**, **j** y
 **k**.
 
+La COBERTURA se mide sobre la región de atmósfera del modelo: la forma de la banda a la mitad de su
+propio pico, con el bolsillo de la figura y el de la copia descontados, tiene que quedar pintada en
+≥ 90 %; fuera de ella ≤ 10 %. La vara se mide igual, con una región que sale del tono de su emisión
+y no de lo que ya pintó: su banda llena 0,91 de sus posiciones y deja 0,24 fuera (su polvo). La
+nuestra llena 0,997 y deja 0,089: el campo fuera de la banda sigue vacío. → caso **a**.
+
 ## Las capturas
 
 ```bash
@@ -95,8 +100,8 @@ timeout 180 node nebula-compare.mjs Ori
 Escribe `capturas/nebulosa-2x-Ori.png` (la nuestra), `capturas/nebulosa-2x-vara.png` (la de v1) y
 `capturas/nebulosa-comparacion-2x.png`, las dos en la misma ventana de 240 × 160 px y al mismo
 aumento. La lámina de v1 se hornea llamando a su `hero-field.mjs` como lo llama `v1.mjs`: la vara es
-de sólo lectura. La cifra que el script imprime —peldaños usados y fracción de tinta— es la misma que
-mide el caso **j** del chequeo.
+de sólo lectura. Las cifras que el script imprime —peldaños usados, fracción de tinta de cada lámina y
+tinta renderizada de cada ventana compuesta— son las mismas que mide el caso **j** del chequeo.
 
 ## Lo que esta escena NO copia de v1
 

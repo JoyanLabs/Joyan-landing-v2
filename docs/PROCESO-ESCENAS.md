@@ -92,9 +92,19 @@ puntero no mueve nada. Ese mecanismo queda **aprobado** y no se reabre.
   celda 3. Cero celdas en el peldaño de cobertura total (eran 1 048 y formaban parches sólidos), cero celdas
   pintadas sin atmósfera detrás (eran 5 193 porque el tono del cielo decidía el peldaño). 3 peldaños usados y
   **6,1 %** de tinta contra **2 peldaños y 6,5 %** de la banda de la vara.
-- **Cobertura: NO igualada.** La vara es una **retícula casi continua** (98 % de las posiciones de la ventana
-  pintadas); la nuestra cubre ~17 % y se lee como bocanada dispersa. El campo de la nube vive en `washCloud`
-  (`scripts/scene-src/constellation.mjs`), o sea es una **decisión de modelo**, no del dither.
+- **Cobertura: igualada (2026-11-05).** `washCloud` dejó de ser un campo de probabilidad y ahora devuelve el
+  **tono** que el motor convierte en peldaños, como la vara. Medido con la misma regla en los dos lados:
+  **0,997 dentro de la banda** y **0,089 fuera** (la vara: 0,910 / 0,243). La celda del lavado pasó a **5** sobre
+  **288×180** (= 1440×900 dibujado 1:1), porque a celda 3 el peldaño más chico leía como cruz y a celda 5 lee
+  redondo, como la vara. Peldaños usados: 2 en ambos; tinta compuesta 6,4 % contra 7,0 %.
+- **Lo que falta ahora es contraste, no cobertura:** nuestra banda es más pareja y más apagada que la de la vara,
+  que tiene un nudo más brillante en el centro.
+
+**Umbrales rebasados (y por qué).** El chequeo de las tarjetas medía «alfombra» como cobertura bruta (3–25 % de
+celdas con tinta) y eso confundía una **banda densa** con un campo parejo: estaba defendiendo la nube dispersa.
+Ahora mide **estructura**: banda llena ≥ 0,90 · fuera limpio ≤ 0,10 · separación ≥ 3× · y un campo uniforme
+falla con su nombre. La calma de la copia ya no se compara con un número inventado: se mide **la vara con el
+mismo instrumento** (0,2483) y la nuestra queda por debajo, así que el bolsillo no se tocó.
 
 Conclusión: el grano del dithering ya es el de v1; lo que falta es que la atmósfera sea una retícula llena y no
 una nube dispersa. La pieza se valida entera cuando eso esté.

@@ -646,40 +646,175 @@ export function paletteTone(c, tone) {
 }
 
 /**
- * The wash: structured atmosphere with MASS, never a radial gradient and never a
- * uniform veil — and, because the engine speaks only in dots, never a low
- * continuous tone either.
+ * THE ATMOSPHERE IS A LATTICE, AND `design-studies/v1/` IS THE RULER.
  *
- * WHY IT IS A CLOUD AND NOT A TINT. A tone of 0.05 over a region is not painted
- * as air: the engine can only lay the smallest dot on a Bayer lattice, and at
- * this cell size that is a fine regular grid — the flat carpet, one size down.
- * So the atmosphere carries its mass the way the approved nebula does: as the
- * DENSITY of mid-size dots. The cloud has an edge because the dots stop, not
- * because they dim, which is exactly how the milky band of the approved piece
- * reads.
+ * WHAT WAS WRONG. The atmosphere used to be painted with a PROBABILITY equal to
+ * the cloud's density, and that density was shredded by a grain that zeroed it
+ * outside a threshold: 3,8 % of the frame was painted and 17 % of its densest
+ * window. v1's band paints 91–96 % of its own positions. A scattered breath and
+ * a filled reticle are not the same material, and no dither can fix a field
+ * that is not there.
  *
- * The shape is a diagonal band, a second crossing ribbon and two knots, all
- * multiplied by a grain that opens real gaps; the pocket thins it around the
- * figure and the ring thickens it, so the cloud embraces the subject.
- * @returns {number} cloud density in 0..1 (not a tone)
+ * WHAT IT IS NOW. The density IS the tone the engine dithers. A position paints
+ * when its Bayer threshold falls under the tone's level — the same mechanism
+ * `bake()` uses, the one the approved nebula uses — so the band fills and the
+ * RUING, not the hole, carries the material. The grain survives as a modulation
+ * of the tone: it frays the shoulder and varies the rung, it no longer shreds
+ * the band. The band keeps an edge because the tone has one: below the ladder's
+ * first rung nothing is painted at all.
+ *
+ * THE NUMBERS, MEASURED. `tone` is the ceiling: the second rung. Above it the
+ * ladder reaches the full-coverage disc, which is a solid patch and not
+ * atmosphere, so a recipe stronger than the ceiling fills more of its shape
+ * instead of getting brighter (that is how the catalogue's `gain` 0.14 and the
+ * house constellations' 0.65 coexist on one ruler). `floor` is the band's own
+ * gradient — the crest one rung above the shoulder, so a filled band has a
+ * blotch. `calm` is the copy's own pocket: the headline keeps a bit under half
+ * of the band's tone, which is why the calm zone is a quiet lattice and not a
+ * hole.
  */
-function washCloud(u, v, cfg, seed, variant) {
-  const skew = variant === 0 ? 1 : -0.82;
-  const axis = (u * 0.62 + v * 0.79) * skew + 0.52;
-  const cross = (u * -0.55 + v * 0.62) + 0.18 + variant * 0.06;
-  const band = Math.exp(-((axis / 0.22) ** 2));
-  const twist = Math.exp(-((cross / 0.22) ** 2));
-  const knotA = Math.exp(-(((u - (0.34 + variant * 0.04)) ** 2 + ((v - (0.26 + variant * 0.03)) * 1.1) ** 2) / 0.05));
-  const knotB = Math.exp(-(((u - (0.72 - variant * 0.03)) ** 2 + ((v - (0.34 + variant * 0.04)) * 1.1) ** 2) / 0.07));
-  const grain = layeredNoise(u * 6.6 + variant * 3.1, v * 6.6 - variant * 1.7, seed + variant * 13, { octaves: 3 });
-  // The grain opens gaps: outside them the cloud is exactly zero.
-  const envelope = clamp01((grain - 0.26) / 0.74);
-  return clamp01(cfg.gain * (0.62 * band + 0.25 * twist + 0.85 * knotA + 0.62 * knotB) * envelope);
+const WASH = Object.freeze({
+  /** The band's own value on its axis: the shape's unit. */
+  unit: 0.64,
+  /** The band's own value, in units, where the lattice starts to close. */
+  edge: 0.35,
+  /** How quickly it fills from the edge: at `edge + fill` the band is full. */
+  fill: 0.11,
+  /** The tone at full presence: inside the second rung, never the solid disc. */
+  tone: 0.73,
+  /** The recipe's strength at which the tone reaches its ceiling. */
+  gain: 6.0,
+  /** The share of the band's tone left over the copy (`composition.calm`). */
+  calm: 0.45,
+  /** The band's own gradient: the tone at its shoulder, as a share of the tone
+   * at its crest. A filled band is not one density from end to end. */
+  floor: 0.62,
+  /** The calm pocket's minimum radius (in frame fractions): a short headline
+   * rectangle still gets a soft, round pocket instead of a straight-edged cut. */
+  feather: 0.09,
+});
+
+/**
+ * The atmosphere's SMOOTH shape — one band that falls across the frame, the
+ * ribbon that crosses it and the knots that give it weight — with no grain in
+ * it. The BAND is the only mass: the ribbon and the knots weigh under the
+ * fill's edge and only modulate the band's tone where they meet it, so the
+ * atmosphere has ONE direction and one edge and does not read as overlapping
+ * shapes. The band is ON SCREEN, NARROW, and crosses the headline's pocket
+ * while leaving the copy's corner dark. It is the reference the region is
+ * measured against: a hole in the lattice is a hole in the grain, never a
+ * redefinition of where the band is.
+ */
+function washShape(u, v, variant) {
+  const slide = variant === 0 ? 0.025 : -0.025;
+  const axis = (u * 0.34 + v * 0.94) - (0.44 + slide);
+  const band = Math.exp(-((axis / 0.065) ** 2));
+  const cross = (-u * 0.94 + v * 0.34) + 0.30 - slide;
+  const twist = Math.exp(-((cross / 0.13) ** 2));
+  const knotA = Math.exp(-(((u - (0.30 + variant * 0.03)) ** 2 + ((v - (0.56 - variant * 0.04)) * 1.1) ** 2) / 0.05));
+  const knotB = Math.exp(-(((u - (0.74 - variant * 0.03)) ** 2 + ((v - (0.24 + variant * 0.04)) * 1.1) ** 2) / 0.06));
+  // The air also reaches the frame's top-left corner: the vignette has to close
+  // something there (the approved composition measures its presence on the
+  // painted corner) and it stays clear of the headline's pocket.
+  const knotC = Math.exp(-(((u - 0.04) ** 2 + (v - 0.02) ** 2) / 0.009));
+  return 0.64 * band + 0.24 * twist + 0.26 * knotA + 0.22 * knotB + 0.50 * knotC;
 }
 
-/** The three dot sizes a cloud is made of, and their shares. */
-const CLOUD_DOTS = Object.freeze([0.40, 0.62, 0.95]);
-const CLOUD_SHARES = Object.freeze([0.24, 0.52, 0.24]);
+/** The weather: a slow grain that modulates the tone, never a shredder. */
+function washWeather(seed, u, v, variant) {
+  const grain = layeredNoise(u * 6.6 + variant * 3.1, v * 6.6 - variant * 1.7, seed + variant * 13, { octaves: 3 });
+  return 0.88 + 0.12 * grain;
+}
+
+/**
+ * The pocket and the ring of the composition, as the two gains the wash and the
+ * region share: the atmosphere thins around the figure so it reads clean, and
+ * thickens on the ring around it so the gaze returns.
+ */
+function washPocketAndRing(pocket, u, v) {
+  const radius = pocketRadius(pocket, u, v);
+  return {
+    pocket: 1 - 0.04 * (1 - smoothstep(0.55, 1.35, radius)),
+    ring: 0.55 + 0.85 * Math.exp(-(((radius - 1.35) / 0.55) ** 2)),
+  };
+}
+
+/**
+ * The copy's own pocket: the atmosphere gives up over the headline, feathered so
+ * it closes without a seam. It is an ELLIPSE over the declared rectangle, like
+ * the figure's pocket, because a rectangular pocket cut the band with two
+ * straight edges that read as a cut-out. The calm zone keeps the lattice (a
+ * quiet one), because a hole would dim the field the approved composition
+ * measures there.
+ */
+function calmPocketAt(c, cols, rows) {
+  const calm = c.composition?.calm;
+  const reference = c.composition?.reference ?? COMPOSITION.reference;
+  if (!calm || !(calm.w > 0) || !(calm.h > 0)) return () => 1;
+  const win = stageWindow(cols, rows, reference.width, reference.height);
+  const cx = ((calm.x + calm.w / 2) - win.left) / (win.scale * cols);
+  const cy = ((calm.y + calm.h / 2) - win.top) / (win.scale * rows);
+  const rx = Math.max((calm.w / 2) / (win.scale * cols), WASH.feather);
+  const ry = Math.max((calm.h / 2) / (win.scale * rows), WASH.feather);
+  return (u, v) => {
+    const radius = Math.hypot((u - cx) / rx, (v - cy) / ry);
+    const inside = 1 - smoothstep(0.72, 1.55, radius);
+    return 1 - (1 - WASH.calm) * inside;
+  };
+}
+
+/**
+ * The atmosphere's presence in 0..1: the shape in units of the band's own axis
+ * value, with the figure's pocket, the ring and the copy's pocket, filled from
+ * `edge` so the band's interior saturates and only its shoulder dissolves. It
+ * returns the units too, because the TONE also carries the band's gradient (the
+ * crest one rung above the shoulder) and both come from the same shape.
+ */
+function washPresence(shape, gains, calm) {
+  const units = (shape * gains.pocket * gains.ring) / WASH.unit;
+  const presence = clamp01((units - WASH.edge) / WASH.fill) * calm;
+  return { units, presence };
+}
+
+/**
+ * THE ATMOSPHERE'S REGION — where the composition says there is air: the shape
+ * at half of its own band unit (its full width at half maximum), with the
+ * figure's pocket and ring applied and the copy's pocket removed. Coverage is
+ * measured INSIDE it; a hole in the copy's pocket is a declared quiet zone, not
+ * a failure of the band. It is a RULER, not a result: the grain is not in it,
+ * so what the band covers is never decided by its own holes.
+ * @param {object} c the constellation
+ * @param {{cols?: number, rows?: number, share?: number}} [options]
+ * @returns {{mask: Uint8Array, cells: number}}
+ */
+export function washRegion(c, options = {}) {
+  const cols = options.cols ?? c.stage.cols;
+  const rows = options.rows ?? c.stage.rows;
+  const share = options.share ?? 0.5;
+  const pocket = figurePocket(c);
+  const calm = calmPocketAt(c, cols, rows);
+  // The region is the band's own full width at half maximum (after the figure's
+  // pocket and its ring), minus the copy's pocket: the headline is a declared
+  // quiet zone, not a place where the band was supposed to be. The grain is not
+  // in it: what the band covers is not decided by its own holes.
+  const unitsAt = (u, v) => {
+    const gains = washPocketAndRing(pocket, u, v);
+    return Math.max(washShape(u, v, 0), washShape(u, v, 1)) * gains.pocket * gains.ring / WASH.unit;
+  };
+  const mask = new Uint8Array(cols * rows);
+  let cells = 0;
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const u = (x + 0.5) / cols;
+      const v = (y + 0.5) / rows;
+      if (unitsAt(u, v) >= share && calm(u, v) > 0.5) {
+        mask[y * cols + x] = 1;
+        cells += 1;
+      }
+    }
+  }
+  return { mask, cells };
+}
 
 /**
  * Build (once, cached) every static plane and the sparse term tables a frame
@@ -717,6 +852,9 @@ function buildLayout(c, cols, rows) {
   // and the check measures the same ellipse.
   const pocket = figurePocket(c);
   const clusters = c.layers.sky.clusters ?? [];
+  // The copy's own pocket, fixed for the whole layout so the band and the
+  // region cannot drift apart.
+  const calmAt = calmPocketAt(c, cols, rows);
 
   // The sky's structure, as a pure function of the frame: a quiet pocket, a
   // dense ring, the far field, the milky band, the cluster knots and a weather
@@ -766,24 +904,26 @@ function buildLayout(c, cols, rows) {
       // 2 · wash. It is atmosphere BEHIND the figure, so the pocket thins it too:
       // the approved composition asks for a pocket where the figure reads clean
       // and a denser ring around it, and a nebula laid over the stars hides them.
-      const radius = pocketRadius(pocket, u, v);
-      const washPocket = 1 - 0.72 * (1 - smoothstep(0.55, 1.35, radius));
-      // The atmosphere's mass sits on the ring: the cloud embraces the figure,
-      // so the gaze returns to it. Far from the figure there is only a thin
-      // trail (and, with the grain's gaps, often nothing at all).
-      const washRing = 0.55 + 0.85 * Math.exp(-(((radius - 1.35) / 0.55) ** 2));
-      const cloudA = washCloud(u, v, washCfg, washCfg.seed, 0) * washPocket * washRing;
-      const cloudB = washCloud(u, v, washCfg, washCfg.seed, 1) * washPocket * washRing;
-      // A cloud cell is a dot of one of three sizes, chosen by hash: the density
-      // is the cloud, the size is the material.
-      const cloudDot = (density, salt) => {
-        if (density <= 0 || hashNoise(x, y, washCfg.seed + salt) > density) return 0;
-        const pick = hashNoise(x, y, washCfg.seed + salt + 4);
-        return pick < CLOUD_SHARES[0] ? CLOUD_DOTS[0]
-          : pick < CLOUD_SHARES[0] + CLOUD_SHARES[1] ? CLOUD_DOTS[1] : CLOUD_DOTS[2];
-      };
-      const washAValue = cloudDot(cloudA, 97);
-      const washBValue = cloudDot(cloudB, 113);
+      // 2 · wash. It is atmosphere BEHIND the figure, so the pocket thins it too:
+      // the approved composition asks for a pocket where the figure reads clean
+      // and a denser ring around it, and a nebula laid over the stars hides them.
+      // The value is the TONE the engine dithers (see `WASH`): where the lattice
+      // has no tone the cell is a hole, and that is the band's edge.
+      const washGains = washPocketAndRing(pocket, u, v);
+      const calmGain = calmAt(u, v);
+      const cloudA = washPresence(washShape(u, v, 0), washGains, calmGain);
+      const cloudB = washPresence(washShape(u, v, 1), washGains, calmGain);
+      const presenceA = cloudA.presence * washWeather(washCfg.seed, u, v, 0);
+      const presenceB = cloudB.presence * washWeather(washCfg.seed, u, v, 1);
+      // The recipe's strength scales the tone and saturates at `WASH.tone`: a
+      // stronger recipe fills more of its shape, it does not become a solid
+      // field. `gain = 0` still renders nothing.
+      const washStrength = clamp01((washCfg.gain ?? 0) * WASH.gain);
+      // The band's own gradient: the crest is one rung above its shoulders, so a
+      // filled band has a blotch and is not one density from end to end.
+      const lift = (cloud) => WASH.floor + (1 - WASH.floor) * clamp01(cloud.units);
+      const washAValue = WASH.tone * washStrength * lift(cloudA) * presenceA;
+      const washBValue = WASH.tone * washStrength * lift(cloudB) * presenceB;
       washA[at] = washAValue;
       washB[at] = washBValue;
       // 1 · point sky: a SPARSE field, at the unicorn overlay's density (0.045 of
@@ -795,7 +935,7 @@ function buildLayout(c, cols, rows) {
       // already carries structure the star gives up to `keep` of its BRIGHTNESS
       // (the overlay's own rule: its `preserve` scales the mix toward the base),
       // so a star never punches a hole in the subject.
-      const starKeep = 1 - keep * clamp01(((cloudA + cloudB) / 2 - 0.20) / 0.45);
+      const starKeep = 1 - keep * clamp01(((presenceA + presenceB) / 2 - 0.20) / 0.45);
       const veil = clamp01(density * shape * (skyCfg.veil ?? 1));
       const roll = hashNoise(x, y, skyCfg.seed + 17);
       let dust = 0;

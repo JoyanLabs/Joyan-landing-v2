@@ -3,14 +3,17 @@
  * LA NEBULOSA CONTRA LA VARA — el grano de las dos, al mismo tamaño.
  * ============================================================================
  * La nebulosa de esta pieza y la de `design-studies/v1/` se hornean acá con la
- * MISMA llamada del motor (`material()` sobre 480 × 300 a celda 3, `transparent`)
- * y se componen como las compone cada escena, en el cuadro de 1 440 × 900. Del
- * resultado se recorta la misma ventana (240 × 160 px) alrededor de la masa de
- * cada nebulosa y se amplía ×2 con vecino más cercano: el grano, no el degradé
- * del escalado.
+ * MISMA llamada del motor —`material()` transparente, celda 5— y se componen como
+ * las compone cada escena, en el cuadro de 1 440 × 900. La nuestra sobre 288 × 180
+ * (celda 5, la celda de la banda de v1); la de la vara es su cielo, que v1 hornea a
+ * celda 5 y dibuja 1:1. Del resultado se recorta la misma ventana (240 × 160 px)
+ * alrededor de la masa de cada nebulosa y se amplía ×2 con vecino más cercano: el
+ * grano, no el degradé del escalado.
  *
- * Escribe tres PNG en `capturas/` y, en la última línea, un JSON con las dos
- * cifras que el pedido nombra: peldaños usados y fracción de tinta.
+ * Escribe tres PNG en `capturas/` y, en la última línea, un JSON con las cifras
+ * que el pedido nombra: peldaños usados, fracción de tinta de cada lámina —alfa en
+ * la nuestra, luma en la banda de v1, que es opaca— y la tinta RENDERIZADA de las
+ * dos ventanas compuestas, que es la única comparable entre las dos.
  *
  *   izq  nuestra nebulosa (capa de lavado + cielo, sobre el ground de la tarjeta)
  *   der  la nebulosa de v1 (su cielo + su lavado, sobre el ground de v1)
@@ -144,15 +147,105 @@ export function grainOf(sheet, cell, box) {
   };
 }
 
+/**
+ * CUÁNTO PINTA LA VARA SU PROPIA BANDA. Su atmósfera no está declarada como una
+ * capa aparte: es el tono de la emisión, que `bake()` convierte en peldaño. La
+ * región se mide con ese tono, al mismo corte que la nuestra —la mitad de su
+ * propio pico—, y la cobertura es la fracción de esas posiciones que la lámina
+ * del cielo pinta (`steps > 0`). Así las dos cifras hablan del mismo objeto: la
+ * banda de atmósfera, no el cuadro entero.
+ * @param {number} [share] el corte de la región, en fracción del pico
+ */
+export function varaCoverage(share = 0.5) {
+  const ground = 'dark';
+  const emission = EMISSIONS[ground];
+  const cell = 5;
+  const cols = Math.ceil(CARD.width * 1.6 / cell);
+  const rows = Math.ceil(CARD.height * 1.6 / cell);
+  const sky = varaMaterial(ground, cols, rows, cell,
+    (x, y) => emission.baseTone((x / cols * 1.6 - 0.3) * 480, (y / rows * 1.6 - 0.3) * 300));
+  // La ventana visible del cuadro: el cielo se dibuja 1:1 desde el recorte del
+  // sobremuestreo, así que sus píxeles visibles son los del marco.
+  const left = Math.round(CARD.width * 0.24);
+  const top = Math.round(CARD.height * 0.24);
+  const right = Math.round(CARD.width * 1.24);
+  const bottom = Math.round(CARD.height * 1.24);
+  const cells = [];
+  let peak = 0;
+  for (let y = Math.ceil(top / cell); y < Math.floor(bottom / cell) + 1; y++) {
+    for (let x = Math.ceil(left / cell); x < Math.floor(right / cell) + 1; x++) {
+      if (y >= rows || x >= cols) continue;
+      const value = emission.baseTone((x / cols * 1.6 - 0.3) * 480, (y / rows * 1.6 - 0.3) * 300);
+      cells.push({ at: y * cols + x, value });
+      if (value > peak) peak = value;
+    }
+  }
+  let inside = 0;
+  let inked = 0;
+  let outside = 0;
+  let outed = 0;
+  for (const { at, value } of cells) {
+    const painted = sky.steps[at] > 0;
+    if (value >= peak * share) {
+      inside += 1;
+      if (painted) inked += 1;
+    } else {
+      outside += 1;
+      if (painted) outed += 1;
+    }
+  }
+  return {
+    cell,
+    share,
+    peak,
+    inside: inside ? inked / inside : 0,
+    outside: outside ? outed / outside : 0,
+    cells: inside,
+    outsideCells: outside,
+  };
+}
+
+/**
+ * La cobertura de una lámina sobre una región: la fracción de posiciones de la
+ * región que tienen peldaño (están pintadas) y la de las que no.
+ * @param {object} sheet la lámina del motor (con sus `steps`)
+ * @param {number} cell los px por celda
+ * @param {Uint8Array} mask la región, una posición por celda
+ */
+export function coverageOf(sheet, cell, mask) {
+  let inside = 0;
+  let inked = 0;
+  let outside = 0;
+  let outed = 0;
+  for (let at = 0; at < mask.length; at++) {
+    const painted = sheet.steps[at] > 0;
+    if (mask[at]) {
+      inside += 1;
+      if (painted) inked += 1;
+    } else {
+      outside += 1;
+      if (painted) outed += 1;
+    }
+  }
+  return {
+    inside: inside ? inked / inside : 0,
+    outside: outside ? outed / outside : 0,
+    cells: inside,
+    outsideCells: outside,
+  };
+}
+
 /** La nebulosa de v1, horneada como la hornea `v1.mjs` —su `bake()`—, sin blur
  * y sin foco: la lámina del cielo y la del lavado, más el ground de v1. */
 export function varaSheets() {
   const ground = 'dark';
   const emission = EMISSIONS[ground];
   const dynamic = emissionPlanes(ground);
-  const sky = varaMaterial(ground, Math.ceil(CARD.width * 1.6 / 5), Math.ceil(CARD.height * 1.6 / 5), 5,
-    (x, y) => emission.baseTone((x / Math.ceil(CARD.width * 1.6 / 5) * 1.6 - 0.3) * 480,
-      (y / Math.ceil(CARD.height * 1.6 / 5) * 1.6 - 0.3) * 300));
+  const cell = 5;
+  const cols = Math.ceil(CARD.width * 1.6 / cell);
+  const rows = Math.ceil(CARD.height * 1.6 / cell);
+  const sky = varaMaterial(ground, cols, rows, cell,
+    (x, y) => emission.baseTone((x / cols * 1.6 - 0.3) * 480, (y / rows * 1.6 - 0.3) * 300));
   const wash = varaMaterial(ground, 480, 300, 3, (x, y) => emission.baseTone(x, y) + dynamic[y * 480 + x], true,
     (x, y) => {
       const a = Math.min(1, dynamic[y * 480 + x] / 0.035);
@@ -216,6 +309,26 @@ async function compose({ sky, wash, ground, skyCrop, washOffset, washScale }, bo
 }
 
 /**
+ * La tinta RENDERIZADA de una ventana compuesta: cuánto sube la luma media sobre
+ * el ground de la ventana, en fracción del recorrido. Es la cifra COMPARABLE
+ * entre nuestra hoja transparente (que se mide por alfa) y la banda de v1 (que
+ * es opaca y se mide por luma): las dos ventanas se componen igual —cielo +
+ * lavado sobre el ground de su escena— y se mide lo que se ve.
+ */
+const renderedInk = async (png) => {
+  const { data, info } = await sharp(png).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+  const luma = (at) => 0.2126 * data[at] + 0.7152 * data[at + 1] + 0.0722 * data[at + 2];
+  let ground = 255;
+  let sum = 0;
+  for (let at = 0; at < data.length; at += info.channels) {
+    const value = luma(at);
+    if (value < ground) ground = value;
+    sum += value;
+  }
+  return (sum / (info.width * info.height) - ground) / Math.max(1, 255 - ground);
+};
+
+/**
  * La comparación completa: hornea las dos nebulosas, escribe los recortes ×2 en
  * `capturas/` y devuelve las cifras del pedido —peldaños y fracción de tinta—
  * para la nuestra y para la vara.
@@ -266,6 +379,7 @@ export async function compareNebula(id = firstCatalogueId()) {
       band: grainOf(vara.sky, 5, bandBox),
       wash: grainOf(vara.wash, 3, densestWindow(vara.wash)),
     },
+    rendered: { ours: await renderedInk(oursWindow), vara: await renderedInk(varaWindow) },
     out: [
       resolve(OUT, `nebulosa-2x-${id}.png`),
       resolve(OUT, 'nebulosa-2x-vara.png'),

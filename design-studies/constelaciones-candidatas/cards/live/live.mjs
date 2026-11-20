@@ -7,9 +7,9 @@
  * con el mecanismo de la vara, punto por punto:
  *
  *   CAPAS      el CIELO y el LAVADO son hojas horneadas por el motor (`bake.mjs`:
- *              celda 5 con sobremuestreo 1,6 y retícula 480 × 300 a celda 3
+ *              celda 5 con sobremuestreo 1,6 y 288 × 180 a celda 5
  *              transparente). La nebulosa está hecha de puntos con la escalera
- *              del motor: la amplitud del evento elige el peldaño y su alfa es
+ *              del motor: el tono de la atmósfera elige el peldaño y su alfa es
  *              la máscara de ese peldaño, sin opacidad continua. Las dos hojas
  *              llegan al canvas 1:1 y en un desplazamiento entero: el dither no
  *              se remuestrea. La FIGURA es SVG vectorial —nodos + aristas— en
@@ -561,7 +561,7 @@ function animateEmission() {
   worker.postMessage({
     id,
     constellation: data.constellation,
-    grid: { cols: WORLD[0], rows: WORLD[1], cell: BAKE.washCell },
+    grid: { cols: BAKE.washGrid[0], rows: BAKE.washGrid[1], cell: BAKE.washCell },
     seconds: clock / 1000,
     focused: active >= 0,
     generation,
@@ -892,7 +892,7 @@ const live = {
       },
       wash: {
         width: leaves.wash.width, height: leaves.wash.height, cell: BAKE.washCell,
-        cols: WORLD[0], rows: WORLD[1], transparent: true,
+        cols: BAKE.washGrid[0], rows: BAKE.washGrid[1], transparent: true,
         steps: leaves.wash.steps.reduce((count, step) => count + (step > 0 ? 1 : 0), 0),
         histogram: leaves.wash.histogram,
       },
