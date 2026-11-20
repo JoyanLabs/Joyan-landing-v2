@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1440, initial-scale=1">
+<title>constelación viva</title>
+<link rel="stylesheet" href="./live.css">
+</head>
+<!--
+  LA ESCENA VIVA. La misma entrada que la tarjeta —un id del catálogo— y la
+  misma pila de ocho planos, pero cada plano en su propia lámina: el puntero
+  los mueve a velocidades distintas, un clic lleva la cámara al nodo y el plano
+  más lejano se desenfoca. El texto lo llena `live.mjs` con el dato; acá no hay
+  ningún nombre de constelación escrito a mano.
+-->
+<body>
+<div class="stage" id="stage">
+  <svg id="links" viewBox="0 0 1440 900" aria-hidden="true"></svg>
+  <svg id="nodes" viewBox="0 0 1440 900">
+    <defs>
+      <radialGradient id="node-glow">
+        <stop offset="0" stop-color="#edf7f2" stop-opacity="0.92"/>
+        <stop offset="0.38" stop-color="#cfe4da" stop-opacity="0.30"/>
+        <stop offset="1" stop-color="#b4cabe" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <g data-node-plane="far"></g>
+    <g data-node-plane="mid"></g>
+    <g data-node-plane="near"></g>
+  </svg>
+
+  <div class="copy">
+    <p class="abbr mono" id="abbr"></p>
+    <h1 class="name" id="name"></h1>
+    <p class="meaning" id="meaning"></p>
+    <p class="counts mono" id="counts"></p>
+  </div>
+
+  <p class="series mono">estudio · constelaciones · escena viva</p>
+  <p class="credit mono">figura y datos: d3-celestial (Olaf Frohn) · BSD-3-Clause · J2000</p>
+  <p class="hint mono" id="hint">clic en un nodo · Escape para volver</p>
+</div>
+<script type="module" src="./live.mjs"></script>
+</body>
+</html>

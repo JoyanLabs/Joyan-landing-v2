@@ -1,0 +1,203 @@
+/**
+ * LA ESCENA VIVA — el cuadro de la tarjeta, con las capas en movimiento.
+ * ============================================================================
+ * Una sola tinta fría (#b4cabe, el tono más alto de la paleta de la casa) y la
+ * variación de peso es opacidad de esa misma tinta. Michroma para el nombre,
+ * Archivo para la glosa, mono para el registro funcional: la misma partición
+ * tipográfica de la tarjeta.
+ *
+ * Los planos son elementos propios, cada uno con su transformación y su filtro:
+ * por eso el puntero puede moverlos a velocidades distintas y el foco puede
+ * desenfocar sólo el fondo. El `transform-origin` de cada lámina es el centro
+ * del CUADRO (no el de la lámina, que es más grande): así escalar un plano no
+ * corre la composición.
+ */
+@font-face {
+  font-family: 'Michroma';
+  src: url('../../../v1/fonts/michroma-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Archivo';
+  src: url('../../../v1/fonts/archivo-latin-wght-normal.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: block;
+}
+
+:root {
+  --w: 1440px;
+  --h: 900px;
+  --ink: #b4cabe;
+  --ground: #020405;
+  --display: 'Michroma', 'Archivo', system-ui, sans-serif;
+  --sans: 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--ground);
+  color: var(--ink);
+  overflow: hidden;
+}
+
+body {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+}
+
+.stage {
+  position: relative;
+  width: var(--w);
+  height: var(--h);
+  overflow: hidden;
+  background: var(--ground);
+  isolation: isolate;
+  font: 400 17px/1.65 var(--sans);
+}
+
+/* Cada plano es una lámina más grande que el cuadro; el margen se recorta acá. */
+.plane {
+  position: absolute;
+  left: -144px;
+  top: -90px;
+  display: block;
+  transform-origin: 864px 540px;
+  pointer-events: none;
+  will-change: transform, filter, opacity;
+}
+
+#links,
+#nodes {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+#links { pointer-events: none; }
+
+/* El nodo SVG raíz SÍ recibe el puntero: con `pointer-events: none` en la raíz
+   el navegador no entrega el clic de los círculos hijos. Las zonas vacías
+   burbujean al escenario, que vuelve a la vista completa. */
+#nodes { pointer-events: all; }
+
+#links line {
+  stroke: #d7e7de;
+  stroke-linecap: round;
+  shape-rendering: geometricPrecision;
+}
+
+#links .link-base { stroke: #c6d9cf; }
+
+#nodes [data-node-hit] {
+  fill: transparent;
+  pointer-events: all;
+  cursor: pointer;
+  outline: none;
+}
+
+#nodes [data-node-core] {
+  fill: #e7f2ec;
+  pointer-events: none;
+}
+
+#nodes [data-node-glow] {
+  fill: url(#node-glow);
+  pointer-events: none;
+}
+
+#nodes .node.is-selected [data-node-core] { fill: #f4fbf7; }
+
+.copy {
+  position: absolute;
+  left: 72px;
+  top: 104px;
+  width: 392px;
+}
+
+.abbr {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: rgba(180, 202, 190, 0.62);
+}
+
+.name {
+  margin: 0;
+  font: 400 58px/1.06 var(--display);
+  letter-spacing: 0.005em;
+  color: var(--ink);
+}
+
+.meaning {
+  margin: 8px 0 0;
+  font-size: 20px;
+  line-height: 1.4;
+  color: rgba(180, 202, 190, 0.86);
+}
+
+.counts {
+  margin: 26px 0 0;
+  font-size: 12.5px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  color: rgba(180, 202, 190, 0.68);
+}
+
+.series {
+  position: absolute;
+  left: 72px;
+  bottom: 86px;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(180, 202, 190, 0.44);
+}
+
+.credit {
+  position: absolute;
+  left: 72px;
+  bottom: 62px;
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.5;
+  letter-spacing: 0.06em;
+  color: rgba(180, 202, 190, 0.34);
+}
+
+.hint {
+  position: absolute;
+  right: 28px;
+  bottom: 26px;
+  margin: 0;
+  font-size: 10.5px;
+  line-height: 1;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(180, 202, 190, 0.42);
+}
+
+.hint[data-hidden='true'] { opacity: 0; }
+
+.mono { font-family: var(--mono); }
+
+/* prefers-reduced-motion — no hay animación; el estado final se aplica de una
+   vez en `live.mjs` (transiciones instantáneas, puntero inmóvil, pulso fijo).
+   La escena no usa transiciones CSS: el estado lo escribe `applyToDom`, así que
+   una captura no depende del reloj del compositor. */

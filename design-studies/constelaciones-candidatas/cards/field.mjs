@@ -96,6 +96,17 @@ function statsOf(tone, steps, c) {
  * compuesto de reposo y el enfocado comparten estas láminas.
  */
 const SHEETS = new WeakMap();
+/**
+ * Las láminas del modelo, una por capa y plano, para un consumidor que compone
+ * su propia pila (la escena viva de `cards/live/`). Devuelve las MISMAS
+ * láminas que usa la tarjeta —cielo, lavado, figura por plano, núcleos por
+ * plano y viñeta—, no una segunda lectura del modelo.
+ * @param {object} c el objeto de constelación de `data.mjs`
+ */
+export function planeSheets(c) {
+  return sheetsFor(c);
+}
+
 function sheetsFor(c) {
   const cached = SHEETS.get(c);
   if (cached) return cached;

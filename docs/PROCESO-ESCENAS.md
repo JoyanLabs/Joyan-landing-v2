@@ -55,6 +55,19 @@ en profundidad y por eso tiene cuerpo.
 - **Lo que el isométrico NO arregló**: la nebulosa sigue siendo polvo colocado, no emisión continua. Le dio
   plano y foco, no material. Eso vive en la receta de capas (`CAPAS` en `cards/data.mjs`), no acá.
 
+
+### Etapa 3 en vivo (2026-11-05)
+
+La profundidad **se ve quieta**, no sólo al interactuar: **72 px** entre planos vecinos (38,3–98,0 px según el
+nodo) y **196 px** de la figura más lejana a la más cercana, con escala compensada 1,000 / 1,090 / 1,180 y
+profundidad de campo quieta de 2,6 / 1,1 / 0,45 px. Al enfocar, el plano lejano pierde **31 % de nitidez** y el
+sujeto se afirma. Paralaje medido entre dos posiciones de puntero: **7,9 / 22,8 / 43,8 px** (cielo, lavado,
+figura).
+
+**Lección de esta etapa, para no repetirla:** haber implementado el isométrico no fue haberlo logrado. Lo
+primero se verifica en el código; lo segundo, en una captura que alguien mire. El primer intento pasó el chequeo
+y se leía plano.
+
 ## Estado de cada etapa (2026-11-05)
 
 | Etapa | Estado | Dónde |
