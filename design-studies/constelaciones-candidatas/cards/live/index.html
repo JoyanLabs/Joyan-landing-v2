@@ -7,39 +7,58 @@
 <link rel="stylesheet" href="./live.css">
 </head>
 <!--
-  LA ESCENA VIVA. La misma entrada que la tarjeta —un id del catálogo— y la
-  misma pila de ocho planos, pero cada plano en su propia lámina: el puntero
-  los mueve a velocidades distintas, un clic lleva la cámara al nodo y el plano
-  más lejano se desenfoca. El texto lo llena `live.mjs` con el dato; acá no hay
-  ningún nombre de constelación escrito a mano.
+  LA ESCENA VIVA. La misma entrada que la tarjeta —un id del catálogo— y el mismo
+  mecanismo que la vara (`design-studies/v1/`): cielo y lavado horneados por el
+  motor, figura en SVG vectorial, blur del cielo horneado y `filter` CSS vivo en
+  los planos de nodos. El puntero NO mueve nada: sólo ilumina el nodo bajo el
+  cursor. El texto lo llena `live.mjs` con el dato; acá no hay ningún nombre de
+  constelación escrito a mano.
 -->
 <body>
-<div class="stage" id="stage">
-  <svg id="links" viewBox="0 0 1440 900" aria-hidden="true"></svg>
-  <svg id="nodes" viewBox="0 0 1440 900">
-    <defs>
-      <radialGradient id="node-glow">
-        <stop offset="0" stop-color="#edf7f2" stop-opacity="0.92"/>
-        <stop offset="0.38" stop-color="#cfe4da" stop-opacity="0.30"/>
-        <stop offset="1" stop-color="#b4cabe" stop-opacity="0"/>
-      </radialGradient>
-    </defs>
-    <g data-node-plane="far"></g>
-    <g data-node-plane="mid"></g>
-    <g data-node-plane="near"></g>
-  </svg>
+<main class="card">
+  <div class="stage" id="stage">
+    <div class="sky-camera" aria-hidden="true"><canvas class="sky" id="sky" aria-hidden="true"></canvas></div>
+    <div class="wash-camera" aria-hidden="true"><canvas class="wash" id="wash" aria-hidden="true"></canvas></div>
+    <svg class="lines" id="lines" viewBox="0 0 480 300" aria-hidden="true" focusable="false"></svg>
+    <canvas class="vignette" id="vignette" aria-hidden="true"></canvas>
+    <svg class="node-controls" id="nodes" viewBox="0 0 480 300" role="group"
+         aria-label="Constelación interactiva" aria-describedby="node-help" focusable="false">
+      <defs>
+        <!-- El resplandor de un nodo, pintado en el plano de ese nodo. -->
+        <radialGradient id="node-glow">
+          <stop offset="0" style="stop-color:var(--figure-ink);stop-opacity:.55"/>
+          <stop offset=".16" style="stop-color:var(--figure-ink);stop-opacity:.22"/>
+          <stop offset=".42" style="stop-color:var(--figure-ink);stop-opacity:.08"/>
+          <stop offset=".75" style="stop-color:var(--figure-ink);stop-opacity:.025"/>
+          <stop offset="1" style="stop-color:var(--figure-ink);stop-opacity:0"/>
+        </radialGradient>
+      </defs>
+      <g data-core-camera>
+        <g class="node-plane" data-node-plane="far"></g>
+        <g class="node-plane" data-node-plane="mid"></g>
+        <g class="node-plane" data-node-plane="near"></g>
+      </g>
+    </svg>
 
-  <div class="copy">
-    <p class="abbr mono" id="abbr"></p>
-    <h1 class="name" id="name"></h1>
-    <p class="meaning" id="meaning"></p>
-    <p class="counts mono" id="counts"></p>
+    <div class="copy">
+      <p class="abbr mono" id="abbr"></p>
+      <h1 class="name" id="name"></h1>
+      <p class="meaning" id="meaning"></p>
+      <p class="counts mono" id="counts"></p>
+    </div>
+
+    <p class="series mono">estudio · constelaciones · escena viva</p>
+    <p class="credit mono">figura y datos: d3-celestial (Olaf Frohn) · BSD-3-Clause · J2000</p>
+    <p class="hint mono" id="hint">clic en un nodo · Escape para volver</p>
+
+    <div class="utility">
+      <button class="field-reset" type="button" hidden>Volver a la constelación</button>
+      <button class="field-pause" type="button" aria-pressed="false">Pausar campo</button>
+    </div>
   </div>
-
-  <p class="series mono">estudio · constelaciones · escena viva</p>
-  <p class="credit mono">figura y datos: d3-celestial (Olaf Frohn) · BSD-3-Clause · J2000</p>
-  <p class="hint mono" id="hint">clic en un nodo · Escape para volver</p>
-</div>
+  <p class="sr-only" id="node-help">Un cielo de puntos horneado por el motor y una constelación vectorial. Activa un nodo para acercarte a su grupo de enlaces. Pulsa Escape o Volver a la constelación para regresar. No representa datos ni mediciones.</p>
+  <p class="sr-only" id="status" role="status" aria-live="polite"></p>
+</main>
 <script type="module" src="./live.mjs"></script>
 </body>
 </html>

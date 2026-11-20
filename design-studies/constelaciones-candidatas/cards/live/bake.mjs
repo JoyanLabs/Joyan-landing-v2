@@ -1,201 +1,290 @@
 /**
- * HORNEA LA PILA VIVA — cada plano, su propia lámina con transparencia.
+ * LAS LÁMINAS HORNEADAS DE LA ESCENA VIVA — el mecanismo de v1.
  * ============================================================================
- * La tarjeta quieta compone las ocho capas en un solo RGBA opaco. Una escena
- * viva no puede: si el cielo, el lavado y los tres planos de la figura están
- * fundidos en un píxel, no hay nada que mover a velocidades distintas cuando
- * el puntero se mueve, ni nada que desenfocar cuando un nodo se enfoca.
+ * v1 no pinta el cielo en vivo: lo HORNEA una vez y después sólo compone. Esta
+ * pieza hace exactamente lo mismo, con la paleta y la receta de la constelación
+ * del catálogo y los mismos primitivos del motor (`stepFor`, `compensate`,
+ * `rasterize`), nunca un segundo renderer.
  *
- * Esta pieza hornea CADA plano de `REST_STACK` en su propia lámina:
+ *   CIELO      `material()` sobre una retícula de celda 5 y sobremuestreo 1,6
+ *              (la de v1): cada celda es un `stepFor(level, x, y, 'bayer4')` y
+ *              su tinta sale de `compensate`. Es una hoja opaca con su ground.
+ *   LAVADO     otra hoja, ésta TRANSPARENTE, sobre la retícula del motor
+ *              (480 × 300) a celda 3: alfa = máscara del peldaño ×
+ *              `smoothstep(amount / 0,035)`. Sólo se pinta donde la atmósfera
+ *              existe; el resto es agujero, no un velo.
+ *   ENFOCADO   la misma hoja de lavado desaturada un 10 % hacia su luma, que es
+ *              el `focusedWash` de v1. El cielo enfocado no se hornea acá: se
+ *              hornea en `live.mjs` con `blur(6px)` + downsample ×2, porque
+ *              necesita el canvas del navegador.
  *
- *   · la lámina es más grande que el cuadro (1 728 × 1 080 para un cuadro de
- *     1 440 × 900) para que el paralaje y la cámara no descubran un borde;
- *   · el desplazamiento y la escala de reposo del plano se aplican al
- *     muestrear la lámina del modelo (`planeSheets`, las mismas de la tarjeta);
- *   · el cielo y el lavado se muestrean con WRAP: son medios de cuadro completo
- *     y el wrap les permite encogerse (`(P+z)/P` < 1) sin dejar un borde recto
- *     de ground — el defecto que las reglas de composición prohíben. La figura
- *     y los núcleos no se envuelven: son contenido local y fuera de la lámina
- *     valen 0;
- *   · la viñeta multiplica a los planos del marco, nunca a los núcleos (van
- *     después, como en el modelo);
- *   · el motor decide peldaño y paleta (`renderFrame`), y la lámina se vuelve
- *     RGBA TRANSPARENTE con la MISMA máscara medida del motor: alfa = cobertura
- *     del punto, RGB = la tinta que el motor eligió para esa celda. No hay un
- *     segundo renderer ni una máscara inventada.
+ * LA FIGURA NO ENTRA EN NINGUNA HOJA. Los nodos y las aristas son SVG
+ * vectorial; por eso las láminas llaman a `constellationLayers` y leen `sky`,
+ * `wash` y `vignette`, y jamás `figure` ni `cores`. Un nodo pintado por el motor
+ * sería un defecto, no un atajo.
  *
- * El horneado es determinista: misma entrada, mismas láminas, mismos bytes.
+ * LA EMISIÓN (12 Hz) reusa el mismo `paletteTone` + `compensate` a través de
+ * una LUT de 16 posiciones de Bayer × 2048 tonos — la de v1 —, así el worker no
+ * vuelve a decidir color: sólo lee la capa de atmósfera del instante. El cielo
+ * horneado no se recalcula nunca.
  */
 
-import { paletteTone } from '../../../../scripts/scene-src/constellation.mjs';
-import { hexToRgb, rasterize, renderFrame } from '../../../../scripts/scene-src/engine.mjs';
-import { CARD } from '../data.mjs';
-import { planeSheets } from '../field.mjs';
-import { DEPTH, REST_STACK } from './depth.mjs';
+import {
+  compensate, hexToRgb, rasterize, sceneMetrics, stepFor, tone,
+} from '../../../../scripts/scene-src/engine.mjs';
+import {
+  constellationLayers, constellationScene, paletteTone,
+} from '../../../../scripts/scene-src/constellation.mjs';
+import { CYCLE_SECONDS, FRAMES, STILL_FRAME, wrap01 } from './depth.mjs';
 
-/** La grilla de horneado y el margen, en celdas y en px. */
+/** Los números del horneado, los de v1. */
 export const BAKE = Object.freeze({
-  cell: CARD.cell,
-  width: DEPTH.cols * CARD.cell,
-  height: DEPTH.rows * CARD.cell,
-  marginX: DEPTH.marginPx[0],
-  marginY: DEPTH.marginPx[1],
-  marginCellsX: DEPTH.marginPx[0] / CARD.cell,
-  marginCellsY: DEPTH.marginPx[1] / CARD.cell,
+  /** La retícula del motor: 480 × 300 celdas = el mundo de 480 × 300 unidades. */
+  grid: Object.freeze([480, 300]),
+  /** El cielo: celda 5 y sobremuestreo 1,6, como v1 (461 × 288 celdas =
+   * 2 305 × 1 440 px para un cuadro de 1 440 × 900). */
+  skyCell: 5,
+  overscan: 1.6,
+  /** El lavado: la retícula del motor a celda 3 → 1 440 × 900 px. */
+  washCell: 3,
+  /** El umbral de alfa de v1: la atmósfera se vuelve opaca a 0,035 de tono. */
+  washAlpha: 0.035,
+  /** La desaturación del lavado enfocado, la de v1. */
+  desaturate: 0.1,
+  /** La viñeta se pinta a un cuarto del cuadro, como v1. */
+  vignette: Object.freeze([360, 225]),
 });
 
-/** El blanco/negro que mide la cobertura de cada peldaño, una vez por celda. */
-const MASK_SCENE = Object.freeze({
-  id: 'mascara',
-  cols: 1,
-  rows: 1,
-  palette: Object.freeze(['#000000', '#FFFFFF']),
-  ground: 0,
-});
+const SCENES = new WeakMap();
 
-/** Las máscaras de cobertura por peldaño para la celda de la pieza. */
-let MASKS = null;
-function masksFor(cell) {
-  if (MASKS && MASKS.cell === cell) return MASKS.masks;
-  const masks = [];
-  for (let step = 0; step <= 9; step++) {
-    masks.push(rasterize(
-      { cols: 1, rows: 1, steps: Uint8Array.of(step), indices: Uint8Array.of(step ? 1 : 0) },
-      MASK_SCENE,
-      cell,
-    ));
+/** La escena del motor de una constelación, una sola vez por objeto: `sceneMetrics`
+ * se cachea POR objeto, y dos escenas distintas pagarían la medición dos veces. */
+function sceneOf(c) {
+  let scene = SCENES.get(c);
+  if (!scene) {
+    scene = constellationScene(c);
+    SCENES.set(c, scene);
   }
-  MASKS = { cell, masks };
-  return masks;
+  return scene;
 }
 
-/** Envuelve un índice de celda en [0, size). */
-const wrap = (value, size) => ((value % size) + size) % size;
+const clamp01 = (value) => (value < 0 ? 0 : value > 1 ? 1 : value);
+const smoothstep = (p) => p * p * (3 - 2 * p);
 
-/** Bilineal sin wrap: fuera de la lámina vale 0, no se inventa tinta. */
-function fieldAt(source, sx, sy, cols, rows) {
+/** El instante de la pieza en el ciclo propio de la constelación: el cuadro 100
+ * del registro de v1, llevado al ciclo declarado por el modelo. */
+export function stillIndex(c) {
+  return Math.round((STILL_FRAME / FRAMES) * c.cycle.frames);
+}
+
+/** Lectura bilineal de una retícula de tonos (0..1), con clamp en los bordes. */
+export function toneAt(grid, x, y, cols, rows) {
+  const sx = x < 0 ? 0 : x > cols - 1 ? cols - 1 : x;
+  const sy = y < 0 ? 0 : y > rows - 1 ? rows - 1 : y;
   const x0 = Math.floor(sx);
   const y0 = Math.floor(sy);
+  const x1 = Math.min(cols - 1, x0 + 1);
+  const y1 = Math.min(rows - 1, y0 + 1);
   const tx = sx - x0;
   const ty = sy - y0;
-  const inX0 = x0 >= 0 && x0 < cols;
-  const inX1 = x0 + 1 >= 0 && x0 + 1 < cols;
-  const inY0 = y0 >= 0 && y0 < rows;
-  const inY1 = y0 + 1 >= 0 && y0 + 1 < rows;
-  let value = 0;
-  if (inY0) {
-    if (inX0) value += source[y0 * cols + x0] * (1 - tx) * (1 - ty);
-    if (inX1) value += source[y0 * cols + x0 + 1] * tx * (1 - ty);
-  }
-  if (inY1) {
-    if (inX0) value += source[(y0 + 1) * cols + x0] * (1 - tx) * ty;
-    if (inX1) value += source[(y0 + 1) * cols + x0 + 1] * tx * ty;
-  }
-  return value;
-}
-
-/** Vecino más cercano con wrap: la retícula de estrellas no se interpola. */
-function pointAt(source, sx, sy, cols, rows) {
-  return source[wrap(Math.round(sy), rows) * cols + wrap(Math.round(sx), cols)];
+  const top = grid[y0 * cols + x0] * (1 - tx) + grid[y0 * cols + x1] * tx;
+  const bottom = grid[y1 * cols + x0] * (1 - tx) + grid[y1 * cols + x1] * tx;
+  return top * (1 - ty) + bottom * ty;
 }
 
 /**
- * La lámina de un plano: su tono muestreado en la grilla grande, con la viñeta
- * ya multiplicada (salvo núcleos) y el motor convertido a RGBA con alfa.
- * @param {object} entry una entrada de `REST_STACK`
- * @param {object} layers las láminas de `planeSheets`
- * @param {object} c la constelación (paleta y receta)
+ * La hoja de puntos del motor. Es `material()` de v1/`hero-field.mjs`, con la
+ * única diferencia de que el color de un tono lo decide la paleta de la
+ * constelación (`paletteTone`) en vez de la emisión fija de v1. El peldaño, la
+ * compensación y la máscara son los del motor.
+ * @param {object} c la constelación del catálogo
+ * @param {number} cols @param {number} rows @param {number} cell
+ * @param {(x:number,y:number)=>number} sample tono 0..1 de la celda
+ * @param {boolean} [transparent] alfa por cobertura en vez de ground opaco
+ * @param {(x:number,y:number)=>number} [opacity] alfa de la celda (0..1)
  */
-function bakePlane(entry, layers, c, anchor) {
-  const cols = DEPTH.cols;
-  const rows = DEPTH.rows;
-  const cell = BAKE.cell;
-  const source = entry.layer === 'cielo' ? layers.cielo
-    : entry.layer === 'lavado' ? layers.lavado
-      : entry.layer === 'figura' ? layers.figura[entry.plane]
-        : layers.nucleos[entry.plane];
-  const vignette = layers.vignette;
-  const [ox, oy] = [entry.offsetPx[0] / cell, entry.offsetPx[1] / cell];
-  const inv = 1 / entry.scale;
-  const wrapSource = entry.layer === 'cielo' || entry.layer === 'lavado';
-  const pointSampling = entry.sampling === 'point';
-  const tone = new Float32Array(cols * rows);
-  for (let y = 0; y < rows; y++) {
-    // La celda del cuadro que cae bajo esta celda de la lámina grande.
-    const frameY = y - BAKE.marginCellsY;
-    const sy = anchor[1] + (frameY + 0.5 - oy - anchor[1]) * inv - 0.5;
-    const vy = Math.min(CARD.rows - 1, Math.max(0, Math.round(frameY)));
-    for (let x = 0; x < cols; x++) {
-      const frameX = x - BAKE.marginCellsX;
-      const sx = anchor[0] + (frameX + 0.5 - ox - anchor[0]) * inv - 0.5;
-      const value = wrapSource
-        ? (pointSampling ? pointAt(source, sx, sy, CARD.cols, CARD.rows)
-          : fieldAt(source, wrap(sx, CARD.cols), wrap(sy, CARD.rows), CARD.cols, CARD.rows))
-        : (pointSampling ? 0 : fieldAt(source, sx, sy, CARD.cols, CARD.rows));
-      if (!entry.afterVignette) {
-        const vx = Math.min(CARD.cols - 1, Math.max(0, Math.round(frameX)));
-        tone[y * cols + x] = value * vignette[vy * CARD.cols + vx];
-      } else {
-        tone[y * cols + x] = value;
-      }
-    }
-  }
-
-  const scene = {
-    id: `${c.id}:${entry.key}`,
-    cols,
-    rows,
-    palette: c.palette.stops,
-    ground: 0,
-    field(x, y) {
-      return paletteTone(c, tone[y * cols + x]);
-    },
-  };
-  const frame = renderFrame(scene, CARD.frame, { dither: 'bayer4' });
-  return { ...transparent(frame, scene, cell), frame };
-}
-
-/**
- * El frame del motor como RGBA transparente: alfa = cobertura medida del
- * peldaño, RGB = la tinta que el motor eligió para la celda. Las celdas de
- * peldaño 0 no escriben nada.
- */
-export function transparent(frame, scene, cell = BAKE.cell) {
-  const cols = frame.cols;
-  const rows = frame.rows;
-  const width = cols * cell;
-  const height = rows * cell;
-  const masks = masksFor(cell);
-  const inks = scene.palette.map((hex) => hexToRgb(hex).map((value) => Math.round(value * 255)));
-  const rgba = new Uint8ClampedArray(width * height * 4);
+export function material(c, cols, rows, cell, sample, transparent = false, opacity = () => 1) {
+  const scene = sceneOf(c);
+  const metrics = sceneMetrics(scene);
+  const tones = c.palette.stops.map((hex) => tone(hexToRgb(hex)));
+  const lo = Math.min(...tones);
+  const span = Math.max(...tones) - lo;
+  const steps = new Uint8Array(cols * rows);
+  const indices = new Uint8Array(cols * rows);
+  const histogram = new Array(c.palette.stops.length).fill(0);
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
       const at = y * cols + x;
-      const step = frame.steps[at];
-      if (!step) continue;
-      const mask = masks[step];
-      const ink = inks[frame.indices[at]] ?? inks[Math.min(step, inks.length - 1)];
-      for (let py = 0; py < cell; py++) {
-        for (let px = 0; px < cell; px++) {
-          const coverage = mask[((py * cell) + px) * 4];
-          if (!coverage) continue;
-          const out = (((y * cell) + py) * width + (x * cell) + px) * 4;
-          rgba[out] = ink[0];
-          rgba[out + 1] = ink[1];
-          rgba[out + 2] = ink[2];
-          rgba[out + 3] = coverage;
-        }
+      const amount = sample(x, y);
+      const color = paletteTone(c, amount);
+      const level = (tone(color) - lo) / span;
+      const step = stepFor(level, x, y, 'bayer4');
+      steps[at] = step;
+      indices[at] = step ? compensate(scene, ...color, step, metrics) : scene.ground;
+      if (step) histogram[indices[at]]++;
+    }
+  }
+  const frame = { cols, rows, steps, indices };
+  const pixels = rasterize(frame, scene, cell);
+  if (transparent) {
+    const inks = c.palette.stops.map(hexToRgb);
+    const masks = metrics.coverage.map((_, step) => rasterize(
+      { cols: 1, rows: 1, steps: Uint8Array.of(step), indices: Uint8Array.of(1) },
+      { palette: ['#000000', '#FFFFFF'], ground: 0 },
+      cell,
+    ));
+    for (let y = 0; y < rows * cell; y++) {
+      for (let x = 0; x < cols * cell; x++) {
+        const at = Math.floor(y / cell) * cols + Math.floor(x / cell);
+        const offset = (y * cols * cell + x) * 4;
+        const mask = masks[steps[at]][((y % cell) * cell + x % cell) * 4];
+        const ink = inks[indices[at]];
+        for (let k = 0; k < 3; k++) pixels[offset + k] = Math.round(ink[k] * 255);
+        pixels[offset + 3] = Math.round(mask * opacity(Math.floor(x / cell), Math.floor(y / cell)));
       }
     }
   }
-  return { width, height, rgba };
+  return { pixels, width: cols * cell, height: rows * cell, histogram, palette: c.palette.stops, steps, indices };
+}
+
+/** Desatura un 10 % hacia la luma, como el `focusedWash` de v1. */
+function desaturated(sheet) {
+  const pixels = sheet.pixels.slice();
+  for (let i = 0; i < pixels.length; i += 4) {
+    const luma = pixels[i] * 0.213 + pixels[i + 1] * 0.715 + pixels[i + 2] * 0.072;
+    for (let k = 0; k < 3; k++) pixels[i + k] = Math.round(pixels[i + k] * (1 - BAKE.desaturate) + luma * BAKE.desaturate);
+  }
+  return { ...sheet, pixels };
 }
 
 /**
- * Hornea la pila entera: una lámina por plano, en el orden de `REST_STACK`.
- * @param {object} constellation el objeto de constelación de `data.mjs`
+ * Hornea las tres hojas de la escena —cielo, lavado y lavado enfocado— más la
+ * viñeta. Es `bake()` de v1, con la retícula del modelo como fuente de tono.
+ * @param {object} c la constelación del catálogo
+ * @param {{width:number, height:number}} frame el cuadro de la pieza
  */
-export function bakeStack(constellation, anchor) {
-  const layers = planeSheets(constellation);
-  return REST_STACK.map((entry) => ({ entry, ...bakePlane(entry, layers, constellation, anchor) }));
+export function bakeLayers(c, { width, height }) {
+  const [cols, rows] = BAKE.grid;
+  const layers = constellationLayers(c, { cols, rows, index: stillIndex(c) });
+  const skyGrid = layers.sky;
+  const washGrid = layers.wash;
+  // El cielo: celda 5 sobre la ventana sobremuestreada de v1, muestreada del
+  // tono del modelo con bilineal (la retícula mide 3 px por celda y la hoja, 5).
+  const skyCols = Math.ceil((width * BAKE.overscan) / BAKE.skyCell);
+  const skyRows = Math.ceil((height * BAKE.overscan) / BAKE.skyCell);
+  const sky = material(c, skyCols, skyRows, BAKE.skyCell, (x, y) => {
+    // Muestreo por vecino: el tono del cielo del modelo es un campo POR CELDA
+    // (polvo discreto, no una función analítica como el de v1). Interpolar
+    // repartiría cada mota entre sus vecinas y convertiría un cielo de motas
+    // en una alfombra pareja: el defecto que el proceso prohíbe.
+    const gx = Math.min(cols - 1, Math.max(0, Math.round((x / skyCols * BAKE.overscan - 0.3) * cols)));
+    const gy = Math.min(rows - 1, Math.max(0, Math.round((y / skyRows * BAKE.overscan - 0.3) * rows)));
+    return skyGrid[gy * cols + gx];
+  });
+  // El lavado: la retícula del motor, alfa por `smoothstep(amount / 0,035)`.
+  const wash = material(
+    c, cols, rows, BAKE.washCell,
+    (x, y) => skyGrid[y * cols + x] + washGrid[y * cols + x],
+    true,
+    (x, y) => smoothstep(Math.min(1, washGrid[y * cols + x] / BAKE.washAlpha)),
+  );
+  return { sky, wash, focusedWash: desaturated(wash), vignette: bakeVignette(c, layers.vignette, cols, rows) };
+}
+
+/** La viñeta de v1: el color del ground y el alfa de la capa del modelo. */
+function bakeVignette(c, grid, cols, rows) {
+  const [w, h] = BAKE.vignette;
+  const ground = hexToRgb(c.palette.ground).map((value) => Math.round(value * 255));
+  const pixels = new Uint8ClampedArray(w * h * 4);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const at = (y * w + x) * 4;
+      const value = toneAt(grid, (x / w) * cols, (y / h) * rows, cols, rows);
+      pixels.set(ground, at);
+      pixels[at + 3] = Math.round(clamp01(1 - value) * 255);
+    }
+  }
+  return { width: w, height: h, pixels };
+}
+
+/**
+ * La emisión de la atmósfera a 12 Hz, sin tocar el cielo horneado. Es
+ * `dynamicMaterial()` de v1: una LUT de 16 posiciones de Bayer × 2048 tonos
+ * —peldaño + tinta compensada— y, por cuadro, sólo la capa de lavado del
+ * instante, con el alfa de la máscara.
+ *
+ * `update` REUSA los buffers: el worker pide un cuadro cada 83,3 ms y no puede
+ * estar reservando 5 MB por vez.
+ * @param {object} c la constelación del catálogo
+ * @param {{cols?:number, rows?:number, cell?:number}} [options]
+ */
+export function dynamicWash(c, options = {}) {
+  const cols = options.cols ?? BAKE.grid[0];
+  const rows = options.rows ?? BAKE.grid[1];
+  const cell = options.cell ?? BAKE.washCell;
+  const scene = sceneOf(c);
+  const metrics = sceneMetrics(scene);
+  const tones = c.palette.stops.map((hex) => tone(hexToRgb(hex)));
+  const lo = Math.min(...tones);
+  const span = Math.max(...tones) - lo;
+  const inks = c.palette.stops.map((hex) => hexToRgb(hex).map((value) => Math.round(value * 255)));
+  const masks = metrics.coverage.map((_, step) => rasterize(
+    { cols: 1, rows: 1, steps: Uint8Array.of(step), indices: Uint8Array.of(1) },
+    { palette: ['#000000', '#FFFFFF'], ground: 0 },
+    cell,
+  ));
+  const levels = 2048;
+  const lut = new Uint8Array(16 * levels * 4);
+  for (let b = 0; b < 16; b++) {
+    for (let t = 0; t < levels; t++) {
+      const color = paletteTone(c, t / (levels - 1));
+      const level = (tone(color) - lo) / span;
+      const step = stepFor(level, b % 4, Math.floor(b / 4), 'bayer4');
+      const ink = inks[step ? compensate(scene, ...color, step, metrics) : scene.ground];
+      lut.set([...ink, step], (b * levels + t) * 4);
+    }
+  }
+  const focusedLut = lut.slice();
+  for (let i = 0; i < lut.length; i += 4) {
+    const luma = focusedLut[i] * 0.213 + focusedLut[i + 1] * 0.715 + focusedLut[i + 2] * 0.072;
+    for (let k = 0; k < 3; k++) focusedLut[i + k] = Math.round(focusedLut[i + k] * (1 - BAKE.desaturate) + luma * BAKE.desaturate);
+  }
+  const pixels = new Uint8ClampedArray(cols * cell * rows * cell * 4);
+  const base = new Float32Array(cols * rows);
+  let baseReady = false;
+  return {
+    pixels,
+    width: cols * cell,
+    height: rows * cell,
+    update(seconds, focused = false) {
+      const colors = focused ? focusedLut : lut;
+      const index = Math.round(wrap01(seconds / CYCLE_SECONDS) * c.cycle.frames);
+      const layers = constellationLayers(c, { cols, rows, index });
+      if (!baseReady) {
+        base.set(layers.sky);
+        baseReady = true;
+      }
+      pixels.fill(0);
+      for (let at = 0; at < layers.wash.length; at++) {
+        const amount = layers.wash[at];
+        if (amount <= 0) continue;
+        const x = at % cols;
+        const y = Math.floor(at / cols);
+        const t = Math.min(levels - 1, Math.max(0, Math.round((base[at] + amount) * (levels - 1))));
+        const k = (((y % 4) * 4 + x % 4) * levels + t) * 4;
+        const mask = masks[colors[k + 3]];
+        const alpha = smoothstep(Math.min(1, amount / BAKE.washAlpha));
+        for (let yy = 0; yy < cell; yy++) {
+          for (let xx = 0; xx < cell; xx++) {
+            const p = ((y * cell + yy) * cols * cell + x * cell + xx) * 4;
+            pixels[p] = colors[k];
+            pixels[p + 1] = colors[k + 1];
+            pixels[p + 2] = colors[k + 2];
+            pixels[p + 3] = Math.round(mask[(yy * cell + xx) * 4] * alpha);
+          }
+        }
+      }
+      return this;
+    },
+  };
 }

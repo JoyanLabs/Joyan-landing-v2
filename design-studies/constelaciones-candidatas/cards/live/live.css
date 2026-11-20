@@ -1,16 +1,26 @@
 /**
- * LA ESCENA VIVA — el cuadro de la tarjeta, con las capas en movimiento.
+ * LA ESCENA VIVA — el cuadro de la tarjeta compuesto como v1.
  * ============================================================================
- * Una sola tinta fría (#b4cabe, el tono más alto de la paleta de la casa) y la
+ * Una sola tinta fría (la parada más alta de la paleta de la casa) y la
  * variación de peso es opacidad de esa misma tinta. Michroma para el nombre,
  * Archivo para la glosa, mono para el registro funcional: la misma partición
  * tipográfica de la tarjeta.
  *
- * Los planos son elementos propios, cada uno con su transformación y su filtro:
- * por eso el puntero puede moverlos a velocidades distintas y el foco puede
- * desenfocar sólo el fondo. El `transform-origin` de cada lámina es el centro
- * del CUADRO (no el de la lámina, que es más grande): así escalar un plano no
- * corre la composición.
+ * LO QUE SE COPIA DE v1, Y POR QUÉ NO SE REINVENTA:
+ *
+ *   · el cielo y el lavado son láminas horneadas; su blur es HORNEADO (una
+ *     segunda lámina enfocada), no un `filter` sobre el canvas;
+ *   · los planos de los nodos sí llevan `filter` CSS vivo, con la escalera
+ *     foco / medio / fondo (tinta 1 / 0,96 / 0,9 · tono 1 / 0,6 / 0,42 · blur
+ *     0 / 0 / 0,8 px) y su transición de 260 ms;
+ *   · el cruce de foco del fondo es de opacidades por WAAPI (61 keyframes en
+ *     1 200 ms): el cielo enfocado se mezcla al 50 % y el lavado baja a 0,94;
+ *   · el puntero no transforma ninguna capa: sólo la clase `node-lit` y el
+ *     radio del core del nodo bajo el cursor.
+ *
+ * El escenario es el cuadro de la tarjeta (1 440 × 900) y mide exactamente
+ * 3 px por unidad del mundo de 480 × 300: por eso el `viewBox` de la figura, la
+ * retícula del lavado y el cielo comparten coordenadas sin una segunda escala.
  */
 @font-face {
   font-family: 'Michroma';
@@ -30,8 +40,14 @@
 :root {
   --w: 1440px;
   --h: 900px;
-  --ink: #b4cabe;
   --ground: #020405;
+  --ink: #b4cabe;
+  /* La tinta del DIBUJO: la del modelo (WU150) es más clara que la parada más
+     alta de la paleta, como en v1, donde el cielo y la figura usan una tinta de
+     página (#E4EEEA) y no el tono máximo de la emisión. Sin ella, un trazo de
+     0,8 px sobre el cielo del catálogo se pierde. */
+  --figure-ink: #E7F2EC;
+  --accent: #7a9c9e;
   --display: 'Michroma', 'Archivo', system-ui, sans-serif;
   --sans: 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
@@ -55,76 +71,159 @@ body {
   min-height: 100vh;
 }
 
+.card { margin: 0; }
+
 .stage {
   position: relative;
+  isolation: isolate;
   width: var(--w);
   height: var(--h);
   overflow: hidden;
   background: var(--ground);
-  isolation: isolate;
   font: 400 17px/1.65 var(--sans);
 }
 
-/* Cada plano es una lámina más grande que el cuadro; el margen se recorta acá. */
-.plane {
+/* ------------------------------------------------------- el fondo horneado */
+.sky-camera,
+.wash-camera {
   position: absolute;
-  left: -144px;
-  top: -90px;
-  display: block;
-  transform-origin: 864px 540px;
+  inset: 0;
+  z-index: 1;
+  transform-origin: 0 0;
+  will-change: transform;
   pointer-events: none;
-  will-change: transform, filter, opacity;
 }
 
-#links,
-#nodes {
+/* El cielo se pasa de cuadro por los cuatro lados: no hay marco de imprenta. */
+.sky {
+  position: absolute;
+  inset: -6%;
+  width: 112%;
+  height: 112%;
+  display: block;
+  image-rendering: pixelated;
+  background: var(--ground);
+  opacity: 1;
+  filter: none;
+  pointer-events: none;
+}
+
+/* La copia enfocada del cielo: la MISMA lámina, horneada con blur(6px) y
+   downsample ×2. No hay `filter` vivo sobre el cielo. */
+.sky.focus-copy {
+  opacity: 0;
+  image-rendering: auto;
+}
+.stage[data-focused='true'] .sky.focus-copy { opacity: 0.5; }
+
+/* El lavado vivo nunca se desvanece: baja a 0,94 al enfocar. */
+.wash {
+  position: absolute;
+  display: block;
+  z-index: 1;
+  pointer-events: none;
+  filter: none;
+}
+.stage[data-focused='true'] .wash { opacity: 0.94; }
+
+.vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* -------------------------------------------------------- la figura vectorial */
+.lines,
+.node-controls {
   position: absolute;
   inset: 0;
   display: block;
   width: 100%;
   height: 100%;
   overflow: visible;
+  pointer-events: none;
 }
+.lines { z-index: 3; }
+.node-controls { z-index: 5; }
 
-#links { pointer-events: none; }
-
-/* El nodo SVG raíz SÍ recibe el puntero: con `pointer-events: none` en la raíz
-   el navegador no entrega el clic de los círculos hijos. Las zonas vacías
-   burbujean al escenario, que vuelve a la vista completa. */
-#nodes { pointer-events: all; }
-
-#links line {
-  stroke: #d7e7de;
-  stroke-linecap: round;
-  shape-rendering: geometricPrecision;
-}
-
-#links .link-base { stroke: #c6d9cf; }
-
-#nodes [data-node-hit] {
+/* El nodo SVG raíz no captura: sólo los cuadrados de impacto, para que el
+   `pointermove` llegue al blanco de 26 px y a nada más. */
+.node-controls [data-node] {
+  pointer-events: auto;
   fill: transparent;
-  pointer-events: all;
   cursor: pointer;
-  outline: none;
+}
+.node-controls [data-node]:focus { outline: none; }
+.node-controls:has([data-node]:focus-visible) .node-lit .ring { stroke-width: 2.5; }
+
+/* El enlace base: el respaldo oscuro no deja un fantasma cuando el trazo se va. */
+.lines .links,
+.lines .link-underlay,
+.lines .pulses { fill: none; }
+.lines .link,
+.lines .link-back,
+.lines .pulse { vector-effect: non-scaling-stroke; }
+.lines .links .link { stroke: var(--figure-ink); }
+.lines .link-underlay .link-back { stroke: var(--ground); }
+.lines .link-underlay { stroke-width: 3; opacity: 0.35; }
+.lines .pulse { stroke: var(--figure-ink); stroke-linecap: round; }
+.lines .signal { fill: var(--figure-ink); pointer-events: none; }
+
+/* ------------------------------------------------------- la escalera de foco */
+.node-plane {
+  --plane-ink: 1;
+  --plane-tone: 1;
+  --plane-blur: 0px;
+  filter: saturate(var(--plane-tone)) blur(var(--plane-blur));
+  transition: filter 260ms ease-out;
+}
+.node-plane[data-treatment='focus'] { --plane-ink: 1; --plane-tone: 1; --plane-blur: 0px; }
+.node-plane[data-treatment='middle'] { --plane-ink: 0.96; --plane-tone: 0.6; }
+.node-plane[data-treatment='back'] { --plane-ink: 0.9; --plane-tone: 0.42; --plane-blur: 0.8px; }
+
+/* El peso de la tinta escalona con la profundidad, sobre el cuerpo de la
+   estrella. El grupo NO lleva opacidad: un hijo no puede cancelar la de su
+   padre, y el anillo de foco tiene que seguir leyéndose. */
+.node-plane g > :not(.ring) { opacity: var(--plane-ink); transition: opacity 260ms ease-out; }
+.node-plane .node-selected > :not(.ring) { opacity: 1; }
+.node-plane[data-node-plane='far'] .ring { stroke-dasharray: 1.5 1; }
+.node-plane[data-node-plane='mid'] .ring { stroke-dasharray: 3 1; }
+.node-plane .node-selected {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(1.12);
 }
 
-#nodes [data-node-core] {
-  fill: #e7f2ec;
-  pointer-events: none;
+/* El núcleo, el anillo y el halo, en el plano del nodo. */
+.node-controls .core { fill: var(--figure-ink); }
+.node-controls .glow { fill: url(#node-glow); pointer-events: none; }
+.node-controls .ring {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 0.7;
+  vector-effect: non-scaling-stroke;
+  opacity: 0.62;
 }
+.node-controls .node-lit .ring { stroke-width: 2; }
+.node-controls .node-related .ring { stroke-width: 1.2; }
+.node-controls .node-lit { filter: drop-shadow(0 0 3px var(--accent)); }
 
-#nodes [data-node-glow] {
-  fill: url(#node-glow);
-  pointer-events: none;
-}
+/* Una captura no puede atrapar una transición CSS a mitad de camino: con el
+   escenario en `data-instant` el filtro y la tinta se aplican de una vez. */
+.stage[data-instant='true'] .node-plane,
+.stage[data-instant='true'] .node-plane g > :not(.ring) { transition: none; }
 
-#nodes .node.is-selected [data-node-core] { fill: #f4fbf7; }
-
+/* ---------------------------------------------------------------- la copia */
 .copy {
   position: absolute;
   left: 72px;
   top: 104px;
   width: 392px;
+  z-index: 7;
+  pointer-events: none;
 }
 
 .abbr {
@@ -133,7 +232,7 @@ body {
   line-height: 1;
   letter-spacing: 0.34em;
   text-transform: uppercase;
-  color: rgba(180, 202, 190, 0.62);
+  color: color-mix(in srgb, var(--ink) 62%, transparent);
 }
 
 .name {
@@ -147,7 +246,7 @@ body {
   margin: 8px 0 0;
   font-size: 20px;
   line-height: 1.4;
-  color: rgba(180, 202, 190, 0.86);
+  color: color-mix(in srgb, var(--ink) 86%, transparent);
 }
 
 .counts {
@@ -155,56 +254,103 @@ body {
   font-size: 12.5px;
   line-height: 1;
   letter-spacing: 0.08em;
-  color: rgba(180, 202, 190, 0.68);
+  color: color-mix(in srgb, var(--ink) 68%, transparent);
+}
+
+.series,
+.credit,
+.hint {
+  position: absolute;
+  z-index: 6;
+  margin: 0;
+  color: color-mix(in srgb, var(--ink) 44%, transparent);
 }
 
 .series {
-  position: absolute;
   left: 72px;
   bottom: 86px;
-  margin: 0;
   font-size: 11px;
   line-height: 1;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: rgba(180, 202, 190, 0.44);
 }
 
 .credit {
-  position: absolute;
   left: 72px;
   bottom: 62px;
-  margin: 0;
   font-size: 10px;
   line-height: 1.5;
   letter-spacing: 0.06em;
-  color: rgba(180, 202, 190, 0.34);
+  color: color-mix(in srgb, var(--ink) 34%, transparent);
 }
 
 .hint {
-  position: absolute;
   right: 28px;
   bottom: 26px;
-  margin: 0;
   font-size: 10.5px;
   line-height: 1;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(180, 202, 190, 0.42);
 }
-
 .hint[data-hidden='true'] { opacity: 0; }
 
 .mono { font-family: var(--mono); }
 
-/* prefers-reduced-motion — no hay animación; el estado final se aplica de una
-   vez en `live.mjs` (transiciones instantáneas, puntero inmóvil, pulso fijo).
-   La escena no usa transiciones CSS: el estado lo escribe `applyToDom`, así que
-   una captura no depende del reloj del compositor. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ------------------------------------------------------------- los controles */
+.utility {
+  position: absolute;
+  right: 20px;
+  top: 18px;
+  z-index: 8;
+  display: flex;
+  gap: 8px;
+  pointer-events: none;
+}
+.field-reset,
+.field-pause {
+  pointer-events: auto;
+  border: 0;
+  color: color-mix(in srgb, var(--ink) 70%, transparent);
+  background: var(--ground);
+  padding: 8px 12px;
+  font: 11px/1.6 var(--mono);
+  cursor: pointer;
+}
+.field-reset[hidden],
+.field-pause[hidden] { display: none; }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
 
 /* Visible notice when ?id= falls back to the default constellation. */
 .live-notice {
-  position: fixed; left: 24px; bottom: 24px; margin: 0;
-  font: 500 12px/1.4 ui-monospace, monospace; letter-spacing: .06em;
-  color: var(--muted, #ACC3C1); border-left: 2px solid currentColor; padding-left: 10px;
+  position: fixed;
+  left: 24px;
+  bottom: 24px;
+  z-index: 9;
+  margin: 0;
+  font: 500 12px/1.4 var(--mono);
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  border-left: 2px solid currentColor;
+  padding-left: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .node-plane,
+  .node-plane g > :not(.ring) { transition: none; }
 }

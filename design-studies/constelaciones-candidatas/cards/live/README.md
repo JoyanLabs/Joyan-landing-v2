@@ -1,118 +1,83 @@
-# La escena viva — la tarjeta que dejó de ser una imagen
+# La escena viva — el mecanismo de v1 con la figura del catálogo
 
-La tarjeta quieta de `cards/` compone las cinco capas y las funde en un PNG. Esta pieza
-conserva **la misma entrada** —un id del catálogo— y **la misma pila de ocho planos**
-(`cards/isometric.mjs` → `STACK`), pero cada plano es una lámina propia: el puntero los
-mueve a velocidades distintas, un clic lleva la cámara al nodo y el plano más lejano se
-desenfoca. `?id=Ori` y `?id=Sge` son la misma página; no hay una rama por constelación.
+`cards/live/` renderiza **una** constelación del catálogo (`?id=Ori`, o la primera del catálogo si no
+se pasa id) con la misma escena de `design-studies/v1/`, no con una interpretación libre de ella.
+La vara es el mecanismo: cielo y lavado **horneados por el motor**, figura **vectorial**, blur del
+cielo horneado, `filter` CSS vivo en los planos de nodos, cruce de foco por **opacidades WAAPI**, y
+un puntero que **no mueve nada**.
 
-```
-design-studies/constelaciones-candidatas/cards/live/index.html?id=Ori
-```
+## Qué hace cada archivo
 
-Con el servidor del repo en el 4403:
-
-```
-http://127.0.0.1:4403/design-studies/constelaciones-candidatas/cards/live/index.html?id=Ori
-```
-
-## Qué hace
-
-| Gesto | Efecto |
+| Archivo | Rol |
 |---|---|
-| mover el puntero | paralaje por capa: cielo **0,18** · lavado **0,52** · figura **1,00** |
-| clic en un nodo | la cámara va a su plano (zoom **1,28**, tasas de v1), el sujeto se afirma, el intermedio se atenúa, el más lejano se desenfoca |
-| `Escape` o clic en el fondo | vuelve a la vista completa |
-| `prefers-reduced-motion` | sin animación: el estado final se aplica de una vez, el puntero no mueve nada |
-| `?still=1` | congela el pulso en el instante de la pieza (`CARD.p`) para capturas reproducibles |
-| `?focus=<n>` | abre ya enfocado, para capturar el estado final |
+| `index.html` | El cuadro (1 440 × 900) y la pila: `sky-camera` → `wash-camera` → `lines` → `vignette` → `node-controls`, más la copia y los controles. |
+| `live.css` | La escalera de planos de v1 (tinta 1 / 0,96 / 0,9 · tono 1 / 0,6 / 0,42 · blur 0 / 0 / 0,8 px), los enlaces, la selección a 1,12 y el `data-instant` que apaga transiciones CSS en una captura. |
+| `depth.mjs` | El modelo puro: mundo 480 × 300, tasas de plano, cámara de foco (zoom 1,28 · mira 0,65 nodo + 0,35 centroide · recorte al marco), escalera de tratamientos, registro de tiempo de v1. |
+| `bake.mjs` | El horneado: `material()` (celda 5, sobremuestreo 1,6) para el cielo, `material()` transparente (retícula 480 × 300, celda 3, alfa `smoothstep(amount / 0,035)`) para el lavado, su versión desaturada un 10 %, y la viñeta. También la emisión de la atmósfera (LUT de 16 × 2048, la de v1). |
+| `emission.mjs` | El worker de la emisión: una `OffscreenCanvas` de 1 440 × 900, la atmósfera del instante, `transferToImageBitmap`. |
+| `live.mjs` | La escena: compone las hojas, dibuja la figura SVG, mueve la cámara, cruza las opacidades y expone `window.__live` para que el chequeo mida. |
+| `capture.mjs` | Una captura por estado: `reposo`, `mitad`, `foco`, `puntero-a`, `puntero-b`. |
+| `capturas/` | Los PNG de `Ori` en los cinco estados. |
 
-La transición es interrumpible: un `Escape` a mitad de camino arranca desde la cámara y
-los pesos que hay en ese instante, no desde el destino anterior.
+## Los siete puntos del mecanismo, y dónde se miden
 
-## Por qué la profundidad se ve
+1. **Capas.** Cielo horneado con `material()` + `stepFor(level, x, y, 'bayer4')` + `compensate` +
+   `rasterize`, celda 5 y sobremuestreo 1,6; lavado horneado sobre la retícula del motor (480 × 300)
+   a celda 3, `transparent`, alfa `smoothstep(amount / 0,035)`; `focusedWash` desaturado un 10 %. La
+   figura es **SVG vectorial** (nodos + aristas) en `viewBox 0 0 480 300`: el motor no pinta ni un
+   nodo. → caso **a**.
+2. **Blur.** Cielo enfocado horneado (`blur(6px)` + downsample ×2, una vez por rebuild); lavado sin
+   blur; planos de nodos con `filter` CSS vivo y la escalera focus/middle/back. Cruce de opacidades
+   por WAAPI: `sky.focus-copy` 0 → 0,5 y lavado 1 → 0,94, **61 keyframes en 1 200 ms**, curva
+   `p³(10−15p+6p²)`. → casos **b** y **d**.
+3. **Puntero.** No hay paralaje por puntero. El único `pointermove` de la escena llama `hover()`:
+   clase `node-lit` y radio del core. Nada de transformar planos, cámara ni geometría: si el puntero
+   moviera una capa, el caso **c** falla.
+4. **Interacción.** Clic en un cuadrado de 26 CSS px, Enter/Space en los nodos
+   `role=button tabindex=0`, Tab resalta, `Escape` vuelve, botón de reset, pausa/reanudar y vuelta
+   automática a los 7 000 ms. → caso **e**.
+5. **Foco.** Escalera de planos por distancia (el más lejano toma el blur de 0,8 px), `node-selected`
+   a escala 1,12, cámara zoom 1,28 con mira 0,65 nodo + 0,35 centroide de su grupo de enlaces
+   dividida por la tasa del plano y recortada para que **ningún plano salga del marco**; enlaces con
+   `focusMix` (el grupo sólido, el resto a `FOCUS_FADE`). → casos **d** y **g**.
+6. **Reposo.** Emisión a 12 Hz (83,3 ms) por worker con `OffscreenCanvas`, sin recalcular el cielo
+   horneado; una sola petición en vuelo y descarte por `generation`. **La cámara no deriva sola.** →
+   caso de apoyo.
+7. **Reducido.** Sin rAF, sin worker, sin transiciones; el estado final de una vez y el still en el
+   cuadro **100 de 720** (1,666… s), que es también la fase de los enlaces. → caso **f**.
 
-La etapa 3 de la tarjeta separaba los planos, pero la separación no se leía: 30 px entre
-`figura:far` y `figura:mid`, escala casi plana y **sin desenfoque de la figura**. Acá:
+## El chequeo
 
-- **Z real**: paso de **90 px** entre planos vecinos de la figura; el cielo en −4 pasos
-  (−360 px) y el lavado en −3 (−270 px).
-- **Deriva**: 0,80 px de pantalla por px de Z → **72 px** entre planos vecinos. Las
-  proyecciones medidas del mismo punto dan **38,3–98,0 px** entre vecinos y **196,0 px**
-  entre `far` y `near` (la escala diferencia además de la deriva).
-- **Escala compensada**: `(P + z − zFar) / P` con P = 1 000 px → **1,000 / 1,090 / 1,180**
-  para `far / mid / near`. El ancla es el bolsillo de la figura (`figurePocket`), así el
-  plano cercano crece alrededor de la figura y no la saca del cuadro. El cielo y el lavado
-  conservan la densidad de la lámina del modelo (escala 1) y su profundidad se lee en el
-  desplazamiento, el desenfoque y el paralaje.
-- **Profundidad de campo quieta**: desenfoque de reposo de **2,6 px** en `far`, **1,1** en
-  `mid`, **0,45** en `near`; el cielo y el lavado a 0,5 / 0,35. Lo lejano se lee como fondo
-  sin tocar nada.
-- **Foco**: el sujeto pesa 1 y no se desenfoca; el intermedio 0,82; el más lejano desde el
-  sujeto pesa 0,55 y pasa a **4,0 px** de desenfoque. La escalera y el desempate (`back` =
-  el plano profundo) son los de `design-studies/v1/`.
-- **Enlaces**: el trazo de la vara (0,8 / 1,1 / 1,5 px) abierto en profundidad (×1,0 / ×1,3
-  / ×1,6) y atenuado con el peso de su plano. El pulso es `link-behaviours.mjs`, sin copia.
-- **Halos**: cada nodo tiene su núcleo y su halo en el grupo SVG de su plano; el grupo lleva
-  la misma transformación, opacidad y desenfoque que la lámina de ese plano.
-
-## Cómo se hornea
-
-`bake.mjs` construye **una lámina por plano** con las mismas láminas del modelo que usa la
-tarjeta (`planeSheets`, exportado por `cards/field.mjs`):
-
-1. muestrea la lámina con la pose de reposo del plano (desplazamiento + escala);
-2. el cielo y el lavado se muestrean con **wrap** (`point`), porque son medios de cuadro
-   completo y sin wrap un plano escalado por debajo de 1 dejaría un borde recto de ground;
-3. la viñeta multiplica a los planos del marco, nunca a los núcleos;
-4. `renderFrame` decide peldaño y paleta; la lámina se vuelve RGBA **transparente** con la
-   máscara de cobertura medida del motor (alfa = cobertura, RGB = la tinta elegida).
-
-La lámina mide 1 728 × 1 080 (margen 144 / 90 px) para que el paralaje y la cámara no
-descubran un borde. El horneado de los ocho planos mide **~560 ms** en el navegador de la
-verificación.
-
-## Lo medido (Ori, 1440 × 900)
-
-`timeout 180 node scripts/checks/check-cards-live.mjs` — 19 casos:
-
-| Caso | Número |
-|---|---|
-| (a) profundidad quieta | vecinos **38,3–98,0 px** · `far→near` **196,0 px** · escalas 1,000 / 1,090 / 1,180 |
-| (b) el clic cambia la composición | **12,7 % del cuadro** y **95,3 % de la tinta** cambian · media 5,0 · pico 247 |
-| (c) el desenfoque existe | nitidez del plano lejano **1,61 → 1,11** (varianza del laplaciano, **−31 %**) · 2,6 → 4,0 px |
-| (d) el paralaje existe | cielo **7,9 px** &lt; lavado **22,8 px** &lt; figura **43,8 px** (tasas 0,18 / 0,52 / 1,00) |
-| (e) reproducibilidad | primer cuadro en dos procesos: **785a2fac…** = **785a2fac…** |
-| reduced motion | mismo nodo, **0,000 %** de píxeles distintos del estado animado; puntero inmóvil |
-
-Los casos (b) y (c) se miden sobre las capturas reales, no sobre el estado declarado. Para
-(c) se aísla la lámina del plano que el foco manda al fondo —una medición, no la pieza que
-se publica— y se calcula la varianza del laplaciano sobre la tinta.
-
-## Capturas
-
-En `capturas/`, producidas con `capture.mjs` y abiertas antes de entregar:
-
-- `Ori-reposo.png` — la profundidad quieta.
-- `Ori-transicion.png` — la mitad de la transición de foco (`seekFocus(nodo, 0,5)`).
-- `Ori-foco.png` — el foco terminado (sujeto cerca, fondo desenfocado).
-- `Ori-puntero-a.png` / `Ori-puntero-b.png` — dos posiciones de puntero, mismo instante.
-
-```
-node design-studies/constelaciones-candidatas/cards/live/capture.mjs Ori \
-  --state reposo --out .../capturas/Ori-reposo.png
+```bash
+# desde la raíz del repo
+timeout 180 node scripts/checks/check-cards-live.mjs
 ```
 
-Estados: `reposo`, `transicion`, `foco`, `puntero-a`, `puntero-b`; `--node <n>` elige el
-nodo y `--base <url>` apunta a otro servidor.
+Abre la página con Chromium, mueve el puntero, hace clic, mueve la cámara y mide: hashes de las
+láminas en dos procesos, píxeles apagados al ocultar el SVG, filtros computados, nitidez (varianza del
+laplaciano), matrices de los planos, keyframes de las animaciones y milisegundos del reloj de la
+página. Nada de esto busca nombres en el código.
 
-## Juicio contra la vara
+## Las capturas
 
-Comparado con `design-studies/v1/` al mismo tamaño: la pieza ya tiene lo que la vara tiene
-—cámara que responde, planos que se separan, fondo que se va de foco, pulso en los
-enlaces— y lo que la tarjeta no tenía: profundidad de campo quieta y paralaje. La figura
-sigue siendo más escasa y más dibujada por el dither del modelo que la de v1, y el fondo
-es más parejo que la banda de nebulosa de la vara: son límites de la receta de capas del
-catálogo, no de esta escena. El foco recorta los bordes del encuadre a propósito (la
-figura ocupa casi todo el alto; exigir todos los nodos dentro anulaba el acercamiento,
-medido); `Escape` vuelve a la vista completa.
+```bash
+cd design-studies/constelaciones-candidatas/cards/live
+for s in reposo mitad foco puntero-a puntero-b; do
+  timeout 90 node capture.mjs Ori --state "$s" --out "capturas/Ori-$s.png"
+done
+```
+
+`reposo` es determinista byte a byte en dos procesos (`still=1` congela el reloj en el cuadro 100).
+`mitad` y `foco` usan `seekFocus`, que aplica el estado sin reloj. `puntero-a` y `puntero-b` ponen el
+cursor sobre dos nodos distintos: las dos capturas son idénticas **salvo el nodo iluminado**.
+
+## Lo que esta escena NO copia de v1
+
+- La **emisión** (el cielo, la atmósfera, la paleta) es la de la constelación del catálogo, no la de
+  la vara: v1 tiene su propio cielo analítico y su propia banda; acá el material sale de la receta de
+  capas del catálogo. El mecanismo es el mismo; el material es el del sujeto.
+- El grupo de foco: v1 usa sus anillos (`RINGS`); el catálogo no trae anillos y trae enlaces, así que
+  el grupo es el nodo y sus vecinos por enlace.
+- El recorte de la cámara usa 20 px de margen en los cuatro lados (v1 deja 100 px arriba y abajo por
+  su barra de navegación): con la cota de v1 los recortes serían imposibles para las figuras del
+  catálogo y `destination()` caería en su respaldo de centrar, que sí deja planos fuera del marco.

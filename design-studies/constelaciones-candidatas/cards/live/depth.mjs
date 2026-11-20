@@ -1,235 +1,222 @@
 /**
- * LA PROFUNDIDAD DE LA ESCENA VIVA — la pila de 8 planos, separada de verdad.
+ * EL MODELO DE LA ESCENA VIVA — el de v1, con la figura del catálogo.
  * ============================================================================
- * La tarjeta quieta separaba los planos en Z, pero la separación era tan chica
- * (30 px entre `figura:far` y `figura:mid`, sin desenfoque ni escala visible)
- * que la lámina se leía como una imagen plana. Esta escena conserva la MISMA
- * pila de `isometric.mjs` (`STACK`: cielo, lavado, figura far/mid/near, viñeta
- * ya compuesta, núcleos far/mid/near) y le da una separación que se ve:
+ * Este módulo es PURO: no toca el DOM, no hornea y no importa el catálogo. Lo
+ * comparten la página (`live.mjs`) y el worker de emisión (`emission.mjs`), así
+ * que las dos mitades de la escena no pueden discrepar sobre qué es un plano,
+ * qué tasa tiene o dónde cae la cámara.
  *
- *   paso          90 px de Z entre planos vecinos de la figura
- *   deriva        0,80 px de pantalla por px de Z → 72 px entre vecinos
- *   perspectiva   1 000 px → `(P + z) / P` da 1,000 / 1,090 / 1,180 a la figura
- *   fondo         cielo z = −4 pasos (−360) y lavado −3 pasos (−270), por
- *                 detrás de la figura, atenuados y desenfocados
- *   foco          el plano del sujeto pesa 1 y no se desenfoca; el intermedio
- *                 se atenúa; el MÁS LEJANO desde el sujeto se desenfoca
- *                 (4,0 px). La escalera es la de v1 (`NODE_RATES`) y el
- *                 desenfoque usa el tratamiento `focus / middle / back` de la
- *                 vara, con el mismo desempate (el plano profundo es `back`).
+ * EL ORDEN DE v1, punto por punto (`design-studies/v1/hero-field.mjs`):
  *
- * LA ESCALA ES COMPENSADA, no una afinidad inventada: `(P + z − zFondoFigura)/P`
- * con `zFondoFigura` = el plano `far` de la figura. Da 1,000 / 1,090 / 1,180:
- * lo lejano no se encoge de más y lo cercano crece lo que la fórmula dice. El
- * ancla es el bolsillo de la figura (`figurePocket`), medido por `live.mjs` y
- * pasado al horneado; el cielo y el lavado conservan la escala 1 porque son
- * medios de cuadro completo y su profundidad se lee en el desplazamiento, el
- * desenfoque y el paralaje.
- *
- * EL DESPLAZAMIENTO ES POR PLANO, NO POR NODO: los nodos de un plano comparten
- * pose, peso y desenfoque. El eje es axonométrico y el mismo de la tarjeta
- * (`ISO.axis`): un solo vector, así lo lejano sube a la izquierda.
- *
- * LA CÁMARA ES LA DE V1: al enfocar un nodo, el zoom es 1,28 y cada capa
- * responde con la tasa de su plano (`PARALLAX`: cielo 0,18 · lavado 0,52;
- * `NODE_RATES`: far 0,78 · mid 0,89 · near 1,00). El plano del sujeto responde
- * con la tasa 1, se afirma otro 3,5 % encima y los demás llegan menos: el
- * acercamiento mueve la composición, no sólo el tono. El paneo se recorta para
- * que ningún nodo, en ningún plano, salga del cuadro (la misma regla de
- * `destination()` de `v1.mjs`).
+ *   mundo       480 × 300 unidades. El cuadro de la tarjeta es 1440 × 900, o
+ *               sea exactamente 3 px por unidad: el cielo horneado, la lámina
+ *               del lavado y el `viewBox` de la figura comparten el mismo
+ *               sistema de coordenadas y no hay una segunda escala.
+ *   planos      far 0,78 · mid 0,89 · near 1,00 (`NODE_RATES`). El plano del
+ *               sujeto responde entero a la cámara; los de atrás, menos.
+ *   paralaje    cielo 0,18 · lavado 0,52 (`PARALLAX`). SÓLO lo usa la cámara de
+ *               foco: en esta escena el puntero no mueve ninguna capa.
+ *   cámara      zoom 1,28 sobre la mira «0,65 nodo + 0,35 centroide del grupo»,
+ *               dividida por la tasa del plano del sujeto y recortada para que
+ *               ningún nodo, en ningún plano, salga del marco. Es
+ *               `cameraFor` + `destination` de v1.
+ *   escalera    foco / medio / fondo por distancia al plano del sujeto; en un
+ *               empate gana el plano más profundo (`focusTreatment` de v1).
+ *   tiempo      el registro de v1: 720 cuadros a 60 fps = 12 s, y el instante
+ *               de la pieza es el cuadro 100 (1,666… s).
  */
 
-import { CARD } from '../data.mjs';
-import { ISO, STACK } from '../isometric.mjs';
-import { NODE_RATES, PARALLAX } from '../../../v1/hero-field.mjs';
+/** Los tres planos de la figura, en el orden de la pila. */
+export const NODE_PLANES = Object.freeze(['far', 'mid', 'near']);
+/** La respuesta de cada plano a la cámara, la de v1. */
+export const NODE_RATES = Object.freeze([0.78, 0.89, 1]);
+/** El paralaje de v1: sólo lo lee la cámara de foco, nunca el puntero. */
+export const PARALLAX = Object.freeze({ sky: 0.18, wash: 0.52, figure: 1 });
+/** La transición de foco, la de v1. */
+export const TRANSITION_MS = 1200;
+/** La vuelta automática a la vista completa, la de v1. */
+export const RETURN_MS = 7000;
+/** El registro de tiempo de v1: 720 cuadros a 60 fps. */
+export const FRAMES = 720;
+export const FPS = 60;
+/** El instante de la pieza: el cuadro 100 de 720 (1,666… s). */
+export const STILL_FRAME = 100;
+/** Un ciclo del registro, en segundos. */
+export const CYCLE_SECONDS = FRAMES / FPS;
+/** El zoom del foco, el de v1. */
+export const FOCUS_ZOOM = 1.28;
+/** La emisión de reposo: 12 Hz. */
+export const EMISSION_MS = 1000 / 12;
 
-/** Los números de la escena viva. Cada uno se mide en el chequeo. */
-export const DEPTH = Object.freeze({
-  /** Focal de la escala compensada `(P + z) / P`. */
-  perspective: 1000,
-  /** Separación en Z entre planos vecinos de la figura, en px. */
-  step: 90,
-  /** El fondo, por detrás del plano 0 de la figura. */
-  skySteps: -4,
-  washSteps: -3,
-  figureSteps: Object.freeze({ far: -1, mid: 0, near: 1 }),
-  /** Los núcleos viven justo delante de su figura, en pasos. */
-  coreAdvance: 0.24,
-  /** Eje axonométrico en pantalla, el mismo de la tarjeta. */
-  axis: ISO.axis,
-  /** px de pantalla por px de Z, en reposo. */
-  drift: 0.8,
-  /** Corrimiento de la figura para que el plano cercano, que crece un 18 %,
-   * no saque su nodo más a la derecha del cuadro. Es composición, no física. */
-  figureShiftPx: Object.freeze([-20, 0]),
-  /** Zoom del foco, el de v1. */
-  zoom: 1.28,
-  /** Cuánto se agranda el plano del sujeto al afirmarse (encima de la cámara). */
-  affirmScale: 1.035,
-  /** Recorrido total del puntero en px para la capa de tasa 1. */
-  pointerPx: 72,
-  /** La transición de cámara, la de v1. */
-  transitionMs: 1200,
-  /**
-   * Margen de las láminas: las capas de fondo se desplazan con el puntero y con
-   * la cámara; la lámina se hornea 144 px más ancha y 90 px más alta para que
-   * el cuadro nunca descubra un borde.
-   */
-  marginPx: Object.freeze([144, 90]),
-  /** La grilla de horneado: 576 × 360 celdas de 3 px = 1728 × 1080 px. */
-  cols: 576,
-  rows: 360,
-  /** Profundidad del plano `far` de la figura: el cero de la escala. */
-  zFigureFar: -90,
-});
+/** El instante de la pieza, en segundos: 100/60, el `STILL_SECONDS` de v1. */
+export const stillSeconds = () => STILL_FRAME / FPS;
 
-const PLANE_ORDER = Object.freeze(['far', 'mid', 'near']);
-const planeIndex = (name) => PLANE_ORDER.indexOf(name);
+const TAU = Math.PI * 2;
+const clamp01 = (value) => (value < 0 ? 0 : value > 1 ? 1 : value);
 
-/** La Z de una entrada de la pila, en px, en reposo. */
-export function entryZ(entry) {
-  if (entry.layer === 'cielo') return DEPTH.skySteps * DEPTH.step;
-  if (entry.layer === 'lavado') return DEPTH.washSteps * DEPTH.step;
-  const advance = entry.layer === 'núcleos' ? DEPTH.coreAdvance : 0;
-  return (DEPTH.figureSteps[entry.plane] + advance) * DEPTH.step;
+/** La curva de v1: p³(10 − 15p + 6p²). */
+export const ease = (p) => p * p * p * (10 + p * (-15 + 6 * p));
+
+/** Envuelve una posición en [0,1). */
+export const wrap01 = (p) => {
+  const wrapped = p % 1;
+  return wrapped < 0 ? wrapped + 1 : wrapped;
+};
+
+/** La fase de un nodo, la misma convención determinista que la de un enlace
+ * (`linkPhase` de v1: el paso áureo), para que su halo respire sin azar. */
+export const nodePhase = (index) => wrap01(index * 0.6180339887498949);
+
+/**
+ * El encuadre del mundo: escala isotrópica y centrado. Para la tarjeta
+ * (1440 × 900) da escala 3 y desplazamiento 0, porque el mundo y el cuadro
+ * tienen la misma proporción; la fórmula es la de v1 para que el mismo módulo
+ * sirva en cualquier tamaño.
+ */
+export function figureTransform(width, height) {
+  const scale = Math.min(width / 480, height / 300);
+  return { scale, x: (width - scale * 480) / 2, y: (height - scale * 300) / 2 };
 }
 
-/** La escala compensada de la pila, normalizada en el `far` de la figura. */
-export function restScale(z) {
-  return (DEPTH.perspective + z - DEPTH.zFigureFar) / DEPTH.perspective;
+/** La cámara de un plano: la de la figura, atenuada por la tasa del plano. */
+export function planeCamera(plane, camera) {
+  const rate = rateOf(plane);
+  return { x: camera.x * rate, y: camera.y * rate, zoom: 1 + (camera.zoom - 1) * rate };
 }
 
-/** El cielo y el lavado son medios de cuadro completo: conservan la densidad de
- * la lámina del modelo (escala 1) y su profundidad se lee en el desplazamiento,
- * el desenfoque y el paralaje. La figura —la que tiene que leerse en tres
- * planos— sí lleva la escala compensada `(P + z) / P`. */
-export function backgroundScale(entry) {
-  return entry.layer === 'cielo' || entry.layer === 'lavado' ? 1 : restScale(entryZ(entry));
-}
-
-/** El desplazamiento de reposo de un plano, en px de pantalla. */
-export function restOffsetPx(z) {
-  return [DEPTH.axis[0] * DEPTH.drift * z, DEPTH.axis[1] * DEPTH.drift * z];
-}
-
-/** La tasa de paralaje de una capa: la de v1, sin inventar otra escalera. */
-export function layerRate(entry) {
-  if (entry.layer === 'cielo') return PARALLAX.sky;
-  if (entry.layer === 'lavado') return PARALLAX.wash;
-  return NODE_RATES[Math.max(0, planeIndex(entry.plane))];
-}
-
-/** El peso de reposo: lo lejano se atenúa, pero ningún plano se oculta. */
-export function restWeight(entry) {
-  if (entry.layer === 'cielo') return 0.42;
-  if (entry.layer === 'lavado') return 0.52;
-  return entry.plane === 'far' ? 0.50 : entry.plane === 'mid' ? 0.72 : 0.92;
+/** La tasa de un plano por su nombre. */
+export function rateOf(plane) {
+  const at = NODE_PLANES.indexOf(plane);
+  return at < 0 ? 1 : NODE_RATES[at];
 }
 
 /**
- * El desenfoque de reposo, en px. La profundidad de campo es la que hace que el
- * plano lejano se lea como fondo aun sin interactuar: 2,6 px en `far`, 1,1 en
- * `mid`, 0,45 en `near`; el cielo (0,5) y el lavado (0,35) todavía más blandos.
+ * El grupo del foco: el nodo y sus vecinos por enlace. v1 usa sus anillos
+ * (`RINGS`); el catálogo no trae anillos y trae enlaces, así que el grupo es el
+ * «grupo de enlaces» que la escena ya nombra. El nodo entra en su propio grupo,
+ * como en v1.
+ * @param {number} index @param {number[][]} neighbours vecinos por nodo
  */
-export function restBlur(entry) {
-  if (entry.layer === 'cielo') return 0.5;
-  if (entry.layer === 'lavado') return 0.35;
-  if (entry.plane === 'far') return 2.6;
-  if (entry.plane === 'mid') return 1.1;
-  return 0.45;
+export function groupOf(index, neighbours) {
+  const group = new Set();
+  if (index < 0) return group;
+  group.add(index);
+  for (const other of neighbours[index] ?? []) group.add(other);
+  return group;
 }
 
 /**
- * El plano `back` de v1: el más lejano desde el sujeto; en un empate gana el
- * más profundo. Es el único que toma el desenfoque fuerte del foco.
+ * La cámara del foco: zoom 1,28 sobre la mira 0,65 nodo + 0,35 centroide del
+ * grupo. Es `cameraFor` de v1; los números de la mira se leen igual.
+ * @param {number} index @param {{world:number[]}[]} nodes @param {Set<number>} group
  */
-export function backPlane(focusPlane) {
-  return PLANE_ORDER
-    .filter((plane) => plane !== focusPlane)
-    .sort((a, b) => Math.abs(planeIndex(b) - planeIndex(focusPlane))
-      - Math.abs(planeIndex(a) - planeIndex(focusPlane))
-      || planeIndex(a) - planeIndex(b))[0];
-}
-
-/** El tratamiento de foco de una entrada: `foco`, `vecino` o `fondo`. */
-export function focusTreatment(entry, focusPlane) {
-  if (entry.layer === 'cielo') {
-    return { treatment: 'fondo', weight: 0.42, blurPx: 2.0 };
-  }
-  if (entry.layer === 'lavado') {
-    return { treatment: 'fondo', weight: 0.55, blurPx: 1.4 };
-  }
-  if (entry.plane === focusPlane) {
-    return { treatment: 'foco', weight: 1, blurPx: 0 };
-  }
-  if (entry.plane === backPlane(focusPlane)) {
-    return { treatment: 'fondo', weight: 0.55, blurPx: 4.0 };
-  }
-  return { treatment: 'vecino', weight: 0.82, blurPx: 1.1 };
-}
-
-/**
- * El destino de la cámara para un nodo: el sujeto va al 64 % del ancho y al
- * 44 % del alto; el paneo se acota a ±20 % / ±28 % del cuadro. A diferencia de
- * `destination()` de v1, NO exige que todos los nodos queden dentro: la figura
- * ocupa casi todo el alto y ese recorte anulaba el acercamiento (medido). Un
- * foco recorta los bordes; `Escape` vuelve a la vista completa.
- * @param {number} index índice del nodo, o −1 para la vista completa
- * @param {Array<{plane: string, q: number[]}>} restNodes los nodos en reposo
- * @param {number} width @param {number} height
- */
-export function cameraTarget(index, restNodes, width = CARD.width, height = CARD.height) {
-  if (index < 0) return { zoom: 1, pan: [0, 0] };
-  const zoom = DEPTH.zoom;
-  const centre = [width / 2, height / 2];
-  const node = restNodes[index];
-  // El sujeto va al 64 % del ancho y al 44 % del alto. El paneo se RECORTA a un
-  // cuarto del cuadro: la figura ocupa casi todo el alto, así que exigir que
-  // todos los nodos queden dentro anularía el acercamiento (medido: el nodo no
-  // se movía y el foco se leía como un cambio de peso, no de cámara). Un foco
-  // recorta los bordes del encuadre; `Escape` vuelve a la vista completa.
-  const aim = [width * 0.64, height * 0.44];
-  const limit = [width * 0.20, height * 0.28];
-  const pan = [
-    aim[0] - centre[0] - (node.q[0] - centre[0]) * zoom,
-    aim[1] - centre[1] - (node.q[1] - centre[1]) * zoom,
-  ].map((value, axis) => Math.max(-limit[axis], Math.min(limit[axis], value)));
-  return { zoom, pan };
-}
-
-/** La pose de una capa en pantalla: escala, desplazamiento y la tasa que usó. */
-export function layerTransform(rate, camera, pointer = [0, 0], affirm = 0) {
-  const base = 1 + (camera.zoom - 1) * rate;
-  const scale = base * (1 + (DEPTH.affirmScale - 1) * affirm);
+export function cameraFor(index, nodes, group, width, height) {
+  if (index < 0) return { x: 0, y: 0, zoom: 1 };
+  const f = figureTransform(width, height);
+  const point = nodes[index].world;
+  const members = [...group];
+  const centre = members.reduce(
+    (sum, i) => sum.map((value, axis) => value + nodes[i].world[axis] / members.length),
+    [0, 0],
+  );
+  const aim = point.map((value, axis) => value * 0.65 + centre[axis] * 0.35);
   return {
-    rate,
-    scale,
-    tx: camera.pan[0] * rate + pointer[0] * rate,
-    ty: camera.pan[1] * rate + pointer[1] * rate,
+    x: width * (width <= 620 ? 0.56 : 0.75) - (f.x + aim[0] * f.scale) * FOCUS_ZOOM,
+    y: height * (width <= 620 ? 0.74 : 0.52) - (f.y + aim[1] * f.scale) * FOCUS_ZOOM,
+    zoom: FOCUS_ZOOM,
   };
 }
 
-/** Un punto del cuadro bajo una pose de capa: `C + (q − C)·escala + t`. */
-export function applyTransform(point, pose, width = CARD.width, height = CARD.height) {
-  const centre = [width / 2, height / 2];
-  return [
-    centre[0] + (point[0] - centre[0]) * pose.scale + pose.tx,
-    centre[1] + (point[1] - centre[1]) * pose.scale + pose.ty,
-  ];
+/**
+ * El destino de la cámara para un nodo, en el registro de la capa que responde
+ * entera (figura, tasa 1). Se divide la cámara por la tasa del plano del sujeto
+ * y se recorta para que NINGÚN nodo de NINGÚN plano salga del marco: la cámara
+ * puede afirmar un nodo, no llevarse los otros planos fuera de cuadro. Es
+ * `destination()` de v1.
+ */
+export function destination(index, nodes, group, width, height) {
+  const target = cameraFor(index, nodes, group, width, height);
+  if (index < 0) return target;
+  const f = figureTransform(width, height);
+  const rate = rateOf(nodes[index].plane);
+  const result = {
+    x: target.x / rate,
+    y: target.y / rate,
+    zoom: 1 + (target.zoom - 1) / rate,
+  };
+  // El marco, con 20 px de margen. v1 deja 100 px arriba y abajo porque su
+  // página tiene una barra: acá no hay barra y las figuras del catálogo son más
+  // altas que la de v1, así que esa cota haría el recorte imposible (lo > hi) y
+  // `destination` caería en su respaldo de centrar, que sí deja planos fuera.
+  // La regla que se conserva es la de v1: NINGÚN nodo de NINGÚN plano sale del
+  // marco.
+  const bounds = [[20, width - 20], [20, height - 20]];
+  for (const [axis, key] of ['x', 'y'].entries()) {
+    const origin = axis ? f.y : f.x;
+    let lo = -Infinity;
+    let hi = Infinity;
+    nodes.forEach((node) => {
+      const r = rateOf(node.plane);
+      const z = 1 + (result.zoom - 1) * r;
+      const projected = (origin + node.world[axis] * f.scale) * z;
+      lo = Math.max(lo, (bounds[axis][0] - projected) / r);
+      hi = Math.min(hi, (bounds[axis][1] - projected) / r);
+    });
+    result[key] = lo <= hi ? Math.max(lo, Math.min(hi, result[key])) : (lo + hi) / 2;
+  }
+  return result;
 }
 
-/** La pila con su Z, su escala y su desplazamiento de reposo. */
-export const REST_STACK = Object.freeze(STACK.map((entry) => {
-  const z = entryZ(entry);
-  const base = restOffsetPx(z);
-  const shift = entry.layer === 'figura' || entry.layer === 'núcleos' ? DEPTH.figureShiftPx : [0, 0];
-  return Object.freeze({
-    ...entry,
-    z,
-    scale: backgroundScale(entry),
-    offsetPx: [base[0] + shift[0], base[1] + shift[1]],
-    weight: restWeight(entry),
-    blurPx: restBlur(entry),
-    rate: layerRate(entry),
-  });
-}));
+/**
+ * La escalera de planos por distancia al plano del sujeto: el sujeto `focus`,
+ * el plano MÁS LEJANO `back` (el único que toma el desenfoque de 0,8 px) y el
+ * restante `middle`. Con dos planos restantes en un empate gana el más
+ * profundo, como en v1; por eso el desenfoque nunca cae en el plano cercano.
+ * @returns {Record<string,'focus'|'middle'|'back'>}
+ */
+export function treatmentsFor(focusPlane) {
+  const order = NODE_PLANES.map((name, index) => ({ name, index }));
+  const at = NODE_PLANES.indexOf(focusPlane);
+  const ladder = order
+    .filter((entry) => entry.name !== focusPlane)
+    .sort((a, b) => Math.abs(b.index - at) - Math.abs(a.index - at) || a.index - b.index);
+  const treatments = {};
+  for (const entry of order) {
+    treatments[entry.name] = entry.name === focusPlane ? 'focus'
+      : entry.name === ladder[0].name ? 'back' : 'middle';
+  }
+  return treatments;
+}
+
+/** El plano que toma el desenfoque: el más lejano del sujeto. */
+export const backPlaneOf = (focusPlane) => Object.entries(treatmentsFor(focusPlane))
+  .find(([, treatment]) => treatment === 'back')[0];
+
+/** El cuadrado de impacto de 26 CSS px, en unidades del mundo. Es el mismo
+ * blanco de v1: `13 / f.scale` de medio lado, o sea 26 px de lado en pantalla. */
+export function regionFor(index, nodes, f) {
+  const [x, y] = nodes[index].world;
+  const r = 13 / f.scale;
+  return `M${x - r} ${y - r}h${2 * r}v${2 * r}h${-2 * r}Z`;
+}
+
+/**
+ * La arista que recorre la señal: la primera del nodo enfocado y, sin nada
+ * enfocado, la última de la figura. Es la regla de v1 (`traceEdge`) sin su
+ * índice fijo 48, que nombraba una arista de SU figura: el catálogo tiene otra
+ * cantidad de enlaces y el mismo número no existe.
+ * @param {{from:number,to:number}[]} links @param {number} active
+ */
+export function traceEdgeOf(links, active) {
+  if (!links.length) return -1;
+  if (active < 0) return links.length - 1;
+  const at = links.findIndex((link) => link.from === active || link.to === active);
+  return at < 0 ? 0 : at;
+}
+
+/** El brillo de un nodo para su halo: una respiración por nodo con su fase. */
+export function glowFor(index, seconds) {
+  const p = wrap01(seconds / CYCLE_SECONDS + nodePhase(index));
+  const brightness = clamp01(0.5 - 0.5 * Math.cos(TAU * p));
+  return { brightness };
+}
