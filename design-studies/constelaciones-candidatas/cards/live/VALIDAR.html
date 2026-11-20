@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Validar — atmósfera y nudo</title>
+<meta name="robots" content="noindex">
+<style>
+  :root {
+    --bg:#10191C; --deep:#0A1114; --ink:#E4EEEA; --muted:#ACC3C1; --accent:#94CCBB;
+    --line: color-mix(in srgb, var(--accent) 22%, transparent);
+    --sans:'Archivo', system-ui, sans-serif; --mono:ui-monospace,'SF Mono',Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:400 17px/1.6 var(--sans);
+       padding:clamp(24px,5vw,64px) clamp(16px,5vw,64px) 120px}
+  .wrap{max-width:1120px;margin:0 auto}
+  .kicker{font:500 12px/1 var(--mono);text-transform:uppercase;letter-spacing:.18em;color:var(--accent);margin:0 0 16px}
+  h1{font-size:clamp(24px,3.4vw,36px);line-height:1.15;margin:0 0 10px;letter-spacing:-.02em}
+  h2{font-size:clamp(18px,2.2vw,22px);margin:52px 0 6px}
+  .lede{color:var(--muted);max-width:70ch;margin:0 0 22px}
+  .why{color:var(--muted);font-size:15.5px;margin:0 0 14px;max-width:76ch}
+  img{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:2px;background:var(--deep)}
+  .trio{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  @media (max-width:760px){.trio{grid-template-columns:1fr}}
+  a.live{color:var(--accent);text-decoration:none;font:500 15px/1.4 var(--mono)}
+  a.live:hover,a.live:focus-visible{text-decoration:underline}
+  .cta{display:inline-block;margin:0 12px 12px 0;padding:14px 20px;border:1px solid var(--line);
+       border-radius:2px;color:var(--ink);text-decoration:none;font:500 15px/1 var(--mono)}
+  .cta:hover,.cta:focus-visible{background:var(--surface,#182A30);border-color:var(--accent)}
+  dl{display:grid;grid-template-columns:max-content 1fr;gap:6px 18px;font-size:15px;margin:16px 0 0}
+  dt{color:var(--accent);font-family:var(--mono);font-size:13px}
+  dd{margin:0;color:var(--muted)}
+  .verdict{border-left:2px solid var(--accent);padding:12px 16px;margin:34px 0 0;background:var(--deep)}
+  .verdict p{margin:0 0 8px}.verdict p:last-child{margin:0}
+  footer{margin-top:56px;color:var(--muted);font-size:14px}
+  code{font:400 14px/1.4 var(--mono)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="kicker">Validar · 2026-11-05</p>
+  <h1>La atmósfera y el nudo</h1>
+  <p class="lede">Todo lo que hace falta para decidir, en un lugar. Primero la escena viva (interactúa), después
+  las comparaciones con la vara al mismo tamaño.</p>
+
+  <h2>1 · La escena viva</h2>
+  <p class="why">Hacé click en un nodo: la cámara se acerca, el plano del nodo se afirma y el lejano se desenfoca.
+  El puntero <strong>no</strong> mueve nada — sólo ilumina el nodo bajo el cursor, como en v1.</p>
+  <a class="cta" href="index.html">Abrir la escena →</a>
+  <a class="cta" href="index.html?frame=150">Congelada en el cuadro 150 (con el nudo)</a>
+  <a class="cta" href="index.html?frame=270">Congelada en el cuadro 270</a>
+
+  <h2>2 · El nudo: tres instantes del ciclo</h2>
+  <p class="why">La luz recorre el eje de la banda y deja estela. Estos son tres momentos distintos: el nudo
+  cambia de lugar. Antes de esta iteración el nudo no existía (el p95 era igual al máximo).</p>
+  <div class="trio">
+    <figure><img src="capturas/evento-instant-50.png" alt="nudo en el cuadro 50"></figure>
+    <figure><img src="capturas/evento-instant-150.png" alt="nudo en el cuadro 150"></figure>
+    <figure><img src="capturas/evento-instant-270.png" alt="nudo en el cuadro 270"></figure>
+  </div>
+
+  <h2>3 · El nudo de cerca, contra la vara</h2>
+  <p class="why">Recorte ampliado 2×. Arriba la vara, abajo lo nuestro en tres instantes. El contraste de tono ya
+  empata (1,307 contra 1,303); lo que se ve distinto es el <strong>grano</strong>: la vara está moteada y la
+  nuestra es una retícula pareja.</p>
+  <img src="capturas/evento-comparacion-2x.png" alt="comparación del nudo contra la vara">
+
+  <h2>4 · La nebulosa, lado a lado</h2>
+  <p class="why">Izquierda: lo nuestro. Derecha: la banda de la vara. Mismo tamaño, misma regla de medición.
+  Acá está la decisión: nuestra banda es más ancha y su cuerpo más brillante.</p>
+  <img src="capturas/nebulosa-comparacion-2x.png" alt="comparación de nebulosa contra la vara">
+
+  <h2>5 · Los números de la decisión</h2>
+  <dl>
+    <dt>Contraste de tono</dt><dd>nuestro 1,307 · vara 1,303 — <strong>empatado</strong></dd>
+    <dt>Nudo</dt><dd>un peldaño por encima del cuerpo, viaja 442 celdas sobre 61 posiciones</dd>
+    <dt>Huella de la banda</dt><dd>nuestra 27,7 % del cuadro · vara 14,8 %</dd>
+    <dt>Cuerpo de la banda</dt><dd>nuestro nivel 0,318 · vara 0,223</dd>
+    <dt>Causa medida</dt><dd>nuestro cielo es 2,5× más oscuro (1,72 % contra 4,28 % fuera de banda), así que el campo de 4–6 % obliga a un cuerpo más brillante</dd>
+    <dt>Lo que probé y no entró</dt><dd>angostar la banda: con el cuerpo de la vara el campo cae a 2,62 %, fuera de la banda aprobada</dd>
+    <dt>Luminancia del cuadro</dt><dd>4,04–4,34 % en todo el ciclo (banda 4–6 %)</dd>
+    <dt>Calma de la copia</dt><dd>0,0403–0,0457 (banda 0,040–0,047)</dd>
+  </dl>
+
+  <div class="verdict">
+    <p><strong>La decisión:</strong> ¿subo la luminancia del cielo para poder oscurecer y angostar la banda, o
+    acepto el cuerpo actual?</p>
+    <p>Lo primero acerca el grano moteado de v1 y cambia el fondo de la pieza. Lo segundo deja el nudo y el
+    contraste ya empatados, pero la banda se lee como retícula pareja.</p>
+  </div>
+
+  <h2>Las tarjetas estáticas</h2>
+  <p><a class="live" href="../index.html">Galería de las cuatro tarjetas →</a></p>
+
+  <footer>Servido desde la raíz del repo en 4403. Comparaciones generadas por
+  <code>nebula-compare.mjs</code> y <code>event-captures.mjs</code>; la escena por <code>live/</code>.</footer>
+</div>
+</body>
+</html>
