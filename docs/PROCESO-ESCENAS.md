@@ -73,10 +73,34 @@ y se leía plano.
 | Etapa | Estado | Dónde |
 |---|---|---|
 | 0-2 | Funcionando | `cards/data.mjs`, `cards/field.mjs` |
-| 3 · Isométrico | **Funcionando** (2026-11-05) | `cards/isometric.mjs`: pila de 8 planos, `(P+z)/P`, pose por plano, foco con la cámara de v1 |
+| 3 · Isométrico | **Aprobada por la dirección** (2026-11-05) | `cards/isometric.mjs`: pila de 8 planos, `(P+z)/P`, pose por plano, foco con la cámara de v1 |
 | 4-5 | Funcionando | `cards/field.mjs`, `link-behaviours.mjs` |
 | 6 | Funcionando | `cards/card.mjs` |
 | 7 | Funcionando | `scripts/checks/check-cards.mjs` (57 casos: reproducibilidad **por estado**, enfocado ≠ reposo por hash y por píxel) |
+
+
+## Estado de validación (2026-11-05)
+
+**Validado por la dirección:** el **efecto de desplazamiento e interacción** es el correcto. Al hacer click en un
+nodo la cámara se mueve, el plano del sujeto se afirma, los otros se atenúan y el más lejano se desenfoca; el
+puntero no mueve nada. Ese mecanismo queda **aprobado** y no se reabre.
+
+**Pendiente de validación completa:** el **material**. Estado al 2026-11-05:
+
+- **Grano: igualado.** La nebulosa se produce con `material()` del motor y su alfa es la **máscara de cobertura
+  del peldaño**, no una opacidad continua. Alfa de la hoja: **7 valores**, todos pertenecientes a la escalera de
+  celda 3. Cero celdas en el peldaño de cobertura total (eran 1 048 y formaban parches sólidos), cero celdas
+  pintadas sin atmósfera detrás (eran 5 193 porque el tono del cielo decidía el peldaño). 3 peldaños usados y
+  **6,1 %** de tinta contra **2 peldaños y 6,5 %** de la banda de la vara.
+- **Cobertura: NO igualada.** La vara es una **retícula casi continua** (98 % de las posiciones de la ventana
+  pintadas); la nuestra cubre ~17 % y se lee como bocanada dispersa. El campo de la nube vive en `washCloud`
+  (`scripts/scene-src/constellation.mjs`), o sea es una **decisión de modelo**, no del dither.
+
+Conclusión: el grano del dithering ya es el de v1; lo que falta es que la atmósfera sea una retícula llena y no
+una nube dispersa. La pieza se valida entera cuando eso esté.
+
+**Regla que sale de esto:** una etapa puede estar aprobada en su mecanismo y pendiente en su material. Se
+registran por separado; aprobar una no aprueba la otra.
 
 ## Log
 

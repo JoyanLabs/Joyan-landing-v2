@@ -8,7 +8,11 @@
  *
  *   CAPAS      el CIELO y el LAVADO son hojas horneadas por el motor (`bake.mjs`:
  *              celda 5 con sobremuestreo 1,6 y retícula 480 × 300 a celda 3
- *              transparente). La FIGURA es SVG vectorial —nodos + aristas— en
+ *              transparente). La nebulosa está hecha de puntos con la escalera
+ *              del motor: la amplitud del evento elige el peldaño y su alfa es
+ *              la máscara de ese peldaño, sin opacidad continua. Las dos hojas
+ *              llegan al canvas 1:1 y en un desplazamiento entero: el dither no
+ *              se remuestrea. La FIGURA es SVG vectorial —nodos + aristas— en
  *              `viewBox` 0 0 480 300; el motor no pinta ni un nodo.
  *   BLUR       el cielo enfocado está HORNEADO (blur 6 px + downsample ×2, una
  *              sola vez por rebuild); el lavado va sin blur; los planos de nodos
@@ -346,15 +350,20 @@ function nearest(event, fallback) {
 }
 
 function paintSky() {
-  const sw = width * 1.12;
-  const sh = height * 1.12;
-  skyCanvas.width = Math.ceil(sw);
-  skyCanvas.height = Math.ceil(sh);
+  const sw = Math.round(width * 1.12);
+  const sh = Math.round(height * 1.12);
+  skyCanvas.width = sw;
+  skyCanvas.height = sh;
   skyFocus.width = Math.ceil(sw / 2);
   skyFocus.height = Math.ceil(sh / 2);
-  // Sólo se recorta el sobremuestreo que no se usa, conservando las coordenadas
-  // del mundo de la hoja.
-  skyCtx.drawImage(skySheet, -width * 0.24, -height * 0.24, width * 1.6, height * 1.6);
+  // LA LÁMINA LLEGA 1:1 Y EN UN DESPLAZAMIENTO ENTERO. Con un destino fraccionario
+  // —o con el ancho del sobremuestreo redondeado a otro entero— el navegador
+  // remuestrea los 1 440 × 900 px de la hoja y el dither del motor queda
+  // suavizado: los puntos pierden su peldaño y el cielo lee como un degradé. Se
+  // recorta el sobremuestreo que no se usa conservando la escala de la lámina.
+  const cropX = Math.round(width * 0.24);
+  const cropY = Math.round(height * 0.24);
+  skyCtx.drawImage(skySheet, -cropX, -cropY);
   // Desenfoque a resolución completa ANTES del downsample: sin él, el kernel
   // fraccionario aliase y el foco se ve en bloques. El scratch no se compone.
   const blurred = document.createElement('canvas');
@@ -363,7 +372,7 @@ function paintSky() {
   const c = blurred.getContext('2d');
   c.filter = 'blur(6px)';
   c.drawImage(skySheet, 0, 0);
-  skyFocusCtx.drawImage(blurred, width * 0.24, height * 0.24, sw, sh, 0, 0, skyFocus.width, skyFocus.height);
+  skyFocusCtx.drawImage(blurred, cropX, cropY, sw, sh, 0, 0, skyFocus.width, skyFocus.height);
   // Fuerza el raster diferido de Canvas 2D dentro de la medición del horneado.
   skyFocusCtx.getImageData(0, 0, 1, 1);
 }

@@ -7,7 +7,7 @@
  * nombres: abre la página en Chromium, mueve el puntero, hace clic, mueve la
  * cámara y mide lo que quedó pintado, animado y horneado.
  *
- * LOS SIETE CASOS QUE PUEDEN FALLAR (a–g):
+ * LOS ONCE CASOS QUE PUEDEN FALLAR (a–k):
  *
  *   a) LAS LÁMINAS SON HORNEADAS Y LA FIGURA ES SVG
  *      el cielo y el lavado son hojas que el motor hornea: el mismo sha256 en
@@ -33,6 +33,20 @@
  *   g) EL CLIC CAMBIA LA COMPOSICIÓN
  *      diferencia de píxeles mínima al enfocar, y el plano lejano PIERDE
  *      nitidez (misma cámara, mismo nodo: sólo cambia su tratamiento).
+ *   h) EL ALFA DEL LAVADO ES DISCRETO
+ *      la lámina, la emisión viva y el canvas dan pocos valores de alfa, y TODOS
+ *      son los de la escalera de cobertura del motor: la nebulosa no se pinta
+ *      con una opacidad continua (eso sería un degradé con otra cara).
+ *   i) LA NEBULOSA ESTÁ HECHA DE CELDAS
+ *      cada celda es UNA máscara de la escalera —ninguna tiene gradiente adentro—
+ *      ninguna llega al peldaño de cobertura total (eso es una mancha, no un
+ *      punto) y ninguna se pinta sin atmósfera.
+ *   j) LA NEBULOSA CONTRA LA VARA
+ *      las dos se hornean con la misma llamada del motor y se miden en la MISMA
+ *      ventana de 240 × 160 px: peldaños usados y fracción de tinta.
+ *   k) LAS LÁMINAS LLEGAN AL CANVAS SIN REMUESTREO
+ *      el canvas es la lámina, píxel por píxel: si el dibujo se escalara o
+ *      cayera en una fracción de píxel, el dither del motor quedaría suavizado.
  *
  * Uso, desde la raíz del repo:
  *   timeout 180 node scripts/checks/check-cards-live.mjs
@@ -49,6 +63,14 @@ import { extname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '/home/joshrm/.cache/joyan-motion/node_modules/playwright/index.mjs';
 import sharp from 'sharp';
+import { CARD, constellationFor } from '../../design-studies/constelaciones-candidatas/cards/data.mjs';
+import { BAKE, bakeLayers, dynamicWash, stillIndex } from '../../design-studies/constelaciones-candidatas/cards/live/bake.mjs';
+import { stillSeconds } from '../../design-studies/constelaciones-candidatas/cards/live/depth.mjs';
+import {
+  SKY_CROP, WINDOW, densestWindow, grainOf, varaSheets,
+} from '../../design-studies/constelaciones-candidatas/cards/live/nebula-compare.mjs';
+import { constellationLayers } from '../../scripts/scene-src/constellation.mjs';
+import { rasterize as rasterizeCell, sceneMetrics } from '../../scripts/scene-src/engine.mjs';
 
 const ROOT = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const LIVE = 'design-studies/constelaciones-candidatas/cards/live';
@@ -193,6 +215,104 @@ const sharpness = (image) => {
   }
   const mean = count ? sum / count : 0;
   return { variance: count ? sum2 / count - mean * mean : 0, pixels: count };
+};
+
+// ----------------------------------------------------------- el grano del motor
+/**
+ * Las máscaras de cobertura de la escalera a una celda dada. Es el ÚNICO
+ * conjunto de valores que puede tomar el alfa de una celda si su cobertura sale
+ * del peldaño del dither; cualquier otro valor es una opacidad continua.
+ */
+const ladderMasks = (cell) => {
+  const scene = { palette: ['#000000', '#ffffff'], ground: 0 };
+  const metrics = sceneMetrics(scene);
+  return metrics.coverage.map((_, step) => {
+    const pixels = rasterizeCell(
+      { cols: 1, rows: 1, steps: Uint8Array.of(step), indices: Uint8Array.of(1) },
+      scene,
+      cell,
+    );
+    return [...Array(cell * cell)].map((unused, at) => pixels[at * 4]);
+  });
+};
+
+/**
+ * Lo que una lámina del lavado dice de su propio grano: los valores de alfa que
+ * usa, si cada celda pintada es UNA máscara de la escalera (desvío máximo 0 =
+ * ningún gradiente adentro de la celda), cuántas llegan al peldaño de cobertura
+ * total (una mancha, no un punto) y el histograma de peldaños.
+ */
+const sheetGrain = (sheet, cell) => {
+  const masks = ladderMasks(cell);
+  const alphas = new Set();
+  for (let at = 3; at < sheet.pixels.length; at += 4) alphas.add(sheet.pixels[at]);
+  // Sin los peldaños de la lámina no se puede decir si cada celda es una máscara:
+  // se informa, y el caso falla en vez de dar por bueno lo que no se midió.
+  if (!sheet.steps) {
+    return { alphas: [...alphas].sort((a, b) => a - b), steps: false, cells: 0, mismatched: 0, full: 0, spread: 0, rungs: [] };
+  }
+  const cols = sheet.width / cell;
+  const rungs = new Map();
+  let cells = 0;
+  let mismatched = 0;
+  let full = 0;
+  let spread = 0;
+  for (let y = 0; y < sheet.height / cell; y++) {
+    for (let x = 0; x < cols; x++) {
+      const step = sheet.steps[y * cols + x];
+      const profile = [];
+      for (let yy = 0; yy < cell; yy++) {
+        for (let xx = 0; xx < cell; xx++) {
+          profile.push(sheet.pixels[((y * cell + yy) * sheet.width + x * cell + xx) * 4 + 3]);
+        }
+      }
+      if (!step) {
+        if (profile.some((value) => value !== 0)) mismatched += 1;
+        continue;
+      }
+      cells += 1;
+      rungs.set(step, (rungs.get(step) ?? 0) + 1);
+      if (step === masks.length - 1) full += 1;
+      const error = Math.max(...profile.map((value, at) => Math.abs(value - masks[step][at])));
+      if (error > spread) spread = error;
+      if (error !== 0) mismatched += 1;
+    }
+  }
+  return {
+    alphas: [...alphas].sort((a, b) => a - b),
+    steps: true,
+    cells,
+    mismatched,
+    full,
+    spread,
+    rungs: [...rungs.entries()].sort((a, b) => a[0] - b[0]),
+  };
+};
+
+/**
+ * Compara lo que quedó en un canvas con la lámina que el motor horneó: si el
+ * dibujo se hubiera escalado, o su destino hubiera caído en una fracción de
+ * píxel, el navegador remuestrea la lámina y los píxeles no coinciden.
+ */
+const blitError = (sheet, origin, data, width, height, tolerance) => {
+  let mismatch = 0;
+  let alpha = 0;
+  let colour = 0;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const at = ((y + origin[1]) * sheet.width + (x + origin[0])) * 4;
+      const got = (y * width + x) * 4;
+      const alphaGap = Math.abs(sheet.pixels[at + 3] - data[got + 3]);
+      // Un píxel con alfa 0 no lleva color: la lámina guarda la tinta igual y el
+      // canvas la premultiplica a 0. Se compara el color sólo donde hay tinta.
+      const colourGap = sheet.pixels[at + 3] === 0 ? 0
+        : Math.max(...[0, 1, 2].map((k) => Math.abs(sheet.pixels[at + k] - data[got + k])));
+      if (alphaGap > alpha) alpha = alphaGap;
+      if (colourGap > colour) colour = colourGap;
+      if (alphaGap > 0 || colourGap > tolerance) mismatch += 1;
+    }
+  }
+  return { mismatch, alpha, colour, pixels: width * height };
 };
 
 const settle = (page, frames = 2) => page.evaluate((n) => new Promise((done) => {
@@ -702,6 +822,96 @@ try {
   report.click = { diff: clickDiff.changed, blurDrop };
   await closePage(clickPage);
 
+  // ----------------------------------------------- h / i el grano de la nebulosa
+  // La nebulosa NO puede ser un degradé. Cada celda es UN punto de la escalera
+  // del motor: la amplitud del evento decide el peldaño y el alfa es la máscara
+  // de ESE peldaño. Se mide en la lámina horneada, en la emisión viva y en los
+  // píxeles que quedan en el canvas; y se compara con la nebulosa de v1.
+  const catalogue = constellationFor(PRIMARY).constellation;
+  const baked = bakeLayers(catalogue, { width: CARD.width, height: CARD.height });
+  const bakedGrain = sheetGrain(baked.wash, BAKE.washCell);
+  const ladder = new Set(ladderMasks(BAKE.washCell).flat());
+  const fromLadder = (values) => values.every((value) => ladder.has(value));
+  const liveWash = dynamicWash(catalogue, { cols: 480, rows: 300, cell: BAKE.washCell });
+  liveWash.update(stillSeconds(), false);
+  const liveGrain = sheetGrain(liveWash, BAKE.washCell);
+  // La hoja pinta atmósfera: ningún peldaño sin nebulosa detrás (si lo hubiera,
+  // el tono no saldría de la amplitud del evento sino de otra capa).
+  const model = constellationLayers(catalogue, { cols: 480, rows: 300, index: stillIndex(catalogue) });
+  let orphans = 0;
+  for (let cell = 0; cell < baked.wash.steps.length; cell++) {
+    if (baked.wash.steps[cell] && !(model.wash[cell] > 0)) orphans += 1;
+  }
+
+  // Las dos nebulosas en la MISMA ventana: la del lavado de la pieza (que cae en
+  // las coordenadas del cuadro) y la banda de v1, que vive en su cielo.
+  const vara = varaSheets();
+  const oursBox = densestWindow(baked.wash);
+  const bandBox = densestWindow(vara.sky, 0);
+  const ours = grainOf(baked.wash, BAKE.washCell, oursBox);
+  const varaBand = grainOf(vara.sky, 5, bandBox);
+  const varaWash = grainOf(vara.wash, 3, densestWindow(vara.wash));
+
+  const painted = await openPage(browser);
+  const canvas = await painted.page.evaluate((box) => {
+    const data = (id, x, y, w, h) => [...document.getElementById(id).getContext('2d').getImageData(x, y, w, h).data];
+    const wash = document.getElementById('wash');
+    const all = wash.getContext('2d').getImageData(0, 0, wash.width, wash.height).data;
+    const alphas = new Set();
+    for (let at = 3; at < all.length; at += 4) alphas.add(all[at]);
+    return {
+      washAlphas: [...alphas].sort((a, b) => a - b),
+      wash: data('wash', box.wash[0], box.wash[1], box.width, box.height),
+      sky: data('sky', box.sky[0], box.sky[1], box.width, box.height),
+      size: [wash.width, wash.height],
+    };
+  }, { width: WINDOW.width, height: WINDOW.height, wash: [oursBox.left + 8, oursBox.top + 8], sky: [900, 100] });
+
+  check('h', 'el alfa del lavado es discreto: sale de la escalera, no de una opacidad continua',
+    bakedGrain.alphas.length <= 12 && fromLadder(bakedGrain.alphas)
+    && liveGrain.alphas.length <= 12 && fromLadder(liveGrain.alphas)
+    && canvas.washAlphas.length <= 12 && fromLadder(canvas.washAlphas),
+    `hoja ${bakedGrain.alphas.join(',')} (${bakedGrain.alphas.length} valores) · emisión viva `
+    + `${liveGrain.alphas.join(',')} · canvas ${canvas.washAlphas.join(',')} · escalera de celda ${BAKE.washCell}: `
+    + `${[...ladder].sort((a, b) => a - b).join(',')}`);
+
+  check('i', 'la nebulosa está hecha de celdas: una máscara por celda, ninguna mancha sólida',
+    bakedGrain.steps === true && liveGrain.steps === true
+    && bakedGrain.mismatched === 0 && liveGrain.mismatched === 0
+    && bakedGrain.full === 0 && liveGrain.full === 0 && orphans === 0,
+    `${bakedGrain.steps && liveGrain.steps ? '' : 'la lámina no expone sus peldaños · '}`
+    + `${bakedGrain.cells} celdas pintadas (${liveGrain.cells} en la emisión viva) · `
+    + `${bakedGrain.mismatched + liveGrain.mismatched} perfiles fuera de su máscara (desvío máximo `
+    + `${bakedGrain.spread}/${liveGrain.spread}) · ${bakedGrain.full + liveGrain.full} celdas en el peldaño de `
+    + `cobertura total · ${orphans} celdas pintadas sin atmósfera · peldaños `
+    + `${bakedGrain.rungs.map(([step, many]) => `${step}:${many}`).join(' ')}`);
+
+  // ------------------------------------------------- j la nebulosa contra la vara
+  check('j', 'la nebulosa usa la escalera igual que la vara (misma ventana de 240 × 160 px)',
+    ours.rungs.length >= 2 && ours.rungs.length <= ladderMasks(BAKE.washCell).length - 2
+    && varaBand.rungs.length >= 1 && ours.ink > 0 && varaBand.ink > 0,
+    `nuestra nebulosa: ${ours.rungs.length} peldaños (${ours.rungs.join('/')}) y `
+    + `${num(ours.ink * 100, 1)} % de tinta de alfa · la banda de v1: ${varaBand.rungs.length} peldaños `
+    + `(${varaBand.rungs.join('/')}) y ${num(varaBand.ink * 100, 1)} % de tinta sobre su ground · `
+    + `el lavado de v1 en su propia ventana: ${varaWash.rungs.length} peldaños y `
+    + `${num(varaWash.ink * 100, 2)} % (${WINDOW.width} × ${WINDOW.height} px, ×2 en `
+    + `\`capturas/nebulosa-comparacion-2x.png\`)`);
+  report.nebula = { ours, vara: varaBand, varaWash };
+
+  // -------------------------------------- k las láminas llegan 1:1 al canvas
+  // El canvas del lavado dibuja la lámina con 8 px de guarda; el del cielo, desde
+  // el recorte del sobremuestreo. Si el destino se escalara o cayera en una
+  // fracción de píxel, el motor quedaría suavizado en pantalla.
+  const washBlit = blitError(baked.wash, [oursBox.left, oursBox.top], canvas.wash, WINDOW.width, WINDOW.height, 6);
+  const skyBlit = blitError(baked.sky, [900 + SKY_CROP[0], 100 + SKY_CROP[1]], canvas.sky, WINDOW.width, WINDOW.height, 0);
+  check('k', 'las láminas llegan al canvas sin remuestreo (el dither se ve)',
+    washBlit.mismatch === 0 && washBlit.alpha === 0 && skyBlit.mismatch === 0,
+    `lavado ${washBlit.pixels - washBlit.mismatch}/${washBlit.pixels} px idénticos a la lámina `
+    + `(alfa ±${washBlit.alpha}, color ±${washBlit.colour}) · cielo `
+    + `${skyBlit.pixels - skyBlit.mismatch}/${skyBlit.pixels} px idénticos (color ±${skyBlit.colour}) · `
+    + `canvas del lavado ${canvas.size[0]}×${canvas.size[1]} px`);
+  await closePage(painted);
+
   // ------------------------------------------------------------- apoyo
   // La emisión de reposo: 12 Hz declarados (83,3 ms) en un worker, y la cámara
   // quieta. Se mide sobre la escena viva (sin `still`): la emisión avanza y la
@@ -760,7 +970,10 @@ try {
     + `(c) ${(report.pointer?.outside * 100).toFixed(4)} % fuera de los nodos · `
     + `(d) error de curva ${report.optics?.focusOpacityError.toExponential(2)} · `
     + `(e) ${num(report.return?.after, 0)} ms / Escape ${report.return?.escapeMs} ms · `
-    + `(g) ${(report.click?.diff * 100).toFixed(1)} % de píxeles y ${(report.click?.blurDrop * 100).toFixed(0)} % de nitidez menos`);
+    + `(g) ${(report.click?.diff * 100).toFixed(1)} % de píxeles y ${(report.click?.blurDrop * 100).toFixed(0)} % de nitidez menos · `
+    + `(h) alfa discreto · (i) nebulosa de celdas · (j) ${report.nebula?.ours.rungs.length} peldaños y `
+    + `${num((report.nebula?.ours.ink ?? 0) * 100, 1)} % de tinta contra ${report.nebula?.vara.rungs.length} peldaños y `
+    + `${num((report.nebula?.vara.ink ?? 0) * 100, 1)} % de la vara`);
 } catch (error) {
   check('·', 'la escena completa', false, String(error?.stack ?? error).split('\n').slice(0, 4).join(' · ').slice(0, 800));
 } finally {
