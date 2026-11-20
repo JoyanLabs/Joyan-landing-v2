@@ -37,14 +37,17 @@
  *   REDUCIDO   sin rAF, sin worker, sin transiciones: el estado final aplicado
  *              de una vez y el still en el cuadro 100 de 720.
  *   ESTÁTICO   `?still=1` congela el reloj en el instante de la pieza (cuadro
- *              100): dos procesos separados producen el mismo PNG.
+ *              100) y `?still=1&frame=<n>` en el cuadro `n` del ciclo de la
+ *              constelación: dos procesos separados producen el mismo PNG, y tres
+ *              capturas con `frame` distinto muestran tres instantes del mismo
+ *              loop (el nudo de la banda viaja).
  *
  * `window.__live` expone lo que el chequeo MIDE —láminas y sus hashes, matrices,
  * filtros, keyframes, fase y estado— en vez de pedirle que crea en esta prosa.
  */
 
 import { CARD, constellationFor, firstCatalogueId, validateCard } from '../data.mjs';
-import { BAKE, bakeLayers } from './bake.mjs';
+import { BAKE, bakeLayers, dynamicWash } from './bake.mjs';
 import {
   CYCLE_SECONDS, EMISSION_MS, FOCUS_ZOOM, FRAMES, NODE_PLANES, NODE_RATES, PARALLAX, RETURN_MS,
   STILL_FRAME, TRANSITION_MS, backPlaneOf, destination, ease, figureTransform, glowFor,
@@ -104,6 +107,25 @@ const INK = '#E7F2EC';
 const INK_RGB = [0xe7, 0xf2, 0xec];
 /** El instante de la pieza, en el registro de v1. */
 const clockStart = (STILL_FRAME / FRAMES) * LINK_CYCLE_MS;
+/**
+ * EL INSTANTE CONGELADO se puede pedir: `?still=1&frame=<cuadro del ciclo de la
+ * constelación>`. Sin el parámetro es el de la pieza (cuadro 100 de 720), el de
+ * siempre; con él, la página dibuja ese cuadro del loop, que es lo que permite
+ * capturar TRES instantes distintos del mismo ciclo —el nudo de la banda se
+ * mueve, y una sola captura no lo puede mostrar—. El índice del modelo es
+ * `round(wrap01(segundos / CYCLE_SECONDS) * cycle.frames)`, así que el reloj que
+ * le corresponde a un cuadro se despeja de ahí y no se adivina.
+ */
+const frameParam = params.get('frame');
+const cycleFrames = data.constellation.cycle.frames;
+if (frameParam !== null) {
+  const asked = Number(frameParam);
+  if (!Number.isInteger(asked) || asked < 0 || asked >= cycleFrames) {
+    throw new Error(`frame tiene que ser un cuadro del ciclo (0..${cycleFrames - 1}): ${frameParam}`);
+  }
+}
+const frozenFrame = frameParam === null ? null : Number(frameParam);
+const frozenClock = frozenFrame === null ? null : (frozenFrame / cycleFrames) * CYCLE_SECONDS * 1000;
 const clamp01 = (value) => (value < 0 ? 0 : value > 1 ? 1 : value);
 const lerp = (a, b, t) => a + (b - a) * t;
 const f2 = (value) => value.toFixed(2);
@@ -144,6 +166,18 @@ const sheet = (source) => {
 const skySheet = sheet(leaves.sky);
 const washSheet = sheet(leaves.wash);
 const focusedSheet = sheet(leaves.focusedWash);
+/** La lámina del cuadro PEDIDO (`?frame=`): la atmósfera se hornea en ese
+ * instante con la MISMA emisión que usa el worker (`dynamicWash`), así el cuadro
+ * congelado enseña el instante que se pidió y no el de la pieza. Sin `frame` no
+ * existe y todo queda como estaba. */
+const frozenSheet = (() => {
+  if (frozenClock === null) return null;
+  const emission = dynamicWash(data.constellation, {
+    cols: BAKE.washGrid[0], rows: BAKE.washGrid[1], cell: BAKE.washCell,
+  });
+  emission.update(frozenClock / 1000);
+  return sheet(emission);
+})();
 
 // ------------------------------------------------------------------- el DOM
 const stage = document.getElementById('stage');
@@ -288,7 +322,7 @@ let paused = false;
 let ready = false;
 let hovered = -1;
 let lastTime = null;
-let clock = clockStart;
+let clock = frozenClock === null ? clockStart : frozenClock;
 let lastEmission = 0;
 let animations = [];
 let related = new Set();
@@ -377,7 +411,7 @@ function paintSky() {
   skyFocusCtx.getImageData(0, 0, 1, 1);
 }
 
-function paintWash(source = active < 0 ? washSheet : focusedSheet) {
+function paintWash(source = frozenSheet ?? (active < 0 ? washSheet : focusedSheet)) {
   // Una subida, un dibujo. Sin intermedios del tamaño del cuadro ni blur vivo.
   washCtx.clearRect(0, 0, washCanvas.width, washCanvas.height);
   washCtx.drawImage(source, 8, 8, WORLD[0] * f.scale, WORLD[1] * f.scale);
@@ -693,7 +727,7 @@ function seekFocus(index, p = 0.5) {
   stage.dataset.focused = 'true';
   skyFocus.style.opacity = String(0.5 * e);
   washCanvas.style.opacity = String(1 - 0.06 * e);
-  paintWash(e > 0.02 ? focusedSheet : washSheet);
+  paintWash(frozenSheet ?? (e > 0.02 ? focusedSheet : washSheet));
   paint();
 }
 
@@ -715,7 +749,7 @@ function rebuild() {
   vignetteCtx.putImageData(new ImageData(leaves.vignette.pixels, leaves.vignette.width, leaves.vignette.height), 0, 0);
   targets.forEach((target, index) => target.setAttribute('d', regionFor(index, nodes, f)));
   ready = true;
-  clock = clockStart;
+  clock = frozenClock === null ? clockStart : frozenClock;
   lastEmission = 0;
   stage.dataset.focused = 'false';
   stage.dataset.instant = String(reduced || still);

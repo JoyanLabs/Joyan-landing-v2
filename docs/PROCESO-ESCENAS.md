@@ -97,8 +97,16 @@ puntero no mueve nada. Ese mecanismo queda **aprobado** y no se reabre.
   **0,997 dentro de la banda** y **0,089 fuera** (la vara: 0,910 / 0,243). La celda del lavado pasó a **5** sobre
   **288×180** (= 1440×900 dibujado 1:1), porque a celda 3 el peldaño más chico leía como cruz y a celda 5 lee
   redondo, como la vara. Peldaños usados: 2 en ambos; tinta compuesta 6,4 % contra 7,0 %.
-- **Lo que falta ahora es contraste, no cobertura:** nuestra banda es más pareja y más apagada que la de la vara,
-  que tiene un nudo más brillante en el centro.
+- **El nudo: conseguido.** Se implementó como en la vara, con un **evento luminoso** (`BAND_EVENT`): una luz que
+  recorre el eje de la propia banda en un camino cerrado, con la estela de la vara (`tau` 0,70 s) y envolvente
+  que vale exactamente cero en los dos extremos del ciclo. Medido: el nudo está **un peldaño por encima del
+  cuerpo**, viaja (442 celdas de recorrido, 61 posiciones) y el contraste de tono queda en **1,307 contra 1,303**
+  de la vara (+0,2 %). Luminancia del cuadro 4,04–4,34 % y calma 0,0403–0,0457 en todo el ciclo.
+- **Lo que sigue distinto, y por qué:** la **huella** de nuestra banda es 27,7 % del cuadro contra 14,8 % de la
+  vara, y su **cuerpo** está en nivel 0,318 contra 0,223. La causa está medida y no es el dither: **nuestro cielo
+  es 2,5× más oscuro que el de la vara** (1,72 % contra 4,28 % fuera de su banda), así que el campo de 4–6 %
+  obliga a que el cuerpo sea el doble. Angostar la banda se probó y no entra: con cuerpo de la vara el campo cae
+  a 2,62 %. **Decisión pendiente:** subir la luminancia del cielo, o aceptar el cuerpo actual.
 
 **Umbrales rebasados (y por qué).** El chequeo de las tarjetas medía «alfombra» como cobertura bruta (3–25 % de
 celdas con tinta) y eso confundía una **banda densa** con un campo parejo: estaba defendiendo la nube dispersa.

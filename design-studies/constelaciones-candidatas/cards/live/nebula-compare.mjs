@@ -15,6 +15,11 @@
  * la nuestra, luma en la banda de v1, que es opaca— y la tinta RENDERIZADA de las
  * dos ventanas compuestas, que es la única comparable entre las dos.
  *
+ * `varaBandTone` y `ourBandTone` agregan la distribución de TONO de cada banda
+ * —mediana, p95, máximo y su contraste— y la tinta que cada peldaño pinta de
+ * verdad celda por celda: el primer instrumento dice cuánto sube el pico, el
+ * segundo cuánto cubre el punto, y los dos se comparan contra los de la vara.
+ *
  *   izq  nuestra nebulosa (capa de lavado + cielo, sobre el ground de la tarjeta)
  *   der  la nebulosa de v1 (su cielo + su lavado, sobre el ground de v1)
  *
@@ -31,7 +36,11 @@ import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 import { EMISSIONS, HERO_BASES, emissionPlanes, material as varaMaterial } from '../../../v1/hero-field.mjs';
 import { CARD, constellationFor, firstCatalogueId } from '../data.mjs';
-import { BAKE, bakeLayers } from './bake.mjs';
+import { constellationLayers, constellationScene, paletteTone, washRegion } from '../../../../scripts/scene-src/constellation.mjs';
+import {
+  compensate, hexToRgb, luma, rampLadder, sceneMetrics, stepFor, tone,
+} from '../../../../scripts/scene-src/engine.mjs';
+import { BAKE, bakeLayers, stillIndex } from './bake.mjs';
 
 const here = resolve(fileURLToPath(new URL('.', import.meta.url)));
 const OUT = resolve(here, 'capturas');
@@ -148,22 +157,22 @@ export function grainOf(sheet, cell, box) {
 }
 
 /**
- * CUÁNTO PINTA LA VARA SU PROPIA BANDA. Su atmósfera no está declarada como una
- * capa aparte: es el tono de la emisión, que `bake()` convierte en peldaño. La
- * región se mide con ese tono, al mismo corte que la nuestra —la mitad de su
- * propio pico—, y la cobertura es la fracción de esas posiciones que la lámina
- * del cielo pinta (`steps > 0`). Así las dos cifras hablan del mismo objeto: la
- * banda de atmósfera, no el cuadro entero.
+ * LA BANDA DE v1 COMO DATO — su atmósfera no está declarada como una capa
+ * aparte: es el TONO de la emisión, el que `bake()` convierte en peldaño. Esta
+ * función devuelve, en las celdas de la ventana visible, ese tono y el pico de
+ * la banda, que es contra lo que se corta su región (al mismo corte que la
+ * nuestra: la mitad de su propio pico). Una sola lectura para la cobertura y
+ * para la distribución de tono, así las dos cifras hablan del mismo objeto.
  * @param {number} [share] el corte de la región, en fracción del pico
  */
-export function varaCoverage(share = 0.5) {
+export function varaBand(share = 0.5) {
   const ground = 'dark';
   const emission = EMISSIONS[ground];
   const cell = 5;
   const cols = Math.ceil(CARD.width * 1.6 / cell);
   const rows = Math.ceil(CARD.height * 1.6 / cell);
-  const sky = varaMaterial(ground, cols, rows, cell,
-    (x, y) => emission.baseTone((x / cols * 1.6 - 0.3) * 480, (y / rows * 1.6 - 0.3) * 300));
+  const sample = (x, y) => emission.baseTone((x / cols * 1.6 - 0.3) * 480, (y / rows * 1.6 - 0.3) * 300);
+  const sky = varaMaterial(ground, cols, rows, cell, sample);
   // La ventana visible del cuadro: el cielo se dibuja 1:1 desde el recorte del
   // sobremuestreo, así que sus píxeles visibles son los del marco.
   const left = Math.round(CARD.width * 0.24);
@@ -175,11 +184,24 @@ export function varaCoverage(share = 0.5) {
   for (let y = Math.ceil(top / cell); y < Math.floor(bottom / cell) + 1; y++) {
     for (let x = Math.ceil(left / cell); x < Math.floor(right / cell) + 1; x++) {
       if (y >= rows || x >= cols) continue;
-      const value = emission.baseTone((x / cols * 1.6 - 0.3) * 480, (y / rows * 1.6 - 0.3) * 300);
+      const value = sample(x, y);
       cells.push({ at: y * cols + x, value });
       if (value > peak) peak = value;
     }
   }
+  return { cell, cols, rows, sky, cells, peak, share };
+}
+
+/**
+ * CUÁNTO PINTA LA VARA SU PROPIA BANDA. La región se mide con ese tono, al mismo
+ * corte que la nuestra —la mitad de su propio pico—, y la cobertura es la
+ * fracción de esas posiciones que la lámina del cielo pinta (`steps > 0`). Así
+ * las dos cifras hablan del mismo objeto: la banda de atmósfera, no el cuadro
+ * entero.
+ * @param {number} [share] el corte de la región, en fracción del pico
+ */
+export function varaCoverage(share = 0.5) {
+  const { cell, sky, cells, peak } = varaBand(share);
   let inside = 0;
   let inked = 0;
   let outside = 0;
@@ -202,6 +224,202 @@ export function varaCoverage(share = 0.5) {
     outside: outside ? outed / outside : 0,
     cells: inside,
     outsideCells: outside,
+  };
+}
+
+/**
+ * LA DISTRIBUCIÓN DE UN TONO: mediana, p95, máximo y contraste (p95 / mediana).
+ * Es la forma en que el pedido pide comparar la banda propia con la de la vara:
+ * un número por cada lado, y el máximo como tope (no pasarse). El contraste se
+ * informa como infinito si la mediana es 0: una banda que es toda agujero no
+ * tiene contraste, no lo tiene perfecto.
+ * @param {Iterable<number>} values
+ */
+export function toneStats(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  if (!sorted.length) return { count: 0, median: 0, p95: 0, max: 0, contrast: 0, mean: 0 };
+  const at = (share) => sorted[Math.min(sorted.length - 1, Math.floor(share * (sorted.length - 1) + 0.5))];
+  const median = at(0.5);
+  const p95 = at(0.95);
+  return {
+    count: sorted.length,
+    median,
+    p95,
+    max: sorted[sorted.length - 1],
+    contrast: median > 0 ? p95 / median : Infinity,
+    mean: sorted.reduce((sum, value) => sum + value, 0) / sorted.length,
+  };
+}
+
+/**
+ * EL NIVEL DE UN TONO — el instrumento con el que el pedido nombra el cuerpo y el
+ * nudo de la vara (cuerpo 0,223, nudo 0,587). Es la posición del color en el
+ * rango de SU PROPIA paleta, que es exactamente lo que el motor convierte en
+ * peldaño (`level`, el número que entra a `stepFor`), y por eso es el único
+ * número que se puede comparar entre dos paletas distintas: el tono crudo de la
+ * vara y el nuestro viven en rampas distintas (su ground tiene luma 0,0395 y el
+ * nuestro 0,0143), así que el mismo TONO pinta casi el doble de luz en una que
+ * en la otra; el mismo NIVEL ocupa el mismo lugar en la rampa y elige el mismo
+ * tipo de punto.
+ *
+ * `rung` es el peldaño que ese nivel ocupa en la escalera de cobertura del motor
+ * (el tramo entre dos rungs consecutivos), que es lo que "un peldaño por encima"
+ * quiere decir: 0 es el punto más chico y 3 el más grande antes de la cobertura
+ * total.
+ * @param {Iterable<number>} values
+ */
+export function levelStats(values) {
+  const ladder = rampLadder();
+  const rungOf = (level) => {
+    let rung = 0;
+    for (let i = 0; i < ladder.length; i++) if (level >= ladder[i]) rung = i;
+    return rung;
+  };
+  const stats = toneStats(values);
+  return {
+    ...stats,
+    bodyRung: rungOf(stats.median),
+    knotRung: rungOf(stats.max),
+    rungGap: rungOf(stats.max) - rungOf(stats.median),
+  };
+}
+
+/** El nivel de un tono en la paleta de una escena: (luma − ground) / span, la
+ * normalización que `material()` y el motor aplican antes de elegir peldaño. */
+function levelIn(groundLuma, span, rgb) {
+  const level = span > 0 ? (luma(rgb[0], rgb[1], rgb[2]) - groundLuma) / span : 0;
+  return level < 0 ? 0 : level > 1 ? 1 : level;
+}
+
+/**
+ * EL CUERPO Y EL NUDO DE LA VARA, en niveles. La vara no declara un cuerpo ni un
+ * nudo: se leen de la distribución de su propia banda —el cuerpo es la mediana y
+ * el nudo el máximo—, medidos en la región al 50 % de su pico, que es la misma
+ * regla que se le aplica a la nuestra.
+ * @param {number} [share] el corte de la región, en fracción del pico
+ */
+export function varaBandLevels(share = 0.5) {
+  const { sky, cells, peak } = varaBand(share);
+  const emission = EMISSIONS.dark;
+  const scene = emission.constelacion2Scene;
+  const metrics = sceneMetrics(scene);
+  const tones = scene.palette.map((hex) => tone(hexToRgb(hex)));
+  const groundLuma = Math.min(...tones);
+  const span = Math.max(...tones) - groundLuma;
+  const levels = [];
+  const painted = [];
+  for (const { at, value } of cells) {
+    if (value < peak * share) continue;
+    const color = emission.toneColor(value);
+    const level = levelIn(groundLuma, span, color);
+    levels.push(level);
+    // Lo que esa celda PINTA: el peldaño que la lámina de v1 eligió, con la tinta
+    // que el motor compensó para él. Es la luminancia por celda de su banda, y es
+    // con la que el caso q mide el presupuesto del campo.
+    const step = sky.steps[at];
+    const ink = step === 0 ? metrics.groundIndex
+      : compensate(scene, color[0], color[1], color[2], step, metrics);
+    painted.push(metrics.groundTone + (metrics.tones[ink] - metrics.groundTone) * metrics.coverage[step]);
+  }
+  return {
+    share,
+    peak,
+    levels: levelStats(levels),
+    painted: toneStats(painted),
+    inkPerCell: painted.reduce((sum, value) => sum + value, 0) / Math.max(1, painted.length),
+  };
+}
+
+/**
+ * EL CUERPO Y EL NUDO DE NUESTRA BANDA, en niveles: la misma lectura que
+ * `varaBandLevels`, sobre el tono del lavado en la región del modelo y con la
+ * paleta de la constelación.
+ * @param {object} c la constelación
+ * @param {{cols?: number, rows?: number, share?: number, index?: number}} [options]
+ */
+export function ourBandLevels(c, options = {}) {
+  const cols = options.cols ?? c.stage.cols;
+  const rows = options.rows ?? c.stage.rows;
+  const share = options.share ?? 0.5;
+  const region = washRegion(c, { cols, rows, share });
+  const wash = constellationLayers(c, { cols, rows, index: options.index ?? stillIndex(c) }).wash;
+  const scene = constellationScene(c, { cols, rows });
+  const metrics = sceneMetrics(scene);
+  const groundLuma = metrics.groundTone;
+  const span = metrics.maxTone - metrics.groundTone;
+  const levels = [];
+  for (let at = 0; at < region.mask.length; at++) {
+    if (region.mask[at]) levels.push(levelIn(groundLuma, span, paletteTone(c, wash[at])));
+  }
+  return { share, cells: region.cells, levels: levelStats(levels) };
+}
+
+/** La cobertura del peldaño, medida en la escena de cada lado: es la tinta que
+ * el motor efectivamente pone, no la que la escalera promete. */
+const coverageLadder = (scene) => sceneMetrics(scene).coverage;
+
+/**
+ * EL TONO Y LA TINTA DE LA BANDA DE LA VARA, en su propia región.
+ *
+ * `tono` es la posición en la rampa de la emisión —lo que `bake()` convierte en
+ * peldaño—; `tinta` es lo que esa posición PINTA, la cobertura del peldaño que
+ * el motor eligió para esa celda. Son dos instrumentos del mismo material y los
+ * dos se comparan contra los de nuestra banda: el primero dice cuánto sube el
+ * pico, el segundo cuánto cubre el punto.
+ * @param {number} [share] el corte de la región, en fracción del pico
+ */
+export function varaBandTone(share = 0.5) {
+  const { sky, cells, peak } = varaBand(share);
+  const ink = coverageLadder(EMISSIONS.dark.constelacion2Scene);
+  const tone = [];
+  const painted = [];
+  const rungs = new Map();
+  for (const { at, value } of cells) {
+    if (value < peak * share) continue;
+    tone.push(value);
+    painted.push(ink[sky.steps[at]]);
+    rungs.set(sky.steps[at], (rungs.get(sky.steps[at]) ?? 0) + 1);
+  }
+  return {
+    share,
+    peak,
+    tone: toneStats(tone),
+    ink: toneStats(painted),
+    rungs: [...rungs.entries()].sort((a, b) => a[0] - b[0]).map(([step, many]) => [step, many / tone.length]),
+  };
+}
+
+/**
+ * EL TONO Y LA TINTA DE NUESTRA BANDA, en la región del modelo (`washRegion`, la
+ * misma que mide la cobertura): el tono del lavado y la cobertura del peldaño
+ * que la lámina horneada eligió para esa celda.
+ * @param {object} sheet la lámina del lavado (con `steps`)
+ * @param {number} cell los px por celda de esa lámina
+ * @param {object} options `{constellation, cols, rows, share}`: el modelo y la región
+ */
+export function ourBandTone(sheet, cell, options = {}) {
+  const c = options.constellation;
+  const cols = options.cols ?? sheet.width / cell;
+  const rows = options.rows ?? sheet.height / cell;
+  const share = options.share ?? 0.5;
+  const region = washRegion(c, { cols, rows, share });
+  const wash = constellationLayers(c, { cols, rows, index: stillIndex(c) }).wash;
+  const ink = coverageLadder(constellationScene(c, { cols, rows }));
+  const tone = [];
+  const painted = [];
+  const mix = new Map();
+  for (let at = 0; at < region.mask.length; at++) {
+    if (!region.mask[at]) continue;
+    tone.push(wash[at]);
+    painted.push(ink[sheet.steps[at]]);
+    mix.set(sheet.steps[at], (mix.get(sheet.steps[at]) ?? 0) + 1);
+  }
+  return {
+    share,
+    cells: region.cells,
+    tone: toneStats(tone),
+    ink: toneStats(painted),
+    rungs: [...mix.entries()].sort((a, b) => a[0] - b[0]).map(([step, many]) => [step, many / Math.max(1, tone.length)]),
   };
 }
 

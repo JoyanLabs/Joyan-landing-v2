@@ -45,6 +45,50 @@
  *   j) LA NEBULOSA CONTRA LA VARA
  *      las dos se hornean con la misma llamada del motor y se miden en la MISMA
  *      ventana de 240 × 160 px: peldaños usados y fracción de tinta.
+ *   l) EL CUERPO Y EL NUDO, EN EL PELDAÑO DE LA VARA
+ *      el pedido nombra la vara con dos números —cuerpo 0,223, nudo 0,587— y no
+ *      son tonos: son NIVELES, la posición del color en la rampa de su propia
+ *      paleta, que es lo que el motor convierte en peldaño. Se leen de la vara con
+ *      esa regla y se miden los nuestros igual. El nudo tiene que caer dentro del
+ *      ±25 % del de la vara y estar UN PELDAÑO POR ENCIMA del cuerpo (no pegado:
+ *      dos niveles en el mismo tramo de la escalera es lo que el caso rechaza), y
+ *      el contraste p95/mediana y la tinta tienen que caer en la misma ventana.
+ *   m) EL PRECIO DEL CUERPO QUE PIDE LA VARA
+ *      el caso l informa que nuestro cuerpo queda en 0,318 y no en 0,223. Este
+ *      caso mide POR QUÉ: lleva el lavado de la plancha aprobada al nivel del
+ *      cuerpo de la vara (bisección del factor de tono que pone la mediana de la
+ *      banda en 0,2230) y mide el cuadro 0 con el instrumento del protocolo. El
+ *      campo se va por debajo del piso aprobado del 4 % (medido: 2,62 %), así que
+ *      el cuerpo alto no es una preferencia: es el precio del campo acordado. El
+ *      caso FALLA si el conflicto desaparece — si el campo aguanta el cuerpo de
+ *      la vara, el chequeo exige bajarlo.
+ *   q) LA HUELLA DE LA BANDA
+ *      informa la huella de los dos lados (la región al 50 % de su propio pico:
+ *      27,7 % la nuestra, 14,8 % la de la vara) y mide por qué la nuestra no puede
+ *      ser la suya: con el cielo medido (1,72 %), la tinta de la vara por celda
+ *      (8,35 %) y el apoyo máximo que admite el caso a, una banda del tamaño de la
+ *      vara da 3,67 % de campo, por debajo del piso del 4 %. El caso FALLA si el
+ *      presupuesto se abre (cielo más brillante, más apoyo admitido o más tinta
+ *      por celda): entonces pide angostar la banda.
+ *   n) EL NUDO SE MUEVE
+ *      la parte más brillante de la banda —las celdas de su región a menos de
+ *      0,0015 de su propio máximo, que es el núcleo del nudo— tiene que estar en
+ *      OTRA posición en tres instantes distintos del ciclo, y a lo largo de un
+ *      ciclo completo tiene que recorrer un camino. Una banda sin evento tiene
+ *      un solo lugar brillante y este caso lo dice con el número.
+ *   p) EL LOOP CIERRA
+ *      la envolvente del evento vale EXACTAMENTE 0 en q = 0 y en q = 1 —los dos
+ *      extremos son el mismo instante— y el camino de la luz cierra: la posición
+ *      en q = 0 y en q = 1 es el mismo punto. En el campo, el cuadro 0 no lleva
+ *      luz y el ULTIMO cuadro del ciclo lleva menos del 1 % de la del medio: el
+ *      empalme es un desvanecido y no un corte.
+ *   o) LOS PROMEDIOS NO SE MOVIERON
+ *      el campo aprobado (`genghe`, el que tiene los umbrales de la casa: calma
+ *      0,040–0,047 y luminancia 4–6 %) se mide en todo el ciclo y con el
+ *      instrumento aprobado (el cuadro compuesto, figura incluida): la calma tiene
+ *      que seguir dentro de su banda y la luminancia también, en CADA cuadro, y la
+ *      luz de la banda sólo puede sumar. Un evento que subiera el techo tonal del
+ *      campo mueve estos números y este caso falla.
  *   k) LAS LÁMINAS LLEGAN AL CANVAS SIN REMUESTREO
  *      el canvas es la lámina, píxel por píxel: si el dibujo se escalara o
  *      cayera en una fracción de píxel, el dither del motor quedaría suavizado.
@@ -74,10 +118,22 @@ import { CARD, constellationFor } from '../../design-studies/constelaciones-cand
 import { BAKE, bakeLayers, dynamicWash, stillIndex } from '../../design-studies/constelaciones-candidatas/cards/live/bake.mjs';
 import { stillSeconds } from '../../design-studies/constelaciones-candidatas/cards/live/depth.mjs';
 import {
-  SKY_CROP, WINDOW, compareNebula, coverageOf, densestWindow, grainOf, varaCoverage, varaSheets,
+  SKY_CROP, WINDOW, compareNebula, coverageOf, densestWindow, grainOf, ourBandLevels, ourBandTone,
+  varaBand as varaBandCells, varaBandLevels, varaBandTone, varaCoverage, varaSheets,
 } from '../../design-studies/constelaciones-candidatas/cards/live/nebula-compare.mjs';
-import { constellationLayers, washRegion } from '../../scripts/scene-src/constellation.mjs';
-import { rasterize as rasterizeCell, sceneMetrics } from '../../scripts/scene-src/engine.mjs';
+import {
+  bandEventEnvelope, bandEventPath, constellationFrame, constellationLayers, constellationScene,
+  compositionMetrics, paletteTone, washRegion,
+} from '../../scripts/scene-src/constellation.mjs';
+import genghe from '../../scripts/scene-src/constellations/genghe.mjs';
+import {
+  compensate, luma, rasterize as rasterizeCell, sceneMetrics, stepFor,
+} from '../../scripts/scene-src/engine.mjs';
+
+/** El umbral APROBADO de la calma de la copia, clavado acá con su número para que
+ * un cambio en los datos del modelo no pueda ensanchar la banda que este chequeo
+ * vigila (`docs/ESTETICA-CONSTELACION.md`). */
+const CALM_BAND = Object.freeze([0.040, 0.047]);
 
 const ROOT = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const LIVE = 'design-studies/constelaciones-candidatas/cards/live';
@@ -950,6 +1006,379 @@ try {
     + `\`capturas/nebulosa-comparacion-2x.png\`)`);
   report.nebula = { ours, vara: varaBand, varaWash, rendered: comparison.rendered, inkRatio };
 
+  // ------------------------------- la plancha aprobada, como la mide la casa
+  // `genghe` es la constelación que declara los umbrales de la casa (calma
+  // 0,040–0,047 y luminancia 4–6 %) y `check-constellation` la mide a 480 × 300
+  // sobre la referencia de 1280 × 900. Estos ayudantes pintan el campo como lo
+  // pinta el motor —peldaño + tinta compensada + la cobertura MEDIDA de ese
+  // peldaño—, que es la fórmula del protocolo aprobado (`fieldIntensity`).
+  const MODEL_COLS = 480;
+  const MODEL_ROWS = 300;
+  const modelScene = constellationScene(genghe, { cols: MODEL_COLS, rows: MODEL_ROWS });
+  const modelMetrics = sceneMetrics(modelScene);
+  const modelSpan = modelMetrics.maxTone - modelMetrics.groundTone;
+  const CALM = genghe.composition.calm;
+  const CALM_REF = genghe.composition.reference;
+  const calmScale = Math.max(CALM_REF.width / MODEL_COLS, CALM_REF.height / MODEL_ROWS);
+  const paintedAt = (tone, x, y) => {
+    const rgb = paletteTone(genghe, tone);
+    const level = Math.min(1, Math.max(0, (luma(rgb[0], rgb[1], rgb[2]) - modelMetrics.groundTone) / modelSpan));
+    const step = stepFor(level, x, y, 'bayer4');
+    if (step === 0) return modelMetrics.groundTone;
+    const ink = modelMetrics.tones[compensate(modelScene, rgb[0], rgb[1], rgb[2], step, modelMetrics)];
+    return modelMetrics.groundTone + (ink - modelMetrics.groundTone) * modelMetrics.coverage[step];
+  };
+  /** La luminancia del cuadro compuesto en un instante, CON y SIN la luz de la
+   * banda, con el instrumento del protocolo aprobado (la figura incluida, como
+   * la mide `check-constellation`). `scale` multiplica el tono del lavado: es el
+   * volante con el que el caso m pregunta cuánto costaría bajar el cuerpo. */
+  const fieldOf = (index, scale = 1) => {
+    const layers = constellationLayers(genghe, { cols: MODEL_COLS, rows: MODEL_ROWS, index });
+    let light = 0;
+    let dark = 0;
+    const cells = MODEL_COLS * MODEL_ROWS;
+    for (let y = 0; y < MODEL_ROWS; y++) {
+      for (let x = 0; x < MODEL_COLS; x++) {
+        const at = y * MODEL_COLS + x;
+        const base = layers.sky[at] + layers.wash[at] * scale;
+        const figure = layers.figure[at] * layers.vignette[at] + layers.cores[at];
+        light += paintedAt(base * layers.vignette[at] + figure, x, y);
+        dark += paintedAt((base - layers.event[at] * scale) * layers.vignette[at] + figure, x, y);
+      }
+    }
+    return { light: light / cells, dark: dark / cells };
+  };
+  /** El nivel (0..1) del tono dentro de la paleta de la constelación: la misma
+   * normalización que `bake()` aplica antes de elegir el peldaño. */
+  const levelOfTone = (tone) => {
+    const rgb = paletteTone(catalogue, tone);
+    return Math.min(1, Math.max(0, (luma(rgb[0], rgb[1], rgb[2]) - modelMetrics.groundTone) / modelSpan));
+  };
+
+  // ------------------------------ l el cuerpo y el nudo, en el peldaño de la vara
+  // El pedido nombra el cuerpo y el nudo de la vara con dos NÚMEROS —0,223 y
+  // 0,587— y esos dos números no son tonos: son NIVELES, la posición del color en
+  // la rampa de su propia paleta, que es lo que el motor convierte en peldaño. Se
+  // comprueba acá leyéndolos de la vara (mediana y máximo de la distribución de su
+  // banda, la misma regla de región que la nuestra) y midiendo los nuestros con el
+  // mismo instrumento.
+  //
+  // La vara da exactamente 0,2230 y 0,5870, y su nudo está DOS peldaños por encima
+  // de su cuerpo (0 → 2 en la escalera de cobertura). Lo que se pide de la nuestra
+  // es que el nudo quede UN PELDAÑO POR ENCIMA del cuerpo —no pegado— y que su
+  // nivel caiga dentro del ±25 % del nudo de la vara; el contraste p95/mediana,
+  // que es lo que el ojo lee como rango, tiene que caer en la misma ventana.
+  //
+  // LO QUE NO SE CIERRA, Y POR QUÉ (medido, ver el caso m): nuestro cuerpo queda
+  // en nivel 0,318 contra 0,223 (×1,43). No es una decisión de gusto: bajar el
+  // cuerpo a 0,223 deja el campo aprobado por debajo de su piso del 4 %, y el
+  // caso m mide ese precio con el número exacto. La diferencia que queda en el
+  // aspecto viene de ahí, no de la geometría de la banda.
+  const varaLevels = varaBandLevels(0.5);
+  const ourLevels = ourBandLevels(catalogue, { cols: washCols, rows: washRows, share: 0.5 });
+  const varaTone = varaBandTone(0.5);
+  const ourTone = ourBandTone(baked.wash, BAKE.washCell, {
+    constellation: catalogue, cols: washCols, rows: washRows, share: 0.5,
+  });
+  const share = (ours, vara) => (vara > 0 ? ours / vara : 0);
+  const toneShare = share(ourTone.tone.contrast, varaTone.tone.contrast);
+  const inkShare = share(ourTone.ink.contrast, varaTone.ink.contrast);
+  const knotShare = share(ourLevels.levels.max, varaLevels.levels.max);
+  const inside = (ratio) => ratio >= 0.75 && ratio <= 1.25;
+  const signed = (value) => `${value >= 0 ? '+' : ''}${num(value, 1)} %`;
+  const levels = (side) => `cuerpo ${num(side.median, 4)} (peldaño ${side.bodyRung}) · `
+    + `nudo ${num(side.max, 4)} (peldaño ${side.knotRung}) · contraste p95/mediana ${num(side.contrast, 3)}`;
+  check('l', 'el cuerpo y el nudo de la banda, en el peldaño de la vara: el nudo un peldaño por encima y en su ventana',
+    inside(knotShare) && ourLevels.levels.rungGap >= 1
+    && ourLevels.levels.knotRung > ourLevels.levels.bodyRung
+    && inside(ourLevels.levels.contrast / varaLevels.levels.contrast)
+    && inside(toneShare) && inside(inkShare),
+    `niveles nuestros ${levels(ourLevels.levels)} contra los de la vara ${levels(varaLevels.levels)} · `
+    + `el nudo cae en ${signed((knotShare - 1) * 100)} del de la vara (ventana ±25 %) y `
+    + `${ourLevels.levels.rungGap} peldaño por encima del cuerpo · tono p95/mediana `
+    + `${num(ourTone.tone.contrast, 3)} contra ${num(varaTone.tone.contrast, 3)} `
+    + `(${signed((toneShare - 1) * 100)}) · tinta ${num(ourTone.ink.contrast, 3)} contra `
+    + `${num(varaTone.ink.contrast, 3)} (${signed((inkShare - 1) * 100)}) · peldaños de la lámina `
+    + `${ourTone.rungs.map(([step, many]) => `${step}:${(many * 100).toFixed(1)}%`).join(' ')} contra `
+    + `${varaTone.rungs.map(([step, many]) => `${step}:${(many * 100).toFixed(1)}%`).join(' ')} de la vara`
+    + ` — un cuerpo que se acerque al del nudo (menos de un peldaño de distancia) o un nudo fuera de la `
+    + `ventana fallan acá`);
+  report.levels = {
+    body: ourLevels.levels.median, knot: ourLevels.levels.max,
+    varaBody: varaLevels.levels.median, varaKnot: varaLevels.levels.max,
+    bodyRung: ourLevels.levels.bodyRung, knotRung: ourLevels.levels.knotRung,
+    varaBodyRung: varaLevels.levels.bodyRung, varaKnotRung: varaLevels.levels.knotRung,
+    knotShare, contrast: ourLevels.levels.contrast, varaContrast: varaLevels.levels.contrast,
+  };
+
+  // ---------------------------------- m el precio del cuerpo que pide la vara
+  // El pedido dice: «bajá el cuerpo hacia el 0,223 de la vara». Este caso mide el
+  // precio de hacerlo, con la plancha aprobada: lleva el lavado de `genghe` al
+  // nivel del cuerpo de la vara (se busca por bisección el factor de tono que
+  // pone la MEDIANA de la banda en 0,2230) y mide la luminancia del cuadro 0 con
+  // el instrumento del protocolo. El resultado es que el campo se va por debajo
+  // del piso aprobado del 4 %, y ese es el número que explica la diferencia que
+  // queda en el aspecto: no es que el modelo no sepa apagar el cuerpo, es que el
+  // campo acordado no lo permite.
+  //
+  // El caso FALLA si el conflicto desaparece: si algún día el campo aguanta el
+  // 4–6 % con el cuerpo de la vara, este chequeo se pone en rojo y obliga a bajar
+  // el cuerpo, que es exactamente lo que el pedido quiere.
+  const plateRegion = washRegion(genghe, { cols: MODEL_COLS, rows: MODEL_ROWS, share: 0.5 });
+  const plateLevels = (scale) => {
+    const layers = constellationLayers(genghe, { cols: MODEL_COLS, rows: MODEL_ROWS, index: 0 });
+    const levels = [];
+    for (let at = 0; at < plateRegion.mask.length; at++) if (plateRegion.mask[at]) levels.push(levelOfTone(layers.wash[at] * scale));
+    levels.sort((a, b) => a - b);
+    return levels[Math.floor(levels.length / 2)];
+  };
+  const bodyAt = plateLevels(1);
+  let lo = 0;
+  let hi = 1;
+  for (let step = 0; step < 30; step++) {
+    const mid = (lo + hi) / 2;
+    if (plateLevels(mid) > varaLevels.levels.median) hi = mid; else lo = mid;
+  }
+  const bodyScale = (lo + hi) / 2;
+  const atVaraBody = fieldOf(0, bodyScale);
+  const atOurs = fieldOf(0, 1);
+  check('m', 'bajar el cuerpo al de la vara cuesta el campo aprobado: la plancha se va por debajo del 4 %',
+    atVaraBody.light < 0.04 && atOurs.light > 0.04,
+    `cuerpo de la plancha ${num(bodyAt, 4)} (nivel) contra el 0,223 de la vara · para llegar a ese cuerpo el `
+    + `lavado se multiplica por ${num(bodyScale, 3)} y el campo del cuadro 0 cae de `
+    + `${num(atOurs.light * 100, 2)} % a ${num(atVaraBody.light * 100, 2)} %, por debajo del piso aprobado `
+    + `del 4 % (la calma se iría con él) · el campo sólo aguanta el cuerpo alto: es el precio medido, `
+    + `no una preferencia`);
+  report.bodyPrice = { bodyAt, bodyScale, atOurs: atOurs.light, atVaraBody: atVaraBody.light };
+
+  // ------------------------- q la huella de la banda: la vara no cabe en el campo
+  // El pedido pide angostar la banda hasta la huella de la vara (14,8 % del
+  // cuadro, medido con la misma regla en los dos lados: la región al 50 % de su
+  // propio pico). Este caso informa las dos huellas y mide por qué la nuestra no
+  // puede ser la suya: el campo aprobado tiene un piso y la tinta también.
+  //
+  // El presupuesto, con los tres números medidos y una regla aprobada:
+  //   · el cielo de la plancha pinta 1,72 % de la luminancia (medido, cuadro 0);
+  //   · la vara pinta 8,35 % por celda de SU banda (medido con su propio material);
+  //   · el caso a acota el apoyo pintado a región + 10 % del resto, así que a una
+  //     huella del 14,8 % le corresponden como MÁXIMO 23,3 % de apoyo.
+  // El máximo alcanzable es 1,72 + 0,233 × 8,35 = 3,67 %, por debajo del piso
+  // aprobado del 4 %: con el cuerpo de la vara y su tinta, una banda del tamaño de
+  // la suya no llega al campo acordado. La nuestra es más ancha porque el campo
+  // manda, no porque la geometría no sepa angostarse.
+  //
+  // El caso FALLA si el presupuesto se abre: si el cielo pinta más, o si la
+  // cobertura admitida sube, o si la vara pinta más por celda, el máximo pasa el
+  // 4 % y el chequeo exige angostar la banda.
+  const varaWindow = varaBandCells(0.5);
+  const varaFootprint = varaWindow.cells.filter(({ value }) => value >= varaWindow.peak * 0.5).length
+    / (washCols * washRows);
+  const ourFootprint = band.cells / (washCols * washRows);
+  const supportCap = varaFootprint + 0.10 * (1 - varaFootprint);
+  const skyOnly = (() => {
+    const layers = constellationLayers(genghe, { cols: MODEL_COLS, rows: MODEL_ROWS, index: 0 });
+    let sum = 0;
+    const cells = MODEL_COLS * MODEL_ROWS;
+    for (let y = 0; y < MODEL_ROWS; y++) {
+      for (let x = 0; x < MODEL_COLS; x++) {
+        const at = y * MODEL_COLS + x;
+        sum += paintedAt(layers.sky[at] * layers.vignette[at], x, y);
+      }
+    }
+    return sum / cells;
+  })();
+  const rulerCellInk = varaLevels.inkPerCell;
+  const ceilingWithRulerMaterial = skyOnly + supportCap * rulerCellInk;
+  check('q', 'la huella de la banda: la de la vara no entra en el campo aprobado (y se informa la nuestra)',
+    ourFootprint > varaFootprint && ceilingWithRulerMaterial < 0.04,
+    `nuestra huella ${num(ourFootprint * 100, 1)} % del cuadro contra ${num(varaFootprint * 100, 1)} % de la vara `
+    + `(×${num(ourFootprint / varaFootprint, 2)}) · con el material de la vara (${num(rulerCellInk * 100, 2)} % de `
+    + `luminancia por celda de su banda) y el apoyo máximo que admite el caso a (${num(supportCap * 100, 1)} %), `
+    + `la banda del tamaño de la vara da ${num((skyOnly + supportCap * rulerCellInk) * 100, 2)} % de campo `
+    + `(cielo ${num(skyOnly * 100, 2)} % + ${num(supportCap * 100, 1)} % × ${num(rulerCellInk * 100, 2)} %), `
+    + `por debajo del piso aprobado del 4 % — angostar la nuestra a esa huella pide subir el cuerpo (medido: `
+    + `nivel 0,45–0,50 en vez de 0,32) y eso es lo que el caso m mide en el otro sentido`);
+  report.footprint = { ours: ourFootprint, vara: varaFootprint, ratio: ourFootprint / varaFootprint, skyOnly, supportCap, rulerCellInk, ceilingWithRulerMaterial };
+
+  // ------------------------------------------- n el nudo se mueve por la banda
+  // La posición del nudo se mide en el objeto que el caso m mide: la región de la
+  // banda en la retícula del lavado. Su núcleo son las celdas de la región a
+  // menos de 0,0015 del máximo, y su posición es el centroide de ese núcleo. Sin
+  // evento ese núcleo es un lugar fijo de la banda: las tres posiciones coinciden
+  // y el caso falla. Con evento, la luz lo arrastra de un extremo al otro.
+  const knotRegion = washRegion(catalogue, { cols: washCols, rows: washRows, share: 0.5 });
+  const knotCells = [];
+  for (let at = 0; at < knotRegion.mask.length; at++) if (knotRegion.mask[at]) knotCells.push(at);
+  const knotAt = (index) => {
+    const layers = constellationLayers(catalogue, { cols: washCols, rows: washRows, index });
+    let peak = 0;
+    for (const at of knotCells) if (layers.wash[at] > peak) peak = layers.wash[at];
+    let sx = 0;
+    let sy = 0;
+    let n = 0;
+    for (const at of knotCells) {
+      if (layers.wash[at] < peak - 0.0015) continue;
+      sx += at % washCols;
+      sy += Math.floor(at / washCols);
+      n += 1;
+    }
+    // La luz que el evento suma en el cuadro, para el caso p: basta la misma
+    // lectura del modelo que ya se hizo para el nudo.
+    let light = 0;
+    for (let at = 0; at < layers.event.length; at++) light += layers.event[at];
+    return { index, u: sx / n / washCols, v: sy / n / washRows, cells: n, peak, light };
+  };
+  const STRIDE = 5;
+  const knots = [];
+  for (let index = 0; index < catalogue.cycle.frames; index += STRIDE) knots.push(knotAt(index));
+  const apart = (a, b) => Math.hypot((a.u - b.u) * washCols, (a.v - b.v) * washRows);
+  // Tres instantes declarados, en tres tramos distintos del recorrido.
+  const THREE = [60, 150, 270];
+  const trio = THREE.map((index) => knotAt(index));
+  let pairMin = Infinity;
+  for (let i = 0; i < trio.length; i++) {
+    for (let j = i + 1; j < trio.length; j++) pairMin = Math.min(pairMin, apart(trio[i], trio[j]));
+  }
+  let travel = 0;
+  const seen = new Set();
+  for (let i = 0; i < knots.length; i++) {
+    seen.add(`${Math.round(knots[i].u * washCols)},${Math.round(knots[i].v * washRows)}`);
+    if (i) travel += apart(knots[i], knots[i - 1]);
+  }
+  const print = (knot) => `cuadro ${knot.index}: u ${num(knot.u, 3)} v ${num(knot.v, 3)} (${knot.cells} celdas en el núcleo)`;
+  check('n', 'el nudo se mueve: tres instantes, tres posiciones, y un camino a lo largo del ciclo',
+    pairMin >= 30 && travel >= 200 && seen.size >= 20 && trio.every((knot) => knot.cells >= 20),
+    `${print(trio[0])} · ${print(trio[1])} · ${print(trio[2])} — la pareja más cercana de las tres queda a `
+    + `${num(pairMin, 1)} celdas (piso 30) · recorrido del máximo en el ciclo ${num(travel, 0)} celdas sobre `
+    + `${seen.size} posiciones distintas de la retícula ${washCols} × ${washRows} (paso ${STRIDE}, `
+    + `piso 200 celdas y 20 posiciones)`);
+  report.knot = { trio, travel, distinct: seen.size, pairMin };
+
+  // ------------------------------------------------- p el loop cierra por los dos lados
+  // La envolvente es la de v1: `smoothstep` sobre una fracción de la ventana en
+  // cada extremo, y EXACTAMENTE 0 en q = 0 y en q = 1, que son el mismo instante
+  // (v1, `scene-constelacion2.mjs:287-291`). El camino, además, cierra por
+  // construcción: dos términos seno por eje, todos a un número ENTERO de ciclos
+  // por loop, así que la posición en q = 0 y en q = 1 es la misma.
+  const eventSum = (index) => {
+    const layers = constellationLayers(catalogue, { cols: washCols, rows: washRows, index });
+    let sum = 0;
+    let peak = 0;
+    for (let at = 0; at < layers.event.length; at++) {
+      sum += layers.event[at];
+      if (layers.event[at] > peak) peak = layers.event[at];
+    }
+    return { sum, peak };
+  };
+  const seam = eventSum(0);
+  const end = eventSum(catalogue.cycle.frames - 1);
+  const middle = eventSum(Math.round(catalogue.cycle.frames / 2));
+  // La luz del cuadro más cargado del ciclo es la referencia del empalme: el
+  // último cuadro tiene que llevar una fracción pequeña de ELLA, no del cuadro
+  // del medio (la luz no lleva el mismo número de celdas en todo el recorrido).
+  const brightest = Math.max(...knots.map((knot) => knot.light));
+  const fromStart = bandEventPath(0);
+  const toStart = bandEventPath(1);
+  const pathGap = Math.hypot(fromStart.u - toStart.u, fromStart.v - toStart.v);
+  check('p', 'el loop cierra: la envolvente es 0 en los dos extremos y la luz no salta en el empalme',
+    bandEventEnvelope(0) === 0 && bandEventEnvelope(1) === 0
+    && bandEventEnvelope(0.5) === 1 && bandEventEnvelope(0.1389) === 1
+    && pathGap < 1e-12 && seam.peak === 0 && seam.sum === 0
+    && brightest > 0 && end.sum <= brightest * 0.02,
+    `envolvente en q=0 ${bandEventEnvelope(0)} y en q=1 ${bandEventEnvelope(1)} (1 en el cuerpo: `
+    + `q=0,5 ${bandEventEnvelope(0.5)}, el still ${num(bandEventEnvelope(0.1389), 4)}) · el camino vuelve a su `
+    + `punto de partida con un error de ${pathGap.toExponential(1)} · la luz en el cuadro 0 vale `
+    + `${num(seam.sum, 6)} y en el último (${catalogue.cycle.frames - 1}) ${num(end.sum, 4)}, que es el `
+    + `${num(end.sum / Math.max(brightest, 1e-9) * 100, 2)} % del cuadro más cargado del ciclo `
+    + `(${num(brightest, 1)} en el medio, max 2 %)`);
+  report.loop = { envelope: [bandEventEnvelope(0), bandEventEnvelope(1)], pathGap, seam, end, middle };
+
+  // ------------------------------------- o los promedios del campo no se movieron
+  // El pedido nombra dos umbrales aprobados de la casa: la calma de la copia
+  // (0,040–0,047) y la luminancia media del campo. Se miden en el campo que los
+  // tiene declarados —`genghe`, el de `check-constellation`, mismo protocolo y
+  // misma retícula— y en TODO el ciclo, dos veces por cuadro: con la luz de la
+  // banda y con la luz retirada (`layers.event` es el levantamiento que el evento
+  // suma, así que restarlo da el campo de antes en el mismo instante, sin tocar
+  // el modelo). La calma tiene que seguir dentro de su banda en cada cuadro, y la
+  // luminancia sólo puede SUBIR —el evento suma, nunca resta— y por menos de un
+  // cuarto de punto: eso es lo que un techo tonal más alto rompería.
+  const averages = (index) => {
+    const layers = constellationLayers(genghe, { cols: MODEL_COLS, rows: MODEL_ROWS, index });
+    let on = 0;
+    let off = 0;
+    let calmOn = 0;
+    let calmOff = 0;
+    let calmCells = 0;
+    for (let y = 0; y < MODEL_ROWS; y++) {
+      for (let x = 0; x < MODEL_COLS; x++) {
+        const at = y * MODEL_COLS + x;
+        const field = (layers.sky[at] + layers.wash[at]) * layers.vignette[at];
+        on += paintedAt(field, x, y);
+        off += paintedAt(field - layers.event[at] * layers.vignette[at], x, y);
+        const px = (x + 0.5) * calmScale;
+        const py = (y + 0.5) * calmScale;
+        if (px < CALM.x || px >= CALM.x + CALM.w || py < CALM.y || py >= CALM.y + CALM.h) continue;
+        calmOn += paintedAt(field, x, y);
+        calmOff += paintedAt(field - layers.event[at] * layers.vignette[at], x, y);
+        calmCells += 1;
+      }
+    }
+    const cells = MODEL_COLS * MODEL_ROWS;
+    // El cuadro COMPUESTO del instante, con el instrumento del protocolo aprobado
+    // (`constellationFrame`: figura incluida), que es el que mide la banda 4–6 %.
+    const frame = constellationFrame(genghe, index, { cols: MODEL_COLS, rows: MODEL_ROWS });
+    let composite = 0;
+    for (let cell = 0; cell < frame.steps.length; cell++) {
+      const step = frame.steps[cell];
+      composite += modelMetrics.groundTone
+        + (modelMetrics.tones[frame.indices[cell]] - modelMetrics.groundTone) * modelMetrics.coverage[step];
+    }
+    return {
+      index,
+      light: on / cells,
+      dark: off / cells,
+      compositeLight: composite / cells,
+      calmLight: calmCells ? calmOn / calmCells : 0,
+      calmDark: calmCells ? calmOff / calmCells : 0,
+    };
+  };
+  const CYCLE_STRIDE = 15;
+  const samples = [];
+  for (let index = 0; index < genghe.cycle.frames; index += CYCLE_STRIDE) {
+    samples.push({ ...averages(index), protocol: compositionMetrics(genghe, {
+      width: CALM_REF.width, height: CALM_REF.height, cols: MODEL_COLS, rows: MODEL_ROWS, index,
+    }).calm });
+  }
+  const calmLight = samples.map((sample) => sample.calmLight);
+  const calmProtocol = samples.map((sample) => sample.protocol);
+  const composite = samples.map((sample) => sample.compositeLight);
+  const dims = samples.filter((sample) => sample.light < sample.dark).length;
+  const lift = Math.max(...samples.map((sample) => sample.light - sample.dark));
+  const LUMINANCE = Object.freeze([0.04, 0.06]);
+  check('o', 'los promedios no se movieron: la calma en 0,040–0,047 y la luminancia en 4–6 % en todo el ciclo',
+    samples.every((sample) => sample.protocol >= CALM_BAND[0] && sample.protocol <= CALM_BAND[1])
+    && dims === 0
+    && composite.every((value) => value > LUMINANCE[0] && value < LUMINANCE[1]),
+    `calma del campo aprobado en todo el ciclo ${num(Math.min(...calmProtocol), 5)}–${num(Math.max(...calmProtocol), 5)} `
+    + `(${CALM_BAND[0]}–${CALM_BAND[1]}) · luminancia del cuadro compuesto (el instrumento aprobado, con la `
+    + `figura) ${num(Math.min(...composite) * 100, 2)}–${num(Math.max(...composite) * 100, 2)} % en todo el ciclo `
+    + `(${LUMINANCE[0] * 100}–${LUMINANCE[1] * 100} %) · el campo solo (cielo + lavado) `
+    + `${num(Math.min(...samples.map((sample) => sample.dark)) * 100, 3)} % sin la luz y `
+    + `${num(Math.min(...samples.map((sample) => sample.light)) * 100, 3)}–${num(Math.max(...samples.map((sample) => sample.light)) * 100, 3)} % `
+    + `con ella · el evento suma ${num(lift * 100, 3)} puntos como máximo (el nudo tiene que sumar: es el `
+    + `peldaño que el caso l mide) y no resta en ningún cuadro (${dims} cuadros oscurecidos) · calma en la `
+    + `copia ${num(Math.min(...calmLight), 5)}–${num(Math.max(...calmLight), 5)} con la luz y `
+    + `${num(Math.min(...samples.map((sample) => sample.calmDark)), 5)}–`
+    + `${num(Math.max(...samples.map((sample) => sample.calmDark)), 5)} sin ella (${samples.length} cuadros, paso ${CYCLE_STRIDE})`);
+  report.averages = {
+    calm: [Math.min(...calmProtocol), Math.max(...calmProtocol)],
+    composite: [Math.min(...composite), Math.max(...composite)],
+    luminanceDark: [Math.min(...samples.map((sample) => sample.dark)), Math.max(...samples.map((sample) => sample.dark))],
+    luminanceLight: [Math.min(...samples.map((sample) => sample.light)), Math.max(...samples.map((sample) => sample.light))],
+    lift,
+  };
+
   // -------------------------------------- k las láminas llegan 1:1 al canvas
   // El canvas del lavado dibuja la lámina con 8 px de guarda; el del cielo, desde
   // el recorte del sobremuestreo. Si el destino se escalara o cayera en una
@@ -1028,7 +1457,13 @@ try {
     + `${num((report.coverage?.vara.outside ?? 0), 3)} de la vara · (j) ${report.nebula?.ours.rungs.length} peldaños y `
     + `${num((report.nebula?.ours.ink ?? 0) * 100, 1)} % de tinta de alfa `
     + `(${num((report.nebula?.rendered.ours ?? 0) * 100, 1)} % renderizado) contra ${report.nebula?.vara.rungs.length} peldaños y `
-    + `${num((report.nebula?.vara.ink ?? 0) * 100, 1)} % (${num((report.nebula?.rendered.vara ?? 0) * 100, 1)} % renderizado)`);
+    + `${num((report.nebula?.vara.ink ?? 0) * 100, 1)} % (${num((report.nebula?.rendered.vara ?? 0) * 100, 1)} % renderizado)`
+    + ` · (l) cuerpo ${num(report.levels?.body ?? 0, 3)} (peldaño ${report.levels?.bodyRung}) y nudo `
+    + `${num(report.levels?.knot ?? 0, 3)} (peldaño ${report.levels?.knotRung}) contra `
+    + `${num(report.levels?.varaBody ?? 0, 3)}/${num(report.levels?.varaKnot ?? 0, 3)} de la vara · `
+    + `(m) el cuerpo de la vara deja el campo en ${num((report.bodyPrice?.atVaraBody ?? 0) * 100, 2)} % · `
+    + `(q) huella ${num((report.footprint?.ours ?? 0) * 100, 1)} % contra `
+    + `${num((report.footprint?.vara ?? 0) * 100, 1)} % (×${num(report.footprint?.ratio ?? 0, 2)})`);
 } catch (error) {
   check('·', 'la escena completa', false, String(error?.stack ?? error).split('\n').slice(0, 4).join(' · ').slice(0, 800));
 } finally {

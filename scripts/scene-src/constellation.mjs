@@ -21,7 +21,13 @@
  *               density and the veil are per constellation
  *   2. wash     structured atmosphere (two diagonal bands + knots), crossfaded
  *               between two static samples so the weather moves over the loop;
- *               never a generic radial gradient
+ *               never a generic radial gradient. It also carries the band's own
+ *               LIGHT (`BAND_EVENT`), the one event that gives the atmosphere a
+ *               knot: it travels the band's axis, leaves a trail that decays in
+ *               seconds, and its peak stands one ladder rung above the body's
+ *               tone (the ceiling is the band's crest plus the light's own
+ *               lift), while its footprint stays small enough that the approved
+ *               field luminance and the copy's calm zone do not move.
  *   3. figure   node halos and link strokes across up to three planes; the
  *               plane decides the weight, the magnitude decides the star
  *   4. vignette multiplicative, applied to 1–3, reproducing the approved
@@ -672,6 +678,23 @@ export function paletteTone(c, tone) {
  * blotch. `calm` is the copy's own pocket: the headline keeps a bit under half
  * of the band's tone, which is why the calm zone is a quiet lattice and not a
  * hole.
+ *
+ * THE FOOTPRINT AND THE BODY, MEASURED AGAINST THE RULER (2026-11-06). The band
+ * occupies 27,7 % of the frame at its own half maximum; `design-studies/v1/`'s
+ * band occupies 14,8 % of the same 288 × 180 grid. Narrowing ours to the ruler's
+ * footprint was tried and measured, and it does NOT fit: the band's painted area
+ * is what carries the approved field luminance, so a band of 15–18 % has to run
+ * its body at level 0.45–0.50 to hold the 4–6 %. At the ruler's own body (level
+ * 0,223) the approved plate lands at 2,62 % (`check-cards-live` case m), and at
+ * a 18 % footprint with the body the field needs, the densest 240 × 160 window
+ * renders 3,05× the ruler's ink — case j admits at most 2× (case q measures the
+ * budget: with the measured sky, the ruler's ink and the coverage the
+ * composition admits, a band the ruler's size gives 3,67 % of field).
+ *
+ * So the geometry stays where the approved field and the measured ink can hold
+ * it, and what moved is the band's tonal RANGE: the knot now stands one ladder
+ * rung above the body instead of being clamped to the band's own crest (see
+ * `BAND_EVENT`). Both budgets are pinned by cases that go red if they ever open.
  */
 const WASH = Object.freeze({
   /** The band's own value on its axis: the shape's unit. */
@@ -694,6 +717,111 @@ const WASH = Object.freeze({
   feather: 0.09,
 });
 
+/** The band's axis exactly as `washShape` draws it: the normal of the ribbon and
+ * the value its crest sits on. The event below rides THIS axis, so the light and
+ * the material it knots cannot drift apart. */
+const BAND_AXIS = Object.freeze([0.34, 0.94]);
+const BAND_MEAN = 0.44;
+const BAND_NORM = Math.hypot(BAND_AXIS[0], BAND_AXIS[1]);
+
+/**
+ * THE BAND'S OWN LIGHT — the event that knots the atmosphere.
+ * ============================================================================
+ * A band that fills its region and still reads as a flat veil has no KNOT: no
+ * local place where the material is denser than its own middle. v1 solves that
+ * with events and not with a taller ceiling (`design-studies/v1/`, read-only
+ * here — the numbers below are that file's, not invented):
+ *
+ *   mechanism  a small light that TRAVELS a closed path and leaves a trail that
+ *              decays in SECONDS, added on top of the band's tone; the base tone
+ *              is never raised. `design-studies/v1/scene-constelacion2.mjs:72-86`
+ *              (Event 2, the wandering light: the closed path — two sine terms
+ *              per axis, every one at an INTEGER number of cycles per loop, so
+ *              position and velocity are both 2π-periodic), `:303-306` (the trail
+ *              constants: `tau = 0.70 s`, head footprint 5 cells, gain 0.38),
+ *              `:337-413` (the history canvas that holds the trail, and the
+ *              dt-based `exp(-dt / tau)` decay at `:347`), `:518-525` (the head
+ *              itself: the blink plus its `bell`), `:65-70` (the eased envelope
+ *              of a rare event, EXACTLY zero at both ends of its window).
+ *              For the record, and it is the finding of this change: the
+ *              shooting star (`:51-58`, window 0.42–0.50) and this light are
+ *              COMPACT — the trail's visible core is 52 cells at the median and
+ *              95 at most (`trailStats`, `:427-486`, on v1's 480 × 300 grid) —,
+ *              so they cannot move a 5 % quantile of a band region. What gives
+ *              the ruler its `p95 / mediana` of 1,303 is its STATIC band
+ *              (`baseTone`, `:120-155`), not its events. The event below is
+ *              therefore not a copy of v1's light at its own scale: it is the
+ *              same mechanism sized to a region 4,7 times larger relative to its
+ *              frame.
+ *
+ * WHAT IS KEPT, AND WHAT IS NOT. Kept: the mechanism and v1's `tau` in seconds
+ * (0.70 s, the decay constant of the trail — dt-based, so it is the same number
+ * of SECONDS at any frame rate), the integer-cycle closed path, the head's own
+ * footprint, and the eased envelope that is exactly 0 at q = 0 and q = 1.
+ * Changed, with the reason:
+ *
+ *   · THE PATH IS THE BAND'S. v1's light wanders a lens in the middle of its
+ *     frame (`:80-86`). Our knot has to be the BAND's knot, so the light rides
+ *     the band's own axis: it sweeps from one end of the ribbon to the other and
+ *     back, with a small crossing so the loop does not retrace a straight line.
+ *   · THE TRAIL IS THE SAME EXPONENTIAL, EVALUATED ON THE PATH. v1 keeps a
+ *     history buffer and warms it up for two extra loops. That buffer is a
+ *     function of the frame ORDER, so it cannot be read at an arbitrary index
+ *     without replaying up to that index — which a model that answers
+ *     `field(x, y, t)` for any t cannot afford. Sampling the path BACKWARDS with
+ *     the same weight `exp(-age / tau) · dage` is the integral that buffer
+ *     converges to, so the trail is the same material, deterministic from `t`
+ *     alone and identical for every consumer of the same instant.
+ *   · THE CEILING IS THE BAND'S CREST PLUS THE LIGHT'S OWN LIFT. This is the
+ *     one rule the previous attempt got wrong. It clamped the knot to the crest
+ *     to protect the approved field luminance (4–6 %) and the copy's calm zone
+ *     (0.040–0.047); measured, the clamp made the knot equal to the body's
+ *     brightest cells (`p95 = máximo`, contrast 1.113 against the ruler's
+ *     1.303) — the knot was GLUED to the body, on the same ladder rung, and no
+ *     amount of band geometry fixes that while the light is not allowed to reach
+ *     past the plateau. The budget the clamp was protecting is kept by the
+ *     light's own footprint and by its `hold`/calm weighting instead: the
+ *     measured cost is 0.12 points of field luminance at frame 0.
+ *   · THE LIGHT DOES NOT INVENT MATERIAL. Its glow is weighted by the atmosphere
+ *     the cell already carries (`hold`), so the knot brightens the band and a
+ *     lamp is never painted in the void: the band's coverage and its emptiness
+ *     outside stay what they were.
+ */
+const BAND_EVENT = Object.freeze({
+  /** Half the run along the band, in frame widths: the light sweeps u 0.12–0.88. */
+  along: 0.38,
+  /** Half the crossing, in the band's own axis units: it stays inside the crest. */
+  across: 0.025,
+  /** The loop's phase, so the still frame (0.1389 of the cycle) has the light on
+   * the thickest stretch of the ribbon, where its knot is read against the band. */
+  phase: 0.5662,
+  /** v1's eased window edge: the share of the loop spent going in and out. The
+   * envelope is EXACTLY 0 at q = 0 and q = 1, so the seam is not a cut. */
+  season: 0.06,
+  /** The knot's height above the band's crest: the ceiling the light carries a
+   * cell to. A knot clamped TO the crest is the body's own tone (see above). */
+  raise: 0.10,
+  /** The most the light lifts ANY cell, whatever its distance from the crest.
+   * Without this cap the gesture is `crest − base`, which drags the band's
+   * shoulder and the copy's pocket up to the crest and moves the approved field
+   * luminance (measured: 0.36 points of lift and a calm zone at 0.057, both out
+   * of band). With the cap the light still reaches the ceiling around the
+   * crest — that is the knot's flat top — and adds at most `reach` anywhere. */
+  reach: 0.20,
+  /** The tone a cell must already carry for the light to reach it at all: the
+   * band's own shoulder. Below it the glow is empty, not faint. */
+  hold: 0.30,
+  /** The head: the plateau's radius and the radius where it reaches nothing, in
+   * frame widths (the distance is measured in pixels, so a knot is round at any
+   * grid). */
+  core: 0.048,
+  rim: 0.085,
+  /** The trail: v1's `tau` in SECONDS (`scene-constelacion2.mjs:304`), followed
+   * back over `reach` taus, sampled `steps` times, with the footprint of one
+   * sample. */
+  tail: Object.freeze({ tau: 0.70, reach: 3, steps: 24, core: 0.030, rim: 0.058 }),
+});
+
 /**
  * The atmosphere's SMOOTH shape — one band that falls across the frame, the
  * ribbon that crosses it and the knots that give it weight — with no grain in
@@ -704,11 +832,23 @@ const WASH = Object.freeze({
  * while leaving the copy's corner dark. It is the reference the region is
  * measured against: a hole in the lattice is a hole in the grain, never a
  * redefinition of where the band is.
+ *
+ * THE BAND'S OWN NUMBER — the width of its axis, in frame fractions. At 0.065 the
+ * band fills 27,7 % of the 288 × 180 grid at half its maximum and
+ * `design-studies/v1/`'s band fills 14,8 %. 0.049 was measured as the width that
+ * brings ours to 17,9 % (×1,21, inside the ±25 % window the ruler's footprint
+ * asks for) and it does NOT ship: at that width the body has to run at level
+ * 0.45–0.50 to hold the approved field luminance, and the densest window then
+ * renders 3,05× the ruler's ink (case j admits 2×). The number is exported so the
+ * check can report the geometry behind the footprint instead of inferring it
+ * from a picture.
  */
+export const BAND_SIGMA = 0.065;
+
 function washShape(u, v, variant) {
   const slide = variant === 0 ? 0.025 : -0.025;
-  const axis = (u * 0.34 + v * 0.94) - (0.44 + slide);
-  const band = Math.exp(-((axis / 0.065) ** 2));
+  const axis = (u * BAND_AXIS[0] + v * BAND_AXIS[1]) - (BAND_MEAN + slide);
+  const band = Math.exp(-((axis / BAND_SIGMA) ** 2));
   const cross = (-u * 0.94 + v * 0.34) + 0.30 - slide;
   const twist = Math.exp(-((cross / 0.13) ** 2));
   const knotA = Math.exp(-(((u - (0.30 + variant * 0.03)) ** 2 + ((v - (0.56 - variant * 0.04)) * 1.1) ** 2) / 0.05));
@@ -777,6 +917,166 @@ function washPresence(shape, gains, calm) {
 }
 
 /**
+ * The light's path: a CLOSED loop that rides the band's own axis. Two sine terms
+ * (one per axis), every one at an INTEGER number of cycles per loop, so the
+ * position AND the velocity are 2π-periodic in `p` and the seam has nothing to
+ * cut — v1's rule for its wandering light (`scene-constelacion2.mjs:72-86`),
+ * applied to the band instead of to a lens in the middle of the frame.
+ * @param {number} p cycle position in [0,1]
+ * @returns {{u: number, v: number}} the light's head in frame fractions
+ */
+export function bandEventPath(p) {
+  const a = TAU * p + BAND_EVENT.phase;
+  const along = 0.5 - BAND_EVENT.along * Math.cos(a);
+  const across = BAND_EVENT.across * Math.sin(a);
+  return {
+    u: along + (across * BAND_AXIS[0]) / BAND_NORM,
+    v: (BAND_MEAN - BAND_AXIS[0] * along) / BAND_AXIS[1] + (across * BAND_AXIS[1]) / BAND_NORM,
+  };
+}
+
+/**
+ * The event's cycle envelope: 1 for the body of the loop, eased with a smoothstep
+ * over `season` at each end, and EXACTLY 0 at q = 0 and at q = 1 — the two ends
+ * of the loop are the same instant, so a value of 0 at both is what makes the
+ * wrap invisible instead of a cut. Same mechanism as v1's `eventEnvelope`
+ * (`scene-constelacion2.mjs:65-70`).
+ * @param {number} p cycle position in [0,1]
+ */
+export function bandEventEnvelope(p) {
+  if (!(p > 0) || !(p < 1)) return 0;
+  const edge = Math.min(1, Math.min(p, 1 - p) / BAND_EVENT.season);
+  return edge * edge * (3 - 2 * edge);
+}
+
+/**
+ * The knot's own tone field for one frame, written into `layout.washEvent` as the
+ * LIFT it adds to the band (0 where the light does not reach).
+ *
+ * Three readings in one pass over the event's bounding box: the band's crest in
+ * its own region, the light's head, and the trail sampled backwards along the
+ * path with v1's decay.
+ *
+ * THE CEILING IS THE CREST PLUS THE LIGHT'S OWN LIFT (measured change). It used
+ * to be the crest itself, on the argument that a knot must not invent a tone the
+ * band does not reach. Measured, that rule makes the knot IDENTICAL to the
+ * body's brightest cells: `p95` came out equal to `maximum` (1.113 of tonal
+ * contrast against the ruler's 1.303) and the two sat on the same ladder rung,
+ * i.e. `pegado`. The ruler's knot is not a filled hole in its own plateau: it
+ * reaches level 0,587 while its body sits at 0,223. So the light keeps its
+ * mechanism — the same path, the same trail, the same envelope, the same `raise`
+ * — and its ceiling is one `raise` above the crest, which is the tone the light
+ * itself carries. What still holds is the budget: the lift is weighted by the
+ * atmosphere the cell already carries (`hold`) and by the calm pocket, its
+ * footprint is a few hundred cells, and the measured cost on the approved field
+ * is 0.12 points at frame 0 (case `o` caps it at a quarter of a point).
+ * @param {object} layout @param {number} p @param {number} breath
+ */
+function refreshEvent(layout, p, breath) {
+  const cols = layout.cols;
+  const rows = layout.rows;
+  const washA = layout.washA;
+  const washB = layout.washB;
+  const washEvent = layout.washEvent;
+  const calmGrid = layout.calm;
+  washEvent.fill(0);
+  const env = bandEventEnvelope(p);
+  if (env <= 0) return;
+
+  // The crest of the band, read in the band's own region: the same `washRegion`
+  // the composition and the contrast case measure, so the knot is measured on the
+  // object it knots.
+  const bandCells = layout.eventCells;
+  let crest = 0;
+  for (let i = 0; i < bandCells.length; i++) {
+    const at = bandCells[i];
+    const base = (washA[at] > washB[at] ? washA[at] : washB[at]) * breath;
+    if (base > crest) crest = base;
+  }
+  if (!(crest > 0)) return;
+
+  // The head and the trail. v1's decay is `exp(-dt / tau)` per frame with `dt`
+  // taken from the frame rate (`scene-constelacion2.mjs:347`); sampling the path
+  // backwards with `exp(-age / tau) · dage / tau` is that same integral,
+  // evaluated on the path instead of replayed from a buffer.
+  const seconds = (layout.c.cycle?.frames ?? 1) / (layout.c.cycle?.fps ?? 1);
+  const tail = BAND_EVENT.tail;
+  const dage = (tail.reach * tail.tau) / tail.steps;
+  const aspect = rows / cols;
+  const head = bandEventPath(p);
+  const su = [head.u];
+  const sv = [head.v];
+  const sw = [1];
+  const sc = [BAND_EVENT.core];
+  const sr = [BAND_EVENT.rim];
+  for (let j = 0; j < tail.steps; j++) {
+    const age = (j + 1) * dage;
+    const past = wrap01(p - age / seconds);
+    const weight = Math.exp(-age / tail.tau) * (dage / tail.tau) * bandEventEnvelope(past);
+    if (weight < 2e-3) continue;  // under a hundredth of a dither rung: nothing to add
+    const at = bandEventPath(past);
+    su.push(at.u);
+    sv.push(at.v);
+    sw.push(weight);
+    sc.push(tail.core);
+    sr.push(tail.rim);
+  }
+
+  let u0 = 1;
+  let u1 = 0;
+  let v0 = 1;
+  let v1 = 0;
+  for (let s = 0; s < su.length; s++) {
+    if (su[s] < u0) u0 = su[s];
+    if (su[s] > u1) u1 = su[s];
+    if (sv[s] < v0) v0 = sv[s];
+    if (sv[s] > v1) v1 = sv[s];
+  }
+  // The head's rim is the widest footprint, so it bounds the box for every sample.
+  const pad = BAND_EVENT.rim;
+  const x0 = Math.max(0, Math.floor((u0 - pad) * cols) - 1);
+  const x1 = Math.min(cols - 1, Math.ceil((u1 + pad) * cols) + 1);
+  const y0 = Math.max(0, Math.floor((v0 - pad * aspect) * rows) - 1);
+  const y1 = Math.min(rows - 1, Math.ceil((v1 + pad * aspect) * rows) + 1);
+
+  for (let y = y0; y <= y1; y++) {
+    const v = (y + 0.5) / rows;
+    for (let x = x0; x <= x1; x++) {
+      const u = (x + 0.5) / cols;
+      let cover = 0;
+      for (let s = 0; s < su.length; s++) {
+        const d = Math.hypot(u - su[s], (v - sv[s]) * aspect);
+        if (d >= sr[s]) continue;
+        cover += sw[s] * (1 - smoothstep(sc[s], sr[s], d));
+        if (cover >= 1) {
+          cover = 1;
+          break;
+        }
+      }
+      if (cover <= 0) continue;
+      const at = y * cols + x;
+      const base = (washA[at] > washB[at] ? washA[at] : washB[at]) * breath;
+      // The light does not invent material, and the copy keeps its pocket: the
+      // glow is weighted by the atmosphere the cell carries and by the same calm
+      // gain the recipe applies to the band.
+      const lit = cover * clamp01(base / BAND_EVENT.hold) * calmGrid[at];
+      if (lit <= 0) continue;
+      // The light CARRIES the cell's tone to the knot's ceiling, in proportion to
+      // how much of the cell is inside the light. Where the light is full the
+      // tone IS the ceiling, so the knot has a flat top WITH a footprint (its
+      // nucleus is the head's own core, ~600 cells, and it travels with the head
+      // instead of sitting on the band's static maximum), and the trail reads as
+      // the same decay: from the ceiling back down to the band.
+      const weight = lit * env;
+      if (weight <= 0) continue;
+      const gap = crest + BAND_EVENT.raise - base;
+      const value = base + Math.min(gap, BAND_EVENT.reach) * weight;
+      if (value > base) washEvent[at] = value - base;
+    }
+  }
+}
+
+/**
  * THE ATMOSPHERE'S REGION — where the composition says there is air: the shape
  * at half of its own band unit (its full width at half maximum), with the
  * figure's pocket and ring applied and the copy's pocket removed. Coverage is
@@ -831,6 +1131,11 @@ function buildLayout(c, cols, rows) {
   const washB = new Float32Array(n);
   const vignette = new Float32Array(n);
   const core = new Float32Array(n);
+  // The copy's pocket, per cell, so the band's light can keep it too.
+  const calm = new Float32Array(n);
+  // The band's light: the lift it adds over its own region. Zero until a frame
+  // computes it, which is why a wash-less recipe renders nothing new.
+  const washEvent = new Float32Array(n);
   const skyCfg = c.layers.sky ?? { density: 0, seed: 0, keep: 0, veil: 0, structure: {} };
   const washCfg = c.layers.wash ?? { seed: 0, gain: 0 };
   // A missing layer renders as nothing (identity for the vignette, zero for the
@@ -911,6 +1216,7 @@ function buildLayout(c, cols, rows) {
       // has no tone the cell is a hole, and that is the band's edge.
       const washGains = washPocketAndRing(pocket, u, v);
       const calmGain = calmAt(u, v);
+      calm[at] = calmGain;
       const cloudA = washPresence(washShape(u, v, 0), washGains, calmGain);
       const cloudB = washPresence(washShape(u, v, 1), washGains, calmGain);
       const presenceA = cloudA.presence * washWeather(washCfg.seed, u, v, 0);
@@ -1044,7 +1350,15 @@ function buildLayout(c, cols, rows) {
 
   return {
     c, cols, rows, links,
-    sky, washA, washB, vignette, core, nodeTerms, linkTerms,
+    sky, washA, washB, vignette, core, calm, washEvent, nodeTerms, linkTerms,
+    // The band's region as a list of cells: the crest the light lifts to is read
+    // there, once per frame, instead of over the whole frame.
+    eventCells: (() => {
+      const region = washRegion(c, { cols, rows, share: 0.5 });
+      const cells = [];
+      for (let at = 0; at < region.mask.length; at++) if (region.mask[at]) cells.push(at);
+      return Int32Array.from(cells);
+    })(),
     dyn: new Float32Array(n),
     composite: new Float32Array(n),
     linkTone: links.map(() => new Float32Array(n)),
@@ -1081,7 +1395,7 @@ function refresh(layout, p, activeNode) {
   state.p = p;
   state.activeNode = activeNode;
 
-  const { c, cols, dyn, composite, sky, washA, washB, vignette, core, linkTone } = layout;
+  const { c, cols, dyn, composite, sky, washA, washB, vignette, core, linkTone, washEvent } = layout;
   dyn.fill(0);
   for (const plane of linkTone) plane.fill(0);
 
@@ -1124,9 +1438,14 @@ function refresh(layout, p, activeNode) {
   state.washK = k;
   const breath = 0.88 + 0.12 * k;
 
+  // 2b · the band's own light, computed BEFORE the composite: it lifts the local
+  // band to the band's crest and touches nothing else (see `BAND_EVENT`).
+  refreshEvent(layout, p, breath);
+
   // 4 and 5 · vignette then cores, in that order
   for (let i = 0; i < composite.length; i++) {
-    composite[i] = (sky[i] + Math.max(washA[i], washB[i]) * breath + dyn[i]) * vignette[i] + core[i];
+    composite[i] = (sky[i] + Math.max(washA[i], washB[i]) * breath + washEvent[i] + dyn[i])
+      * vignette[i] + core[i];
   }
 }
 
@@ -1199,7 +1518,7 @@ export function constellationLayers(c, options = {}) {
   // dims dots through the low rungs and rebuilds the very lattice the dot cloud
   // exists to avoid. The weather moves as a slow brightness breath instead.
   const breath = 0.88 + 0.12 * k;
-  for (let i = 0; i < n; i++) wash[i] = Math.max(layout.washA[i], layout.washB[i]) * breath;
+  for (let i = 0; i < n; i++) wash[i] = Math.max(layout.washA[i], layout.washB[i]) * breath + layout.washEvent[i];
 
   // The figure, split by plane: nodes only, so the ladder is the plane's weight
   // and not a link's behaviour.
@@ -1222,6 +1541,10 @@ export function constellationLayers(c, options = {}) {
     rows,
     sky: layout.sky,
     wash,
+    // The band's light, as data: the LIFT it adds over the band (0 where it does
+    // not reach), so a check can measure the event instead of inferring it from
+    // the wash. A VIEW of the cached layout, like every other array here.
+    event: layout.washEvent,
     figure: layout.dyn,
     vignette: layout.vignette,
     cores: layout.core,

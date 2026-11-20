@@ -18,7 +18,8 @@ un puntero que **no mueve nada**.
 | `live.mjs` | La escena: compone las hojas, dibuja la figura SVG, mueve la cámara, cruza las opacidades y expone `window.__live` para que el chequeo mida. |
 | `capture.mjs` | Una captura por estado: `reposo`, `mitad`, `foco`, `puntero-a`, `puntero-b`. |
 | `nebula-compare.mjs` | La nebulosa contra la vara: hornea las dos con la misma llamada del motor, recorta la misma ventana de 240 × 160 px, la amplía ×2 con vecino más cercano y escribe `capturas/nebulosa-2x-*.png`. Imprime peldaños usados, fracción de tinta de las dos y la tinta **renderizada** de las dos ventanas compuestas, que es la única cifra comparable entre una hoja transparente y una opaca. |
-| `capturas/` | Los PNG de `Ori` en los cinco estados, y la comparación de grano (`nebulosa-comparacion-2x.png`: nuestra nebulosa a la izquierda, la de v1 a la derecha). |
+| `event-captures.mjs` | El **nudo** de la banda, que es un evento y viaja: abre la escena con el reloj congelado en tres cuadros distintos del ciclo (`?still=1&frame=<n>`), guarda el cuadro entero, la ventana ancha de 480 × 320 px y el recorte ×2 de 240 × 160 px centrado en el nudo, y arma `capturas/evento-comparacion-2x.png` con los tres instantes y, al lado, el recorte ×2 de la banda de la vara. |
+| `capturas/` | Los PNG de `Ori` en los cinco estados, la comparación de grano (`nebulosa-comparacion-2x.png`: nuestra nebulosa a la izquierda, la de v1 a la derecha) y las capturas del nudo (`evento-*.png`). |
 
 ## Los siete puntos del mecanismo, y dónde se miden
 
@@ -102,6 +103,40 @@ Escribe `capturas/nebulosa-2x-Ori.png` (la nuestra), `capturas/nebulosa-2x-vara.
 aumento. La lámina de v1 se hornea llamando a su `hero-field.mjs` como lo llama `v1.mjs`: la vara es
 de sólo lectura. Las cifras que el script imprime —peldaños usados, fracción de tinta de cada lámina y
 tinta renderizada de cada ventana compuesta— son las mismas que mide el caso **j** del chequeo.
+
+El nudo de la banda se captura en tres instantes del ciclo, porque es un evento que viaja:
+
+```bash
+timeout 90 node event-captures.mjs Ori
+```
+
+`?still=1&frame=<n>` congela el reloj en el cuadro `n` del ciclo de la constelación (`live.mjs`) y
+hornea el lavado en ese instante con la misma emisión que usa el worker; sin `frame`, el reloj se
+queda en el cuadro 100 de 720 de la pieza. El script deja `capturas/evento-cuadro-<n>.png` (el cuadro
+entero), `evento-instant-<n>.png` (la ventana ancha de 480 × 320 px centrada en el nudo),
+`evento-nudo-2x-<n>.png` (el recorte ×2 de 240 × 160 px) y `evento-comparacion-2x.png`, que junta los
+tres instantes y, al lado, el recorte ×2 de la banda de la vara. Las tres posiciones son las que mide
+el caso **n** del chequeo.
+
+### El cuerpo, el nudo y la huella (medidos, no estimados)
+
+El pedido nombra la vara con dos números —cuerpo **0,223**, nudo **0,587**— y no son tonos: son
+**niveles**, la posición del color en la rampa de su propia paleta, que es lo que el motor convierte en
+peldaño. El caso **l** los lee de la vara con esa regla (miden 0,2230 y 0,5870, con el nudo **dos**
+peldaños por encima del cuerpo) y mide los nuestros igual: cuerpo **0,318** (peldaño 1) y nudo
+**0,486** (peldaño 2), o sea **un peldaño por encima** y dentro del ±25 % del nudo de la vara.
+
+Lo que no se cierra es el cuerpo, y el caso **m** mide el precio: llevar el lavado de la plancha
+aprobada al nivel del cuerpo de la vara (×0,685 de tono) deja el cuadro 0 en **2,62 %** de luminancia,
+por debajo del piso aprobado del 4 %. El cuerpo alto no es una preferencia estética: es el precio del
+campo acordado, y el caso se pone en rojo si algún día deja de serlo.
+
+La **huella** de la banda (la región al 50 % de su propio pico) es 27,7 % del cuadro contra 14,8 % de
+la vara, y el caso **q** mide por qué no puede ser la suya: con el cielo medido (1,72 % de la
+luminancia del cuadro), la tinta de la vara por celda de su banda (8,35 %) y el apoyo máximo que
+admite el caso **a**, una banda del tamaño de la vara da **3,67 %** de campo — otra vez por debajo del
+4 %. Angostar la nuestra a esa huella exige subir el cuerpo a nivel 0,45–0,50 (medido), que es
+exactamente lo contrario de lo que el cuerpo pide: las dos cosas no caben en el mismo cuadro.
 
 ## Lo que esta escena NO copia de v1
 
