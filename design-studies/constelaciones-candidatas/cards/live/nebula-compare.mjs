@@ -40,7 +40,7 @@ import { constellationLayers, constellationScene, paletteTone, washRegion } from
 import {
   compensate, hexToRgb, luma, rampLadder, sceneMetrics, stepFor, tone,
 } from '../../../../scripts/scene-src/engine.mjs';
-import { BAKE, bakeLayers, stillIndex } from './bake.mjs';
+import { BAKE, bakeLayers, stillIndex, varaField, washSheetAt } from './bake.mjs';
 
 const here = resolve(fileURLToPath(new URL('.', import.meta.url)));
 const OUT = resolve(here, 'capturas');
@@ -225,6 +225,184 @@ export function varaCoverage(share = 0.5) {
     cells: inside,
     outsideCells: outside,
   };
+}
+
+/*
+ * ─── EL MATERIAL IMPORTADO, MEDIDO CON LOS INSTRUMENTOS DE LA VARA ───────────
+ *
+ * Desde la disposición del 2026-11-05 el fondo de la carta ES el material de la
+ * vara, así que los casos del corredor se anclan a la región y la masa que
+ * viaja de ese material, no a la región del modelo. Estas cuatro funciones son
+ * las hermanas de `varaBand` / `varaCoverage` / `varaBandLevels` aplicadas a
+ * NUESTRA hoja horneada: mismo corte de región (la mitad del propio pico), misma
+ * forma de leer el nivel y la tinta, y la densidad leída de los píxeles de la
+ * hoja —no de una regla de alfa copiada—, para que el corredor no pueda
+ * aprobarse con un número que no sea el que se pinta.
+ */
+
+/** La banda del material importado: las celdas de la retícula del lavado cuyo
+ * TONO BASE de la vara está a la mitad de su propio pico, la misma regla con la
+ * que `varaBand` corta la suya. El tono base, no el tono con emisión: la banda
+ * es el suelo donde el material tiene atmósfera, y una mota de emisión no
+ * convierte suelo vacío en banda. */
+export function importedBand(share = 0.5) {
+  const emission = EMISSIONS.dark;
+  const [cols, rows] = BAKE.washGrid;
+  const values = new Float64Array(cols * rows);
+  let peak = 0;
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const value = emission.baseTone(x, y);
+      values[y * cols + x] = value;
+      if (value > peak) peak = value;
+    }
+  }
+  const mask = new Uint8Array(cols * rows);
+  let cells = 0;
+  for (let at = 0; at < values.length; at++) {
+    if (values[at] < peak * share) continue;
+    mask[at] = 1;
+    cells += 1;
+  }
+  return { cell: BAKE.washCell, cols, rows, share, peak, values, mask, cells };
+}
+
+/** CUÁNTO PINTA EL MATERIAL IMPORTADO SU PROPIA BANDA: la misma cuenta que
+ * `varaCoverage`, sobre la hoja del lavado que hornea `bake.mjs`. */
+export function importedCoverage(sheet, share = 0.5) {
+  const band = importedBand(share);
+  let inside = 0;
+  let inked = 0;
+  let outside = 0;
+  let outed = 0;
+  for (let at = 0; at < band.mask.length; at++) {
+    const painted = sheet.steps[at] > 0;
+    if (band.mask[at]) {
+      inside += 1;
+      if (painted) inked += 1;
+    } else {
+      outside += 1;
+      if (painted) outed += 1;
+    }
+  }
+  return {
+    cell: band.cell,
+    share,
+    peak: band.peak,
+    inside: inside ? inked / inside : 0,
+    outside: outside ? outed / outside : 0,
+    cells: inside,
+    outsideCells: outside,
+  };
+}
+
+/** EL CUERPO Y EL NUDO DEL MATERIAL IMPORTADO, en niveles: la lectura de
+ * `varaBandLevels` sobre nuestra hoja. El nivel es el del tono base de la banda
+ * (lo que entra a `stepFor`), y la tinta es la que la hoja efectivamente puso:
+ * el peldaño y el índice que SU `material` eligió, no los que promete la escalera. */
+export function importedBandLevels(sheet, share = 0.5) {
+  const band = importedBand(share);
+  const emission = EMISSIONS.dark;
+  const scene = emission.constelacion2Scene;
+  const metrics = sceneMetrics(scene);
+  const tones = scene.palette.map((hex) => tone(hexToRgb(hex)));
+  const groundLuma = Math.min(...tones);
+  const span = Math.max(...tones) - groundLuma;
+  const levels = [];
+  const painted = [];
+  for (let at = 0; at < band.mask.length; at++) {
+    if (!band.mask[at]) continue;
+    const color = emission.toneColor(band.values[at]);
+    levels.push(levelIn(groundLuma, span, color));
+    const step = sheet.steps[at];
+    const index = step === 0 ? metrics.groundIndex : sheet.indices[at];
+    painted.push(metrics.groundTone + (metrics.tones[index] - metrics.groundTone) * metrics.coverage[step]);
+  }
+  return {
+    share,
+    peak: band.peak,
+    cells: band.cells,
+    levels: levelStats(levels),
+    painted: toneStats(painted),
+    inkPerCell: painted.reduce((sum, value) => sum + value, 0) / Math.max(1, painted.length),
+  };
+}
+
+/**
+ * EL NUDO QUE VIAJA DENTRO DEL MATERIAL IMPORTADO, en un instante. La emisión de
+ * la vara es rala y su máximo es una mota de una celda, así que el nudo no se
+ * lee del máximo crudo —nombraría la suerte como nudo— sino con el instrumento
+ * de densidad aprobado: el decil superior de las losetas de 16 px (5 celdas de
+ * la retícula del lavado), con la posición ponderada por la tinta que la hoja
+ * pone en ellas. La tinta se suma del alfa de los píxeles de la hoja.
+ * @param {number} seconds el instante del ciclo
+ * @param {{sheet?: object, share?: number, tile?: number, decile?: number}} [options]
+ */
+export function importedKnot(seconds, options = {}) {
+  const share = options.share ?? 0.5;
+  const tile = options.tile ?? 5;
+  const decile = options.decile ?? 0.1;
+  const sheet = options.sheet ?? washSheetAt(seconds);
+  const band = importedBand(share);
+  const { cols, rows, cell } = band;
+  const tiles = [];
+  for (let ty = 0; ty < Math.ceil(rows / tile); ty++) {
+    for (let tx = 0; tx < Math.ceil(cols / tile); tx++) {
+      let ink = 0;
+      let seen = 0;
+      let painted = 0;
+      for (let y = ty * tile; y < Math.min(rows, (ty + 1) * tile); y++) {
+        for (let x = tx * tile; x < Math.min(cols, (tx + 1) * tile); x++) {
+          const at = y * cols + x;
+          if (!band.mask[at]) continue;
+          seen += 1;
+          let alpha = 0;
+          for (let py = 0; py < cell; py++) {
+            for (let px = 0; px < cell; px++) {
+              alpha += sheet.pixels[((y * cell + py) * sheet.width + x * cell + px) * 4 + 3];
+            }
+          }
+          ink += alpha / 255;
+          if (alpha > 0) painted += 1;
+        }
+      }
+      // Una loseta recortada por el borde o por fuera de la banda no es una loseta.
+      if (seen < tile * tile * 0.8) continue;
+      tiles.push({ tx, ty, ink: ink / seen, painted });
+    }
+  }
+  const ranked = [...tiles].sort((a, b) => b.ink - a.ink);
+  const top = ranked.slice(0, Math.max(1, Math.ceil(tiles.length * decile)));
+  let sx = 0;
+  let sy = 0;
+  let weight = 0;
+  let cells = 0;
+  for (const t of top) {
+    sx += (t.tx + 0.5) * tile * t.ink;
+    sy += (t.ty + 0.5) * tile * t.ink;
+    weight += t.ink;
+    cells += t.painted;
+  }
+  return {
+    seconds,
+    u: weight ? sx / weight / cols : 0,
+    v: weight ? sy / weight / rows : 0,
+    cells,
+    tiles: top.length,
+    ofTiles: tiles.length,
+    densest: ranked[0]?.ink ?? 0,
+  };
+}
+
+/** La distancia media entre dos instantes de la emisión del material. Es el
+ * instrumento del empalme: el salto al cerrar el ciclo tiene que ser de la
+ * misma talla que el paso de un cuadro al siguiente dentro del ciclo. */
+export function importedFieldDiff(from, to) {
+  const a = varaField(from);
+  const b = varaField(to);
+  let sum = 0;
+  for (let i = 0; i < a.length; i++) sum += Math.abs(a[i] - b[i]);
+  return sum / a.length;
 }
 
 /**
@@ -455,6 +633,8 @@ export function coverageOf(sheet, cell, mask) {
 
 /** La nebulosa de v1, horneada como la hornea `v1.mjs` —su `bake()`—, sin blur
  * y sin foco: la lámina del cielo y la del lavado, más el ground de v1. */
+const VARA_GROUND = HERO_BASES['dark'];
+
 export function varaSheets() {
   const ground = 'dark';
   const emission = EMISSIONS[ground];
@@ -557,20 +737,26 @@ export async function compareNebula(id = firstCatalogueId()) {
   const leaves = bakeLayers(catalogue, { width: CARD.width, height: CARD.height });
   const vara = varaSheets();
   const frame = { width: CARD.width, height: CARD.height };
-  // Nuestra nebulosa vive en la lámina del lavado (sus coordenadas son las del
-  // cuadro); la de v1, en su cielo, que está sobremuestreado y se pasa a
-  // coordenadas del cuadro. Cada ventana se toma donde la masa es, no en el
-  // centroide: el centroide incluye el fleco.
-  const oursBox = densestWindow(leaves.wash);
+  // RE-ANCLADO (disposición del 2026-11-05): los dos materiales son el MISMO
+  // material ahora, así que las dos ventanas tienen que ser la MISMA ventana —
+  // la más densa del cielo (canal 0: luma), llevada a coordenadas del cuadro —.
+  // Si cada lado tomara su propia ventana (la nuestra la del alfa del lavado,
+  // que marca los eventos, no la banda), el caso compararía dos lugares distintos.
   const bandBox = densestWindow(vara.sky, 0);
-  const varaBox = { left: bandBox.left - SKY_CROP[0], top: bandBox.top - SKY_CROP[1] };
+  const oursBox = bandBox;
+  const varaBox = { left: oursBox.left, top: oursBox.top };
+  // RE-ANCLADO (disposición del 2026-11-05): el material importado se DIBUJA
+  // como lo dibuja v1 — su hoja de lavado (1440×900, celda 3) va escalada a la
+  // escala de figura de la vara (2,4), no a la celda de la tarjeta. El compuesto
+  // del material importado es ahora el mismo compuesto que el de la vara, y la
+  // ventana se toma donde está la masa de la banda del material.
   const oursWindow = await compose({
     sky: leaves.sky,
     wash: leaves.wash,
-    ground: catalogue.palette.ground,
+    ground: VARA_GROUND,
     skyCrop: SKY_CROP,
-    washOffset: [0, 0],
-    washScale: CARD.cell,
+    washOffset: [8, 8],
+    washScale: 2.4,
   }, oursBox);
   const varaWindow = await compose({
     sky: vara.sky,

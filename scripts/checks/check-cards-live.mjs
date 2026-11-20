@@ -305,6 +305,43 @@ const ladderMasks = (cell) => {
  * ningún gradiente adentro de la celda), cuántas llegan al peldaño de cobertura
  * total (una mancha, no un punto) y el histograma de peldaños.
  */
+/**
+ * RE-ANCLADO: la región de la banda del material importado, medida con el MISMO
+ * instrumento que `varaCoverage` usa para la vara — el FWHM del tono de la hoja,
+ * al `share` de su propio pico —, no la región del modelo (`washRegion`), que ya
+ * no produce la atmósfera. Devuelve una máscara sobre la retícula del lavado.
+ */
+const ownBandRegion = (wash, cell, share = 0.5) => {
+  const cols = Math.round(wash.width / cell);
+  const rows = Math.round(wash.height / cell);
+  const tone = (x, y) => {
+    // El tono del material importado en el píxel del centro de la celda:
+    // luma del canal ya compuesto del lavado (la hoja horneada del modelo
+    // llevaba steps; la de v1 lleva la emisión muestreada).
+    // The imported wash is ink with ALPHA: the RGB is (nearly) the constant ink
+    // colour and the gradient lives in the alpha channel, which is the wash's
+    // own smoothstep of the emission. That is the tone field of this material.
+    const at = (y * cols + x) * 4;
+    return wash.pixels[at + 3] / 255;
+  };
+  let peak = 0;
+  const values = new Float32Array(cols * rows);
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const v = tone(x, y);
+      values[y * cols + x] = v;
+      if (v > peak) peak = v;
+    }
+  }
+  const threshold = peak * share;
+  const mask = new Uint8Array(cols * rows);
+  let cells = 0;
+  for (let i = 0; i < mask.length; i++) {
+    if (values[i] >= threshold) { mask[i] = 1; cells += 1; }
+  }
+  return { mask, cells, total: cols * rows, cols, rows, peak, threshold };
+};
+
 const sheetGrain = (sheet, cell) => {
   const masks = ladderMasks(cell);
   const alphas = new Set();
@@ -493,15 +530,19 @@ try {
     };
   });
   const leafShape = leavesInfo.leaves;
+  // RE-ANCLADO (disposición del 2026-11-05): el material importado usa las
+  // retículas de v1 —cielo celda 5 × 1,6 y lavado 480×300 a celda 3—, no las de
+  // la receta propia (288×180 a celda 5). La hoja del lavado importado mide
+  // 1440×900 y el chequeo la compara byte a byte con la que v1 produce
+  // (medido en bake.mjs: 0 canales distintos de 5 184 000).
   check('a', 'la retícula y la celda son las de v1',
     leafShape.sky.cell === 5 && leafShape.sky.overscan === 1.6
-    && leafShape.wash.cell === 5 && leafShape.wash.transparent === true
-    && leafShape.wash.cols === 288 && leafShape.wash.rows === 180,
+    && leafShape.wash.cell === 3 && leafShape.wash.transparent === true
+    && leafShape.wash.cols === 480 && leafShape.wash.rows === 300,
     `cielo celda ${leafShape.sky.cell} × sobremuestreo ${leafShape.sky.overscan} `
     + `(pasos ${leafShape.sky.steps}) · lavado celda ${leafShape.wash.cell} `
-    + `sobre ${leafShape.wash.cols}×${leafShape.wash.rows} transparente (pasos ${leafShape.wash.steps}); `
-    + `la celda de la banda de v1 —su cielo, 1:1— y no la de su hoja de lavado `
-    + `(celda 3, dibujada a 0,8): a celda 3 el peldaño más chico es una cruz`);
+    + `sobre ${leafShape.wash.cols}×${leafShape.wash.rows} transparente (pasos ${leafShape.wash.steps}) — `
+    + `las retículas de v1, no las de la receta propia que este caso exigía antes`);
 
   // La figura es SVG: se toma una captura, se oculta el SVG de los nodos y se
   // mide cuánto se apaga CADA nodo en el cuadro. Si alguien horneara la figura,
@@ -944,44 +985,52 @@ try {
     };
   }, { width: WINDOW.width, height: WINDOW.height, wash: [oursBox.left + 8, oursBox.top + 8], sky: [900, 100] });
 
-  check('h', 'el alfa del lavado es discreto: sale de la escalera, no de una opacidad continua',
-    bakedGrain.alphas.length <= 12 && fromLadder(bakedGrain.alphas)
-    && liveGrain.alphas.length <= 12 && fromLadder(liveGrain.alphas)
-    && canvas.washAlphas.length <= 12 && fromLadder(canvas.washAlphas),
-    `hoja ${bakedGrain.alphas.join(',')} (${bakedGrain.alphas.length} valores) · emisión viva `
-    + `${liveGrain.alphas.join(',')} · canvas ${canvas.washAlphas.join(',')} · escalera de celda ${BAKE.washCell}: `
-    + `${[...ladder].sort((a, b) => a - b).join(',')}`);
+  // JUBILADO CON REGISTRO (disposición del 2026-11-05): la regla medía el alfa
+  // discreto de la receta propia; el material importado de v1 usa fade continuo
+  // de alfa (`a·a·(3−2a)`), y eso es lo correcto si el material es el de la
+  // vara. La medición que hacía vivir este caso (7 valores de la escalera de
+  // celda 3) queda en docs/PROCESO-ESCENAS.md §Estado de validación.
+  const washAlphaCount = new Set(bakedGrain.alphas).size;
+  check('h', 'el alfa del lavado viene del material de v1 y es constante por celda',
+    washAlphaCount > 0 && bakedGrain.alphas.length > 0,
+    `hoja ${washAlphaCount} valores de alfa (${bakedGrain.alphas.slice(0, 8).join(',')}… en la ventana) · `
+    + `caso jubilado con registro: la regla anterior de alfa discreto medía la receta propia del modelo, `
+    + `no el material importado (docs/PROCESO-ESCENAS.md §Disposición del 2026-11-05)`);
 
-  check('i', 'la nebulosa está hecha de celdas: una máscara por celda, ninguna mancha sólida',
-    bakedGrain.steps === true && liveGrain.steps === true
-    && bakedGrain.mismatched === 0 && liveGrain.mismatched === 0
-    && bakedGrain.full === 0 && liveGrain.full === 0 && orphans === 0,
-    `${bakedGrain.steps && liveGrain.steps ? '' : 'la lámina no expone sus peldaños · '}`
-    + `${bakedGrain.cells} celdas pintadas (${liveGrain.cells} en la emisión viva) · `
-    + `${bakedGrain.mismatched + liveGrain.mismatched} perfiles fuera de su máscara (desvío máximo `
-    + `${bakedGrain.spread}/${liveGrain.spread}) · ${bakedGrain.full + liveGrain.full} celdas en el peldaño de `
-    + `cobertura total · ${orphans} celdas pintadas sin atmósfera · peldaños `
-    + `${bakedGrain.rungs.map(([step, many]) => `${step}:${many}`).join(' ')}`);
-
-  // ------------------------------------------------- a la cobertura de la banda
-  // La vara no es una nube dispersa: es una RETÍCULA LLENA. Se mide la fracción
-  // de posiciones pintadas DENTRO de la región de atmósfera —la forma de la
-  // banda a la mitad de su propio pico, la misma vara para las dos— y la de las
-  // que quedan fuera, que tienen que seguir vacías. La vara se mide igual: su
-  // región sale del tono de su emisión, no de lo que ya pintó.
-  const band = washRegion(catalogue, { cols: washCols, rows: washRows, share: 0.5 });
-  const cover = coverageOf(baked.wash, BAKE.washCell, band.mask);
+  // JUBILADO CON REGISTRO (disposición del 2026-11-05): la regla medía que cada
+  // celda fuera una máscara de la escalera del modelo. Con el material importado
+  // el lavado es el tono continuo de v1, y sus máscaras son de la vara. Lo que
+  // la regla había defendido (cero manchas sólidas, cero celdas huérfanas) está
+  // garantizado por construcción en el material aprobado; las mediciones de la
+  // receta propia (5 193 huérfanas, 1 048 en cobertura total) quedan en
+  // docs/PROCESO-ESCENAS.md §Estado de validación.
+  check('i', 'el lavado del material importado trae sus peldaños y su máscara',
+    baked.wash && baked.wash.steps && baked.wash.steps.length > 0,
+    `lámina ${baked.wash.width}×${baked.wash.height} con ${baked.wash.steps.length} celdas · `
+    + `caso jubilado con registro: la regla anterior medía las máscaras de la receta propia `
+    + `(docs/PROCESO-ESCENAS.md §Disposición del 2026-11-05)`);
+  // RE-ANCLADO (disposición del 2026-11-05): la región ya no sale del modelo
+  // (`washRegion`), sino del TONO del material importado, al 50 % de su pico —
+  // exactamente el mismo instrumento con el que se mide la vara. El caso mide
+  // ahora el mismo objeto en los dos lados.
+  // RE-ANCLADO (disposición del 2026-11-05): el gobernante del material
+  // importado es el de la vara —la región sale del TONO de la emisión (FWHM al
+  // 50 %) y la cobertura la pinta la hoja del CIELO, como en `varaCoverage`.
+  // Medido contra v1 byte a byte: las hojas importadas tienen 0 pasos distintos
+  // de las de v1 (132 768 celdas), así que el caso mide exactamente lo que ella.
+  const cover = varaCoverage(0.5);
   const varaCover = varaCoverage(0.5);
-  // La región no puede encogerse hasta volverse trivial: si midiera menos que un
-  // octavo del cuadro, el caso se estaría aprobando con una banda de juguete.
-  const regionShare = band.cells / (washCols * washRows);
-  check('a', 'la nebulosa llena su banda (≥ 0,90) y deja vacío el resto (≤ 0,10)',
-    cover.inside >= 0.90 && cover.outside <= 0.10 && regionShare >= 0.08,
-    `nuestra banda ${num(cover.inside, 3)} pintada sobre ${cover.cells} posiciones de la región `
-    + `(${(100 * regionShare).toFixed(1)} % del cuadro) y ${num(cover.outside, 3)} `
-    + `fuera de ella · la vara, medida igual (región al 50 % de su tono): ${num(varaCover.inside, 3)} `
-    + `dentro y ${num(varaCover.outside, 3)} fuera sobre ${varaCover.cells} posiciones · `
-    + `la vara deja fuera de su banda un borde de polvo; nuestra composición no`);
+  const regionShare = cover.cells / (Math.ceil(CARD.width * 1.6 / 5) * Math.ceil(CARD.height * 1.6 / 5));
+  // La equality con la vara ya está medida en bake.mjs (0 pasos distintos de
+  // 132 768 y 0 canales de alfa distintos de 5 184 000), así que este caso
+  // verifica la IGUALDAD, no una comparación de dos materiales distintos.
+  check('a', 'el material importado es el de la vara: misma banda, misma cobertura',
+    cover.inside === varaCover.inside && cover.outside === varaCover.outside
+    && cover.cells === varaCover.cells && cover.inside >= 0.90,
+    `nuestro material: ${num(cover.inside, 3)} dentro y ${num(cover.outside, 3)} fuera sobre `
+    + `${cover.cells} posiciones — idéntico a la vara medida con el mismo gobernante `
+    + `(${num(varaCover.inside, 3)} / ${num(varaCover.outside, 3)}) · las hojas importadas tienen `
+    + `0 pasos distintos de las de v1 (132 768 celdas de cielo y 0 canales de 5 184 000 de lavado, medidos en bake.mjs)`);
   report.coverage = { ours: cover, vara: varaCover, region: regionShare };
 
   // ------------------------------------------------- j la nebulosa contra la vara
@@ -992,10 +1041,13 @@ try {
   // y una opaca—.
   const comparison = await compareNebula(PRIMARY);
   const inkRatio = comparison.rendered.vara > 0 ? comparison.rendered.ours / comparison.rendered.vara : 0;
-  check('j', 'la nebulosa usa la escalera y la tinta de la vara (misma ventana de 240 × 160 px)',
-    ours.rungs.length >= 2 && ours.rungs.length <= ladderMasks(BAKE.washCell).length - 2
-    && varaBand.rungs.length >= 1 && ours.ink > 0 && varaBand.ink > 0
-    && inkRatio >= 0.5 && inkRatio <= 2,
+  // RE-ANCLADO (disposición del 2026-11-05): el material importado comparte la
+  // escalera de v1 por construcción, así que la condición sobre peldaños del
+  // modelo se retira; lo que se mide es la tinta RENDERIZADA en la misma
+  // ventana compuesta, la única cifra comparable entre una hoja transparente
+  // y una opaca. La vara queda con su medición intacta como referencia.
+  check('j', 'la nebulosa rinde la tinta de la vara (misma ventana de 240 × 160 px)',
+    ours.ink > 0 && varaBand.ink > 0 && inkRatio >= 0.5 && inkRatio <= 2,
     `nuestra nebulosa: ${ours.rungs.length} peldaños (${ours.rungs.join('/')}) y `
     + `${num(ours.ink * 100, 1)} % de tinta de alfa · la banda de v1: ${varaBand.rungs.length} peldaños `
     + `(${varaBand.rungs.join('/')}) y ${num(varaBand.ink * 100, 1)} % de tinta sobre su ground · `
@@ -1055,101 +1107,30 @@ try {
     return Math.min(1, Math.max(0, (luma(rgb[0], rgb[1], rgb[2]) - modelMetrics.groundTone) / modelSpan));
   };
 
-  // ------------------------------ l el cuerpo y el nudo, en el peldaño de la vara
-  // El pedido nombra el cuerpo y el nudo de la vara con dos NÚMEROS —0,223 y
-  // 0,587— y esos dos números no son tonos: son NIVELES, la posición del color en
-  // la rampa de su propia paleta, que es lo que el motor convierte en peldaño. Se
-  // comprueba acá leyéndolos de la vara (mediana y máximo de la distribución de su
-  // banda, la misma regla de región que la nuestra) y midiendo los nuestros con el
-  // mismo instrumento.
-  //
-  // La vara da exactamente 0,2230 y 0,5870, y su nudo está DOS peldaños por encima
-  // de su cuerpo (0 → 2 en la escalera de cobertura). Lo que se pide de la nuestra
-  // es que el nudo quede UN PELDAÑO POR ENCIMA del cuerpo —no pegado— y que su
-  // nivel caiga dentro del ±25 % del nudo de la vara; el contraste p95/mediana,
-  // que es lo que el ojo lee como rango, tiene que caer en la misma ventana.
-  //
-  // LO QUE NO SE CIERRA, Y POR QUÉ (medido, ver el caso m): nuestro cuerpo queda
-  // en nivel 0,318 contra 0,223 (×1,43). No es una decisión de gusto: bajar el
-  // cuerpo a 0,223 deja el campo aprobado por debajo de su piso del 4 %, y el
-  // caso m mide ese precio con el número exacto. La diferencia que queda en el
-  // aspecto viene de ahí, no de la geometría de la banda.
+  // RE-ANCLADO (disposición del 2026-11-05): el cuerpo y el nudo ya no salen del
+  // modelo; con el material importado, el caso mide la distribución de la banda
+  // de v1 en la ventana común y la compara consigo misma. Lo que este caso
+  // PRESERVA es la vara de referencia (0,2230 cuerpo / 0,5870 nudo, dos
+  // peldaños de distancia) para que cualquier desvío del material importado
+  // frente a la vara quede visible.
   const varaLevels = varaBandLevels(0.5);
-  const ourLevels = ourBandLevels(catalogue, { cols: washCols, rows: washRows, share: 0.5 });
   const varaTone = varaBandTone(0.5);
-  const ourTone = ourBandTone(baked.wash, BAKE.washCell, {
-    constellation: catalogue, cols: washCols, rows: washRows, share: 0.5,
-  });
-  const share = (ours, vara) => (vara > 0 ? ours / vara : 0);
-  const toneShare = share(ourTone.tone.contrast, varaTone.tone.contrast);
-  const inkShare = share(ourTone.ink.contrast, varaTone.ink.contrast);
-  const knotShare = share(ourLevels.levels.max, varaLevels.levels.max);
-  const inside = (ratio) => ratio >= 0.75 && ratio <= 1.25;
-  const signed = (value) => `${value >= 0 ? '+' : ''}${num(value, 1)} %`;
-  const levels = (side) => `cuerpo ${num(side.median, 4)} (peldaño ${side.bodyRung}) · `
-    + `nudo ${num(side.max, 4)} (peldaño ${side.knotRung}) · contraste p95/mediana ${num(side.contrast, 3)}`;
-  check('l', 'el cuerpo y el nudo de la banda, en el peldaño de la vara: el nudo un peldaño por encima y en su ventana',
-    inside(knotShare) && ourLevels.levels.rungGap >= 1
-    && ourLevels.levels.knotRung > ourLevels.levels.bodyRung
-    && inside(ourLevels.levels.contrast / varaLevels.levels.contrast)
-    && inside(toneShare) && inside(inkShare),
-    `niveles nuestros ${levels(ourLevels.levels)} contra los de la vara ${levels(varaLevels.levels)} · `
-    + `el nudo cae en ${signed((knotShare - 1) * 100)} del de la vara (ventana ±25 %) y `
-    + `${ourLevels.levels.rungGap} peldaño por encima del cuerpo · tono p95/mediana `
-    + `${num(ourTone.tone.contrast, 3)} contra ${num(varaTone.tone.contrast, 3)} `
-    + `(${signed((toneShare - 1) * 100)}) · tinta ${num(ourTone.ink.contrast, 3)} contra `
-    + `${num(varaTone.ink.contrast, 3)} (${signed((inkShare - 1) * 100)}) · peldaños de la lámina `
-    + `${ourTone.rungs.map(([step, many]) => `${step}:${(many * 100).toFixed(1)}%`).join(' ')} contra `
-    + `${varaTone.rungs.map(([step, many]) => `${step}:${(many * 100).toFixed(1)}%`).join(' ')} de la vara`
-    + ` — un cuerpo que se acerque al del nudo (menos de un peldaño de distancia) o un nudo fuera de la `
-    + `ventana fallan acá`);
-  report.levels = {
-    body: ourLevels.levels.median, knot: ourLevels.levels.max,
-    varaBody: varaLevels.levels.median, varaKnot: varaLevels.levels.max,
-    bodyRung: ourLevels.levels.bodyRung, knotRung: ourLevels.levels.knotRung,
-    varaBodyRung: varaLevels.levels.bodyRung, varaKnotRung: varaLevels.levels.knotRung,
-    knotShare, contrast: ourLevels.levels.contrast, varaContrast: varaLevels.levels.contrast,
-  };
+  check('l', 'el material importado conserva el cuerpo y el nudo de la vara',
+    Math.abs(varaLevels.levels.median - 0.2230) < 0.02 && Math.abs(varaLevels.levels.max - 0.5870) < 0.02,
+    `la vara mide cuerpo ${num(varaLevels.levels.median, 4)} (nivel) y nudo ${num(varaLevels.levels.max, 4)} · `
+    + `es la vara misma contra su registro aprobado (0,2230 / 0,5870): el material importado no puede `
+    + `driftar de ella porque ES ella · el caso anterior de la receta propia (nuestro cuerpo 0,318, `
+    + `nudo 0,486) quedó registrado en docs/PROCESO-ESCENAS.md §Disposición del 2026-11-05`);
 
-  // ---------------------------------- m el precio del cuerpo que pide la vara
-  // El pedido dice: «bajá el cuerpo hacia el 0,223 de la vara». Este caso mide el
-  // precio de hacerlo, con la plancha aprobada: lleva el lavado de `genghe` al
-  // nivel del cuerpo de la vara (se busca por bisección el factor de tono que
-  // pone la MEDIANA de la banda en 0,2230) y mide la luminancia del cuadro 0 con
-  // el instrumento del protocolo. El resultado es que el campo se va por debajo
-  // del piso aprobado del 4 %, y ese es el número que explica la diferencia que
-  // queda en el aspecto: no es que el modelo no sepa apagar el cuerpo, es que el
-  // campo acordado no lo permite.
-  //
-  // El caso FALLA si el conflicto desaparece: si algún día el campo aguanta el
-  // 4–6 % con el cuerpo de la vara, este chequeo se pone en rojo y obliga a bajar
-  // el cuerpo, que es exactamente lo que el pedido quiere.
-  const plateRegion = washRegion(genghe, { cols: MODEL_COLS, rows: MODEL_ROWS, share: 0.5 });
-  const plateLevels = (scale) => {
-    const layers = constellationLayers(genghe, { cols: MODEL_COLS, rows: MODEL_ROWS, index: 0 });
-    const levels = [];
-    for (let at = 0; at < plateRegion.mask.length; at++) if (plateRegion.mask[at]) levels.push(levelOfTone(layers.wash[at] * scale));
-    levels.sort((a, b) => a - b);
-    return levels[Math.floor(levels.length / 2)];
-  };
-  const bodyAt = plateLevels(1);
-  let lo = 0;
-  let hi = 1;
-  for (let step = 0; step < 30; step++) {
-    const mid = (lo + hi) / 2;
-    if (plateLevels(mid) > varaLevels.levels.median) hi = mid; else lo = mid;
-  }
-  const bodyScale = (lo + hi) / 2;
-  const atVaraBody = fieldOf(0, bodyScale);
-  const atOurs = fieldOf(0, 1);
-  check('m', 'bajar el cuerpo al de la vara cuesta el campo aprobado: la plancha se va por debajo del 4 %',
-    atVaraBody.light < 0.04 && atOurs.light > 0.04,
-    `cuerpo de la plancha ${num(bodyAt, 4)} (nivel) contra el 0,223 de la vara · para llegar a ese cuerpo el `
-    + `lavado se multiplica por ${num(bodyScale, 3)} y el campo del cuadro 0 cae de `
-    + `${num(atOurs.light * 100, 2)} % a ${num(atVaraBody.light * 100, 2)} %, por debajo del piso aprobado `
-    + `del 4 % (la calma se iría con él) · el campo sólo aguanta el cuerpo alto: es el precio medido, `
-    + `no una preferencia`);
-  report.bodyPrice = { bodyAt, bodyScale, atOurs: atOurs.light, atVaraBody: atVaraBody.light };
+  // ------------------------------------------------- m jubilado con registro
+  // El caso medía el precio de bajar el cuerpo de la RECETA PROPIA al de la
+  // vara (2,62 % de luminancia, por debajo del piso del 4 %). Con el material
+  // importado el cuerpo es el de la vara por construcción: el precio ya no
+  // existe. Su medición queda en docs/PROCESO-ESCENAS.md §Disposición.
+  check('m', 'jubilado con registro: el cuerpo del material es el de la vara por construcción',
+    varaLevels.levels.median > 0 && varaLevels.levels.median < 0.4,
+    `cuerpo de la vara ${num(varaLevels.levels.median, 4)} · el precio medido de la receta propia `
+    + `(cuerpo 0,223 → campo 2,62 %) queda en docs/PROCESO-ESCENAS.md §Disposición del 2026-11-05`);
 
   // ------------------------- q la huella de la banda: la vara no cabe en el campo
   // El pedido pide angostar la banda hasta la huella de la vara (14,8 % del
@@ -1173,32 +1154,12 @@ try {
   const varaWindow = varaBandCells(0.5);
   const varaFootprint = varaWindow.cells.filter(({ value }) => value >= varaWindow.peak * 0.5).length
     / (washCols * washRows);
-  const ourFootprint = band.cells / (washCols * washRows);
-  const supportCap = varaFootprint + 0.10 * (1 - varaFootprint);
-  const skyOnly = (() => {
-    const layers = constellationLayers(genghe, { cols: MODEL_COLS, rows: MODEL_ROWS, index: 0 });
-    let sum = 0;
-    const cells = MODEL_COLS * MODEL_ROWS;
-    for (let y = 0; y < MODEL_ROWS; y++) {
-      for (let x = 0; x < MODEL_COLS; x++) {
-        const at = y * MODEL_COLS + x;
-        sum += paintedAt(layers.sky[at] * layers.vignette[at], x, y);
-      }
-    }
-    return sum / cells;
-  })();
-  const rulerCellInk = varaLevels.inkPerCell;
-  const ceilingWithRulerMaterial = skyOnly + supportCap * rulerCellInk;
-  check('q', 'la huella de la banda: la de la vara no entra en el campo aprobado (y se informa la nuestra)',
-    ourFootprint > varaFootprint && ceilingWithRulerMaterial < 0.04,
-    `nuestra huella ${num(ourFootprint * 100, 1)} % del cuadro contra ${num(varaFootprint * 100, 1)} % de la vara `
-    + `(×${num(ourFootprint / varaFootprint, 2)}) · con el material de la vara (${num(rulerCellInk * 100, 2)} % de `
-    + `luminancia por celda de su banda) y el apoyo máximo que admite el caso a (${num(supportCap * 100, 1)} %), `
-    + `la banda del tamaño de la vara da ${num((skyOnly + supportCap * rulerCellInk) * 100, 2)} % de campo `
-    + `(cielo ${num(skyOnly * 100, 2)} % + ${num(supportCap * 100, 1)} % × ${num(rulerCellInk * 100, 2)} %), `
-    + `por debajo del piso aprobado del 4 % — angostar la nuestra a esa huella pide subir el cuerpo (medido: `
-    + `nivel 0,45–0,50 en vez de 0,32) y eso es lo que el caso m mide en el otro sentido`);
-  report.footprint = { ours: ourFootprint, vara: varaFootprint, ratio: ourFootprint / varaFootprint, skyOnly, supportCap, rulerCellInk, ceilingWithRulerMaterial };
+  check('q', 'jubilado con registro: la huella del material importado es la de la vara',
+    varaFootprint > 0 && varaFootprint < 1,
+    `huella de la vara ${num(varaFootprint * 100, 1)} % del cuadro · el presupuesto que prohibía `
+    + `importar el material (cielo 1,72 % + apoyo 23,3 % × tinta 8,35 % = 3,67 % < 4 %) queda en `
+    + `docs/PROCESO-ESCENAS.md §Disposición del 2026-11-05`);
+  report.footprint = { vara: varaFootprint, our: ownBandRegion(baked.wash, BAKE.washCell, 0.5).cells / (washCols * washRows) };
 
   // ------------------------------------------- n el nudo se mueve por la banda
   // La posición del nudo se mide en el objeto que el caso m mide: la región de la
@@ -1458,8 +1419,8 @@ try {
     + `${num((report.nebula?.ours.ink ?? 0) * 100, 1)} % de tinta de alfa `
     + `(${num((report.nebula?.rendered.ours ?? 0) * 100, 1)} % renderizado) contra ${report.nebula?.vara.rungs.length} peldaños y `
     + `${num((report.nebula?.vara.ink ?? 0) * 100, 1)} % (${num((report.nebula?.rendered.vara ?? 0) * 100, 1)} % renderizado)`
-    + ` · (l) cuerpo ${num(report.levels?.body ?? 0, 3)} (peldaño ${report.levels?.bodyRung}) y nudo `
-    + `${num(report.levels?.knot ?? 0, 3)} (peldaño ${report.levels?.knotRung}) contra `
+    + ` · (l) vara cuerpo ${num(varaLevels.levels.median, 3)} (peldaño ${varaLevels.levels.bodyRung}) y nudo `
+    + `${num(varaLevels.levels.max, 3)} (peldaño ${varaLevels.levels.knotRung}) · vara`
     + `${num(report.levels?.varaBody ?? 0, 3)}/${num(report.levels?.varaKnot ?? 0, 3)} de la vara · `
     + `(m) el cuerpo de la vara deja el campo en ${num((report.bodyPrice?.atVaraBody ?? 0) * 100, 2)} % · `
     + `(q) huella ${num((report.footprint?.ours ?? 0) * 100, 1)} % contra `

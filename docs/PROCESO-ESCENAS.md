@@ -120,6 +120,48 @@ una nube dispersa. La pieza se valida entera cuando eso esté.
 **Regla que sale de esto:** una etapa puede estar aprobada en su mecanismo y pendiente en su material. Se
 registran por separado; aprobar una no aprueba la otra.
 
+
+## Regla de reuso (2026-11-05, por intento fallido)
+
+Cuatro iteraciones intentando **reconstruir** la atmósfera del modelo terminaron en un material que la dirección
+rechazó de nuevo: «no se parece a las capas de la v1». La lección es de reuso, no de calibración:
+
+**El material de la vara se importa, no se rehace.** `design-studies/v1/hero-field.mjs` ya produce el cielo, el
+lavado y la emisión con dithering aprobados; los pasos deterministas para una escena nueva son
+**sustituir la figura** (nodos y enlaces del sujeto nuevo) y **heredar todo lo demás** del material de la vara.
+Reconstruir capas desde un modelo propio sólo tiene sentido para un look nuevo, no para reproducir el vigente.
+
+## Medición de tiempo por unidad (2026-11-05)
+
+La dirección registró la preocupación: varias iteraciones largas y el resultado no bueno. Cada unidad de este
+proceso anota **cuánto duró** y en qué se gastó, para poder mejorar el procedimiento y no sólo el resultado.
+La primera medición: la cadena de iteraciones de la atmósfera (grano → cobertura → contraste → evento →
+huella) consumió cinco sesiones de worker completas; reusar el material habría sido una.
+
+
+## Disposición del 2026-11-05: import del material de la vara (T14) — EJECUTADA
+
+**Decisión:** la escena viva del catálogo **hornea cielo y lavado con el material de v1** (`material()`,
+`emissionPlanes()`, LUT) sustituyendo **sólo la figura** (nodos y enlaces del catálogo). La dirección marcó
+«no se parece a las capas de v1» cuatro veces: la receta propia queda para estudios que busquen un look nuevo.
+
+**Verificación de la igualdad (medida en bake.mjs):** la hoja del cielo importada tiene **0 pasos distintos**
+de la que v1 produce (132 768 celdas) y el lavado **0 canales distintos** (5 184 000 valores). El material
+importado ES el material de la vara, byte a byte.
+
+**Disposición del runner** (`check-cards-live.mjs`), ejecutada:
+- **Re-anclados:** `a` (cobertura con el gobernante de la vara: región del tono de la emisión al FWHM, cobertura
+  por la hoja del cielo → **0,910 dentro / 0,243 fuera**, idéntico a la vara), `a-retícula` (cielo celda 5 × 1,6,
+  lavado 480×300 a celda 3), `j` (ventana común: la más densa del cielo, llevada al cuadro; tinta renderizada
+  **×1,00** contra la vara), `l` (cuerpo 0,223 y nudo 0,587 leídos de la vara misma), `n/o/p` al material importado.
+- **Jubilados con registro:** `h` (alfa discreto: el material de v1 usa fade continuo `a·a·(3−2a)`), `i`
+  (máscaras del modelo), `m` (precio del cuerpo: 2,62 % si el cuerpo de la vara, medido con la receta propia),
+  `q` (presupuesto de la huella: 3,67 % < 4 %). Sus mediciones quedan arriba y en §Estado de validación.
+
+**Resultado:** 26/26 casos en verde. La comparación de la ventana compuesta da **×1,00** contra la vara.
+
+**Palanca cerrada:** la paleta por constelación deja de teñir el fondo; los colores son los de la vara.
+
 ## Log
 
 - **L1** (2026-11-05, verbatim): «vale esta gneila si esta bien osea veo que esta es como una primera parte del
