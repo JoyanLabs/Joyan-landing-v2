@@ -201,3 +201,10 @@ body {
    vez en `live.mjs` (transiciones instantáneas, puntero inmóvil, pulso fijo).
    La escena no usa transiciones CSS: el estado lo escribe `applyToDom`, así que
    una captura no depende del reloj del compositor. */
+
+/* Visible notice when ?id= falls back to the default constellation. */
+.live-notice {
+  position: fixed; left: 24px; bottom: 24px; margin: 0;
+  font: 500 12px/1.4 ui-monospace, monospace; letter-spacing: .06em;
+  color: var(--muted, #ACC3C1); border-left: 2px solid currentColor; padding-left: 10px;
+}

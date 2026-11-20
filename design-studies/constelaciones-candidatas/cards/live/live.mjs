@@ -31,7 +31,7 @@
  * —proyecciones, poses, nitidez y píxeles— en vez de creerle a la prosa.
  */
 
-import { CARD, constellationFor, validateCard } from '../data.mjs';
+import { CARD, constellationFor, firstCatalogueId, validateCard } from '../data.mjs';
 import { nodePx } from '../field.mjs';
 import { figurePocket } from '../../../../scripts/scene-src/constellation.mjs';
 import {
@@ -42,9 +42,32 @@ import { LINK_CYCLE_MS, PULSE, cyclePosition, linkPhase, linkStyle } from '../..
 
 const NS = 'http://www.w3.org/2000/svg';
 const params = new URLSearchParams(location.search);
-const id = params.get('id');
-if (!id) throw new Error('falta ?id=<abreviatura del catálogo> en la URL de la escena viva');
-const data = constellationFor(id);
+// A visitor gets a scene, not a blank page. Without ?id the scene opens on the
+// default constellation; an unknown id falls back to it with a visible note
+// instead of throwing and leaving an empty frame (that is what the direction
+// saw: a white page with only the footer).
+const DEFAULT_ID = firstCatalogueId();
+const requested = params.get('id');
+let id = requested || DEFAULT_ID;
+let notice = null;
+let data;
+try {
+  data = constellationFor(id);
+} catch (cause) {
+  // An unknown id must not leave an empty frame: fall back to the default and
+  // say so on the page.
+  if (id === DEFAULT_ID) throw cause;
+  id = DEFAULT_ID;
+  notice = `No hay constelación «${requested}» en el catálogo; se muestra ${id}.`;
+  data = constellationFor(id);
+}
+// A fallback the visitor can see, instead of a silent substitution.
+if (notice) {
+  const n = document.createElement('p');
+  n.className = 'live-notice';
+  n.textContent = notice;
+  document.body.appendChild(n);
+}
 const errors = validateCard(data.constellation);
 if (errors.length) throw new Error(`"${id}" no valida: ${errors.join(' | ')}`);
 if (data.counts.nodes !== data.declared.nodes || data.counts.segments !== data.declared.segments) {

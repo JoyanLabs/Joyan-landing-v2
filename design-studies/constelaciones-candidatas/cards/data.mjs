@@ -297,3 +297,14 @@ export const EXPECTED_DEVIATION = 'provenance.official must be false for an aste
 export function validateCard(c) {
   return validateConstellation(c).filter((error) => error !== EXPECTED_DEVIATION);
 }
+
+/**
+ * El primer id del catálogo, para que la escena tenga una portada sin que el
+ * código conozca ninguna constelación concreta. Si se reordena el catálogo, la
+ * portada cambia con él: el flujo sigue sin saber ningún id.
+ */
+export function firstCatalogueId() {
+  const first = CONSTELACION_POR_ID.keys().next();
+  if (!first.done) return first.value;
+  throw new Error('el catálogo está vacío');
+}
