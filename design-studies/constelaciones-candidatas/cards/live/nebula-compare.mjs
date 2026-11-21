@@ -40,15 +40,16 @@ import { constellationLayers, constellationScene, paletteTone, washRegion } from
 import {
   compensate, hexToRgb, luma, rampLadder, sceneMetrics, stepFor, tone,
 } from '../../../../scripts/scene-src/engine.mjs';
-import { BAKE, bakeLayers, stillIndex, varaField, washSheetAt } from './bake.mjs';
+import { BAKE, bakeLayers, skyFrame, stillIndex, varaField, washSheetAt } from './bake.mjs';
 
 const here = resolve(fileURLToPath(new URL('.', import.meta.url)));
 const OUT = resolve(here, 'capturas');
 export const WINDOW = Object.freeze({ width: 240, height: 160 });
 export const ZOOM = 2;
 /** La ventana del cielo en el cuadro: el sobremuestreo 1,6 se dibuja 1:1 desde
- * ese desplazamiento (es el mismo de `live.mjs`, `paintSky`). */
-export const SKY_CROP = [Math.round(CARD.width * 0.24), Math.round(CARD.height * 0.24)];
+ * ese desplazamiento. Lo calcula `bake.mjs` (`skyFrame`), que es la aritmética de
+ * `paintSky`; acá sólo se nombran los dos ejes, para que nadie pueda discrepar. */
+export const SKY_CROP = [...skyFrame(CARD.width, CARD.height).crop];
 
 /** Una lámina RGBA como buffer de sharp. */
 const image = (sheet) => sharp(Buffer.from(sheet.pixels.buffer, sheet.pixels.byteOffset, sheet.pixels.length), {

@@ -48,6 +48,7 @@
 
 import { CARD, constellationFor, firstCatalogueId, validateCard } from '../data.mjs';
 import { BAKE, bakeLayers, dynamicWash } from './bake.mjs';
+import { espacioPara, tieneEspacio } from './espacios.mjs';
 import {
   CYCLE_SECONDS, EMISSION_MS, FOCUS_ZOOM, FRAMES, NODE_PLANES, NODE_RATES, PARALLAX, RETURN_MS,
   STILL_FRAME, TRANSITION_MS, backPlaneOf, destination, ease, figureTransform, glowFor,
@@ -152,9 +153,20 @@ const links = data.links.map((link, index) => ({
 const groupFor = (index) => groupOf(index, neighbours.map((set) => [...set]));
 
 // ------------------------------------------------------------------ el horneado
+/**
+ * EL ESPACIO DEL id. `?id=` ya elegía la figura; el espacio viene ATADO al id
+ * (`espacios.mjs`), así que la figura y su cielo no pueden discrepar y la
+ * interacción aprobada no tiene un parámetro nuevo que tocar. El id sin espacio
+ * declarado hereda `ESPACIO_DEFECTO` —la ventana 0,0 y `clima: null`—, que es la
+ * escena de siempre, byte a byte.
+ */
+const espacio = espacioPara(id);
 const bakeStarted = performance.now();
-const leaves = bakeLayers(data.constellation, { width, height });
+const leaves = bakeLayers(data.constellation, { width, height, espacio });
 const bakeMs = performance.now() - bakeStarted;
+// El ground de la página es el del espacio: el del material teñido por el clima.
+// Con `clima: null` el valor es el de siempre y la variable no se enteró.
+document.documentElement.style.setProperty('--ground', `rgb(${leaves.tinte.rgb.join(', ')})`);
 
 const sheet = (source) => {
   const canvas = document.createElement('canvas');
@@ -173,7 +185,7 @@ const focusedSheet = sheet(leaves.focusedWash);
 const frozenSheet = (() => {
   if (frozenClock === null) return null;
   const emission = dynamicWash(data.constellation, {
-    cols: BAKE.washGrid[0], rows: BAKE.washGrid[1], cell: BAKE.washCell,
+    cols: BAKE.washGrid[0], rows: BAKE.washGrid[1], cell: BAKE.washCell, ventana: espacio.ventana,
   });
   emission.update(frozenClock / 1000);
   return sheet(emission);
@@ -596,6 +608,9 @@ function animateEmission() {
     id,
     constellation: data.constellation,
     grid: { cols: BAKE.washGrid[0], rows: BAKE.washGrid[1], cell: BAKE.washCell },
+    // La ventana viaja con la petición: el worker desplaza SU cuadro por la
+    // misma regla que horneó el lavado, no por una copia de la receta.
+    ventana: espacio.ventana,
     seconds: clock / 1000,
     focused: active >= 0,
     generation,
@@ -911,6 +926,23 @@ const live = {
           playState: animation.playState,
         };
       });
+  },
+  /** EL ESPACIO que se horneó, leído de las láminas (no del registro): la
+   * ventana validada con la que se desplazó el cielo y el lavado, el clima con el
+   * que se tiñó el ground y si el id lo trae declarado o lo hereda. */
+  get espacio() {
+    return {
+      id,
+      declarado: tieneEspacio(id),
+      nombre: leaves.espacio.nombre,
+      ventana: { ...leaves.espacio.ventana },
+      clima: leaves.espacio.clima,
+      mezcla: leaves.espacio.mezcla,
+      limite: { ...leaves.espacio.limite },
+      ground: [...leaves.tinte.rgb],
+      tone: leaves.tinte.tone,
+      css: getComputedStyle(document.documentElement).getPropertyValue('--ground').trim(),
+    };
   },
   /** Las láminas horneadas: tamaño, celda, peldaños usados y la tinta de los
    * nodos que NO aparece en ninguna. */

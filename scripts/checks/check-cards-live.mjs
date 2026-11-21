@@ -126,6 +126,7 @@ import {
   compositionMetrics, paletteTone, washRegion,
 } from '../../scripts/scene-src/constellation.mjs';
 import genghe from '../../scripts/scene-src/constellations/genghe.mjs';
+import { espacioPara } from '../../design-studies/constelaciones-candidatas/cards/live/espacios.mjs';
 import {
   compensate, luma, rasterize as rasterizeCell, sceneMetrics, stepFor,
 } from '../../scripts/scene-src/engine.mjs';
@@ -943,7 +944,10 @@ try {
   // de ESE peldaño. Se mide en la lámina horneada, en la emisión viva y en los
   // píxeles que quedan en el canvas; y se compara con la nebulosa de v1.
   const catalogue = constellationFor(PRIMARY).constellation;
-  const baked = bakeLayers(catalogue, { width: CARD.width, height: CARD.height });
+  // RE-ANCLADO (variantes de espacio, 2026-11-05): el runner hornea con el ESPACIO
+  // que la escena real usa para esa constelación; sin espacio, este caso mediría
+  // una escena que ya no existe.
+  const baked = bakeLayers(catalogue, { width: CARD.width, height: CARD.height, espacio: espacioPara(PRIMARY) });
   const bakedGrain = sheetGrain(baked.wash, BAKE.washCell);
   const ladder = new Set(ladderMasks(BAKE.washCell).flat());
   const fromLadder = (values) => values.every((value) => ladder.has(value));

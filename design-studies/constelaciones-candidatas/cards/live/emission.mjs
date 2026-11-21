@@ -21,9 +21,13 @@ let context = null;
 
 self.onmessage = ({ data }) => {
   const started = performance.now();
-  if (!material || key !== data.id) {
-    material = dynamicWash(data.constellation, data.grid);
-    key = data.id;
+  // La ventana del espacio viaja con la petición y entra en la clave del
+  // material: cambiar de id puede cambiar de encuadre, y un material del
+  // encuadre viejo no puede repintar el cuadro nuevo.
+  const clave = `${data.id}:${data.ventana ? `${data.ventana.x},${data.ventana.y}` : '0,0'}`;
+  if (!material || key !== clave) {
+    material = dynamicWash(data.constellation, { ...data.grid, ventana: data.ventana });
+    key = clave;
     canvas = new OffscreenCanvas(material.width, material.height);
     context = canvas.getContext('2d');
   }
